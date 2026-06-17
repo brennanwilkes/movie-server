@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d12">
+  <title>Movie Server</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="page-title">Home</h1>
+  </header>
+
+  <!-- Shown when the backend can't be reached (off-network / mixed-content). -->
+  <div id="offline" class="banner" hidden>
+    You're not on your home network. Live controls work when you're home.
+  </div>
+
+  <main>
+    <!-- HOME -->
+    <section id="tab-home" class="tab">
+      <div class="card storage">
+        <div class="storage-head">
+          <span>Free space</span>
+          <span id="disk-text" class="muted">—</span>
+        </div>
+        <div class="bar"><div id="disk-fill" class="bar-fill"></div></div>
+      </div>
+
+      <a class="btn-primary" id="request-btn" href="#" target="_blank" rel="noopener noreferrer">＋ Request a movie or show</a>
+
+      <h2 class="section-label">Services</h2>
+      <ul id="services" class="list"></ul>
+    </section>
+
+    <!-- DOWNLOADS -->
+    <section id="tab-downloads" class="tab" hidden>
+      <h2 class="section-label">Recent</h2>
+      <ul id="downloads" class="list"></ul>
+      <p id="downloads-empty" class="empty" hidden>Nothing downloading right now.</p>
+    </section>
+
+    <!-- LIBRARY -->
+    <section id="tab-library" class="tab" hidden>
+      <div class="segmented" id="lib-toggle">
+        <button data-app="radarr" class="active">Movies</button>
+        <button data-app="sonarr">TV</button>
+      </div>
+      <input id="lib-search" class="search" type="search" placeholder="Search to clean up…" autocomplete="off">
+      <ul id="library" class="list"></ul>
+      <p id="library-empty" class="empty" hidden>Nothing here yet.</p>
+    </section>
+  </main>
+
+  <!-- Delete confirm sheet -->
+  <div id="sheet-backdrop" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <h3 id="sheet-title">Remove everywhere?</h3>
+      <p id="sheet-sub" class="muted"></p>
+      <ul id="sheet-plan" class="plan"></ul>
+      <div class="sheet-actions">
+        <button id="sheet-cancel" class="btn-ghost">Cancel</button>
+        <button id="sheet-confirm" class="btn-danger">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- Bottom tab bar -->
+  <nav class="tabbar">
+    <button data-tab="home" class="active" aria-label="Home">
+      <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2z"/></svg>
+      <span>Home</span>
+    </button>
+    <button data-tab="downloads" aria-label="Downloads">
+      <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+      <span>Downloads</span>
+    </button>
+    <button data-tab="library" aria-label="Library">
+      <svg viewBox="0 0 24 24"><path d="M4 5h12v16H4zM16 7l4 1-3 13-4-1"/></svg>
+      <span>Library</span>
+    </button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>

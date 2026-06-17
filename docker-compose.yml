@@ -71,3 +71,19 @@ services:
     volumes: ["${CONFIG}/jellyseerr:/app/config"]
     ports: ["5055:5055"]
     restart: unless-stopped
+
+  # Web controller — mobile dashboard + same-origin API that aggregates the stack
+  # and runs the one-click "delete everywhere" recipe. Keys are wired by
+  # scripts/provision/controller.sh into ${CONFIG}/controller/keys.env (read at
+  # startup); it starts degraded until provisioned. /data is read-only (disk stat
+  # only — all deletion goes through the apps' APIs).
+  controller:
+    build: ./controller
+    container_name: controller
+    environment: ["TZ=${TZ}", "CONTROLLER_PORT=${CONTROLLER_PORT:-8088}", "NUC_IP=${NUC_IP}"]
+    volumes:
+      - ${CONFIG}/controller:/config
+      - ${DATA}:/data:ro
+    ports: ["${CONTROLLER_PORT:-8088}:${CONTROLLER_PORT:-8088}"]
+    restart: unless-stopped
+    depends_on: [jellyfin, qbittorrent, radarr, sonarr, jellyseerr]

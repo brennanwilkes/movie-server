@@ -27,14 +27,34 @@ token=$(curl -fsS -X POST "$JF/Users/AuthenticateByName" \
   | jq -r '.AccessToken')
 [[ -n "$token" && "$token" != "null" ]] || die "Jellyfin auth failed — check JELLYFIN_ADMIN_* in .env"
 
-# 3. Ensure libraries (skip any whose name already exists).
+# 3. Ensure libraries exist AND have real-time monitoring on, so new media (Radarr/
+#    Sonarr imports, manual drops) is picked up by Jellyfin's filesystem watcher within
+#    ~1 min — instead of waiting for the periodic scan. Radarr's MediaBrowser "Update
+#    Library" only refreshes items Jellyfin already knows about (it pings
+#    /Library/Media/Updated), so it does NOT reliably discover brand-new files; the
+#    watcher is what actually makes fresh downloads appear automatically.
 existing=$(curl -fsS "$JF/Library/VirtualFolders" -H "X-Emby-Token: $token" | jq -r '.[].Name')
+jf_enable_realtime() {  # name — idempotently set EnableRealtimeMonitor=true on a library
+  local vf id
+  vf=$(curl -fsS "$JF/Library/VirtualFolders" -H "X-Emby-Token: $token" | jq --arg n "$1" '.[]|select(.Name==$n)')
+  [[ -n "$vf" ]] || { warn "  could not find library '$1' to enable real-time monitor"; return; }
+  if [[ "$(jq -r '.LibraryOptions.EnableRealtimeMonitor' <<<"$vf")" == "true" ]]; then
+    ok "library '$1' real-time monitor already on"; return
+  fi
+  jq '{Id: .ItemId, LibraryOptions: (.LibraryOptions | .EnableRealtimeMonitor=true)}' <<<"$vf" \
+    | curl -fsS -X POST "$JF/Library/VirtualFolders/LibraryOptions" \
+        -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+  ok "library '$1' real-time monitor enabled"
+}
 jf_add_library() {  # name  collectionType  path
-  if grep -qxF "$1" <<<"$existing"; then ok "library '$1' already present"; return; fi
-  curl -fsS -X POST "$JF/Library/VirtualFolders?name=$1&collectionType=$2&refreshLibrary=true" \
-    -H "X-Emby-Token: $token" -H 'Content-Type: application/json' \
-    -d "$(jq -n --arg p "$3" '{LibraryOptions:{PathInfos:[{Path:$p}]}}')" >/dev/null
-  ok "library '$1' -> $3"
+  if grep -qxF "$1" <<<"$existing"; then ok "library '$1' already present"
+  else
+    curl -fsS -X POST "$JF/Library/VirtualFolders?name=$1&collectionType=$2&refreshLibrary=true" \
+      -H "X-Emby-Token: $token" -H 'Content-Type: application/json' \
+      -d "$(jq -n --arg p "$3" '{LibraryOptions:{EnableRealtimeMonitor:true,PathInfos:[{Path:$p}]}}')" >/dev/null
+    ok "library '$1' -> $3"
+  fi
+  jf_enable_realtime "$1"   # ensure it's on even for pre-existing libraries
 }
 jf_add_library Movies movies   /media/movies
 jf_add_library TV     tvshows  /media/tv

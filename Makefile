@@ -3,6 +3,8 @@ bootstrap:  ## one-time host prep (dirs, cap, .env, hook)
 	./scripts/bootstrap.sh
 deploy:     ## validate + pull + start (make deploy s=jellyfin for one)
 	./scripts/deploy.sh $(s)
+# 'make provision s=controller' discovers all API keys into
+# /opt/appdata/controller/keys.env and restarts the dashboard container.
 provision:  ## apply config-as-code via each app's API (make provision s=radarr for one)
 	./scripts/provision.sh $(s)
 up:         ## deploy + provision the whole stack (idempotent)

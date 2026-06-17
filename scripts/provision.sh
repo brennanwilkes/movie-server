@@ -10,7 +10,7 @@ require curl jq
 set -a; source .env; set +a
 
 # Dependency order: download client + indexer manager before the apps that use them.
-ALL=(jellyfin qbittorrent prowlarr radarr sonarr bazarr jellyseerr)
+ALL=(jellyfin qbittorrent prowlarr radarr sonarr bazarr jellyseerr controller)
 TARGETS=("$@"); [[ ${#TARGETS[@]} -eq 0 ]] && TARGETS=("${ALL[@]}")
 
 for app in "${TARGETS[@]}"; do

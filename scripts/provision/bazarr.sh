@@ -15,20 +15,38 @@ c['general']['use_radarr'] = True
 c['general']['use_sonarr'] = True
 c.setdefault('radarr', {}).update({'ip':'radarr','port':7878,'base_url':'/','ssl':False,'apikey':rkey})
 c.setdefault('sonarr', {}).update({'ip':'sonarr','port':8989,'base_url':'/','ssl':False,'apikey':skey})
+# Automatic subtitle synchronization: align every downloaded sub to the audio track
+# (ffsubsync). This is what fixes "badly offset / wrong-framerate" subs without manual
+# work — the single biggest lever for "always-correct" subtitles. Sync ALL movies/series
+# (no score gate), allow framerate correction, anchor on the audio track.
+ss = c.setdefault('subsync', {})
+ss.update({'use_subsync': True, 'use_subsync_movie_threshold': False,
+           'use_subsync_threshold': False, 'no_fix_framerate': False,
+           'force_audio': True, 'max_offset_seconds': 120})
+# Keep improving subs over time: re-search on a schedule and replace weak ones.
+c['general']['upgrade_subs'] = True
+c['general']['upgrade_manual'] = True   # also upgrade/replace manually-added & bundled subs
+en = c.setdefault('general', {}).get('enabled_providers') or []
+# Free, no-account fallback providers — give Bazarr more release matches so it isn't
+# dead-ended by OpenSubtitles.com's free-tier limit (~5 downloads/day + search throttle).
+# podnapisi: broad movies+TV; yifysubtitles: movies, matches YTS/x264 releases well;
+# tvsubtitles + gestdown(Addic7ed): episodes.
+FREE = ['podnapisi', 'yifysubtitles', 'tvsubtitles', 'gestdown']
+for p in FREE:
+    if p not in en: en.append(p)
+c.setdefault('podnapisi', {}).setdefault('verify_ssl', True)
 if osu and osp:
-    # Bazarr reads the enabled list from general.enabled_providers; creds live at the
-    # TOP-LEVEL opensubtitlescom key.
-    en = c.setdefault('general', {}).get('enabled_providers') or []
+    # OpenSubtitles.com: creds live at the TOP-LEVEL opensubtitlescom key.
     if 'opensubtitlescom' not in en: en.append('opensubtitlescom')
-    c['general']['enabled_providers'] = en
     c.setdefault('opensubtitlescom', {}).update({'username':osu,'password':osp,'use_hash':True})
-    # tidy any stray keys an earlier version may have written under `providers`
-    if isinstance(c.get('providers'), dict):
-        c['providers'].pop('enabled_providers', None)
-        c['providers'].pop('opensubtitlescom', None)
-    print('  provider opensubtitlescom enabled (creds set)')
+    print('  providers: opensubtitlescom + free fallbacks (%s)' % ', '.join(FREE))
 else:
-    print('  no OpenSubtitles creds in .env — provider left unset (sub search needs an account)')
+    print('  providers: free fallbacks only (%s) — no OpenSubtitles creds in .env' % ', '.join(FREE))
+c['general']['enabled_providers'] = en
+# tidy any stray keys an earlier version may have written under `providers`
+if isinstance(c.get('providers'), dict):
+    c['providers'].pop('enabled_providers', None)
+    c['providers'].pop('opensubtitlescom', None)
 yaml.safe_dump(c, open(conf,'w'), default_flow_style=False, sort_keys=False)
 PY
 ok "bazarr: config.yaml wired to Radarr + Sonarr"

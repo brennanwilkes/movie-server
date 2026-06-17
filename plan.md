@@ -513,23 +513,32 @@ a private isolated home LAN with no inbound exposure. Stored in gitignored `.env
       real-time monitoring is unreliable over Docker bind-mounts). Uses a Jellyfin API key
       minted via `lib.sh:jellyfin_apikey` (app "arr"). Tested HTTP 200.
       *(scripts/provision/_arr_common.sh)*
-- [ ] **Web portal / dashboard (TODO — vision captured):** mobile-friendly launcher with
-      live tiles (in-progress torrents, queues, requests). **User's vision:** deploy the
-      static site **publicly via GitHub Pages on a custom domain**, but the tiles/links
-      reach the **local LAN IPs** — so it only works when accessed from home. (Caveat to
-      design around: a GH-Pages HTTPS page calling `http://192.168.1.74:PORT` hits
-      mixed-content + CORS limits — likely just deep-links, not live API widgets, unless
-      paired with a local reverse proxy.) Evaluate **Homepage** (self-hosted, live widgets,
-      IaC) and/or the iOS app **Ruddarr/LunaSea** for hands-on management. Possibly both.
-- [ ] **One-click "delete everything" (TODO — for the portal):** proven recipe to fully
-      remove a title + reclaim space. It's **4 layers** — each app caches its own state:
+- [x] **Web portal / dashboard (done 2026-06-17):** mobile-friendly controller served by a
+      new **`controller`** container (`:8088`, `controller/`), an IaC compose service like
+      the rest. Node/Express `server.js` serves a dependency-light 3-tab UI
+      (Home: service health + free-space-vs-cap + a Jellyseerr "Request" button;
+      Downloads: live qBittorrent + *arr-queue progress; Library: search + one-click clean-up)
+      and a same-origin API (`/api/status|disk|downloads|library|delete`) that injects each
+      service's auth server-side — keys never reach the browser. Provisioned by
+      `scripts/provision/controller.sh` (pin-by-discovery via `arr_apikey`/`jellyfin_apikey`
+      into `/opt/appdata/controller/keys.env`); `controller` runs **last** in
+      `provision.sh`'s `ALL`. `deploy.sh` gained `--build` so the image re-bakes on code
+      changes. **Resolved the GH-Pages caveat:** the live controller is the NUC-served
+      `http://192.168.1.74:8088` (same-origin http — no mixed content); GitHub Pages
+      (`.github/workflows/pages.yml`) publishes the same `web/` as a public deep-link
+      launcher that degrades to a "not on your home network" banner off-LAN. A unified
+      HTTPS domain live at home remains a future reverse-proxy + cert task.
+- [x] **One-click "delete everything" (done 2026-06-17):** implemented in the controller as
+      `POST /api/delete {app,id,dryRun}` (**dry-run by default**; UI shows the plan, then a
+      confirm fires the real run). Proven recipe, executed in order:
       1) **Radarr/Sonarr** `DELETE /movie|series/{id}?deleteFiles=true` (library file + notifies Jellyfin),
-      2) **qBittorrent** `torrents/delete?deleteFiles=true` (stops seeding + removes download copy;
-         hardlinks mean space frees only once BOTH 1 & 2 are gone),
-      3) **Jellyfin** `DELETE /Items/{id}` — only needed when a library goes *fully* empty
+      2) **qBittorrent** `torrents/delete?deleteFiles=true` (torrent hashes resolved via *arr
+         history; stops seeding + removes download copy; hardlinks mean space frees only once
+         BOTH 1 & 2 are gone),
+      3) **Jellyfin** `DELETE /Items/{id}` — only when a library goes *fully* empty
          (empty-library safety skips purging otherwise; single deletes clear via the scan),
       4) **Jellyseerr** `DELETE /api/v1/media/{mediaId}` — else it keeps showing the title as
-         "Available" (its availability cache doesn't auto-clear on removal).
+         "Available" (404-tolerant/idempotent so a half-finished delete re-runs safely).
 - [ ] **Retention janitor** (bespoke, **dry-run by default**, never deletes until
       explicitly switched on): keeps monitored-but-unaired TV indefinitely; deletes
       movies N days after marked watched in Jellyfin; respects a "keep" allowlist.

@@ -40,4 +40,20 @@ in .env, migrate the data, then `make bootstrap && make deploy`.
 
 ## Ports
 8096 Jellyfin · 8080 qBittorrent · 9696 Prowlarr · 7878 Radarr · 8989 Sonarr
-6767 Bazarr · 5055 Jellyseerr (Phase 4)
+6767 Bazarr · 5055 Jellyseerr · 8088 Controller (dashboard)
+
+## Controller dashboard (`:8088`)
+Mobile-friendly web controller for the whole stack — open `http://192.168.1.74:8088`
+on your phone at home. Three tabs: **Home** (service health + free space vs the 20 GB
+cap + a "Request" button to Jellyseerr), **Downloads** (live progress), and **Library**
+(search a watched title → one-click *remove it everywhere*: Radarr/Sonarr → qBittorrent
+→ Jellyfin → Jellyseerr, with a dry-run confirm). It's a normal compose service:
+`make deploy s=controller` builds/starts it, `make provision s=controller` discovers
+the API keys into `/opt/appdata/controller/keys.env` (never committed), and
+`make down/clean/destroy` tear it down with everything else.
+
+A public **launcher** copy is published to GitHub Pages from `controller/web/` on each
+commit (`.github/workflows/pages.yml`) — handy as a bookmark, but live data/delete only
+work from the NUC-served URL above (an HTTPS page can't reach the LAN over http; it
+shows a "not on your home network" banner instead). A custom HTTPS domain that's live
+at home would need a reverse proxy + cert on the NUC (future).
