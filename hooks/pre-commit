@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# never commit the real .env
+if git diff --cached --name-only | grep -qx '.env'; then
+  echo "✗ Refusing to commit .env (contains secrets). Unstage it."; exit 1
+fi
+# the compose file must always be valid
+docker compose config -q || { echo "✗ docker-compose.yml is invalid"; exit 1; }
+echo "✓ pre-commit checks passed"

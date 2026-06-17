@@ -1,0 +1,73 @@
+services:
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}"]
+    volumes:
+      - ${CONFIG}/jellyfin:/config
+      - ${DATA}/media:/media
+    ports: ["8096:8096"]
+    restart: unless-stopped
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}", "WEBUI_PORT=8080"]
+    volumes:
+      - ${CONFIG}/qbittorrent:/config
+      - ${DATA}:/data
+    ports: ["8080:8080", "6881:6881", "6881:6881/udp"]
+    restart: unless-stopped
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}"]
+    volumes: ["${CONFIG}/prowlarr:/config"]
+    ports: ["9696:9696"]
+    restart: unless-stopped
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}"]
+    volumes:
+      - ${CONFIG}/radarr:/config
+      - ${DATA}:/data
+    ports: ["7878:7878"]
+    restart: unless-stopped
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}"]
+    volumes:
+      - ${CONFIG}/sonarr:/config
+      - ${DATA}:/data
+    ports: ["8989:8989"]
+    restart: unless-stopped
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}"]
+    volumes:
+      - ${CONFIG}/bazarr:/config
+      - ${DATA}:/data
+    ports: ["6767:6767"]
+    restart: unless-stopped
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment: ["LOG_LEVEL=info", "TZ=${TZ}"]
+    ports: ["8191:8191"]
+    restart: unless-stopped
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    environment: ["TZ=${TZ}", "LOG_LEVEL=info"]
+    volumes: ["${CONFIG}/jellyseerr:/app/config"]
+    ports: ["5055:5055"]
+    restart: unless-stopped
