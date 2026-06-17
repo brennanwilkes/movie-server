@@ -522,11 +522,14 @@ a private isolated home LAN with no inbound exposure. Stored in gitignored `.env
       paired with a local reverse proxy.) Evaluate **Homepage** (self-hosted, live widgets,
       IaC) and/or the iOS app **Ruddarr/LunaSea** for hands-on management. Possibly both.
 - [ ] **One-click "delete everything" (TODO — for the portal):** proven recipe to fully
-      remove a title + reclaim space (hardlinks mean every copy must go):
-      1) Radarr/Sonarr `DELETE /movie|series/{id}?deleteFiles=true` (also notifies Jellyfin),
-      2) qBittorrent `torrents/delete?deleteFiles=true` (stops seeding + removes download copy),
-      3) Jellyfin `DELETE /Items/{id}` only needed when a library goes *fully* empty
-      (Jellyfin's empty-library safety skips purging otherwise).
+      remove a title + reclaim space. It's **4 layers** — each app caches its own state:
+      1) **Radarr/Sonarr** `DELETE /movie|series/{id}?deleteFiles=true` (library file + notifies Jellyfin),
+      2) **qBittorrent** `torrents/delete?deleteFiles=true` (stops seeding + removes download copy;
+         hardlinks mean space frees only once BOTH 1 & 2 are gone),
+      3) **Jellyfin** `DELETE /Items/{id}` — only needed when a library goes *fully* empty
+         (empty-library safety skips purging otherwise; single deletes clear via the scan),
+      4) **Jellyseerr** `DELETE /api/v1/media/{mediaId}` — else it keeps showing the title as
+         "Available" (its availability cache doesn't auto-clear on removal).
 - [ ] **Retention janitor** (bespoke, **dry-run by default**, never deletes until
       explicitly switched on): keeps monitored-but-unaired TV indefinitely; deletes
       movies N days after marked watched in Jellyfin; respects a "keep" allowlist.
