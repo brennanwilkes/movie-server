@@ -1,8 +1,23 @@
 'use strict';
 // Served by the controller over HTTP → relative API (same-origin) works fully.
 // Served by GitHub Pages over HTTPS → point at the NUC; those calls are blocked
-// (mixed content) and we degrade gracefully to the "not home" banner + deep-links.
-const API = location.protocol === 'https:' ? 'http://192.168.1.74:8088' : '';
+// (mixed content) and we degrade to a deep-link launcher (anchors to http DO work).
+const NUC_BASE = 'http://192.168.1.74';
+const API = location.protocol === 'https:' ? `${NUC_BASE}:8088` : '';
+
+// The two everyday actions are the big buttons on Home (set once — deep-links work
+// in both live and launcher modes). Jellyfin = Watch, Jellyseerr = Request.
+const WATCH_URL = `${NUC_BASE}:8096`;
+const REQUEST_URL = `${NUC_BASE}:5055`;
+
+// Static fallback so the launcher renders the "Tools" without the backend (matches /api/status).
+const CATALOG = [
+  { id: 'qbittorrent', name: 'Downloads', brand: 'qBittorrent', port: 8080 },
+  { id: 'radarr', name: 'Movies', brand: 'Radarr', port: 7878 },
+  { id: 'sonarr', name: 'TV Shows', brand: 'Sonarr', port: 8989 },
+  { id: 'prowlarr', name: 'Torrents', brand: 'Prowlarr', port: 9696 },
+  { id: 'bazarr', name: 'Subtitles', brand: 'Bazarr', port: 6767 },
+];
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -47,27 +62,31 @@ function showTab(name) {
   $$('.tab').forEach((t) => { t.hidden = t.id !== `tab-${name}`; });
   $$('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
   $('#page-title').textContent = TITLES[name];
-  try { history.replaceState(null, '', '?tab=' + name); } catch { /* ignore */ } // survive refresh
+  try { localStorage.setItem('tab', name); } catch { /* ignore */ } // survive refresh
   if (name === 'library') loadLibrary();
 }
 $$('.tabbar button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
 // ── Home: status + disk ──
-function renderServices(list) {
-  const seerr = list.find((s) => s.id === 'jellyseerr');
-  if (seerr) $('#request-btn').href = seerr.url;
+function renderServices(list, { showStatus = true } = {}) {
   $('#services').innerHTML = list.map((s) => `
     <a class="row" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">
-      <span class="dot ${s.up ? 'up' : ''}"></span>
-      <span class="grow"><span class="title">${esc(s.name)}</span>${s.up ? '' : '<div class="sub">Not responding</div>'}</span>
+      ${showStatus ? `<span class="dot ${s.up ? 'up' : ''}"></span>` : ''}
+      <span class="grow"><span class="title">${esc(s.name)}</span>${showStatus && !s.up ? '<div class="sub">Not responding</div>' : ''}</span>
       <span class="brand">${esc(s.brand || '')}</span>
       <span class="chev">›</span>
     </a>`).join('');
 }
+// Deep-link launcher used when the backend is unreachable (GitHub Pages / off-LAN).
+function renderLauncher() {
+  const list = CATALOG.map((c) => ({ ...c, url: `${NUC_BASE}:${c.port}` }));
+  renderServices(list, { showStatus: false });
+  if (location.protocol === 'https:') { const b = $('#live-btn'); b.href = API; b.hidden = false; }
+}
 function renderDisk(d) {
   const used = d.used_bytes, cap = d.cap_bytes;
   const pct = Math.min(100, d.used_pct || 0);
-  $('#disk-text').textContent = `${fmtBytes(used)} of ${fmtBytes(cap)} used`;
+  $('#disk-text').textContent = fmtBytes(cap - used) + ' free';
   const fill = $('#disk-fill');
   fill.style.width = pct + '%';
   fill.classList.toggle('warn', pct >= 80 && pct < 92);
@@ -77,21 +96,24 @@ async function pollHome() {
   try {
     const [status, disk] = await Promise.all([getJSON('/api/status'), getJSON('/api/disk')]);
     setOffline(false);
+    $('#live-btn').hidden = true;
     renderServices(status);
     renderDisk(disk);
-  } catch { setOffline(true); }
+  } catch { setOffline(true); renderLauncher(); }
 }
 
 // ── Downloads ──
 function renderDownloads(items) {
   $('#downloads-empty').hidden = items.length > 0;
+  const COLOR = { 'Needs attention': 'var(--danger)', 'In library': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--warn)' };
   $('#downloads').innerHTML = items.map((d) => {
     const eta = d.state === 'Downloading' ? fmtEta(d.etaSeconds) : '';
-    const meta = [d.state, d.progress < 100 && d.state !== 'Seeding' ? d.progress + '%' : '', eta].filter(Boolean).join(' · ');
-    return `<li class="row dl">
+    const left = [d.state, d.state === 'Downloading' && d.progress ? d.progress + '%' : ''].filter(Boolean).join(' · ');
+    const color = COLOR[d.state] || '';
+    return `<li class="row dl${d.attention ? ' attn' : ''}">
       <div class="line"><span class="title">${esc(d.title)}</span><span class="muted">${esc(fmtBytes(d.sizeBytes))}</span></div>
-      <div class="mini-bar"><div style="width:${Math.min(100, d.progress)}%${d.state === 'Done' ? ';background:var(--ok)' : ''}"></div></div>
-      <div class="sub">${esc(meta)}</div>
+      <div class="mini-bar"><div style="width:${Math.min(100, d.progress)}%${color ? `;background:${color}` : ''}"></div></div>
+      <div class="sub line"><span>${esc(left)}</span>${eta ? `<span>${esc(eta)}</span>` : ''}</div>
     </li>`;
   }).join('');
 }
@@ -186,9 +208,13 @@ function toast(msg) {
   toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
 }
 
+// ── Home action buttons (static deep-links) ──
+$('#request-btn').href = REQUEST_URL;
+$('#watch-btn').href = WATCH_URL;
+
 // ── Polling ──
 function poll(fn, ms) { fn(); return setInterval(fn, ms); }
 poll(pollHome, 10000);
 poll(pollDownloads, 4000);
-const startTab = new URLSearchParams(location.search).get('tab');
+let startTab; try { startTab = localStorage.getItem('tab'); } catch { /* ignore */ }
 showTab(['home', 'downloads', 'library'].includes(startTab) ? startTab : 'home');

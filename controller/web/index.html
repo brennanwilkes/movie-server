@@ -5,32 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b0d12">
   <title>Movie Server</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="topbar">
-    <h1 id="page-title">Home</h1>
+    <div class="topbar-row">
+      <h1 id="page-title">Home</h1>
+      <span id="disk-text" class="disk-label muted">—</span>
+    </div>
+    <div class="header-disk-bar"><div id="disk-fill" class="bar-fill"></div></div>
   </header>
 
   <!-- Shown when the backend can't be reached (off-network / mixed-content). -->
   <div id="offline" class="banner" hidden>
-    You're not on your home network. Live controls work when you're home.
+    Live status is unavailable from this page. The links below open at home; tap
+    <b>Open live dashboard</b> for live controls & cleanup.
   </div>
 
   <main>
     <!-- HOME -->
     <section id="tab-home" class="tab">
-      <div class="card storage">
-        <div class="storage-head">
-          <span>Free space</span>
-          <span id="disk-text" class="muted">—</span>
-        </div>
-        <div class="bar"><div id="disk-fill" class="bar-fill"></div></div>
-      </div>
+      <a class="btn-primary" id="live-btn" href="#" hidden>Open live dashboard →</a>
 
-      <a class="btn-primary" id="request-btn" href="#" target="_blank" rel="noopener noreferrer">＋ Request a movie or show</a>
+      <a class="btn-primary btn-big" id="request-btn" href="#" target="_blank" rel="noopener noreferrer">＋ Request a Movie or TV Show</a>
+      <a class="btn-primary btn-big" id="watch-btn" href="#" target="_blank" rel="noopener noreferrer">▶ Watch a Movie or TV Show</a>
 
-      <h2 class="section-label">Services</h2>
+      <h2 class="section-label">Tools</h2>
       <ul id="services" class="list"></ul>
     </section>
 

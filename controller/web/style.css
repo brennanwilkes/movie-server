@@ -20,6 +20,7 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+button, input { font: inherit; }
 [hidden] { display: none !important; } /* beats the display:flex rules below */
 html, body { margin: 0; }
 body {
@@ -37,6 +38,9 @@ body {
   border-bottom: 1px solid var(--line);
 }
 .topbar h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+.topbar-row { display: flex; justify-content: space-between; align-items: baseline; }
+.disk-label { font-size: 13px; font-weight: 600; }
+.header-disk-bar { height: 3px; background: var(--card-2); border-radius: 99px; overflow: hidden; margin-top: 10px; }
 
 main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .tab { display: flex; flex-direction: column; gap: 14px; }
@@ -70,6 +74,9 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .btn-danger { background: var(--danger); color: #fff; }
 .btn-ghost { background: var(--card-2); color: var(--text); }
 .btn-primary:active, .btn-danger:active, .btn-ghost:active { transform: scale(.98); }
+/* The two everyday actions on Home — taller, slightly bigger text. */
+.btn-big { min-height: 64px; font-size: 18px; }
+#watch-btn { background: var(--ok); }
 
 /* Lists */
 .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -91,6 +98,7 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .row.dl .line { display: flex; justify-content: space-between; gap: 10px; }
 .mini-bar { height: 8px; background: var(--card-2); border-radius: 99px; overflow: hidden; }
 .mini-bar > div { height: 100%; background: var(--accent); border-radius: 99px; transition: width .4s; }
+.row.dl.attn { border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent); }
 
 /* Trash button */
 .trash {

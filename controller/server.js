@@ -142,8 +142,8 @@ app.use(express.static(path.join(__dirname, 'web')));
 // (any status code, even 401 from a missing key); only a network error/timeout is
 // "down". version is best-effort and never affects up (the UI hides it anyway).
 const STATUS_SERVICES = [
-  { id: 'jellyfin', name: 'Watch', brand: 'Jellyfin', url: `${HOST.jellyfin}/System/Info/Public`, version: (j) => j.Version },
-  { id: 'jellyseerr', name: 'Request Download', brand: 'Jellyseerr', url: `${HOST.jellyseerr}/api/v1/status`, version: (j) => j.version },
+  // Jellyfin (Watch) + Jellyseerr (Request) are the everyday actions — promoted to the
+  // two big buttons on Home, so they're intentionally not in this "tools" status list.
   { id: 'qbittorrent', name: 'Downloads', brand: 'qBittorrent', url: `${HOST.qbittorrent}/api/v2/app/version`, text: true },
   { id: 'radarr', name: 'Movies', brand: 'Radarr', url: `${HOST.radarr}/api/v3/system/status`, headers: () => ({ 'X-Api-Key': cfg.RADARR_KEY || '' }), version: (j) => j.version },
   { id: 'sonarr', name: 'TV Shows', brand: 'Sonarr', url: `${HOST.sonarr}/api/v3/system/status`, headers: () => ({ 'X-Api-Key': cfg.SONARR_KEY || '' }), version: (j) => j.version },
@@ -194,46 +194,114 @@ function friendlyTorrentState(t) {
   if (s.startsWith('stalled')) return 'Stalled';
   return 'Downloading';
 }
-const normTorrent = (t) => ({ title: t.name, progress: Math.round((t.progress || 0) * 100), state: friendlyTorrentState(t), etaSeconds: (t.eta && t.eta < 8640000) ? t.eta : null, sizeBytes: t.size || 0, completionOn: t.completion_on || 0, source: 'torrent' });
-function normQueue(rec, app) {
-  const tds = (rec.trackedDownloadState || '').toLowerCase();
-  let state = 'Queued';
-  if (tds.includes('import')) state = 'Importing';
-  else if ((rec.status || '').toLowerCase() === 'downloading') state = 'Downloading';
-  else if (rec.status) state = cap(String(rec.status));
-  const size = rec.size || 0, left = rec.sizeleft || 0;
-  return { title: rec.title || (rec.movie && rec.movie.title) || (rec.series && rec.series.title) || 'Unknown', progress: size ? Math.round((1 - left / size) * 100) : 0, state, etaSeconds: parseTimeleft(rec.timeleft), sizeBytes: size, source: app };
+// ---- Pipeline correlation: qBittorrent + *arr queue + filesystem hardlinks ----
+async function getQbitTorrents() {
+  try { const r = await qbit.fetch('/api/v2/torrents/info'); return r.ok ? await r.json() : []; } catch { return []; }
+}
+async function getQueueMap(app) {
+  const m = new Map();
+  try { for (const r of ((await arrGet(app, '/queue?pageSize=200')).records || [])) if (r.downloadId) m.set(r.downloadId.toLowerCase(), r); } catch { /* arr down */ }
+  return m;
+}
+const torrentApp = (t) => { const c = (t.category || '').toLowerCase(); return (c === 'radarr' || c === 'sonarr') ? c : null; };
+// Ground truth for "imported into the library": the media file is hardlinked, so the
+// video file has link count >= 2 (one link under /torrents, one under /media).
+async function maxNlink(p) {
+  try {
+    const st = await fs.promises.stat(p);
+    if (st.isFile()) return st.nlink;
+    if (st.isDirectory()) { let m = 0; for (const e of await fs.promises.readdir(p)) m = Math.max(m, await maxNlink(path.join(p, e))); return m; }
+  } catch { /* missing */ }
+  return 0;
+}
+const isImported = async (p) => (await maxNlink(p)) >= 2;
+
+// Folders the watchdog tried but could NOT import (genuinely stuck → needs a human).
+const stuckFolders = new Map(); // folder -> { reason, since }
+const recentImport = new Map(); // folder -> ts (debounce repeated import commands)
+
+// One accurate snapshot of the whole download→import→library pipeline. The bar state
+// is derived from real signals (qBittorrent + *arr queue + the hardlink on disk) so it
+// matches what's actually true — including the "dropped by *arr, never imported" case.
+async function buildDownloads() {
+  const now = Math.floor(Date.now() / 1000), DAY = 86400;
+  const torrents = await getQbitTorrents();
+  const queues = { radarr: await getQueueMap('radarr'), sonarr: await getQueueMap('sonarr') };
+  const items = [];
+  for (const t of torrents) {
+    const h = (t.hash || '').toLowerCase();
+    const app = torrentApp(t);
+    const prog = Math.round((t.progress || 0) * 100);
+    const eta = (t.eta && t.eta < 8640000) ? t.eta : null;
+    const qrec = app ? queues[app].get(h) : null;
+    let state, attention = false, recover = null;
+    if (qrec) {                                   // *arr is actively tracking it
+      const tds = (qrec.trackedDownloadState || '').toLowerCase();
+      if ((qrec.status || '').toLowerCase() === 'paused') state = 'Paused';
+      else if (tds.includes('import')) state = 'Importing';
+      else if (prog < 100) state = 'Downloading';
+      else state = 'Importing';
+    } else if (prog < 100) {                       // still downloading
+      state = friendlyTorrentState(t);
+    } else if (app && await isImported(t.content_path)) {
+      state = 'In library';                        // hardlink exists → really in the library
+    } else if (app) {                              // complete, *arr not tracking, NOT hardlinked
+      if (stuckFolders.has(t.content_path)) { state = 'Needs attention'; attention = true; }
+      else { state = 'Importing'; recover = { app, folder: t.content_path }; } // watchdog will rescue
+    } else {
+      state = 'Done';                              // a non-*arr torrent, just complete
+    }
+    const finished = state === 'In library' || state === 'Done';
+    const show = !finished || ((t.completion_on || 0) > 0 && now - t.completion_on <= DAY);
+    if (show) items.push({ title: t.name, progress: state === 'Importing' ? 100 : prog, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || 0, source: app || 'torrent', attention, _recover: recover });
+  }
+  const rank = (s) => s === 'Needs attention' ? 0 : (s === 'In library' || s === 'Done') ? 2 : 1;
+  items.sort((a, b) => rank(a.state) - rank(b.state));
+  return items;
 }
 
 app.get('/api/downloads', async (_req, res) => {
-  const items = [];
-  const seen = new Set();
-  try {
-    const r = await qbit.fetch('/api/v2/torrents/info');
-    if (r.ok) for (const t of await r.json()) { seen.add((t.hash || '').toLowerCase()); items.push(normTorrent(t)); }
-  } catch { /* qbit down — skip */ }
-  for (const a of ['radarr', 'sonarr']) {
-    try {
-      const q = await arrGet(a, '/queue?pageSize=200');
-      for (const rec of (q.records || [])) {
-        const h = (rec.downloadId || '').toLowerCase();
-        if (h && seen.has(h)) continue; // already shown via qBittorrent
-        items.push(normQueue(rec, a));
-      }
-    } catch { /* arr down — skip */ }
-  }
-  // Show active transfers + anything still importing, plus torrents that finished in
-  // the last 24h (labelled "Done"). Older seeds are hidden. Active first, Done last.
-  const now = Math.floor(Date.now() / 1000);
-  const DAY = 86400;
-  const out = [];
-  for (const it of items) {
-    if (it.state === 'Importing' || it.progress < 100) { out.push(it); continue; }
-    if (it.source === 'torrent' && it.completionOn > 0 && (now - it.completionOn) <= DAY) { out.push({ ...it, state: 'Done' }); }
-  }
-  out.sort((a, b) => (a.state === 'Done' ? 1 : 0) - (b.state === 'Done' ? 1 : 0));
-  res.json({ items: out });
+  const items = (await buildDownloads()).map(({ _recover, ...r }) => r);
+  res.json({ items });
 });
+
+// ---- Auto-import watchdog: rescue completed downloads that *arr dropped without
+//      importing (the delete→re-download race). Runs the same Manual Import the
+//      Radarr/Sonarr UI offers — only on candidates *arr itself accepts (no rejections).
+async function importViaManual(app, folder) {
+  const { base, key } = arrOf(app);
+  const r = await tfetch(`${base}/manualimport?folder=${encodeURIComponent(folder)}&filterExistingFiles=true`, { headers: { 'X-Api-Key': key } }, 20000);
+  if (!r.ok) return { ok: false, reason: `manualimport HTTP ${r.status}` };
+  const files = []; let reason = 'no importable file found';
+  for (const c of await r.json()) {
+    if (!c.path) continue;
+    if (c.rejections && c.rejections.length) { reason = c.rejections[0].reason || 'rejected'; continue; }
+    const f = { path: c.path, quality: c.quality, languages: c.languages || [], releaseGroup: c.releaseGroup || '' };
+    if (app === 'radarr') { if (!c.movie) { reason = 'no matching movie'; continue; } f.movieId = c.movie.id; }
+    else { if (!c.series) { reason = 'no matching series'; continue; } f.seriesId = c.series.id; f.episodeIds = (c.episodes || []).map((e) => e.id); if (!f.episodeIds.length) { reason = 'no matching episode'; continue; } }
+    files.push(f);
+  }
+  if (!files.length) return { ok: false, reason };
+  const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'ManualImport', importMode: 'auto', files }) }, 20000);
+  return { ok: cmd.ok, count: files.length, reason: cmd.ok ? null : `command HTTP ${cmd.status}` };
+}
+
+async function importWatchdog() {
+  let snap; try { snap = await buildDownloads(); } catch { return; }
+  const now = Math.floor(Date.now() / 1000);
+  for (const it of snap) {
+    const rec = it._recover; if (!rec) continue;
+    let isDir = false; try { isDir = (await fs.promises.stat(rec.folder)).isDirectory(); } catch { /* gone */ }
+    if (!isDir) continue;                                  // single-file torrents: leave to *arr
+    if ((recentImport.get(rec.folder) || 0) > now - 180) continue; // debounce
+    recentImport.set(rec.folder, now);
+    const res = await importViaManual(rec.app, rec.folder);
+    if (res.ok) { stuckFolders.delete(rec.folder); console.log(`watchdog: imported ${res.count} file(s) from "${rec.folder}"`); }
+    else { stuckFolders.set(rec.folder, { reason: res.reason, since: now }); console.log(`watchdog: cannot import "${rec.folder}" — ${res.reason}`); }
+  }
+}
+setInterval(importWatchdog, 60000);
+setTimeout(importWatchdog, 10000);
 
 // Library — titles to clean up, biggest first.
 app.get('/api/library', async (req, res) => {
