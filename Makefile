@@ -17,12 +17,13 @@ destroy:    ## down + delete config, media AND images (guarded)
 	./scripts/teardown.sh destroy
 validate:   ## lint the compose file
 	docker compose config -q && echo OK
-mdns:       ## publish $MDNS_NAME (e.g. movies.local) on the LAN, persistent (asks for sudo)
+mdns:       ## (re)publish $MDNS_NAME (e.g. movies.local movie.local) on the LAN, persistent (asks for sudo)
 	chmod +x scripts/mdns-publish.sh
 	sudo install -m644 scripts/movie-mdns.service /etc/systemd/system/movie-mdns.service
 	sudo systemctl daemon-reload
-	sudo systemctl enable --now movie-mdns.service
-	@echo "Published. Test from another device: open http://$${MDNS_NAME:-movies.local}"
+	sudo systemctl enable movie-mdns.service
+	sudo systemctl restart movie-mdns.service   # restart so it re-reads MDNS_NAME after changes
+	@echo "Published. Re-run this after editing MDNS_NAME in .env."
 ps:
 	docker compose ps
 logs:       ## tail logs (make logs s=radarr)
