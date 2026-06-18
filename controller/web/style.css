@@ -12,12 +12,6 @@
   --danger: #ff453a;
   --radius: 16px;
 }
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f3f4f7; --card: #fff; --card-2: #f0f2f6; --text: #11141b;
-    --muted: #6b7280; --line: #e3e6ec; --off: #c3c8d2;
-  }
-}
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 button, input { font: inherit; }
@@ -37,10 +31,10 @@ body {
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
 }
-.topbar h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
-.topbar-row { display: flex; justify-content: space-between; align-items: baseline; }
-.disk-label { font-size: 13px; font-weight: 600; }
-.header-disk-bar { height: 3px; background: var(--card-2); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+.topbar h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.02em; flex: none; width: 155px; }
+.header-disk-row { display: flex; align-items: center; gap: 12px; }
+.disk-label { font-size: 13px; font-weight: 600; flex: none; }
+.header-disk-bar { flex: 1; height: 3px; background: var(--card-2); border-radius: 99px; overflow: hidden; }
 
 main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .tab { display: flex; flex-direction: column; gap: 14px; }
@@ -74,8 +68,10 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .btn-danger { background: var(--danger); color: #fff; }
 .btn-ghost { background: var(--card-2); color: var(--text); }
 .btn-primary:active, .btn-danger:active, .btn-ghost:active { transform: scale(.98); }
-/* The two everyday actions on Home — taller, slightly bigger text. */
-.btn-big { min-height: 64px; font-size: 18px; }
+/* The two everyday actions on Home — taller, left-aligned icon + label. */
+.btn-big { min-height: 64px; font-size: 18px; justify-content: flex-start; padding: 0 20px; gap: 16px; }
+.btn-icon { flex: none; width: 28px; text-align: center; }
+.btn-label { flex: 1; }
 #watch-btn { background: var(--ok); }
 
 /* Lists */
@@ -94,8 +90,8 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .chev { color: var(--muted); flex: none; }
 
 /* Download progress row */
-.row.dl { flex-direction: column; align-items: stretch; gap: 8px; }
-.row.dl .line { display: flex; justify-content: space-between; gap: 10px; }
+.row.dl { flex-direction: column; align-items: stretch; gap: 6px; padding: 12px 16px; min-height: unset; }
+.row.dl > .title { min-width: 0; }
 .mini-bar { height: 8px; background: var(--card-2); border-radius: 99px; overflow: hidden; }
 .mini-bar > div { height: 100%; background: var(--accent); border-radius: 99px; transition: width .4s; }
 .row.dl.attn { border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent); }

@@ -42,18 +42,22 @@ in .env, migrate the data, then `make bootstrap && make deploy`.
 8096 Jellyfin · 8080 qBittorrent · 9696 Prowlarr · 7878 Radarr · 8989 Sonarr
 6767 Bazarr · 5055 Jellyseerr · 8088 Controller (dashboard)
 
-## Controller dashboard (`:8088`)
-Mobile-friendly web controller for the whole stack — open `http://192.168.1.74:8088`
-on your phone at home. Three tabs: **Home** (service health + free space vs the 20 GB
-cap + a "Request" button to Jellyseerr), **Downloads** (live progress), and **Library**
-(search a watched title → one-click *remove it everywhere*: Radarr/Sonarr → qBittorrent
-→ Jellyfin → Jellyseerr, with a dry-run confirm). It's a normal compose service:
-`make deploy s=controller` builds/starts it, `make provision s=controller` discovers
-the API keys into `/opt/appdata/controller/keys.env` (never committed), and
-`make down/clean/destroy` tear it down with everything else.
+## Controller dashboard (`http://movies.local`)
+Mobile-friendly web controller for the whole stack, served from the NUC on **port 80**
+(and `:8088`). On the wifi just open **`http://movies.local`** / **`http://movie.local`**
+(or `http://192.168.1.74`).
 
-A public **launcher** copy is published to GitHub Pages from `controller/web/` on each
-commit (`.github/workflows/pages.yml`) — handy as a bookmark, but live data/delete only
-work from the NUC-served URL above (an HTTPS page can't reach the LAN over http; it
-shows a "not on your home network" banner instead). A custom HTTPS domain that's live
-at home would need a reverse proxy + cert on the NUC (future).
+Those `.local` names are published via mDNS by **`make mdns`** (installs a small systemd
+service: `scripts/mdns-publish.sh` + `scripts/movie-mdns.service`) — zero DNS server,
+router config, or per-device setup, and it follows the NUC's IP if DHCP changes. Names
+must end in `.local` (mDNS only handles that suffix); edit `MDNS_NAME` in `.env`
+(space-separated list, keep it quoted). Works great on iPhone/Mac; older Android has
+weak mDNS support.
+
+Three tabs: **Home** (service health + free space vs the 20 GB cap + Watch/Request
+buttons), **Downloads** (live pipeline: Downloading → Importing → In library, with a
+backend watchdog that rescues dropped imports), and **Library** (search a watched title
+→ one-click *remove it everywhere*: Radarr/Sonarr → qBittorrent → Jellyfin → Jellyseerr,
+dry-run confirm). It's a normal compose service: `make deploy s=controller` builds/starts
+it, `make provision s=controller` wires the API keys into `/opt/appdata/controller/keys.env`
+(never committed), and `make down/clean/destroy` tear it down with everything else.

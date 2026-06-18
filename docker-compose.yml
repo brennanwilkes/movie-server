@@ -84,6 +84,8 @@ services:
     volumes:
       - ${CONFIG}/controller:/config
       - ${DATA}:/data:ro
-    ports: ["${CONTROLLER_PORT:-8088}:${CONTROLLER_PORT:-8088}"]
+    # Published on :80 so the dashboard has a clean, no-port URL (http://<hostname>),
+    # plus :8088 kept for compatibility / direct access.
+    ports: ["80:${CONTROLLER_PORT:-8088}", "${CONTROLLER_PORT:-8088}:${CONTROLLER_PORT:-8088}"]
     restart: unless-stopped
     depends_on: [jellyfin, qbittorrent, radarr, sonarr, jellyseerr]

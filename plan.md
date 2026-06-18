@@ -523,11 +523,13 @@ a private isolated home LAN with no inbound exposure. Stored in gitignored `.env
       `scripts/provision/controller.sh` (pin-by-discovery via `arr_apikey`/`jellyfin_apikey`
       into `/opt/appdata/controller/keys.env`); `controller` runs **last** in
       `provision.sh`'s `ALL`. `deploy.sh` gained `--build` so the image re-bakes on code
-      changes. **Resolved the GH-Pages caveat:** the live controller is the NUC-served
-      `http://192.168.1.74:8088` (same-origin http — no mixed content); GitHub Pages
-      (`.github/workflows/pages.yml`) publishes the same `web/` as a public deep-link
-      launcher that degrades to a "not on your home network" banner off-LAN. A unified
-      HTTPS domain live at home remains a future reverse-proxy + cert task.
+      changes. **Access:** served from the NUC on **port 80** (+ `:8088`) and reached on
+      the LAN by mDNS name (`http://movies.local` / `http://movie.local`), published by a
+      small systemd service (`make mdns` → `scripts/mdns-publish.sh` +
+      `scripts/movie-mdns.service`) that follows the host IP. Fully local — no GitHub
+      Pages, no external exposure, no certs. (The earlier GH-Pages idea was dropped: an
+      HTTPS page can't call the LAN's http API — mixed content — so the dashboard is
+      simply served from the NUC.)
 - [x] **One-click "delete everything" (done 2026-06-17):** implemented in the controller as
       `POST /api/delete {app,id,dryRun}` (**dry-run by default**; UI shows the plan, then a
       confirm fires the real run). Proven recipe, executed in order:

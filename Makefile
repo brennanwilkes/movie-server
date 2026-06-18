@@ -1,4 +1,4 @@
-.PHONY: bootstrap deploy provision up down clean destroy validate ps logs
+.PHONY: bootstrap deploy provision up down clean destroy validate ps logs mdns
 bootstrap:  ## one-time host prep (dirs, cap, .env, hook)
 	./scripts/bootstrap.sh
 deploy:     ## validate + pull + start (make deploy s=jellyfin for one)
@@ -17,6 +17,12 @@ destroy:    ## down + delete config, media AND images (guarded)
 	./scripts/teardown.sh destroy
 validate:   ## lint the compose file
 	docker compose config -q && echo OK
+mdns:       ## publish $MDNS_NAME (e.g. movies.local) on the LAN, persistent (asks for sudo)
+	chmod +x scripts/mdns-publish.sh
+	sudo install -m644 scripts/movie-mdns.service /etc/systemd/system/movie-mdns.service
+	sudo systemctl daemon-reload
+	sudo systemctl enable --now movie-mdns.service
+	@echo "Published. Test from another device: open http://$${MDNS_NAME:-movies.local}"
 ps:
 	docker compose ps
 logs:       ## tail logs (make logs s=radarr)

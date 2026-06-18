@@ -1,0 +1,14 @@
+[Unit]
+Description=Publish movies.local mDNS alias for the movie-server dashboard
+After=network-online.target avahi-daemon.service
+Wants=network-online.target avahi-daemon.service
+
+[Service]
+# Runs as the repo owner (no root needed — avahi-publish talks to the daemon over D-Bus).
+User=brennan
+ExecStart=/home/brennan/movie-server/scripts/mdns-publish.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

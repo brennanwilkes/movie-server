@@ -1,9 +1,9 @@
 'use strict';
-// Served by the controller over HTTP → relative API (same-origin) works fully.
-// Served by GitHub Pages over HTTPS → point at the NUC; those calls are blocked
-// (mixed content) and we degrade to a deep-link launcher (anchors to http DO work).
+// Served from the NUC (controller container) over HTTP, so the API is same-origin
+// (relative). If the backend is ever unreachable, the UI degrades to a deep-link
+// launcher + a "not on your home network" banner.
 const NUC_BASE = 'http://192.168.1.74';
-const API = location.protocol === 'https:' ? `${NUC_BASE}:8088` : '';
+const API = '';
 
 // The two everyday actions are the big buttons on Home (set once — deep-links work
 // in both live and launcher modes). Jellyfin = Watch, Jellyseerr = Request.
@@ -77,7 +77,7 @@ function renderServices(list, { showStatus = true } = {}) {
       <span class="chev">›</span>
     </a>`).join('');
 }
-// Deep-link launcher used when the backend is unreachable (GitHub Pages / off-LAN).
+// Deep-link launcher shown when the backend is unreachable (off the home network).
 function renderLauncher() {
   const list = CATALOG.map((c) => ({ ...c, url: `${NUC_BASE}:${c.port}` }));
   renderServices(list, { showStatus: false });
@@ -86,7 +86,8 @@ function renderLauncher() {
 function renderDisk(d) {
   const used = d.used_bytes, cap = d.cap_bytes;
   const pct = Math.min(100, d.used_pct || 0);
-  $('#disk-text').textContent = fmtBytes(cap - used) + ' free';
+  const toGB = b => (b / (1024 ** 3)).toFixed(1);
+  $('#disk-text').textContent = `${toGB(used)}/${toGB(cap)} GB`;
   const fill = $('#disk-fill');
   fill.style.width = pct + '%';
   fill.classList.toggle('warn', pct >= 80 && pct < 92);
@@ -108,12 +109,12 @@ function renderDownloads(items) {
   const COLOR = { 'Needs attention': 'var(--danger)', 'In library': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--warn)' };
   $('#downloads').innerHTML = items.map((d) => {
     const eta = d.state === 'Downloading' ? fmtEta(d.etaSeconds) : '';
-    const left = [d.state, d.state === 'Downloading' && d.progress ? d.progress + '%' : ''].filter(Boolean).join(' · ');
+    const meta = [d.state, d.state === 'Downloading' && d.progress ? d.progress + '%' : '', fmtBytes(d.sizeBytes), eta].filter(Boolean).join(' · ');
     const color = COLOR[d.state] || '';
     return `<li class="row dl${d.attention ? ' attn' : ''}">
-      <div class="line"><span class="title">${esc(d.title)}</span><span class="muted">${esc(fmtBytes(d.sizeBytes))}</span></div>
+      <span class="title">${esc(d.title)}</span>
       <div class="mini-bar"><div style="width:${Math.min(100, d.progress)}%${color ? `;background:${color}` : ''}"></div></div>
-      <div class="sub line"><span>${esc(left)}</span>${eta ? `<span>${esc(eta)}</span>` : ''}</div>
+      <div class="sub">${esc(meta)}</div>
     </li>`;
   }).join('');
 }

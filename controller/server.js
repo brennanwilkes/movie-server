@@ -194,7 +194,10 @@ function friendlyTorrentState(t) {
   if (s.startsWith('stalled')) return 'Stalled';
   return 'Downloading';
 }
-// ---- Pipeline correlation: qBittorrent + *arr queue + filesystem hardlinks ----
+// ---- Pipeline correlation: qBittorrent + *arr queue + *arr library (hasFile) ----
+// The AUTHORITY for "it's in the library and playable" is Radarr/Sonarr's own hasFile —
+// not a filesystem guess. So the bar can never say "ready" before the app actually has
+// the file, and never falsely flags an imported title.
 async function getQbitTorrents() {
   try { const r = await qbit.fetch('/api/v2/torrents/info'); return r.ok ? await r.json() : []; } catch { return []; }
 }
@@ -203,30 +206,48 @@ async function getQueueMap(app) {
   try { for (const r of ((await arrGet(app, '/queue?pageSize=200')).records || [])) if (r.downloadId) m.set(r.downloadId.toLowerCase(), r); } catch { /* arr down */ }
   return m;
 }
-const torrentApp = (t) => { const c = (t.category || '').toLowerCase(); return (c === 'radarr' || c === 'sonarr') ? c : null; };
-// Ground truth for "imported into the library": the media file is hardlinked, so the
-// video file has link count >= 2 (one link under /torrents, one under /media).
-async function maxNlink(p) {
+// downloadId(hash) -> { imported, id } from recent history (maps a torrent to its movie/series).
+async function getHistoryIndex(app) {
+  const idx = new Map();
   try {
-    const st = await fs.promises.stat(p);
-    if (st.isFile()) return st.nlink;
-    if (st.isDirectory()) { let m = 0; for (const e of await fs.promises.readdir(p)) m = Math.max(m, await maxNlink(path.join(p, e))); return m; }
-  } catch { /* missing */ }
-  return 0;
+    for (const r of ((await arrGet(app, '/history?pageSize=250&sortKey=date&sortDirection=descending')).records || [])) {
+      const h = (r.downloadId || '').toLowerCase(); if (!h) continue;
+      const cur = idx.get(h) || { imported: false, id: null };
+      if ((r.eventType || '').toLowerCase().includes('import')) cur.imported = true;
+      if (r.movieId) cur.id = r.movieId; if (r.seriesId) cur.id = r.seriesId;
+      idx.set(h, cur);
+    }
+  } catch { /* arr down */ }
+  return idx;
 }
-const isImported = async (p) => (await maxNlink(p)) >= 2;
+// id -> hasFile, the authoritative "in the library" flag.
+async function getHasFileMap(app) {
+  const m = new Map();
+  try {
+    if (app === 'radarr') for (const mv of await arrGet('radarr', '/movie')) m.set(mv.id, !!mv.hasFile);
+    else for (const s of await arrGet('sonarr', '/series')) m.set(s.id, ((s.statistics && s.statistics.episodeFileCount) || 0) > 0);
+  } catch { /* arr down */ }
+  return m;
+}
+const torrentApp = (t) => { const c = (t.category || '').toLowerCase(); return (c === 'radarr' || c === 'sonarr') ? c : null; };
 
-// Folders the watchdog tried but could NOT import (genuinely stuck → needs a human).
-const stuckFolders = new Map(); // folder -> { reason, since }
-const recentImport = new Map(); // folder -> ts (debounce repeated import commands)
+// Per-folder import-rescue state (NOT sticky): the watchdog retries with backoff, and
+// a title flips to "In library" the moment *arr reports hasFile — regardless of this.
+const importState = new Map(); // folder -> { lastTry, reason }
 
-// One accurate snapshot of the whole download→import→library pipeline. The bar state
-// is derived from real signals (qBittorrent + *arr queue + the hardlink on disk) so it
-// matches what's actually true — including the "dropped by *arr, never imported" case.
 async function buildDownloads() {
   const now = Math.floor(Date.now() / 1000), DAY = 86400;
   const torrents = await getQbitTorrents();
   const queues = { radarr: await getQueueMap('radarr'), sonarr: await getQueueMap('sonarr') };
+  // Only pay for history + library lookups if there's a completed, untracked torrent to classify.
+  const need = new Set();
+  for (const t of torrents) {
+    const app = torrentApp(t); if (!app) continue;
+    if (Math.round((t.progress || 0) * 100) >= 100 && !queues[app].has((t.hash || '').toLowerCase())) need.add(app);
+  }
+  const hist = {}, hasFile = {};
+  for (const app of need) { hist[app] = await getHistoryIndex(app); hasFile[app] = await getHasFileMap(app); }
+
   const items = [];
   for (const t of torrents) {
     const h = (t.hash || '').toLowerCase();
@@ -235,25 +256,31 @@ async function buildDownloads() {
     const eta = (t.eta && t.eta < 8640000) ? t.eta : null;
     const qrec = app ? queues[app].get(h) : null;
     let state, attention = false, recover = null;
-    if (qrec) {                                   // *arr is actively tracking it
+    if (qrec) {                                    // *arr is actively tracking it
       const tds = (qrec.trackedDownloadState || '').toLowerCase();
       if ((qrec.status || '').toLowerCase() === 'paused') state = 'Paused';
       else if (tds.includes('import')) state = 'Importing';
       else if (prog < 100) state = 'Downloading';
       else state = 'Importing';
-    } else if (prog < 100) {                       // still downloading
+    } else if (prog < 100) {                        // still downloading
       state = friendlyTorrentState(t);
-    } else if (app && await isImported(t.content_path)) {
-      state = 'In library';                        // hardlink exists → really in the library
-    } else if (app) {                              // complete, *arr not tracking, NOT hardlinked
-      if (stuckFolders.has(t.content_path)) { state = 'Needs attention'; attention = true; }
-      else { state = 'Importing'; recover = { app, folder: t.content_path }; } // watchdog will rescue
+    } else if (app) {                               // complete, no longer in the *arr queue
+      const hi = hist[app] && hist[app].get(h);
+      const imported = !!(hi && (hi.imported || (hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
+      if (imported) {
+        state = 'In library';                       // *arr confirms the file is in the library
+      } else {                                      // downloaded but *arr has NOT imported it
+        recover = { app, folder: t.content_path };
+        const reason = (importState.get(t.content_path) || {}).reason;
+        if (reason) { state = 'Needs attention'; attention = true; }
+        else state = 'Importing';                   // the watchdog will import it shortly
+      }
     } else {
-      state = 'Done';                              // a non-*arr torrent, just complete
+      state = 'Done';                               // a non-*arr torrent, just complete
     }
     const finished = state === 'In library' || state === 'Done';
     const show = !finished || ((t.completion_on || 0) > 0 && now - t.completion_on <= DAY);
-    if (show) items.push({ title: t.name, progress: state === 'Importing' ? 100 : prog, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || 0, source: app || 'torrent', attention, _recover: recover });
+    if (show) items.push({ title: t.name, progress: (state === 'Importing' || state === 'Needs attention') ? 100 : prog, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || 0, source: app || 'torrent', attention, _recover: recover });
   }
   const rank = (s) => s === 'Needs attention' ? 0 : (s === 'In library' || s === 'Done') ? 2 : 1;
   items.sort((a, b) => rank(a.state) - rank(b.state));
@@ -265,14 +292,17 @@ app.get('/api/downloads', async (_req, res) => {
   res.json({ items });
 });
 
-// ---- Auto-import watchdog: rescue completed downloads that *arr dropped without
-//      importing (the delete→re-download race). Runs the same Manual Import the
-//      Radarr/Sonarr UI offers — only on candidates *arr itself accepts (no rejections).
+// ---- Auto-import watchdog (backend, container-to-container; NOT driven by the UI) ----
+// The happy path is event-driven: qBittorrent finishes → *arr imports → *arr pushes a
+// "library updated" notification to Jellyfin. But when *arr DROPS a completed download
+// without importing (the delete→re-download race), there's no event to react to — so a
+// periodic sweep is the only way to catch the *absence* of an import. It runs the same
+// Manual Import the *arr UI offers, and retries with backoff until the file lands.
 async function importViaManual(app, folder) {
   const { base, key } = arrOf(app);
   const r = await tfetch(`${base}/manualimport?folder=${encodeURIComponent(folder)}&filterExistingFiles=true`, { headers: { 'X-Api-Key': key } }, 20000);
   if (!r.ok) return { ok: false, reason: `manualimport HTTP ${r.status}` };
-  const files = []; let reason = 'no importable file found';
+  const files = []; let reason = 'no importable file found yet';
   for (const c of await r.json()) {
     if (!c.path) continue;
     if (c.rejections && c.rejections.length) { reason = c.rejections[0].reason || 'rejected'; continue; }
@@ -290,18 +320,20 @@ async function importWatchdog() {
   let snap; try { snap = await buildDownloads(); } catch { return; }
   const now = Math.floor(Date.now() / 1000);
   for (const it of snap) {
-    const rec = it._recover; if (!rec) continue;
+    const rec = it._recover; if (!rec) continue;                    // only completed-but-not-imported
     let isDir = false; try { isDir = (await fs.promises.stat(rec.folder)).isDirectory(); } catch { /* gone */ }
-    if (!isDir) continue;                                  // single-file torrents: leave to *arr
-    if ((recentImport.get(rec.folder) || 0) > now - 180) continue; // debounce
-    recentImport.set(rec.folder, now);
+    if (!isDir) continue;                                            // single-file torrents: leave to *arr
+    const st = importState.get(rec.folder) || { lastTry: 0, reason: null };
+    if (now - st.lastTry < 120) continue;                           // backoff between attempts
+    st.lastTry = now;
     const res = await importViaManual(rec.app, rec.folder);
-    if (res.ok) { stuckFolders.delete(rec.folder); console.log(`watchdog: imported ${res.count} file(s) from "${rec.folder}"`); }
-    else { stuckFolders.set(rec.folder, { reason: res.reason, since: now }); console.log(`watchdog: cannot import "${rec.folder}" — ${res.reason}`); }
+    st.reason = res.ok ? null : res.reason;                         // cleared on success; retried next sweep
+    importState.set(rec.folder, st);
+    console.log(res.ok ? `watchdog: imported ${res.count} file(s) from "${rec.folder}"` : `watchdog: "${rec.folder}" not importable yet — ${res.reason}`);
   }
 }
-setInterval(importWatchdog, 60000);
-setTimeout(importWatchdog, 10000);
+setInterval(importWatchdog, 30000); // sweep often; per-folder 120s backoff caps real attempts
+setTimeout(importWatchdog, 8000);
 
 // Library — titles to clean up, biggest first.
 app.get('/api/library', async (req, res) => {
