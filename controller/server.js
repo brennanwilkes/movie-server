@@ -120,7 +120,9 @@ async function jellyfinResolve(type, title, tmdbId) {
   const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
   const q1 = new URLSearchParams({ recursive: 'true', includeItemTypes: type, searchTerm: title, fields: 'ProviderIds,ProductionYear', limit: '50' });
   const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q1}`, { headers: h }, 6000)).json()).Items) || [];
-  const match = items.find((i) => tmdbId && i.ProviderIds && i.ProviderIds.Tmdb === String(tmdbId)) || items[0];
+  // Confident match only: pin on the *arr tmdb id, else accept a lone unambiguous search hit.
+  // (We explicitly DELETE this item below, so never fall through to a fuzzy items[0] guess.)
+  const match = items.find((i) => tmdbId && i.ProviderIds && i.ProviderIds.Tmdb === String(tmdbId)) || (items.length === 1 ? items[0] : null);
   const q2 = new URLSearchParams({ recursive: 'true', includeItemTypes: type, limit: '0', enableTotalRecordCount: 'true' });
   const total = (await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q2}`, { headers: h }, 6000)).json()).TotalRecordCount || 0;
   return { itemId: (match && match.Id) || null, libraryEmptyAfter: total <= 1 };
@@ -213,6 +215,56 @@ app.get('/api/disk', async (_req, res) => {
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 
+// ── NUC host stats (CPU% / RAM% / CPU temperature) ──
+// In a container /proc and /sys still reflect the HOST, so these read the NUC itself.
+// CPU% is sampled on a rolling interval (a single reading can't yield a rate).
+let _cpuPrev = null, _cpuPct = null;
+function readCpuTimes() {
+  try {
+    const t = fs.readFileSync('/proc/stat', 'utf8').split('\n')[0].trim().split(/\s+/).slice(1).map(Number);
+    return { idle: (t[3] || 0) + (t[4] || 0), total: t.reduce((a, b) => a + (b || 0), 0) }; // idle = idle + iowait
+  } catch { return null; }
+}
+function sampleCpu() {
+  const cur = readCpuTimes();
+  if (cur && _cpuPrev) {
+    const dt = cur.total - _cpuPrev.total, di = cur.idle - _cpuPrev.idle;
+    if (dt > 0) _cpuPct = Math.max(0, Math.min(100, Math.round((1 - di / dt) * 100)));
+  }
+  if (cur) _cpuPrev = cur;
+}
+sampleCpu();
+setInterval(sampleCpu, 3000); // rolling CPU% over ~the last 3s
+function readMemPct() {
+  try {
+    const m = fs.readFileSync('/proc/meminfo', 'utf8');
+    const g = (k) => { const x = m.match(new RegExp('^' + k + ':\\s+(\\d+)', 'm')); return x ? Number(x[1]) : null; };
+    const total = g('MemTotal'), avail = g('MemAvailable');
+    return (total && avail != null) ? Math.round((1 - avail / total) * 100) : null;
+  } catch { return null; }
+}
+// Prefer the CPU package sensor; else the hottest real zone (ignore the wifi radio).
+function readTempC() {
+  try {
+    const base = '/sys/class/thermal';
+    let pkg = null, best = null;
+    for (const z of fs.readdirSync(base).filter((z) => z.startsWith('thermal_zone'))) {
+      let type = '', milli = NaN;
+      try { type = fs.readFileSync(`${base}/${z}/type`, 'utf8').trim(); } catch { /* */ }
+      try { milli = Number(fs.readFileSync(`${base}/${z}/temp`, 'utf8').trim()); } catch { /* */ }
+      if (!Number.isFinite(milli)) continue;
+      const c = milli / 1000;
+      if (type === 'x86_pkg_temp') pkg = c;
+      if (!/iwlwifi|wifi/i.test(type) && (best == null || c > best)) best = c;
+    }
+    const c = pkg != null ? pkg : best;
+    return c == null ? null : Math.round(c);
+  } catch { return null; }
+}
+app.get('/api/system', (_req, res) => {
+  res.json({ cpuPct: _cpuPct, memPct: readMemPct(), tempC: readTempC() });
+});
+
 // Downloads — qBittorrent torrents (live progress) merged with *arr queue extras.
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 function parseTimeleft(s) {
@@ -268,8 +320,37 @@ async function getHasFileMap(app) {
 }
 const torrentApp = (t) => { const c = (t.category || '').toLowerCase(); return (c === 'radarr' || c === 'sonarr' || c === 'tv-sonarr') ? (c === 'tv-sonarr' ? 'sonarr' : c) : null; };
 
+// ── Bazarr: subtitle-acquisition gate ──
+// A freshly-imported title is in the library, but Bazarr is still off fetching subs for it.
+// We hold the Downloads row at "Getting subtitles" (yellow, not clickable) until Bazarr has
+// them, so it doesn't go green/playable early.
+async function bazarrGet(p, ms = 6000) {
+  const r = await tfetch(`${HOST.bazarr}${p}`, { headers: { 'X-Api-Key': cfg.BAZARR_KEY || '' } }, ms);
+  if (!r.ok) throw new Error(`bazarr HTTP ${r.status}`);
+  return r.json();
+}
+// True once Bazarr has the title's subtitles — or once we've waited long enough that we stop
+// holding the row (subs may simply be unavailable for an obscure release). Fails OPEN (returns
+// true) whenever Bazarr isn't provisioned/reachable or we can't pin the *arr id, so subtitles
+// never wedge a download permanently at "Getting subtitles".
+const SUBS_GRACE = 1800; // s — max time to hold a freshly-imported title waiting on subs
+async function subsReady(app, id, completionOn) {
+  if (!cfg.BAZARR_KEY || id == null) return true;                       // can't gate → don't
+  if (completionOn && Math.floor(Date.now() / 1000) - completionOn > SUBS_GRACE) return true;
+  try {
+    if (app === 'radarr') {
+      const m = ((await bazarrGet(`/api/movies?radarrid[]=${id}`)).data || [])[0];
+      if (!m) return false;                                             // Bazarr hasn't synced it yet
+      return (m.missing_subtitles || []).length === 0;                  // every wanted language present
+    }
+    // sonarr: ready once no episode of the series is still wanting subtitles
+    const wanted = (await bazarrGet('/api/episodes/wanted?start=0&length=-1')).data || [];
+    return !wanted.some((r) => r.sonarrSeriesId === id);
+  } catch { return true; }                                              // Bazarr down → fail open
+}
+
 // Per-folder import-rescue state (NOT sticky): the watchdog retries with backoff, and
-// a title flips to "In library" the moment *arr reports hasFile — regardless of this.
+// a title flips to "Ready" the moment *arr reports hasFile — regardless of this.
 const importState = new Map(); // folder -> { lastTry, reason }
 const knownInLibrary = new Set(); // torrent hash -> tracked for event-driven scan
 
@@ -306,8 +387,15 @@ async function buildDownloads() {
       const hi = hist[app] && hist[app].get(h);
       const imported = !!(hi && (hi.imported || (hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
       if (imported) {
-        state = 'In library';                       // *arr confirms the file is in the library
-        if (!knownInLibrary.has(h)) { knownInLibrary.add(h); triggerJellyfinScan(); }
+        // *arr has the file, but don't go green until Bazarr has grabbed subs (or the grace
+        // window lapses) — "Ready" is the only clickable/ready state, so it must mean
+        // *fully* ready, subtitles included.
+        if (await subsReady(app, hi && hi.id, t.completion_on)) {
+          state = 'Ready';                     // imported AND subtitles settled — ready to watch
+          if (!knownInLibrary.has(h)) { knownInLibrary.add(h); triggerJellyfinScan(); }
+        } else {
+          state = 'Getting subtitles';              // in the library, Bazarr still working on subs
+        }
       } else {                                      // downloaded but *arr has NOT imported it
         recover = { app, folder: t.content_path };
         const reason = (importState.get(t.content_path) || {}).reason;
@@ -317,11 +405,11 @@ async function buildDownloads() {
     } else {
       state = 'Done';                               // a non-*arr torrent, just complete
     }
-    const finished = state === 'In library' || state === 'Done';
+    const finished = state === 'Ready' || state === 'Done';
     const show = !finished || ((t.completion_on || 0) > 0 && now - t.completion_on <= DAY);
-    if (show) items.push({ title: t.name, progress: (state === 'Importing' || state === 'Needs attention') ? 100 : prog, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash });
+    if (show) items.push({ title: t.name, progress: (state === 'Importing' || state === 'Needs attention' || state === 'Getting subtitles') ? 100 : prog, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash });
   }
-  const rank = (s) => s === 'Needs attention' ? 0 : (s === 'In library' || s === 'Done') ? 2 : 1;
+  const rank = (s) => s === 'Needs attention' ? 0 : (s === 'Ready' || s === 'Done') ? 2 : 1;
   items.sort((a, b) => rank(a.state) - rank(b.state));
   return items;
 }
@@ -449,7 +537,7 @@ function planItems(p) {
   return [
     { layer: 1, app: p.isMovie ? 'Radarr' : 'Sonarr', action: p.id == null ? 'Not tracked here — nothing to remove' : (p.isMovie ? 'Delete the movie & its file' : 'Delete the series & its files'), willRun: p.id != null },
     { layer: 2, app: 'qBittorrent', action: n ? `Stop seeding & remove ${n} download${n > 1 ? 's' : ''}` : 'No active download to remove', willRun: n > 0 },
-    { layer: 3, app: 'Jellyfin', action: (p.jf.itemId && p.jf.libraryEmptyAfter) ? 'Remove from the library' : 'Clears automatically on scan', willRun: !!(p.jf.itemId && p.jf.libraryEmptyAfter) },
+    { layer: 3, app: 'Jellyfin', action: p.jf.itemId ? 'Remove from the library' : 'Clears automatically on scan', willRun: !!p.jf.itemId },
     { layer: 4, app: 'Jellyseerr', action: p.seerrId ? 'Clear the “Available” mark' : 'Not in requests', willRun: !!p.seerrId },
   ];
 }
@@ -472,8 +560,11 @@ async function executeDelete(p) {
       out.push({ layer: 2, app: 'qBittorrent', status: r.ok ? 'done' : 'error', detail: r.ok ? `removed ${p.torrents.length}` : `HTTP ${r.status}` });
     } catch (e) { out.push({ layer: 2, app: 'qBittorrent', status: 'error', detail: String(e.message || e) }); }
   } else out.push({ layer: 2, app: 'qBittorrent', status: 'skipped', detail: 'no active download' });
-  // 3 — Jellyfin (only when the library would otherwise go fully empty).
-  if (p.jf.itemId && p.jf.libraryEmptyAfter) {
+  // 3 — Jellyfin: remove the item directly so it disappears immediately (event-based),
+  // rather than waiting on a periodic library scan. Radarr's delete notification is
+  // unreliable here, so we don't lean on it. Self-heals: if we miss/mis-resolve, the
+  // file is already gone (layer 1) and the next scan reconciles.
+  if (p.jf.itemId) {
     try {
       const r = await tfetch(`${HOST.jellyfin}/Items/${p.jf.itemId}`, { method: 'DELETE', headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 10000);
       out.push({ layer: 3, app: 'Jellyfin', status: (r.ok || r.status === 204) ? 'done' : 'error', detail: (r.ok || r.status === 204) ? 'removed' : `HTTP ${r.status}` });
@@ -512,8 +603,9 @@ app.post('/api/delete', async (req, res) => {
   try {
     const p = byHash ? await buildDeletePlanFromHash(hash, source) : await buildDeletePlan(a, id);
     if (dryRun) return res.json({ dryRun: true, title: p.title, freedBytes: p.sizeBytes, plan: planItems(p) });
-    if (!dryRun) triggerJellyfinScan();
-    res.json({ dryRun: false, title: p.title, freedBytes: p.sizeBytes, results: await executeDelete(p) });
+    const results = await executeDelete(p);
+    triggerJellyfinScan(); // reconciling sweep AFTER files are gone (the explicit item delete already removed it)
+    res.json({ dryRun: false, title: p.title, freedBytes: p.sizeBytes, results });
   } catch (e) {
     const msg = String(e.message || e);
     res.status(/HTTP 404/.test(msg) ? 404 : 500).json({ error: msg });
@@ -842,7 +934,7 @@ async function requestGate() {
 setInterval(requestGate, 60000);
 setTimeout(requestGate, 15000);
 
-// ---- Jellyfin library refresh (event-driven + self-healing periodic sweep) ----
+// ---- JellyfReady refresh (event-driven + self-healing periodic sweep) ----
 let _scanning = false;
 let _lastScan = 0;
 let _scanRetry = null;

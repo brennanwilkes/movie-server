@@ -143,4 +143,25 @@ provision_arr() {
     fi
   )"
   $qd_skip && ok "${app}: quality definition preferred sizes already set"
+
+  # 6. Disallow Remux-1080p in the HD-1080p profile. Remuxes are 20–40 GB/movie —
+  #    far too big for the 50 GB /data cap, and Radarr always prefers the highest
+  #    allowed tier, so a reachable Remux tier means giant grabs (e.g. a 20 GB Shrek
+  #    over a 1 GB Bluray). Bluray-1080p is the sane ceiling for streaming to TVs.
+  #    (Sonarr's HD-1080p has no Remux-1080p item, so this is a no-op there.)
+  local prof; prof=$("${AG[@]}" "${base}/qualityprofile" | jq '[.[]|select(.name=="HD-1080p")][0]')
+  if [[ -z "$prof" || "$prof" == "null" ]]; then
+    ok "${app}: no HD-1080p profile — skipping Remux-1080p lockout"
+  elif [[ "$(echo "$prof" | jq '[.items[]|select(.quality.name=="Remux-1080p" and .allowed)]|length')" == "0" ]]; then
+    ok "${app}: Remux-1080p already disallowed in HD-1080p"
+  else
+    local pid body; pid=$(echo "$prof" | jq '.id')
+    body=$(echo "$prof" | jq '(.items[]|select(.quality.name=="Remux-1080p").allowed)=false')
+    "${AJ[@]}" -X PUT "${base}/qualityprofile/${pid}" -d "$body" >/dev/null
+    if [[ "$("${AG[@]}" "${base}/qualityprofile/${pid}" | jq '[.items[]|select(.quality.name=="Remux-1080p" and .allowed)]|length')" == "0" ]]; then
+      ok "${app}: Remux-1080p disallowed in HD-1080p (Bluray-1080p is the ceiling)"
+    else
+      warn "${app}: Remux-1080p lockout did not persist — check the PUT response"
+    fi
+  fi
 }

@@ -86,6 +86,7 @@ function renderServices(list, { showStatus = true } = {}) {
 function renderLauncher() {
   const list = CATALOG.map((c) => ({ ...c, url: `${NUC_BASE}:${c.port}` }));
   renderServices(list, { showStatus: false });
+  const ss = $('#sysstats'); if (ss) ss.hidden = true; // host stats need the backend
   if (location.protocol === 'https:') { const b = $('#live-btn'); b.href = API; b.hidden = false; }
 }
 function renderDisk(d) {
@@ -98,20 +99,39 @@ function renderDisk(d) {
   fill.classList.toggle('warn', pct >= 80 && pct < 92);
   fill.classList.toggle('full', pct >= 92);
 }
+// Color-coded so it's obvious at a glance when the NUC is struggling — the meter always
+// carries a health colour (green/amber/red), and the value turns amber/red once it's high,
+// so you don't need to know what a "bad" number is.
+function renderSystem(s) {
+  const el = $('#sysstats'); if (!el) return;
+  if (!s || (s.cpuPct == null && s.memPct == null && s.tempC == null)) { el.hidden = true; return; }
+  el.hidden = false;
+  const lvl = (v, warn, bad) => (v == null ? 'ok' : v >= bad ? 'bad' : v >= warn ? 'warn' : 'ok');
+  const clamp = (n) => Math.max(4, Math.min(100, n));
+  const cell = (label, val, status, width) =>
+    `<div class="stat ${status}"><div class="stat-top"><span class="stat-label">${label}</span><span class="stat-val">${val}</span></div><div class="stat-meter"><div style="width:${width}%"></div></div></div>`;
+  el.innerHTML = [
+    cell('CPU', s.cpuPct == null ? '—' : s.cpuPct + '%', lvl(s.cpuPct, 70, 90), s.cpuPct == null ? 0 : clamp(s.cpuPct)),
+    cell('RAM', s.memPct == null ? '—' : s.memPct + '%', lvl(s.memPct, 75, 90), s.memPct == null ? 0 : clamp(s.memPct)),
+    // temperature has no fixed max — map ~30–95 °C onto the meter so the bar tracks severity
+    cell('Temp', s.tempC == null ? '—' : s.tempC + '°', lvl(s.tempC, 70, 85), s.tempC == null ? 0 : clamp((s.tempC - 30) / 65 * 100)),
+  ].join('');
+}
 async function pollHome() {
   try {
-    const [status, disk] = await Promise.all([getJSON('/api/status'), getJSON('/api/disk')]);
+    const [status, disk, sys] = await Promise.all([getJSON('/api/status'), getJSON('/api/disk'), getJSON('/api/system').catch(() => null)]);
     setOffline(false);
     $('#live-btn').hidden = true;
     renderServices(status);
     renderDisk(disk);
+    renderSystem(sys);
   } catch { setOffline(true); renderLauncher(); }
 }
 
 // ── Downloads ──
 function renderDownloads(items) {
   $('#downloads-empty').hidden = items.length > 0;
-  const COLOR = { Declined: 'var(--danger)', 'Needs attention': 'var(--danger)', 'In library': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--warn)' };
+  const COLOR = { Declined: 'var(--danger)', 'Needs attention': 'var(--danger)', 'Ready': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--warn)', 'Getting subtitles': 'var(--warn)' };
   $('#downloads').innerHTML = items.map((d) => {
     const eta = d.state === 'Downloading' ? fmtEta(d.etaSeconds) : '';
     const leftMeta = d.state === 'Declined'
@@ -119,8 +139,8 @@ function renderDownloads(items) {
       : [d.state, d.state === 'Downloading' && d.progress ? d.progress + '%' : '', fmtBytes(d.sizeBytes)].filter(Boolean).join(' · ');
     const color = COLOR[d.state] || '';
     const barW = d.state === 'Declined' ? 100 : Math.min(100, d.progress);
-    const isDone = d.state === 'In library' || d.state === 'Done';
-    const canDelete = d.hash && d.state !== 'In library' && d.state !== 'Done';
+    const isDone = d.state === 'Ready' || d.state === 'Done';
+    const canDelete = d.hash && d.state !== 'Ready' && d.state !== 'Done';
     let cleanTitle = '';
     if (isDone) {
       const mt = d.title.match(/^(.+?)[. _-]+(?:S\d{2,}|Season\s*\d+|19\d{2}|20\d{2}|Full|COMPLETE)/i);

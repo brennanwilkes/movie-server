@@ -51,6 +51,19 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .muted { color: var(--muted); }
 .empty { text-align: center; color: var(--muted); padding: 40px 0; }
 
+/* System stats strip (NUC CPU / RAM / temp) */
+.stat-strip { display: flex; gap: 10px; margin-top: 10px; }
+.stat { flex: 1; min-width: 0; background: var(--card); border-radius: 14px; padding: 12px 14px; }
+.stat-top { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.stat-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.stat-val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.stat-meter { height: 6px; background: var(--card-2); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+.stat-meter > div { height: 100%; width: 0; border-radius: 99px; background: var(--ok); transition: width .4s ease, background .3s; }
+.stat.warn .stat-val { color: var(--warn); }
+.stat.warn .stat-meter > div { background: var(--warn); }
+.stat.bad .stat-val { color: var(--danger); }
+.stat.bad .stat-meter > div { background: var(--danger); }
+
 /* Storage */
 .storage-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; font-weight: 600; }
 .bar { height: 12px; background: var(--card-2); border-radius: 99px; overflow: hidden; }
