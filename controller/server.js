@@ -95,9 +95,9 @@ function arrOf(app) {
   if (app === 'sonarr') return { base: `${HOST.sonarr}/api/v3`, key: cfg.SONARR_KEY };
   throw new Error(`unknown app: ${app}`);
 }
-async function arrGet(app, p) {
+async function arrGet(app, p, ms = 8000) {
   const { base, key } = arrOf(app);
-  const r = await tfetch(`${base}${p}`, { headers: { 'X-Api-Key': key || '' } }, 8000);
+  const r = await tfetch(`${base}${p}`, { headers: { 'X-Api-Key': key || '' } }, ms);
   if (!r.ok) throw new Error(`${app}${p} → HTTP ${r.status}`);
   return r.json();
 }
@@ -229,11 +229,12 @@ async function getHasFileMap(app) {
   } catch { /* arr down */ }
   return m;
 }
-const torrentApp = (t) => { const c = (t.category || '').toLowerCase(); return (c === 'radarr' || c === 'sonarr') ? c : null; };
+const torrentApp = (t) => { const c = (t.category || '').toLowerCase(); return (c === 'radarr' || c === 'sonarr' || c === 'tv-sonarr') ? (c === 'tv-sonarr' ? 'sonarr' : c) : null; };
 
 // Per-folder import-rescue state (NOT sticky): the watchdog retries with backoff, and
 // a title flips to "In library" the moment *arr reports hasFile — regardless of this.
 const importState = new Map(); // folder -> { lastTry, reason }
+const knownInLibrary = new Set(); // torrent hash -> tracked for event-driven scan
 
 async function buildDownloads() {
   const now = Math.floor(Date.now() / 1000), DAY = 86400;
@@ -269,6 +270,7 @@ async function buildDownloads() {
       const imported = !!(hi && (hi.imported || (hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
       if (imported) {
         state = 'In library';                       // *arr confirms the file is in the library
+        if (!knownInLibrary.has(h)) { knownInLibrary.add(h); triggerJellyfinScan(); }
       } else {                                      // downloaded but *arr has NOT imported it
         recover = { app, folder: t.content_path };
         const reason = (importState.get(t.content_path) || {}).reason;
@@ -280,7 +282,7 @@ async function buildDownloads() {
     }
     const finished = state === 'In library' || state === 'Done';
     const show = !finished || ((t.completion_on || 0) > 0 && now - t.completion_on <= DAY);
-    if (show) items.push({ title: t.name, progress: (state === 'Importing' || state === 'Needs attention') ? 100 : prog, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || 0, source: app || 'torrent', attention, _recover: recover });
+    if (show) items.push({ title: t.name, progress: (state === 'Importing' || state === 'Needs attention') ? 100 : prog, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash });
   }
   const rank = (s) => s === 'Needs attention' ? 0 : (s === 'In library' || s === 'Done') ? 2 : 1;
   items.sort((a, b) => rank(a.state) - rank(b.state));
@@ -288,7 +290,15 @@ async function buildDownloads() {
 }
 
 app.get('/api/downloads', async (_req, res) => {
+  const now = Math.floor(Date.now() / 1000), DAY = 86400;
   const items = (await buildDownloads()).map(({ _recover, ...r }) => r);
+  // Surface titles we declined for disk space — both the download-stage gate (`declined`,
+  // keyed by torrent hash) and the request-stage gate (`blocked`, *arr-rejected before any
+  // download). Both render as a terminal red "Declined" row at the top.
+  const asRow = (hash, d) => ({ title: d.title, progress: 0, state: 'Declined', etaSeconds: null,
+    sizeBytes: d.neededBytes, neededBytes: d.neededBytes, freeBytes: d.freeBytes, source: d.source || 'request', attention: false, hash });
+  for (const [h, d] of declined) if (now - d.ts <= DAY) items.unshift(asRow(h, d));
+  for (const [h, b] of blocked) if (now - b.ts <= DAY) items.unshift(asRow(h, b));
   res.json({ items });
 });
 
@@ -328,6 +338,7 @@ async function importWatchdog() {
     st.lastTry = now;
     const res = await importViaManual(rec.app, rec.folder);
     st.reason = res.ok ? null : res.reason;                         // cleared on success; retried next sweep
+    if (res.ok) triggerJellyfinScan();
     importState.set(rec.folder, st);
     console.log(res.ok ? `watchdog: imported ${res.count} file(s) from "${rec.folder}"` : `watchdog: "${rec.folder}" not importable yet — ${res.reason}`);
   }
@@ -424,11 +435,371 @@ app.post('/api/delete', async (req, res) => {
   try {
     const p = await buildDeletePlan(a, id);
     if (dryRun) return res.json({ dryRun: true, title: p.title, freedBytes: p.sizeBytes, plan: planItems(p) });
+    if (!dryRun) triggerJellyfinScan();
     res.json({ dryRun: false, title: p.title, freedBytes: p.sizeBytes, results: await executeDelete(p) });
   } catch (e) {
     const msg = String(e.message || e);
     res.status(/HTTP 404/.test(msg) ? 404 : 500).json({ error: msg });
   }
 });
+
+// Delete a specific torrent from qBittorrent (used by the Downloads page stop button).
+app.post('/api/torrent/delete', async (req, res) => {
+  const { hash, deleteFiles = true } = req.body || {};
+  if (!hash) return res.status(400).json({ error: 'hash is required' });
+  try {
+    const body = new URLSearchParams({ hashes: hash, deleteFiles: String(deleteFiles) });
+    const r = await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+    res.json({ ok: r.ok });
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
+// Dismiss a declined entry from the Downloads view (torrent already gone, just
+// remove the tombstone so the row disappears).
+app.post('/api/declined/dismiss', (req, res) => {
+  const { hash } = req.body || {};
+  if (!hash) return res.status(400).json({ error: 'hash is required' });
+  declined.delete(hash);
+  persistState();
+  res.json({ ok: true });
+});
+
+// ---- Disk gate: decline a download that can't fit under the 20 GB cap ----
+// Single-admin Jellyseerr auto-approves the owner's OWN requests, so there's no
+// "pending" window to gate at the request stage. Instead we intercept at the download
+// stage: once a torrent's real size is known (from metadata, within seconds — before it
+// has pulled anything meaningful), if completing it would push /data past the cap we tear
+// the title down everywhere (the same recipe as a manual delete, so no Radarr re-grab
+// loop and the Jellyseerr mark is cleared) and remember WHY — the Downloads view then
+// shows "Declined — not enough disk space" instead of a stuck ENOSPC half-download.
+const declined = new Map(); // hash -> { title, neededBytes, freeBytes, ts, source }
+
+// Persist declined + blocked tombstones across restarts so the "Declined" rows
+// survive a controller reboot.
+function persistState() {
+  clearTimeout(persistState._timer);
+  persistState._timer = setTimeout(() => {
+    try {
+      const obj = { declined: {}, blocked: {} };
+      for (const [k, v] of declined) obj.declined[k] = v;
+      for (const [k, v] of blocked) obj.blocked[k] = v;
+      fs.writeFileSync('/config/state.json', JSON.stringify(obj));
+    } catch { /* */ }
+  }, 500);
+}
+function loadState() {
+  try {
+    const obj = JSON.parse(fs.readFileSync('/config/state.json', 'utf8'));
+    if (obj.declined) for (const [k, v] of Object.entries(obj.declined)) declined.set(k, v);
+    if (obj.blocked) for (const [k, v] of Object.entries(obj.blocked)) blocked.set(k, v);
+  } catch { /* */ }
+}
+loadState();
+
+async function arrIdForHash(app, hash) {
+  const r = (await getQueueMap(app)).get(hash);
+  if (r) return app === 'radarr' ? r.movieId : r.seriesId;
+  const hi = (await getHistoryIndex(app)).get(hash);
+  return hi ? hi.id : null;
+}
+
+let gateBusy = false;
+async function diskGate() {
+  if (gateBusy) return;                                   // teardown can outlast the interval
+  gateBusy = true;
+  try {
+    const now = Math.floor(Date.now() / 1000), DAY = 86400;
+    for (const [h, d] of declined) if (now - d.ts > DAY) declined.delete(h); // bound memory
+    let used, cap;
+    try {
+      const s = await fs.promises.statfs('/data');
+      const total = s.blocks * s.bsize;
+      used = total - s.bavail * s.bsize;
+      cap = total > 0 ? Math.min(CAP_BYTES, total) : CAP_BYTES;
+    } catch { return; }
+    const torrents = await getQbitTorrents();
+
+    // Build hash→arrId + id→hasFile maps once so we never decline already-imported media.
+    const idByHash = new Map();
+    const idHasFile = {};
+    for (const a of ['radarr', 'sonarr']) {
+      try { for (const r of ((await arrGet(a, '/history?pageSize=500&sortKey=date&sortDirection=descending')).records || [])) { const h = (r.downloadId || '').toLowerCase(); if (h && (r.movieId || r.seriesId) != null) idByHash.set(h, { app: a, id: r.movieId || r.seriesId }); } } catch { /* */ }
+      try { for (const r of ((await arrGet(a, '/queue?pageSize=200')).records || [])) { if (r.downloadId) idByHash.set(r.downloadId.toLowerCase(), { app: a, id: r.movieId || r.seriesId }); } } catch { /* */ }
+      try {
+        const m = new Map();
+        if (a === 'radarr') for (const mv of await arrGet('radarr', '/movie')) m.set(mv.id, !!mv.hasFile);
+        else for (const s of await arrGet('sonarr', '/series')) m.set(s.id, ((s.statistics && s.statistics.episodeFileCount) || 0) > 0);
+        idHasFile[a] = m;
+      } catch { idHasFile[a] = new Map(); }
+    }
+
+    // Pre-compute remaining bytes per *arr item so fragmented seasons are still
+    // blocked collectively but independent titles don't interfere with each other.
+    const pendingByItem = new Map(); // "app:id" → remaining bytes
+    for (const t of torrents) {
+      const app = torrentApp(t);
+      if (!app) continue;
+      const sz = t.size || 0;
+      if (sz <= 0 || (t.state || '') === 'metaDL') continue;
+      const h = (t.hash || '').toLowerCase();
+      const info = idByHash.get(h);
+      if (info) {
+        const key = `${info.app}:${info.id}`;
+        pendingByItem.set(key, (pendingByItem.get(key) || 0) + sz * (1 - (t.progress || 0)));
+      }
+    }
+
+    for (const t of torrents) {
+      const hash = (t.hash || '').toLowerCase();
+      if (!hash) continue;
+      const prev = declined.get(hash);
+      if (prev && now - prev.ts < 60) continue;           // just torn down — let qbit catch up
+      const app = torrentApp(t);
+      if (!app) continue;                                 // only *arr-managed titles
+      // Never decline a torrent whose *arr item already has files (already imported).
+      const hi = idByHash.get(hash);
+      if (hi && idHasFile[hi.app]?.get(hi.id) === true) continue;
+      const size = t.size || 0;
+      if (size <= 0 || (t.state || '') === 'metaDL') continue; // real size not known yet
+      const onDisk = size * (t.progress || 0);            // this torrent's bytes already on /data
+      const usedByOthers = Math.max(0, used - onDisk);
+      const thisPending = size - onDisk;                  // what this torrent still needs
+      // Only count other pending from the same *arr item, not cross-item.
+      const key = hi ? `${hi.app}:${hi.id}` : null;
+      const otherPending = key ? Math.max(0, (pendingByItem.get(key) || 0) - thisPending) : 0;
+      if (usedByOthers + size + otherPending <= cap) continue; // it fits — let it run
+      const freeForIt = Math.max(0, cap - usedByOthers - otherPending);
+      // Look up the *arr item via our batch map (built once per cycle), falling
+      // back to a fresh API call so we never miss — otherwise we'd delete the
+      // torrent but leave the *arr item orphaned with no files.
+      const hiId = hi ? hi.id : null;
+      const arrId = hiId != null ? hiId : await arrIdForHash(app, hash).catch(() => null);
+      try {
+        if (arrId != null) await executeDelete(await buildDeletePlan(app, arrId)); // full teardown
+        else await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: t.hash, deleteFiles: 'true' }) });
+      } catch (e) { console.log(`diskGate: teardown failed for "${t.name}" — ${String(e.message || e)}`); }
+      declined.set(hash, { title: t.name, neededBytes: size, freeBytes: freeForIt, ts: now, source: app, arrId });
+      console.log(`diskGate: declined "${t.name}" — needs ${size} B but only ${freeForIt} B free under cap`);
+    }
+
+    // Second pass: when we've declined a torrent for a specific *arr item, tear down
+    // ALL sibling torrents belonging to the same item (fragmented seasons where one
+    // episode is blocked should block the whole season). Uses `idByHash` from above.
+    for (const [dh, dd] of declined) {
+      if (now - dd.ts > 120 || dd.arrId == null) continue;
+      for (const t of torrents) {
+        const th = (t.hash || '').toLowerCase();
+        if (th === dh || declined.has(th) || !torrentApp(t) || torrentApp(t) !== dd.source) continue;
+        const info = idByHash.get(th);
+        if (info && info.id === dd.arrId) {
+          try {
+            await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: t.hash, deleteFiles: 'true' }) });
+          } catch { /* */ }
+          declined.set(th, { title: t.name, neededBytes: t.size || 0, freeBytes: 0, ts: now, source: dd.source, arrId: dd.arrId });
+        }
+      }
+    }
+  } finally { gateBusy = false; persistState(); }
+}
+setInterval(diskGate, 8000); // cheap (qbit info + statfs); catches a new torrent before it fills /data
+setTimeout(diskGate, 6000);
+
+// ---- Orphan sweep: tear down *arr torrents whose series/movie has been deleted ----
+// When a TV show or movie is deleted from the library some per-episode torrents may
+// still be waiting in the qBittorrent queue (or are added asynchronously by *arr in a
+// race with deletion). These orphans have an *arr category but belong to an item that
+// no longer exists — they'll keep downloading forever with no parent row to delete
+// them from. This sweep finds and removes them.
+let orphanBusy = false;
+async function orphanSweep() {
+  if (orphanBusy) return;
+  orphanBusy = true;
+  try {
+    const torrents = await getQbitTorrents();
+    let hasArr = false;
+    for (const t of torrents) { if (torrentApp(t)) { hasArr = true; break; } }
+    if (!hasArr) return;
+
+    const byApp = { radarr: [], sonarr: [] };
+    for (const t of torrents) { const a = torrentApp(t); if (a) byApp[a].push(t); }
+
+    for (const app of ['radarr', 'sonarr']) {
+      const arrTorrents = byApp[app];
+      if (!arrTorrents.length) continue;
+
+      let items;
+      try { items = await arrGet(app, app === 'radarr' ? '/movie' : '/series'); }
+      catch { continue; }
+      const knownIds = new Set(items.map((i) => i.id));
+
+      // Build hash → *arrId map from history + queue so we can link a torrent
+      // hash back to the movie/series it was grabbed for.
+      const idByHash = new Map();
+      try {
+        for (const r of ((await arrGet(app, '/history?pageSize=500&sortKey=date&sortDirection=descending')).records || [])) {
+          const h = (r.downloadId || '').toLowerCase(); if (!h) continue;
+          const pid = r.movieId || r.seriesId;
+          if (pid != null) idByHash.set(h, pid);
+        }
+      } catch { /* history down */ }
+      try {
+        for (const r of ((await arrGet(app, '/queue?pageSize=200')).records || [])) {
+          if (r.downloadId) idByHash.set(r.downloadId.toLowerCase(), r.movieId || r.seriesId);
+        }
+      } catch { /* queue down */ }
+
+      const toRemove = [];
+      for (const t of arrTorrents) {
+        const hash = (t.hash || '').toLowerCase();
+        const arrId = idByHash.get(hash);
+        // If we know the *arr item this torrent belongs to and that item is gone → orphan
+        if (arrId != null && !knownIds.has(arrId)) toRemove.push(t.hash);
+      }
+
+      if (toRemove.length) {
+        try {
+          const body = new URLSearchParams({ hashes: toRemove.join('|'), deleteFiles: 'true' });
+          await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+          console.log(`orphanSweep: removed ${toRemove.length} orphaned torrent(s) from ${app}`);
+        } catch (e) { console.log(`orphanSweep: teardown failed — ${String(e.message || e)}`); }
+      }
+    }
+  } finally { orphanBusy = false; }
+}
+setInterval(orphanSweep, 60000);
+setTimeout(orphanSweep, 15000);
+
+// ---- Request gate: surface a request that Radarr/Sonarr REJECTED for disk space ----
+// The *arrs enforce the 20 GB cap themselves ("…will exceed available disk space") and
+// drop the release at SEARCH time — so nothing ever reaches qBittorrent and the disk gate
+// above never sees it; Jellyseerr just shows "request successful" forever. We close that
+// gap: for a request stuck in "processing" with no download, we reproduce the *arr's own
+// rejections via an interactive search. If the only thing standing between us and a grab is
+// space (a release rejected SOLELY for disk space exists), we flag it Declined with the
+// real numbers. Non-disk stalls ("no release found yet") are transient — left alone.
+const blocked = new Map(); // `app:id:seasons` -> { title, neededBytes, freeBytes, ts, lastCheck }
+const DISK_REJ = /exceed available disk space/i;
+
+async function freeUnderCap() {
+  const s = await fs.promises.statfs('/data');
+  const total = s.blocks * s.bsize;
+  const cap = total > 0 ? Math.min(CAP_BYTES, total) : CAP_BYTES;
+  return Math.max(0, cap - (total - s.bavail * s.bsize));
+}
+async function arrTitle(app, id, seasons) {
+  try {
+    const it = await arrGet(app, app === 'radarr' ? `/movie/${id}` : `/series/${id}`);
+    let t = it.title + (it.year ? ` (${it.year})` : '');
+    if (app === 'sonarr' && seasons.length) t += seasons.length === 1 ? ` — Season ${seasons[0]}` : ` — Seasons ${seasons.join(', ')}`;
+    return t;
+  } catch { return 'Requested title'; }
+}
+// True if the *arr is already doing something about this id (queued / grabbed / has a file) —
+// i.e. it's NOT stuck, so there's nothing to explain.
+async function arrHasActivity(app, id) {
+  try { if (((await arrGet(app, '/queue?pageSize=200')).records || []).some((r) => (app === 'radarr' ? r.movieId : r.seriesId) === id)) return true; } catch { /* arr down */ }
+  try {
+    if (app === 'radarr') { if ((await arrGet('radarr', `/movie/${id}`)).hasFile) return true; }
+    else if (((await arrGet('sonarr', `/series/${id}`)).statistics || {}).episodeFileCount > 0) return true;
+  } catch { /* arr down */ }
+  try {
+    const h = await arrGet(app, app === 'radarr' ? `/history/movie?movieId=${id}` : `/history/series?seriesId=${id}`);
+    if ((Array.isArray(h) ? h : h.records || []).some((r) => (r.eventType || '').toLowerCase() === 'grabbed')) return true;
+  } catch { /* no history */ }
+  return false;
+}
+// Smallest release whose ONLY rejection is disk space = "the one we'd grab if it fit".
+function diskOnlyBlocker(releases) {
+  let best = null;
+  for (const r of releases) {
+    const rej = r.rejections || [];
+    if (!rej.length) return null;                       // a grabbable release exists → not a disk wall
+    if (rej.every((x) => DISK_REJ.test(x)) && (r.size || 0) > 0 && (!best || r.size < best.size)) best = r;
+  }
+  return best;                                          // null = stuck for some OTHER reason
+}
+async function diagnose(app, id, seasons) {
+  const rels = [];
+  try {
+    if (app === 'radarr') rels.push(...await arrGet('radarr', `/release?movieId=${id}`, 90000));
+    else for (const sn of (seasons.length ? seasons : [1])) { try { rels.push(...await arrGet('sonarr', `/release?seriesId=${id}&seasonNumber=${sn}`, 90000)); } catch { /* indexer hiccup */ } }
+  } catch { return null; }
+  return diskOnlyBlocker(rels);
+}
+
+let reqBusy = false;
+async function requestGate() {
+  if (reqBusy) return;
+  reqBusy = true;
+  try {
+    let results;
+    try { const r = await seerr.fetch('/api/v1/request?take=50&sort=added'); results = r.ok ? (await r.json()).results || [] : null; } catch { return; }
+    if (!results) return;
+    const now = Math.floor(Date.now() / 1000);
+    for (const [k, v] of blocked) if (now - v.ts > 86400) blocked.delete(k); // bound memory
+    let free = null;
+    for (const req of results) {
+      const app = req.type === 'tv' ? 'sonarr' : 'radarr';
+      const id = (req.media || {}).externalServiceId;
+      if (id == null) continue;
+      if (req.media.status !== 3) {                     // not "processing" (available/declined/etc.)
+        for (const k of [...blocked.keys()]) if (k.startsWith(`${app}:${id}:`)) blocked.delete(k);
+        continue;
+      }
+      const seasons = (req.seasons || []).map((s) => s.seasonNumber).filter((n) => n != null);
+      const key = `${app}:${id}:${seasons.join(',')}`;
+      const prev = blocked.get(key);
+      const created = Math.floor(new Date(req.createdAt || req.updatedAt || 0).getTime() / 1000);
+      if (created && now - created < 120) continue;     // let a normal grab happen first
+      if (prev && now - prev.lastCheck < 1800) continue; // re-diagnose at most every 30 min
+      if (await arrHasActivity(app, id)) { blocked.delete(key); continue; } // it's moving — not stuck
+      const hit = await diagnose(app, id, seasons);
+      if (hit) {
+        if (free == null) free = await freeUnderCap();
+        blocked.set(key, { title: await arrTitle(app, id, seasons), neededBytes: hit.size, freeBytes: free, ts: prev ? prev.ts : now, lastCheck: now });
+        console.log(`requestGate: "${key}" blocked on disk — best release ${hit.size} B vs ${free} B free`);
+      } else blocked.delete(key);                       // stuck for a non-disk reason → don't flag
+    }
+  } finally { reqBusy = false; persistState(); }
+}
+setInterval(requestGate, 60000);
+setTimeout(requestGate, 15000);
+
+// ---- Jellyfin library refresh (event-driven + self-healing periodic sweep) ----
+let _scanning = false;
+let _lastScan = 0;
+let _scanRetry = null;
+async function triggerJellyfinScan() {
+  if (_scanning || !cfg.JELLYFIN_KEY) return;
+  if (Date.now() - _lastScan < 30000) return; // debounce: at most once per 30s
+  _scanning = true;
+  try {
+    const r = await tfetch(`${HOST.jellyfin}/Library/Refresh`, { method: 'POST', headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY } }, 15000);
+    if (r.ok || r.status === 204) {
+      _lastScan = Date.now();
+      _scanRetry = null;
+    } else {
+      console.log(`jfLibraryRefresh: HTTP ${r.status} — will retry`);
+      if (!_scanRetry) _scanRetry = 0;
+      if (++_scanRetry <= 3) setTimeout(triggerJellyfinScan, 60000);
+    }
+  } catch {
+    if (!_scanRetry) _scanRetry = 0;
+    if (++_scanRetry <= 3) setTimeout(triggerJellyfinScan, 60000);
+  }
+  finally { _scanning = false; }
+}
+// Periodic safety-net scan + startup catch-up.
+// If no scan has succeeded in 10 minutes, fire one. This catches media that
+// *arr imported while the controller was down or the notification missed.
+setInterval(() => {
+  if (!cfg.JELLYFIN_KEY) return;
+  if (Date.now() - _lastScan > 600000) { console.log('jfScan: 10 min overdue — triggering refresh'); triggerJellyfinScan(); }
+}, 120000);
+// On controller start, wait for Jellyfin to be ready then do a catch-up scan
+// so media imported during downtime gets discovered.
+setTimeout(() => { if (cfg.JELLYFIN_KEY) { console.log('jfScan: startup catch-up scan'); triggerJellyfinScan(); } }, 45000);
+
+
 
 app.listen(PORT, () => console.log(`controller listening on :${PORT} (NUC_IP=${NUC_IP}, keys ${cfg.RADARR_KEY ? 'loaded' : 'NOT provisioned'})`));

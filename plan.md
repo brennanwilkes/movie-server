@@ -541,6 +541,18 @@ a private isolated home LAN with no inbound exposure. Stored in gitignored `.env
          (empty-library safety skips purging otherwise; single deletes clear via the scan),
       4) **Jellyseerr** `DELETE /api/v1/media/{mediaId}` — else it keeps showing the title as
          "Available" (404-tolerant/idempotent so a half-finished delete re-runs safely).
+- [x] **Disk gate — decline downloads that won't fit (done 2026-06-17):** the controller
+      can't gate at the Jellyseerr *request* stage (single-admin: Jellyseerr always
+      auto-approves the owner's own requests, so there's no pending window). Instead a
+      `diskGate()` sweep (every 8 s) intercepts at the *download* stage: once a torrent's
+      real size is known from metadata, if completing it would push `/data` past the 20 GB
+      cap (`usedByOthers + size > cap`) it tears the title down with the existing
+      delete-everywhere recipe (so Radarr won't re-grab and the Jellyseerr mark clears) and
+      records {title, needed, free}. `GET /api/downloads` surfaces these as a terminal
+      **"Declined"** row, styled red in the Downloads tab with the reason
+      *"Not enough disk space — needs X, only Y free"*. The 20 GB loopback remains the
+      physical backstop; the gate just makes the rejection early + explained instead of a
+      stuck ENOSPC. *(controller/server.js, controller/web/app.js)*
 - [ ] **Retention janitor** (bespoke, **dry-run by default**, never deletes until
       explicitly switched on): keeps monitored-but-unaired TV indefinitely; deletes
       movies N days after marked watched in Jellyfin; respects a "keep" allowlist.

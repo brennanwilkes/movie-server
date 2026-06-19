@@ -65,8 +65,9 @@ services:
     restart: unless-stopped
 
   jellyseerr:
-    image: fallenbagel/jellyseerr:latest
+    image: ghcr.io/seerr-team/seerr:latest
     container_name: jellyseerr
+    init: true
     environment: ["TZ=${TZ}", "LOG_LEVEL=info"]
     volumes: ["${CONFIG}/jellyseerr:/app/config"]
     ports: ["5055:5055"]

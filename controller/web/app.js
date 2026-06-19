@@ -10,6 +10,11 @@ const API = '';
 const WATCH_URL = `${NUC_BASE}:8096`;
 const REQUEST_URL = `${NUC_BASE}:5055`;
 
+// Deep-link helper — opens Jellyfin web UI in a new tab.
+function openJellyfin(path = '') {
+  window.open(`${WATCH_URL}/web/${path}`, '_blank');
+}
+
 // Static fallback so the launcher renders the "Tools" without the backend (matches /api/status).
 const CATALOG = [
   { id: 'qbittorrent', name: 'Downloads', brand: 'qBittorrent', port: 8080 },
@@ -106,17 +111,54 @@ async function pollHome() {
 // ── Downloads ──
 function renderDownloads(items) {
   $('#downloads-empty').hidden = items.length > 0;
-  const COLOR = { 'Needs attention': 'var(--danger)', 'In library': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--warn)' };
+  const COLOR = { Declined: 'var(--danger)', 'Needs attention': 'var(--danger)', 'In library': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--warn)' };
   $('#downloads').innerHTML = items.map((d) => {
     const eta = d.state === 'Downloading' ? fmtEta(d.etaSeconds) : '';
-    const meta = [d.state, d.state === 'Downloading' && d.progress ? d.progress + '%' : '', fmtBytes(d.sizeBytes), eta].filter(Boolean).join(' · ');
+    const leftMeta = d.state === 'Declined'
+      ? `Declined · Not enough disk space — needs ${fmtBytes(d.neededBytes)}, only ${fmtBytes(d.freeBytes)} free`
+      : [d.state, d.state === 'Downloading' && d.progress ? d.progress + '%' : '', fmtBytes(d.sizeBytes)].filter(Boolean).join(' · ');
     const color = COLOR[d.state] || '';
-    return `<li class="row dl${d.attention ? ' attn' : ''}">
-      <span class="title">${esc(d.title)}</span>
-      <div class="mini-bar"><div style="width:${Math.min(100, d.progress)}%${color ? `;background:${color}` : ''}"></div></div>
-      <div class="sub">${esc(meta)}</div>
+    const barW = d.state === 'Declined' ? 100 : Math.min(100, d.progress);
+    const isDone = d.state === 'In library' || d.state === 'Done';
+    const canDelete = d.hash && d.state !== 'In library' && d.state !== 'Done';
+    let cleanTitle = '';
+    if (isDone) {
+      const mt = d.title.match(/^(.+?)[. _-]+(?:S\d{2,}|Season\s*\d+|19\d{2}|20\d{2}|Full|COMPLETE)/i);
+      if (mt) cleanTitle = mt[1].replace(/[._]/g, ' ').trim();
+      else {
+        const mt2 = d.title.match(/^(.+?)[. _-]+(?:1080p|720p|2160p|480p|REMUX|BLURAY|WEB-?DL|WEBRIP|HDTV)/i);
+        cleanTitle = mt2 ? mt2[1].replace(/[._]/g, ' ').trim() : d.title.replace(/-[A-Za-z0-9]+$/, '').replace(/[._]/g, ' ').trim();
+      }
+    }
+    return `<li class="row dl${(d.attention || d.state === 'Declined') ? ' attn' : ''}${isDone ? ' done' : ''}" data-hash="${esc(d.hash || '')}" data-state="${esc(d.state)}" data-title="${esc(cleanTitle)}">
+      <div class="dl-title-row">
+        <span class="title">${esc(d.title)}</span>
+        ${canDelete ? `<button class="dl-stop" aria-label="Delete torrent & files"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg></button>` : ''}
+      </div>
+      <div class="mini-bar"><div style="width:${barW}%${color ? `;background:${color}` : ''}"></div></div>
+      <div class="sub dl-meta"><span>${esc(leftMeta)}</span>${eta ? `<span>${esc(eta)}</span>` : ''}</div>
     </li>`;
   }).join('');
+  // Event delegation on the parent list (survives 4s DOM replacement from poll)
+  const dl = $('#downloads');
+  dl._listener = dl._listener || dl.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.dl-stop');
+    const li = e.target.closest('li[data-title]');
+    if (btn) {
+      const bli = btn.closest('li');
+      const hash = bli && bli.dataset.hash;
+      if (!hash) return;
+      const state = bli && bli.dataset.state;
+      const ep = state === 'Declined' ? '/api/declined/dismiss' : '/api/torrent/delete';
+      try {
+        await postJSON(ep, { hash });
+        btn.disabled = true;
+        btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>';
+      } catch { toast('Failed to ' + (state === 'Declined' ? 'dismiss' : 'stop')); }
+    } else if (li) {
+      openJellyfin(`#/search?query=${encodeURIComponent(li.dataset.title)}`);
+    }
+  });
 }
 async function pollDownloads() {
   if (offline) return;
@@ -209,9 +251,9 @@ function toast(msg) {
   toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
 }
 
-// ── Home action buttons (static deep-links) ──
+// ── Home action buttons ──
 $('#request-btn').href = REQUEST_URL;
-$('#watch-btn').href = WATCH_URL;
+$('#watch-btn').addEventListener('click', (e) => { e.preventDefault(); openJellyfin(); });
 
 // ── Polling ──
 function poll(fn, ms) { fn(); return setInterval(fn, ms); }

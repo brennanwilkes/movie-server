@@ -58,3 +58,78 @@ jf_add_library() {  # name  collectionType  path
 }
 jf_add_library Movies movies   /media/movies
 jf_add_library TV     tvshows  /media/tv
+
+# 4. Install Intro Skipper plugin (auto-skip intros/credits in TV shows).
+#     Requires a third-party repository; the manifest is versioned by Jellyfin ABI.
+log "  ensuring Intro Skipper plugin is installed"
+installed=$(curl -fsS "$JF/Plugins" -H "X-Emby-Token: $token" | jq -r '.[].Name')
+if grep -qxF "Intro Skipper" <<<"$installed"; then
+  ok "Intro Skipper plugin already installed"
+else
+  repos=$(curl -fsS "$JF/Repositories" -H "X-Emby-Token: $token")
+  repo_url="https://raw.githubusercontent.com/intro-skipper/manifest/main/10.11/manifest.json"
+  if ! jq -e --arg u "$repo_url" '.[]|select(.Url==$u)' <<<"$repos" >/dev/null 2>&1; then
+    # POST replaces the entire list — merge existing + new.
+    merged=$(jq --arg n "Intro Skipper" --arg u "$repo_url" \
+      '. + [{"Name":$n,"Url":$u,"Enabled":true}]' <<<"$repos")
+    curl -fsS -X POST "$JF/Repositories" -H "X-Emby-Token: $token" \
+      -H 'Content-Type: application/json' -d "$merged" >/dev/null
+    ok "Intro Skipper repository registered"
+  else
+    ok "Intro Skipper repository already present"
+  fi
+  # Install the package. Name has a space — URL-encode it in the path.
+  curl -fsS -X POST "$JF/Packages/Installed/Intro%20Skipper" \
+    -H "X-Emby-Token: $token" >/dev/null
+  ok "Intro Skipper plugin installed — restart Jellyfin to activate"
+fi
+
+# 5. Enable native trickplay (scrubbing thumbnails on seek bar).
+#     Built into Jellyfin 10.9+ — no plugin needed.
+log "  enabling trickplay for libraries"
+libraries=$(curl -fsS "$JF/Library/VirtualFolders" -H "X-Emby-Token: $token")
+for lib_name in Movies TV; do
+  vf=$(jq --arg n "$lib_name" '.[]|select(.Name==$n)' <<<"$libraries")
+  [[ -n "$vf" ]] || { warn "  library '$lib_name' not found, skipping trickplay"; continue; }
+  if jq -e '.LibraryOptions.EnableTrickplayImageExtraction // false' <<<"$vf" | grep -q true; then
+    ok "trickplay already enabled for '$lib_name'"
+  else
+    jq '{Id: .ItemId, LibraryOptions: (.LibraryOptions | .EnableTrickplayImageExtraction=true | .ExtractTrickplayImagesDuringLibraryScan=true)}' <<<"$vf" \
+      | curl -fsS -X POST "$JF/Library/VirtualFolders/LibraryOptions" \
+          -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+    ok "trickplay enabled for '$lib_name'"
+  fi
+done
+
+# 6. Apply custom CSS (scyfin + OLED + red accent + polish).
+#     Pure CSS injected via the branding config — no plugin needed.
+log "  ensuring custom CSS theme is applied"
+branding=$(curl -fsS "$JF/System/Configuration/Branding" -H "X-Emby-Token: $token")
+css_urls="@import url('https://cdn.jsdelivr.net/gh/loof2736/scyfin@latest/CSS/scyfin-theme.css');
+@import url('https://cdn.jsdelivr.net/gh/loof2736/scyfin@latest/CSS/theme-oled.css');
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0, 164, 220, 0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 164, 220, 0.5); }"
+if [[ "$(jq -r '.CustomCss // ""' <<<"$branding")" == "$css_urls" ]]; then
+  ok "custom CSS theme already applied"
+else
+  jq --arg css "$css_urls" '.CustomCss = $css' <<<"$branding" \
+    | curl -fsS -X POST "$JF/System/Configuration/Branding" \
+        -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+  ok "custom CSS theme applied"
+fi
+
+# 7. Restart Jellyfin so plugin and CSS changes take effect (Branding API writes
+#     to disk but server caches config in memory until restart).
+log "  restarting Jellyfin to apply changes"
+docker restart jellyfin
+for i in $(seq 1 30); do
+  token=$(curl -fsS -X POST "$JF/Users/AuthenticateByName" \
+    -H "X-Emby-Authorization: $AUTHHDR" -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg n "$JELLYFIN_ADMIN_USER" --arg p "$JELLYFIN_ADMIN_PASS" '{Username:$n,Pw:$p}')" \
+    2>/dev/null | jq -r '.AccessToken' 2>/dev/null) || true
+  [[ -n "$token" && "$token" != "null" ]] && break
+  sleep 2
+done
+[[ -n "$token" && "$token" != "null" ]] || die "auth failed after restart"
