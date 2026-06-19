@@ -130,7 +130,7 @@ function renderDownloads(items) {
         cleanTitle = mt2 ? mt2[1].replace(/[._]/g, ' ').trim() : d.title.replace(/-[A-Za-z0-9]+$/, '').replace(/[._]/g, ' ').trim();
       }
     }
-    return `<li class="row dl${(d.attention || d.state === 'Declined') ? ' attn' : ''}${isDone ? ' done' : ''}" data-hash="${esc(d.hash || '')}" data-state="${esc(d.state)}" data-title="${esc(cleanTitle)}">
+    return `<li class="row dl${(d.attention || d.state === 'Declined') ? ' attn' : ''}${isDone ? ' done' : ''}" data-hash="${esc(d.hash || '')}" data-state="${esc(d.state)}" data-title="${esc(cleanTitle)}" data-source="${esc(d.source)}">
       <div class="dl-title-row">
         <span class="title">${esc(d.title)}</span>
         ${canDelete ? `<button class="dl-stop" aria-label="Delete torrent & files"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg></button>` : ''}
@@ -143,20 +143,36 @@ function renderDownloads(items) {
   const dl = $('#downloads');
   dl._listener = dl._listener || dl.addEventListener('click', async (e) => {
     const btn = e.target.closest('.dl-stop');
-    const li = e.target.closest('li[data-title]');
+    const li = e.target.closest('li.dl.done');
     if (btn) {
       const bli = btn.closest('li');
       const hash = bli && bli.dataset.hash;
       if (!hash) return;
       const state = bli && bli.dataset.state;
-      const ep = state === 'Declined' ? '/api/declined/dismiss' : '/api/torrent/delete';
-      try {
-        await postJSON(ep, { hash });
-        btn.disabled = true;
-        btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>';
-      } catch { toast('Failed to ' + (state === 'Declined' ? 'dismiss' : 'stop')); }
+      if (state === 'Declined') {
+        // A declined row is just a tombstone (already torn down everywhere) — dismiss inline.
+        try {
+          await postJSON('/api/declined/dismiss', { hash });
+          btn.disabled = true;
+          btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>';
+        } catch { toast('Failed to dismiss'); }
+      } else {
+        // Same deep, layered teardown + confirmation sheet as the Library tab.
+        const t = bli.querySelector('.title');
+        openSheet({ hash, source: bli.dataset.source, title: t ? t.textContent : 'this download' });
+      }
     } else if (li) {
-      openJellyfin(`#/search?query=${encodeURIComponent(li.dataset.title)}`);
+      // Open the tab synchronously (inside the click gesture, so it isn't popup-blocked),
+      // then deep-link to the exact item once resolved — falling back to a search.
+      const title = li.dataset.title;
+      const w = window.open(`${WATCH_URL}/web/`, '_blank');
+      let path = `#/search?query=${encodeURIComponent(title)}`;
+      try {
+        const qs = new URLSearchParams({ title, hash: li.dataset.hash || '', source: li.dataset.source || '' });
+        const { id, serverId } = await getJSON(`/api/jellyfin/resolve?${qs}`);
+        if (id) path = `#/details?id=${id}${serverId ? `&serverId=${serverId}` : ''}`;
+      } catch { /* keep the search fallback */ }
+      if (w) w.location.href = `${WATCH_URL}/web/${path}`;
     }
   });
 }
@@ -191,7 +207,7 @@ function renderLibrary() {
         <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg>
       </button>
     </li>`).join('');
-  $$('#library .trash').forEach((btn) => btn.addEventListener('click', () => openSheet(+btn.dataset.id)));
+  $$('#library .trash').forEach((btn) => btn.addEventListener('click', () => openSheet({ app: libApp, id: +btn.dataset.id })));
 }
 async function loadLibrary() {
   if (offline) { $('#library').innerHTML = ''; $('#library-empty').hidden = false; $('#library-empty').textContent = 'Connect to your home network to manage your library.'; return; }
@@ -205,16 +221,20 @@ function closeSheet() { $('#sheet-backdrop').hidden = true; pending = null; }
 $('#sheet-cancel').addEventListener('click', closeSheet);
 $('#sheet-backdrop').addEventListener('click', (e) => { if (e.target === $('#sheet-backdrop')) closeSheet(); });
 
-async function openSheet(id) {
-  const item = libItems.find((m) => m.id === id);
-  pending = { app: libApp, id };
-  $('#sheet-title').textContent = `Remove “${item ? item.title : 'this title'}” everywhere?`;
+// target: {app, id} (Library) | {hash, source, title} (Downloads). Both hit /api/delete,
+// which resolves a download's hash to its *arr item for the same layered teardown.
+async function openSheet(target) {
+  const isDl = target.id == null;
+  const body = isDl ? { hash: target.hash, source: target.source } : { app: target.app, id: target.id };
+  const titleText = target.title || (libItems.find((m) => m.id === target.id) || {}).title || 'this title';
+  pending = { isDl, body, id: target.id };
+  $('#sheet-title').textContent = `Remove “${titleText}” everywhere?`;
   $('#sheet-sub').textContent = 'Checking what will be cleaned up…';
   $('#sheet-plan').innerHTML = '';
   $('#sheet-confirm').disabled = true;
   $('#sheet-backdrop').hidden = false;
   try {
-    const plan = await postJSON('/api/delete', { app: libApp, id, dryRun: true });
+    const plan = await postJSON('/api/delete', { ...body, dryRun: true });
     pending.freed = plan.freedBytes;
     $('#sheet-sub').textContent = plan.freedBytes ? `Frees about ${fmtBytes(plan.freedBytes)}.` : 'Removes it from every app.';
     $('#sheet-plan').innerHTML = plan.plan.map((p) => `
@@ -230,15 +250,15 @@ async function openSheet(id) {
 
 $('#sheet-confirm').addEventListener('click', async () => {
   if (!pending) return;
-  const { app, id, freed } = pending;
+  const { body, isDl, id, freed } = pending;
   $('#sheet-confirm').disabled = true;
   $('#sheet-confirm').textContent = 'Removing…';
   try {
-    await postJSON('/api/delete', { app, id, dryRun: false });
-    libItems = libItems.filter((m) => m.id !== id);
-    renderLibrary();
+    await postJSON('/api/delete', { ...body, dryRun: false });
+    if (!isDl) { libItems = libItems.filter((m) => m.id !== id); renderLibrary(); }
     toast(freed ? `Freed ${fmtBytes(freed)}` : 'Removed');
     pollHome();
+    if (isDl) pollDownloads();
   } catch { toast('Something went wrong'); }
   finally { $('#sheet-confirm').textContent = 'Remove'; closeSheet(); }
 });

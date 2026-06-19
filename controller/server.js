@@ -26,7 +26,8 @@ const cfg = loadCfg();
 
 const PORT = Number(cfg.CONTROLLER_PORT || 8088);
 const NUC_IP = cfg.NUC_IP || '192.168.1.74';
-const CAP_BYTES = 20 * 1024 * 1024 * 1024; // 20 GiB loopback cap
+// The $DATA loopback image IS the hard cap, so its live filesystem size (from statfs
+// below) is the real number — no hardcoded constant to drift out of sync on resize.
 
 // Internal (container-network) bases + external ports for browser deep-links.
 const HOST = {
@@ -125,6 +126,42 @@ async function jellyfinResolve(type, title, tmdbId) {
   return { itemId: (match && match.Id) || null, libraryEmptyAfter: total <= 1 };
 }
 
+// Server identity (the `serverId` deep-link param) — stable per Jellyfin install, cached.
+let _jfServerId = null;
+async function jellyfinServerId() {
+  if (_jfServerId) return _jfServerId;
+  const r = await tfetch(`${HOST.jellyfin}/System/Info`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 5000);
+  _jfServerId = (await r.json()).Id || null;
+  return _jfServerId;
+}
+// Exact item lookup by TMDB id — Jellyfin items carry ProviderIds.Tmdb, so a torrent's
+// Radarr/Sonarr tmdbId pins the library item precisely (no fuzzy title matching). The
+// server-side `anyProviderIdEquals` filter is a no-op on this build, so match client-side
+// over the (small) library.
+async function jellyfinIdByTmdb(type, tmdbId) {
+  if (!cfg.JELLYFIN_KEY || !tmdbId) return null;
+  const uid = await jellyfinUserId();
+  const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+  const q = new URLSearchParams({ recursive: 'true', includeItemTypes: type || 'Movie,Series', fields: 'ProviderIds', limit: '2000' });
+  const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 8000)).json()).Items) || [];
+  const m = items.find((i) => i.ProviderIds && String(i.ProviderIds.Tmdb) === String(tmdbId));
+  return (m && m.Id) || null;
+}
+// Fallback title→item-id lookup (used only when there's no Radarr/Sonarr tmdb id to pin on).
+async function jellyfinSearchId(title, type) {
+  if (!cfg.JELLYFIN_KEY || !title) return null;
+  const uid = await jellyfinUserId();
+  const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+  const q = new URLSearchParams({ recursive: 'true', searchTerm: title, includeItemTypes: type || 'Movie,Series', fields: 'ProductionYear', limit: '10' });
+  const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 6000)).json()).Items) || [];
+  return (items[0] && items[0].Id) || null;
+}
+// Look up a Radarr/Sonarr item's TMDB id (for exact Jellyfin resolution).
+async function arrTmdbId(app, id) {
+  try { const it = await arrGet(app, app === 'radarr' ? `/movie/${id}` : `/series/${id}`); return it.tmdbId || null; }
+  catch { return null; }
+}
+
 // ── Jellyseerr media row lookup by TMDB id ──
 async function seerrMediaId(kind, tmdbId) {
   const r = await seerr.fetch(`/api/v1/${kind}/${tmdbId}`);
@@ -171,7 +208,7 @@ app.get('/api/disk', async (_req, res) => {
     const total = s.blocks * s.bsize;
     const free = s.bavail * s.bsize;
     const used = total - free;
-    const cap = total > 0 ? Math.min(CAP_BYTES, total) : CAP_BYTES;
+    const cap = total > 0 ? total : 0;
     res.json({ path: '/data', used_bytes: used, total_bytes: total, free_bytes: free, cap_bytes: cap, used_pct: cap ? Math.round((used / cap) * 100) : 0 });
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
@@ -302,6 +339,27 @@ app.get('/api/downloads', async (_req, res) => {
   res.json({ items });
 });
 
+// Resolve a (cleaned) title to a Jellyfin item id + server id, so the UI can deep-link
+// straight to the item's details page instead of dropping the user on a search results page.
+app.get('/api/jellyfin/resolve', async (req, res) => {
+  const title = String(req.query.title || '');
+  const hash = String(req.query.hash || '').toLowerCase();
+  const src = String(req.query.source || req.query.type || '').toLowerCase();
+  const app = src === 'sonarr' ? 'sonarr' : src === 'radarr' ? 'radarr' : null;
+  const typeMap = { radarr: 'Movie', movie: 'Movie', sonarr: 'Series', series: 'Series', tv: 'Series' };
+  const type = typeMap[src] || null;
+  try {
+    let id = null;
+    if (app && hash) {                                   // exact: hash → *arr id → tmdb → Jellyfin item
+      const arrId = await arrIdForHash(app, hash);
+      if (arrId != null) id = await jellyfinIdByTmdb(type, await arrTmdbId(app, arrId));
+    }
+    if (!id && title) id = await jellyfinSearchId(title, type);   // fallback for non-*arr titles
+    const serverId = await jellyfinServerId();
+    res.json({ id, serverId });
+  } catch { res.json({ id: null, serverId: null }); }
+});
+
 // ---- Auto-import watchdog (backend, container-to-container; NOT driven by the UI) ----
 // The happy path is event-driven: qBittorrent finishes → *arr imports → *arr pushes a
 // "library updated" notification to Jellyfin. But when *arr DROPS a completed download
@@ -389,7 +447,7 @@ async function buildDeletePlan(app, id) {
 function planItems(p) {
   const n = p.torrents.length;
   return [
-    { layer: 1, app: p.isMovie ? 'Radarr' : 'Sonarr', action: p.isMovie ? 'Delete the movie & its file' : 'Delete the series & its files', willRun: true },
+    { layer: 1, app: p.isMovie ? 'Radarr' : 'Sonarr', action: p.id == null ? 'Not tracked here — nothing to remove' : (p.isMovie ? 'Delete the movie & its file' : 'Delete the series & its files'), willRun: p.id != null },
     { layer: 2, app: 'qBittorrent', action: n ? `Stop seeding & remove ${n} download${n > 1 ? 's' : ''}` : 'No active download to remove', willRun: n > 0 },
     { layer: 3, app: 'Jellyfin', action: (p.jf.itemId && p.jf.libraryEmptyAfter) ? 'Remove from the library' : 'Clears automatically on scan', willRun: !!(p.jf.itemId && p.jf.libraryEmptyAfter) },
     { layer: 4, app: 'Jellyseerr', action: p.seerrId ? 'Clear the “Available” mark' : 'Not in requests', willRun: !!p.seerrId },
@@ -400,7 +458,9 @@ async function executeDelete(p) {
   const out = [];
   const arrName = p.isMovie ? 'Radarr' : 'Sonarr';
   // 1 — Radarr/Sonarr (file + Jellyfin auto-scan notification fires here).
-  try {
+  if (p.id == null) {
+    out.push({ layer: 1, app: arrName, status: 'skipped', detail: 'not tracked' });
+  } else try {
     const r = await arrDelete(p.isMovie ? 'radarr' : 'sonarr', p.isMovie ? `/movie/${p.id}?deleteFiles=true&addImportExclusion=false` : `/series/${p.id}?deleteFiles=true&addImportExclusion=false`);
     out.push({ layer: 1, app: arrName, status: r.ok ? 'done' : 'error', detail: r.ok ? 'deleted' : `HTTP ${r.status}` });
   } catch (e) { out.push({ layer: 1, app: arrName, status: 'error', detail: String(e.message || e) }); }
@@ -429,11 +489,28 @@ async function executeDelete(p) {
   return out;
 }
 
+// Build a deletion plan from a torrent hash — used by the Downloads page so its delete
+// button does the same deep, layered teardown as the Library tab. Resolves the torrent to
+// its Radarr/Sonarr item when one exists; otherwise falls back to a torrent-only removal.
+async function buildDeletePlanFromHash(hash, source) {
+  const h = hash.toLowerCase();
+  const order = source === 'sonarr' ? ['sonarr', 'radarr'] : source === 'radarr' ? ['radarr', 'sonarr'] : ['radarr', 'sonarr'];
+  for (const app of order) {
+    const id = await arrIdForHash(app, h);
+    if (id != null) return buildDeletePlan(app, id);
+  }
+  // No *arr item — assemble a torrent-only plan (layer 1 will show as "not tracked").
+  let t = null;
+  try { const r = await qbit.fetch('/api/v2/torrents/info'); if (r.ok) t = (await r.json()).find((x) => (x.hash || '').toLowerCase() === h); } catch { /* qbit down */ }
+  return { isMovie: source !== 'sonarr', id: null, title: (t && t.name) || 'this download', sizeBytes: (t && t.size) || 0, torrents: t ? [t] : [], jf: { itemId: null, libraryEmptyAfter: false }, seerrId: null };
+}
+
 app.post('/api/delete', async (req, res) => {
-  const { app: a, id, dryRun = true } = req.body || {};
-  if (!['radarr', 'sonarr'].includes(a) || id == null) return res.status(400).json({ error: 'body must be {app:"radarr"|"sonarr", id, dryRun?}' });
+  const { app: a, id, hash, source, dryRun = true } = req.body || {};
+  const byHash = id == null && !!hash;
+  if (!byHash && (!['radarr', 'sonarr'].includes(a) || id == null)) return res.status(400).json({ error: 'body must be {app,id} or {hash,source?}' });
   try {
-    const p = await buildDeletePlan(a, id);
+    const p = byHash ? await buildDeletePlanFromHash(hash, source) : await buildDeletePlan(a, id);
     if (dryRun) return res.json({ dryRun: true, title: p.title, freedBytes: p.sizeBytes, plan: planItems(p) });
     if (!dryRun) triggerJellyfinScan();
     res.json({ dryRun: false, title: p.title, freedBytes: p.sizeBytes, results: await executeDelete(p) });
@@ -515,7 +592,7 @@ async function diskGate() {
       const s = await fs.promises.statfs('/data');
       const total = s.blocks * s.bsize;
       used = total - s.bavail * s.bsize;
-      cap = total > 0 ? Math.min(CAP_BYTES, total) : CAP_BYTES;
+      cap = total > 0 ? total : 0;
     } catch { return; }
     const torrents = await getQbitTorrents();
 
@@ -683,7 +760,7 @@ const DISK_REJ = /exceed available disk space/i;
 async function freeUnderCap() {
   const s = await fs.promises.statfs('/data');
   const total = s.blocks * s.bsize;
-  const cap = total > 0 ? Math.min(CAP_BYTES, total) : CAP_BYTES;
+  const cap = total > 0 ? total : 0;
   return Math.max(0, cap - (total - s.bavail * s.bsize));
 }
 async function arrTitle(app, id, seasons) {
