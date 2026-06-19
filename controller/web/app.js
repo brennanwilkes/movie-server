@@ -131,7 +131,7 @@ async function pollHome() {
 // ── Downloads ──
 function renderDownloads(items) {
   $('#downloads-empty').hidden = items.length > 0;
-  const COLOR = { Declined: 'var(--danger)', 'Needs attention': 'var(--danger)', 'Ready': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--warn)', 'Getting subtitles': 'var(--warn)' };
+  const COLOR = { Declined: 'var(--danger)', 'Needs attention': 'var(--danger)', Error: 'var(--danger)', 'Ready': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--warn)', 'Getting subtitles': 'var(--warn)', Processing: 'var(--warn)', Stalled: 'var(--warn)' };
   $('#downloads').innerHTML = items.map((d) => {
     const eta = d.state === 'Downloading' ? fmtEta(d.etaSeconds) : '';
     const leftMeta = d.state === 'Declined'
@@ -296,8 +296,11 @@ $('#request-btn').href = REQUEST_URL;
 $('#watch-btn').addEventListener('click', (e) => { e.preventDefault(); openJellyfin(); });
 
 // ── Polling ──
-function poll(fn, ms) { fn(); return setInterval(fn, ms); }
+// Skip work while the tab is hidden (backgrounded/screen off) — there's nothing to repaint
+// and no point hammering the services. Snap back to fresh data the instant the tab is shown.
+function poll(fn, ms) { const tick = () => { if (!document.hidden) fn(); }; tick(); return setInterval(tick, ms); }
 poll(pollHome, 10000);
 poll(pollDownloads, 4000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { pollHome(); pollDownloads(); } });
 let startTab; try { startTab = localStorage.getItem('tab'); } catch { /* ignore */ }
 showTab(['home', 'downloads', 'library'].includes(startTab) ? startTab : 'home');

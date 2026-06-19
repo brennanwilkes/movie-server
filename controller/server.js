@@ -349,6 +349,41 @@ async function subsReady(app, id, completionOn) {
   } catch { return true; }                                              // Bazarr down → fail open
 }
 
+// ── Jellyfin: scan-and-probe gate ──
+// *arr reporting hasFile means the file is in the library FOLDER — but Jellyfin still has to
+// scan that folder and ffprobe each file before a playable MediaSource exists. In that window
+// the episode/movie ITEM exists (so it shows in Jellyfin) but tapping Watch errors with
+// "Unable to find a valid media source to play". So we hold the Downloads row at "Processing"
+// until Jellyfin has actually probed the title (RunTimeTicks populated). Fails OPEN (returns
+// true) whenever we can't resolve the item or Jellyfin is unreachable, and lapses after
+// JF_GRACE, so a probe that never registers can never wedge a row permanently.
+const JF_GRACE = 1800; // s — max time to hold a freshly-imported title at "Processing"
+async function jellyfinReady(app, arrId, completionOn) {
+  if (!cfg.JELLYFIN_KEY || arrId == null) return true;                 // can't gate → don't
+  if (completionOn && Math.floor(Date.now() / 1000) - completionOn > JF_GRACE) return true;
+  try {
+    const type = app === 'sonarr' ? 'Series' : 'Movie';
+    const arrItem = await arrGet(app, app === 'radarr' ? `/movie/${arrId}` : `/series/${arrId}`);
+    // Resolve the Jellyfin item: pin on TMDB id, else fall back to a title search.
+    let itemId = await jellyfinIdByTmdb(type, arrItem.tmdbId);
+    if (!itemId) itemId = await jellyfinSearchId(arrItem.title, type);
+    if (!itemId) return false;                                         // Jellyfin hasn't created it yet
+    const uid = await jellyfinUserId();
+    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+    if (app === 'radarr') {                                            // movie: the item itself carries the runtime once probed
+      const it = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${itemId}`, { headers: h }, 6000)).json();
+      return (it.RunTimeTicks || 0) > 0;
+    }
+    // sonarr: every imported episode must be present AND probed — a half-scanned season would
+    // otherwise go green while its later episodes still error on Watch.
+    const expected = ((arrItem.statistics || {}).episodeFileCount) || 0;
+    const q = new URLSearchParams({ parentId: itemId, recursive: 'true', includeItemTypes: 'Episode', fields: 'RunTimeTicks', limit: '2000' });
+    const eps = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 8000)).json()).Items) || [];
+    const allProbed = eps.length > 0 && eps.every((e) => (e.RunTimeTicks || 0) > 0);
+    return expected > 0 ? (eps.length >= expected && allProbed) : allProbed;
+  } catch { return true; }                                            // Jellyfin hiccup → fail open
+}
+
 // Per-folder import-rescue state (NOT sticky): the watchdog retries with backoff, and
 // a title flips to "Ready" the moment *arr reports hasFile — regardless of this.
 const importState = new Map(); // folder -> { lastTry, reason }
@@ -376,25 +411,35 @@ async function buildDownloads() {
     const qrec = app ? queues[app].get(h) : null;
     let state, attention = false, recover = null;
     if (qrec) {                                    // *arr is actively tracking it
-      const tds = (qrec.trackedDownloadState || '').toLowerCase();
-      if ((qrec.status || '').toLowerCase() === 'paused') state = 'Paused';
-      else if (tds.includes('import')) state = 'Importing';
-      else if (prog < 100) state = 'Downloading';
-      else state = 'Importing';
-    } else if (prog < 100) {                        // still downloading
+      // *arr's queue exposes BOTH its own view (trackedDownloadState/Status) and the underlying
+      // torrent (t.state). Surface real trouble from EITHER source — a stalled or errored
+      // download that *arr still lists must never masquerade as "Downloading".
+      const tds = (qrec.trackedDownloadState || '').toLowerCase();      // downloading|importPending|importing|imported|failedPending|failed
+      const tdStatus = (qrec.trackedDownloadStatus || '').toLowerCase(); // ok|warning|error
+      const ts = friendlyTorrentState(t);                               // Paused|Error|Seeding|Starting|Queued|Stalled|Downloading
+      if ((qrec.status || '').toLowerCase() === 'paused' || ts === 'Paused') state = 'Paused';
+      else if (ts === 'Error') { state = 'Error'; attention = true; }                          // qbit errored / lost its files
+      else if (tds === 'failed' || tds === 'failedpending' || tdStatus === 'error') { state = 'Needs attention'; attention = true; } // download/import failed in *arr
+      else if (tds.includes('import')) state = 'Importing';                                    // importPending/importing
+      else if (prog < 100) state = (ts === 'Stalled' || ts === 'Queued' || ts === 'Starting') ? ts : 'Downloading'; // honour a real stall
+      else state = 'Importing';                                         // complete in qbit, waiting on *arr to import
+    } else if (prog < 100) {                        // still downloading, *arr not (yet) tracking
       state = friendlyTorrentState(t);
     } else if (app) {                               // complete, no longer in the *arr queue
       const hi = hist[app] && hist[app].get(h);
       const imported = !!(hi && (hi.imported || (hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
       if (imported) {
-        // *arr has the file, but don't go green until Bazarr has grabbed subs (or the grace
-        // window lapses) — "Ready" is the only clickable/ready state, so it must mean
-        // *fully* ready, subtitles included.
-        if (await subsReady(app, hi && hi.id, t.completion_on)) {
-          state = 'Ready';                     // imported AND subtitles settled — ready to watch
-          if (!knownInLibrary.has(h)) { knownInLibrary.add(h); triggerJellyfinScan(); }
-        } else {
+        // *arr has the file, but "Ready" is the only clickable/playable state — so it must mean
+        // *fully* ready: subtitles fetched AND Jellyfin has scanned+probed the file (else Watch
+        // errors with "no valid media source"). Kick the scan as soon as the file lands so
+        // Jellyfin is working while we hold the row; gate green on both checks below.
+        if (!knownInLibrary.has(h)) { knownInLibrary.add(h); triggerJellyfinScan(); }
+        if (!(await subsReady(app, hi && hi.id, t.completion_on))) {
           state = 'Getting subtitles';              // in the library, Bazarr still working on subs
+        } else if (!(await jellyfinReady(app, hi && hi.id, t.completion_on))) {
+          state = 'Processing';                     // Jellyfin still scanning/probing — not playable yet
+        } else {
+          state = 'Ready';                          // imported, subs settled, Jellyfin probed — watchable
         }
       } else {                                      // downloaded but *arr has NOT imported it
         recover = { app, folder: t.content_path };
@@ -407,9 +452,9 @@ async function buildDownloads() {
     }
     const finished = state === 'Ready' || state === 'Done';
     const show = !finished || ((t.completion_on || 0) > 0 && now - t.completion_on <= DAY);
-    if (show) items.push({ title: t.name, progress: (state === 'Importing' || state === 'Needs attention' || state === 'Getting subtitles') ? 100 : prog, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash });
+    if (show) items.push({ title: t.name, progress: (state === 'Importing' || state === 'Needs attention' || state === 'Getting subtitles' || state === 'Processing') ? 100 : prog, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash });
   }
-  const rank = (s) => s === 'Needs attention' ? 0 : (s === 'Ready' || s === 'Done') ? 2 : 1;
+  const rank = (s) => (s === 'Needs attention' || s === 'Error') ? 0 : (s === 'Ready' || s === 'Done') ? 2 : 1;
   items.sort((a, b) => rank(a.state) - rank(b.state));
   return items;
 }
