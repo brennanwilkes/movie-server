@@ -54,8 +54,8 @@
     <!-- LIBRARY -->
     <section id="tab-library" class="tab" hidden>
       <div class="segmented" id="lib-toggle">
-        <button data-app="radarr" class="active">Movies</button>
-        <button data-app="sonarr">TV</button>
+        <button data-app="radarr" class="active">Movies <span class="count" id="lib-count-radarr"></span></button>
+        <button data-app="sonarr">TV <span class="count" id="lib-count-sonarr"></span></button>
       </div>
       <input id="lib-search" class="search" type="search" placeholder="Search to clean up…" autocomplete="off">
       <ul id="library" class="list"></ul>

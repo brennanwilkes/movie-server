@@ -16,6 +16,8 @@ skey=$(arr_apikey "$CONFIG/sonarr")
 pkey=$(arr_apikey "$CONFIG/prowlarr")
 # Bazarr keeps its key in config.yaml, not config.xml — best-effort (version-only).
 bkey=$(grep -oP 'apikey:\s*\K\S+' "$CONFIG/bazarr/config/config.yaml" 2>/dev/null | head -n1 || true)
+# Seerr (jellyseerr) API key from its settings.json.
+seerrkey=$(python3 -c "import json; print(json.load(open('$CONFIG/jellyseerr/settings.json'))['main']['apiKey'])" 2>/dev/null || true)
 # Jellyfin: mint (or reuse) a dedicated, revocable key for the controller.
 jfkey=$(jellyfin_apikey controller)
 [[ -n "$rkey" && -n "$skey" && -n "$jfkey" ]] || die "controller: missing a required key (radarr/sonarr/jellyfin) — deploy + provision those first"
@@ -30,6 +32,7 @@ RADARR_KEY=$rkey
 SONARR_KEY=$skey
 PROWLARR_KEY=$pkey
 BAZARR_KEY=$bkey
+SEERR_KEY=$seerrkey
 JELLYFIN_KEY=$jfkey
 QBIT_USER=$QBIT_USER
 QBIT_PASS=$QBIT_PASS

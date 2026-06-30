@@ -38,13 +38,13 @@ js_add_arr() {
   local test prof rootpath
   test=$(curl -s -b "$jar" -X POST "$JS/settings/$kind/test" -H 'Content-Type: application/json' \
           -d "$(jq -n --arg h "$host" --argjson p "$port" --arg k "$key" '{hostname:$h,port:$p,apiKey:$k,useSsl:false,baseUrl:""}')")
-  prof=$(echo "$test" | jq '([.profiles[]|select(.name=="HD-1080p")][0].id) // (.profiles[0].id)')
+  prof=$(echo "$test" | jq '([.profiles[]|select(.name=="Normal")][0].id) // ([.profiles[]|select(.name=="HD-1080p")][0].id) // (.profiles[0].id)')
   rootpath=$(echo "$test" | jq -r --arg r "$root" '([.rootFolders[]|select(.path==$r)][0].path) // (.rootFolders[0].path)')
   local body
   body=$(jq -n --arg name "${kind^}" --arg h "$host" --argjson p "$port" --arg k "$key" \
               --argjson prof "$prof" --arg root "$rootpath" --argjson extra "$extra" \
     '{name:$name,hostname:$h,port:$p,apiKey:$k,useSsl:false,baseUrl:"",
-      activeProfileId:$prof,activeProfileName:"HD-1080p",activeDirectory:$root,
+      activeProfileId:$prof,activeProfileName:"Normal",activeDirectory:$root,
       is4k:false,isDefault:true,externalUrl:"",syncEnabled:true,preventSearch:false,tagRequests:false,tags:[]} + $extra')
   local resp; resp=$(curl -s -b "$jar" -X POST "$JS/settings/$kind" -H 'Content-Type: application/json' -d "$body")
   if echo "$resp" | jq -e '.id' >/dev/null 2>&1; then ok "jellyseerr: $kind added (profile $prof, root $rootpath)"

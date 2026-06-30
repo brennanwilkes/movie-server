@@ -111,108 +111,184 @@ provision_arr() {
     fi
     local resp
     resp=$("${AJ[@]}" -X PUT "${base}/qualitydefinition/$(echo "$cur" | jq '.id')" -d "$body" 2>/dev/null)
-    if echo "$resp" | head -1 | jq -e '.id' >/dev/null 2>&1; then
+    if echo "$resp" | jq -e '.id' >/dev/null 2>&1; then
       ok "${app}: ${qname} preferred size ${pref} MB/min"
     else
       warn "${app}: ${qname} could not update preferred size: $(echo "$resp" | jq -c '(.[0].errorMessage // .message // .)' 2>/dev/null)"
     fi
   done <<< "$(echo "$qd" | if [[ "$app" == "radarr" ]]; then
-    jq -r '.[] | select(.quality.name as \$n |
-      \$n == "Bluray-1080p" or \$n == "HDTV-1080p" or \$n == "WEBDL-1080p" or \$n == "WEBRip-1080p"
-      or \$n == "Bluray-720p" or \$n == "HDTV-720p" or \$n == "Remux-1080p")
+    jq -r '.[] | select(.quality.name as $n |
+      $n == "Bluray-1080p" or $n == "HDTV-1080p" or $n == "WEBDL-1080p" or $n == "WEBRip-1080p"
+      or $n == "Bluray-720p" or $n == "HDTV-720p" or $n == "Remux-1080p")
       | "\(.quality.name):\(
-        if .quality.name == "Bluray-1080p" then 25
-        elif .quality.name == "HDTV-1080p" then 22
-        elif .quality.name == "WEBDL-1080p" then 25
-        elif .quality.name == "WEBRip-1080p" then 25
-        elif .quality.name == "Bluray-720p" then 20
-        elif .quality.name == "HDTV-720p" then 15
+        if .quality.name == "Bluray-1080p" then 27
+        elif .quality.name == "HDTV-1080p" then 25
+        elif .quality.name == "WEBDL-1080p" then 27
+        elif .quality.name == "WEBRip-1080p" then 27
+        elif .quality.name == "Bluray-720p" then 16
+        elif .quality.name == "HDTV-720p" then 14
         elif .quality.name == "Remux-1080p" then 0
         else 0 end):\(
         if .quality.name == "Remux-1080p" then ""
-        elif .quality.name == "Bluray-1080p" then 40
-        elif .quality.name == "HDTV-1080p" then 40
-        elif .quality.name == "WEBDL-1080p" then 40
-        elif .quality.name == "WEBRip-1080p" then 40
-        elif .quality.name == "Bluray-720p" then 60
+        elif .quality.name == "Bluray-1080p" then 120
+        elif .quality.name == "HDTV-1080p" then 80
+        elif .quality.name == "WEBDL-1080p" then 80
+        elif .quality.name == "WEBRip-1080p" then 80
+        elif .quality.name == "Bluray-720p" then 80
         elif .quality.name == "HDTV-720p" then 50
         else "" end)"'
     else
-      jq -r '.[] | select(.quality.name as \$n |
-        \$n == "Bluray-1080p" or \$n == "HDTV-1080p" or \$n == "Bluray-720p" or \$n == "HDTV-720p")
+      jq -r '.[] | select(.quality.name as $n |
+        $n == "Bluray-1080p" or $n == "HDTV-1080p" or $n == "Bluray-720p" or $n == "HDTV-720p")
         | "\(.quality.name):\(
-          if .quality.name == "Bluray-1080p" then 30
-          elif .quality.name == "HDTV-1080p" then 25
-          elif .quality.name == "Bluray-720p" then 18
-          elif .quality.name == "HDTV-720p" then 12
+          if .quality.name == "Bluray-1080p" then 18
+          elif .quality.name == "HDTV-1080p" then 16
+          elif .quality.name == "Bluray-720p" then 11
+          elif .quality.name == "HDTV-720p" then 9
           else 0 end):\(
-          if .quality.name == "Bluray-1080p" then 100
+          if .quality.name == "Bluray-1080p" then 120
           elif .quality.name == "HDTV-1080p" then 80
-          elif .quality.name == "Bluray-720p" then 50
-          elif .quality.name == "HDTV-720p" then 40
+          elif .quality.name == "Bluray-720p" then 80
+          elif .quality.name == "HDTV-720p" then 50
           else "" end)"'
     fi
   )"
   $qd_skip && ok "${app}: quality definition preferred sizes already set"
 
-  # 6. Disallow Remux-1080p in the HD-1080p profile. Remuxes are 20–40 GB/movie —
-  #    far too big to stream, and Radarr always prefers the highest
-  #    allowed tier, so a reachable Remux tier means giant grabs (e.g. a 20 GB Shrek
-  #    over a 1 GB Bluray). Bluray-1080p is the sane ceiling for streaming to TVs.
-  #    (Sonarr's HD-1080p has no Remux-1080p item, so this is a no-op there.)
-  local prof; prof=$("${AG[@]}" "${base}/qualityprofile" | jq '[.[]|select(.name=="HD-1080p")][0]')
-  if [[ -z "$prof" || "$prof" == "null" ]]; then
-    ok "${app}: no HD-1080p profile — skipping Remux-1080p lockout"
-  elif [[ "$(echo "$prof" | jq '[.items[]|select(.quality.name=="Remux-1080p" and .allowed)]|length')" == "0" ]]; then
-    ok "${app}: Remux-1080p already disallowed in HD-1080p"
+  # 6. Propers/Repacks = "Do Not Prefer". The default (preferAndUpgrade) ranks a PROPER/REPACK
+  #    above EVERY non-repack by quality revision BEFORE custom-format score is even considered —
+  #    so a 17 GB "REPACK" HDR rip beats a 1.6 GB x264 with a far higher score (this is exactly
+  #    why Gladiator/Godfather/Sinners kept grabbing bloated REPACKs). "doNotPrefer" hands that
+  #    decision to custom formats, so our size penalties actually win.
+  local mm; mm=$("${AG[@]}" "${base}/config/mediamanagement")
+  if [[ "$(echo "$mm" | jq -r '.downloadPropersAndRepacks')" == "doNotPrefer" ]]; then
+    ok "${app}: propers/repacks already 'doNotPrefer' (custom formats decide)"
   else
-    local pid body; pid=$(echo "$prof" | jq '.id')
-    body=$(echo "$prof" | jq '(.items[]|select(.quality.name=="Remux-1080p").allowed)=false')
-    "${AJ[@]}" -X PUT "${base}/qualityprofile/${pid}" -d "$body" >/dev/null
-    if [[ "$("${AG[@]}" "${base}/qualityprofile/${pid}" | jq '[.items[]|select(.quality.name=="Remux-1080p" and .allowed)]|length')" == "0" ]]; then
-      ok "${app}: Remux-1080p disallowed in HD-1080p (Bluray-1080p is the ceiling)"
+    echo "$mm" | jq '.downloadPropersAndRepacks="doNotPrefer"' \
+      | "${AJ[@]}" -X PUT "${base}/config/mediamanagement/$(echo "$mm" | jq '.id')" -d @- >/dev/null
+    if [[ "$("${AG[@]}" "${base}/config/mediamanagement" | jq -r '.downloadPropersAndRepacks')" == "doNotPrefer" ]]; then
+      ok "${app}: propers/repacks set to 'doNotPrefer' — size/codec custom formats now decide"
     else
-      warn "${app}: Remux-1080p lockout did not persist — check the PUT response"
+      warn "${app}: propers/repacks setting did not persist — check the PUT response"
     fi
   fi
 
-  # 7. Codec bias — prefer releases the NUC's iGPU can hardware-decode (H.264 + 8-bit HEVC). The
-  #    Iris 540 can't HW-decode 10-bit HEVC / AV1 / VP9, so those fall to CPU decode. Custom-format
-  #    scores only break ties WITHIN a quality tier (which 1080p release to grab) — resolution and
-  #    quality are never sacrificed. HDR/DoVi is kept on top so HDR titles still get their 10-bit
-  #    copy. minFormatScore is very negative so nothing is ever REJECTED — only ordered by preference.
-  rt() {  # regex [negate] -> one ReleaseTitle specification object (regex passed via --arg, no escaping traps)
-    jq -n --arg v "$1" --argjson neg "${2:-false}" \
-      '{name:"s",implementation:"ReleaseTitleSpecification",negate:$neg,required:true,fields:[{name:"value",value:$v}]}'
-  }
+  # 7. Custom formats + the THREE fuzzy quality tiers shown in Jellyseerr's request dropdown:
+  #      "Low (save space)"  ·  "Normal"  ·  "Beloved (best quality)"
+  #    The requester picks one in plain language ("is this beloved, normal, or low-importance?") and
+  #    the tier decides the quality↔disk tradeoff — no resolution jargon. The projector is 1080p-max,
+  #    so ALL tiers cap at 1080p and differ only by target BITRATE/size. Every tier:
+  #      • allows the FULL SD→1080p range, so a request ALWAYS yields something — resolution is never
+  #        a hard gate (a 720p-only title still grabs) and minFormatScore=-10000 rejects nothing.
+  #      • prefers HW-decodable codecs (H.264 / 8-bit HEVC); HDR/10-bit/AV1/VP9 are penalised (the
+  #        Iris 540 CPU-transcodes them — worse on an SDR 1080p projector).
+  #    Scores only ORDER releases (never gate them). *arr compares quality TIER before custom-format
+  #    score, so the size bands pick the right-sized release WITHIN the 1080p tier; 720p/SD is the
+  #    something-over-nothing fallback when no 1080p exists.
+  rt() { jq -n --arg v "$1" --argjson neg "${2:-false}" '{name:"s",implementation:"ReleaseTitleSpecification",negate:$neg,required:true,fields:[{name:"value",value:$v}]}'; }
+  sz() { jq -n --argjson lo "$1" --argjson hi "$2" '{name:"s",implementation:"SizeSpecification",negate:false,required:true,fields:[{name:"min",value:$lo},{name:"max",value:$hi}]}'; }
   local existing_cf; existing_cf=$("${AG[@]}" "${base}/customformat")
-  cf_ensure() {  # name  jq-spec-array  -> echoes the custom-format id (creates it if missing)
+  cf_ensure() {  # name spec-array -> custom-format id (creates if missing); ok() to stderr so $() captures only the id
     local n="$1" spec="$2" id
     id=$(jq -r --arg n "$n" '.[]|select(.name==$n).id' <<<"$existing_cf")
     if [[ -z "$id" || "$id" == "null" ]]; then
-      id=$("${AJ[@]}" "${base}/customformat" -d "$(jq -n --arg n "$n" --argjson s "$spec" \
-            '{name:$n,includeCustomFormatWhenRenaming:false,specifications:$s}')" | jq -r '.id')
-      ok "${app}: custom format '$n' created"
+      id=$("${AJ[@]}" "${base}/customformat" -d "$(jq -n --arg n "$n" --argjson s "$spec" '{name:$n,includeCustomFormatWhenRenaming:false,specifications:$s}')" | jq -r '.id')
+      ok "${app}: custom format '$n' created" >&2
     fi
     echo "$id"
   }
-  declare -A CFID CFSCORE
-  CFID["HDR / Dolby Vision (keep)"]=$(cf_ensure "HDR / Dolby Vision (keep)" "[$(rt '(?i)(\bhdr\b|hdr10|dolby.?vision|\bdovi\b)')]");      CFSCORE["HDR / Dolby Vision (keep)"]=400
-  CFID["HEVC 8-bit (GPU)"]=$(cf_ensure "HEVC 8-bit (GPU)" "[$(rt '(?i)(x265|h\.?265|hevc)'),$(rt '(?i)10.?bit' true)]");                  CFSCORE["HEVC 8-bit (GPU)"]=200
-  CFID["H.264 (GPU)"]=$(cf_ensure "H.264 (GPU)" "[$(rt '(?i)\b(x264|h\.?264|avc)\b')]");                                                  CFSCORE["H.264 (GPU)"]=150
-  CFID["10-bit (CPU)"]=$(cf_ensure "10-bit (CPU)" "[$(rt '(?i)10.?bit')]");                                                               CFSCORE["10-bit (CPU)"]=-150
-  CFID["AV1 (CPU)"]=$(cf_ensure "AV1 (CPU)" "[$(rt '(?i)\bav1\b')]");                                                                     CFSCORE["AV1 (CPU)"]=-1000
-  CFID["VP9 (CPU)"]=$(cf_ensure "VP9 (CPU)" "[$(rt '(?i)\bvp9\b')]");                                                                     CFSCORE["VP9 (CPU)"]=-1000
-  local cfprof; cfprof=$("${AG[@]}" "${base}/qualityprofile" | jq '[.[]|select(.name=="HD-1080p")][0]')
-  if [[ -n "$cfprof" && "$cfprof" != "null" ]]; then
-    local items='[]' n
-    for n in "${!CFID[@]}"; do
-      items=$(jq --argjson f "${CFID[$n]}" --arg n "$n" --argjson s "${CFSCORE[$n]}" '. + [{format:$f,name:$n,score:$s}]' <<<"$items")
-    done
-    "${AJ[@]}" -X PUT "${base}/qualityprofile/$(jq '.id' <<<"$cfprof")" \
-      -d "$(jq --argjson it "$items" '.minFormatScore=-10000 | .formatItems=$it' <<<"$cfprof")" >/dev/null
-    ok "${app}: codec bias applied to HD-1080p (HW-friendly preferred, HDR kept, nothing rejected)"
+  declare -A CFID
+  local hdr_re='(?i)(\bhdr\b|hdr10|hdr10\+|dolby.?vision|\bdovi\b|\bdv\b)'
+  CFID["HDR / Dolby Vision (CPU)"]=$(cf_ensure "HDR / Dolby Vision (CPU)" "[$(rt "$hdr_re")]")
+  CFID["HEVC 8-bit (GPU)"]=$(cf_ensure "HEVC 8-bit (GPU)" "[$(rt '(?i)(x265|h\.?265|hevc)'),$(rt '(?i)10.?bit' true),$(rt "$hdr_re" true)]")
+  CFID["H.264 (GPU)"]=$(cf_ensure "H.264 (GPU)" "[$(rt '(?i)\b(x264|h\.?264|avc)\b')]")
+  CFID["10-bit (CPU)"]=$(cf_ensure "10-bit (CPU)" "[$(rt '(?i)10.?bit')]")
+  CFID["AV1 (CPU)"]=$(cf_ensure "AV1 (CPU)" "[$(rt '(?i)\bav1\b')]")
+  CFID["VP9 (CPU)"]=$(cf_ensure "VP9 (CPU)" "[$(rt '(?i)\bvp9\b')]")
+  CFID["Size <1.5 GB"]=$(cf_ensure "Size <1.5 GB" "[$(sz 0 1.5)]")
+  CFID["Size 1.5-3 GB"]=$(cf_ensure "Size 1.5-3 GB" "[$(sz 1.5 3)]")
+  CFID["Size 3-6 GB"]=$(cf_ensure "Size 3-6 GB" "[$(sz 3 6)]")
+  CFID["Size 6-10 GB"]=$(cf_ensure "Size 6-10 GB" "[$(sz 6 10)]")
+  CFID["Size 10-15 GB"]=$(cf_ensure "Size 10-15 GB" "[$(sz 10 15)]")
+  CFID["Size >15 GB"]=$(cf_ensure "Size >15 GB" "[$(sz 15 99999)]")
+  # Remove superseded custom formats from earlier iterations so they don't linger at score 0.
+  local _cf_all _old _oid; _cf_all=$("${AG[@]}" "${base}/customformat")
+  for _old in "Tiny (<2.5 GB)" "Oversized (>6 GB)" "Bloated (>10 GB)" "Huge (>14 GB)" "HDR / Dolby Vision (keep)"; do
+    _oid=$(jq -r --arg n "$_old" '.[]|select(.name==$n).id' <<<"$_cf_all")
+    [[ -n "$_oid" && "$_oid" != "null" ]] && { "${AG[@]}" -X DELETE "${base}/customformat/${_oid}" >/dev/null; ok "${app}: removed superseded custom format '$_old'"; }
+  done
+  # Radarr/Sonarr require EVERY defined custom format to appear in a profile's formatItems ("all
+  # custom formats and no extra ones"). Build the id map from ALL current CFs (re-fetched after the
+  # create/delete above); build_formatitems scores the ones we care about and 0 for everything else.
+  local CF_IDMAP; CF_IDMAP=$("${AG[@]}" "${base}/customformat" | jq 'map({key:.name,value:.id})|from_entries')
+  # build_formatitems TIER -> profile formatItems JSON. Codec scores are constant across tiers
+  # (GPU-friendly always wins); the SIZE-BAND scores shift each tier's preferred-size "peak":
+  #   Low → smallest (save space) · Normal → ~1.5–3 GB · Beloved → biggest 1080p (~6–15 GB).
+  # For TV (sonarr) the size lean is GENTLE — season-pack size scales with episode count, so large
+  # penalties would misfire; the lean still biases smaller/bigger sensibly within a season's options.
+  build_formatitems() {
+    jq -n --argjson ids "$CF_IDMAP" --arg tier "$1" --arg app "$app" '
+      def sc($name):
+        if   $name=="H.264 (GPU)" then 50
+        elif $name=="HEVC 8-bit (GPU)" then 40
+        elif $name=="HDR / Dolby Vision (CPU)" then -100
+        elif $name=="10-bit (CPU)" then -80
+        elif $name=="AV1 (CPU)" or $name=="VP9 (CPU)" then -1000
+        elif ($name|startswith("Size")) then
+          ((if $app=="sonarr"
+            then {"Size <1.5 GB":{low:30,normal:0,beloved:-40},"Size 1.5-3 GB":{low:20,normal:0,beloved:-20},"Size 3-6 GB":{low:0,normal:0,beloved:-10},"Size 6-10 GB":{low:-10,normal:0,beloved:0},"Size 10-15 GB":{low:-20,normal:0,beloved:20},"Size >15 GB":{low:-40,normal:0,beloved:40}}
+            else {"Size <1.5 GB":{low:80,normal:30,beloved:-500},"Size 1.5-3 GB":{low:60,normal:80,beloved:-250},"Size 3-6 GB":{low:0,normal:40,beloved:-80},"Size 6-10 GB":{low:-300,normal:-150,beloved:60},"Size 10-15 GB":{low:-800,normal:-500,beloved:80},"Size >15 GB":{low:-2000,normal:-1500,beloved:-100}}
+            end)[$name][$tier])
+        else 0 end;
+      [$ids|to_entries[]|{format:.value,name:.key,score:(sc(.key) // 0)}]'
+  }
+  # 8. Build the three tier profiles. Shared policy (applied to each): FULL SD→1080p allow-list so
+  #    resolution is never a hard gate; junk (CAM/TS/SCR/workprint), Remux (20–40 GB) and 2160p/4K
+  #    (projector tops out at 1080p) stay OFF; cutoff = Bluray-1080p (the upgrade target — 1080p
+  #    preferred, 720p/SD the something-over-nothing fallback); minFormatScore=-10000 so nothing is
+  #    ever rejected; formatItems = the tier's codec+size scores.
+  local schema; schema=$("${AG[@]}" "${base}/qualityprofile/schema")
+  local cutid; cutid=$(jq 'first(..|objects|select(.quality?.name=="Bluray-1080p").quality.id)' <<<"$schema")
+  profile_body() {  # base-json(schema|current)  name  formatItems-json -> full profile body
+    jq --arg n "$2" --argjson cut "$cutid" --argjson it "$3" '
+      (["SDTV","DVD","Bluray-480p","Bluray-576p","HDTV-720p","Bluray-720p","HDTV-1080p","WEBDL-1080p","WEBRip-1080p","Bluray-1080p"]) as $allow
+      | (["WEB 480p","WEB 720p","WEB 1080p"]) as $gallow
+      | .name=$n | .upgradeAllowed=true | .cutoff=$cut | .minFormatScore=-10000 | .cutoffFormatScore=0 | .formatItems=$it
+      | .items=(.items|map(
+          if (.quality and .quality.name) then ((.quality.name) as $qn | .allowed=(($allow|index($qn))!=null))
+          elif (.items!=null and .items!=[]) then (.name as $gn | (($gallow|index($gn))!=null) as $ga | .allowed=$ga | .items=(.items|map(.allowed=$ga)))
+          else . end))' <<<"$1"
+  }
+  ensure_tier() {  # display-name  tier(low|normal|beloved)
+    local pname="$1" tier="$2" fitems cur
+    fitems=$(build_formatitems "$tier")
+    cur=$("${AG[@]}" "${base}/qualityprofile" | jq --arg n "$pname" '[.[]|select(.name==$n)][0]')
+    if [[ -z "$cur" || "$cur" == "null" ]]; then
+      "${AJ[@]}" -X POST "${base}/qualityprofile" -d "$(profile_body "$schema" "$pname" "$fitems")" >/dev/null && ok "${app}: tier profile '$pname' created"
+    else
+      "${AJ[@]}" -X PUT "${base}/qualityprofile/$(jq '.id' <<<"$cur")" -d "$(profile_body "$cur" "$pname" "$fitems")" >/dev/null && ok "${app}: tier profile '$pname' updated"
+    fi
+  }
+  # Rename the legacy HD-1080p profile to "Normal" ONCE (preserves its id, so every already-assigned
+  # movie/series keeps its profile instead of being orphaned).
+  local legacy; legacy=$("${AG[@]}" "${base}/qualityprofile" | jq '[.[]|select(.name=="HD-1080p")][0]')
+  if [[ -n "$legacy" && "$legacy" != "null" && "$("${AG[@]}" "${base}/qualityprofile" | jq '[.[]|select(.name=="Normal")]|length')" == "0" ]]; then
+    "${AJ[@]}" -X PUT "${base}/qualityprofile/$(jq '.id' <<<"$legacy")" -d "$(jq '.name="Normal"' <<<"$legacy")" >/dev/null
+    ok "${app}: renamed legacy HD-1080p → Normal (id preserved, assignments kept)"
+  fi
+  ensure_tier "Normal" normal
+  ensure_tier "Low (save space)" low
+  ensure_tier "Beloved (best quality)" beloved
+  # Normalize: sweep any item still on a NON-tier profile (legacy HD-720p/SD/Any/etc.) onto Normal,
+  # so nothing is left on a profile that rejects 1080p (which is what stranded Jericho).
+  local norm_id; norm_id=$("${AG[@]}" "${base}/qualityprofile" | jq 'first(.[]|select(.name=="Normal").id)')
+  local tier_ids; tier_ids=$("${AG[@]}" "${base}/qualityprofile" | jq -c '[.[]|select(.name=="Normal" or .name=="Low (save space)" or .name=="Beloved (best quality)").id]')
+  local ep field; if [[ "$app" == "radarr" ]]; then ep=movie; field=movieIds; else ep=series; field=seriesIds; fi
+  local stray; stray=$("${AG[@]}" "${base}/${ep}" | jq -c --argjson t "$tier_ids" '[.[]|select((.qualityProfileId) as $p|($t|index($p))==null).id]')
+  if [[ -n "$stray" && "$stray" != "[]" ]]; then
+    "${AJ[@]}" -X PUT "${base}/${ep}/editor" -d "$(jq -n --argjson ids "$stray" --argjson q "$norm_id" --arg f "$field" '{($f):$ids,qualityProfileId:$q,moveFiles:false}')" >/dev/null
+    ok "${app}: migrated $(jq 'length' <<<"$stray") item(s) off legacy profiles → Normal"
   else
-    ok "${app}: no HD-1080p profile — skipping codec bias"
+    ok "${app}: all items already on a tier profile"
   fi
 }

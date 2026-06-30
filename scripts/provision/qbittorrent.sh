@@ -35,6 +35,8 @@ fi
 prefs=$(jq -n --arg u "$QBIT_USER" --arg p "$QBIT_PASS" '{
   web_ui_username: $u,
   web_ui_password: $p,
+  web_ui_csrf_protection_enabled: false,
+  web_ui_host_header_validation_enabled: false,
   save_path: "/data/torrents/complete",
   temp_path_enabled: true,
   temp_path: "/data/torrents/incomplete",
@@ -43,6 +45,7 @@ prefs=$(jq -n --arg u "$QBIT_USER" --arg p "$QBIT_PASS" '{
   save_path_changed_tmm_enabled: true,
   auto_delete_mode: 0,
   queueing_enabled: true,
+  add_stopped_enabled: false,
   max_active_downloads: 12,
   max_active_torrents: 18,
   max_active_uploads: 3,

@@ -165,9 +165,10 @@ function renderDownloads(items) {
       ? `Declined · Not enough disk space — needs ${fmtBytes(d.neededBytes)}, only ${fmtBytes(d.freeBytes)} free`
       : [d.state, pctShown, fmtBytes(d.sizeBytes)].filter(Boolean).join(' · ');
     const color = COLOR[d.state] || '';
-    const barW = d.state === 'Declined' ? 100 : Math.min(100, d.progress);
+    const barW = (d.state === 'Declined' || d.attention) ? 100 : Math.min(100, d.progress);
     const isDone = d.state === 'Ready' || d.state === 'Done';
     const canDelete = d.hash && d.state !== 'Ready' && d.state !== 'Done';
+    const isMissing = d.state === 'Not found';
     let cleanTitle = '';
     if (isDone) {
       const mt = d.title.match(/^(.+?)[. _-]+(?:S\d{2,}|Season\s*\d+|19\d{2}|20\d{2}|Full|COMPLETE)/i);
@@ -177,10 +178,10 @@ function renderDownloads(items) {
         cleanTitle = mt2 ? mt2[1].replace(/[._]/g, ' ').trim() : d.title.replace(/-[A-Za-z0-9]+$/, '').replace(/[._]/g, ' ').trim();
       }
     }
-    return `<li class="row dl${(d.attention || d.state === 'Declined') ? ' attn' : ''}${isDone ? ' done' : ''}" data-hash="${esc(d.hash || '')}" data-state="${esc(d.state)}" data-title="${esc(cleanTitle)}" data-source="${esc(d.source)}">
+    return `<li class="row dl${(d.attention || d.state === 'Declined') ? ' attn' : ''}${isDone ? ' done' : ''}" data-hash="${esc(d.hash || '')}" data-state="${esc(d.state)}" data-title="${esc(cleanTitle)}" data-source="${esc(d.source)}"${d._id ? ` data-app="${esc(d.source)}" data-id="${esc(d._id)}"` : ''}>
       <div class="dl-title-row">
         <span class="title">${esc(d.title)}</span>
-        ${canDelete ? `<button class="dl-stop" aria-label="Delete torrent & files"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg></button>` : ''}
+        <span class="dl-actions">${isMissing ? `<button class="dl-retry" aria-label="Retry search"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></button>` : ''}${canDelete ? `<button class="dl-stop" aria-label="Delete torrent & files"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg></button>` : ''}</span>
       </div>
       <div class="mini-bar"><div style="width:${barW}%${color ? `;background:${color}` : ''}"></div></div>
       <div class="sub dl-meta"><span>${esc(leftMeta)}</span>${eta ? `<span>${esc(eta)}</span>` : ''}</div>
@@ -188,40 +189,51 @@ function renderDownloads(items) {
   }).join('');
   // Event delegation on the parent list (survives 4s DOM replacement from poll)
   const dl = $('#downloads');
-  dl._listener = dl._listener || dl.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.dl-stop');
-    const li = e.target.closest('li.dl.done');
-    if (btn) {
-      const bli = btn.closest('li');
-      const hash = bli && bli.dataset.hash;
-      if (!hash) return;
-      const state = bli && bli.dataset.state;
-      if (state === 'Declined') {
-        // A declined row is just a tombstone (already torn down everywhere) — dismiss inline.
+  if (!dl._listener) {
+    dl._listener = true;
+    dl.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.dl-stop');
+      const rbtn = e.target.closest('.dl-retry');
+      const li = e.target.closest('li.dl.done');
+      if (rbtn) {
+        const bli = rbtn.closest('li');
+        const app = bli && bli.dataset.app;
+        const id = bli && bli.dataset.id;
+        if (!app || !id) return;
+        rbtn.disabled = true;
         try {
-          await postJSON('/api/declined/dismiss', { hash });
-          btn.disabled = true;
-          btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>';
-        } catch { toast('Failed to dismiss'); }
-      } else {
-        // Same deep, layered teardown + confirmation sheet as the Library tab.
-        const t = bli.querySelector('.title');
-        openSheet({ hash, source: bli.dataset.source, title: t ? t.textContent : 'this download' });
+          await postJSON('/api/retry', { app, id: Number(id) });
+          rbtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>';
+          toast('Search triggered — check back soon');
+        } catch { rbtn.disabled = false; toast('Retry failed'); }
+      } else if (btn) {
+        const bli = btn.closest('li');
+        const hash = bli && bli.dataset.hash;
+        if (!hash) return;
+        const state = bli && bli.dataset.state;
+        if (state === 'Declined') {
+          try {
+            await postJSON('/api/declined/dismiss', { hash });
+            btn.disabled = true;
+            btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>';
+          } catch { toast('Failed to dismiss'); }
+        } else {
+          const t = bli.querySelector('.title');
+          openSheet({ hash, source: bli.dataset.source, title: t ? t.textContent : 'this download' });
+        }
+      } else if (li) {
+        const title = li.dataset.title;
+        const w = window.open(`${WATCH_URL}/web/`, '_blank');
+        let path = `#/search?query=${encodeURIComponent(title)}`;
+        try {
+          const qs = new URLSearchParams({ title, hash: li.dataset.hash || '', source: li.dataset.source || '' });
+          const { id, serverId } = await getJSON(`/api/jellyfin/resolve?${qs}`);
+          if (id) path = `#/details?id=${id}${serverId ? `&serverId=${serverId}` : ''}`;
+        } catch { /* keep the search fallback */ }
+        if (w) w.location.href = `${WATCH_URL}/web/${path}`;
       }
-    } else if (li) {
-      // Open the tab synchronously (inside the click gesture, so it isn't popup-blocked),
-      // then deep-link to the exact item once resolved — falling back to a search.
-      const title = li.dataset.title;
-      const w = window.open(`${WATCH_URL}/web/`, '_blank');
-      let path = `#/search?query=${encodeURIComponent(title)}`;
-      try {
-        const qs = new URLSearchParams({ title, hash: li.dataset.hash || '', source: li.dataset.source || '' });
-        const { id, serverId } = await getJSON(`/api/jellyfin/resolve?${qs}`);
-        if (id) path = `#/details?id=${id}${serverId ? `&serverId=${serverId}` : ''}`;
-      } catch { /* keep the search fallback */ }
-      if (w) w.location.href = `${WATCH_URL}/web/${path}`;
-    }
-  });
+    });
+  }
 }
 // Batch estimate — "how long to clear the backlog": remaining bytes ÷ current speed. Hidden
 // unless there's actually pending work, so a settled queue shows nothing.
@@ -230,13 +242,15 @@ function renderDlSummary(s) {
   projectedIncoming = (s && s.remainingBytes) || 0;             // feed the disk meter's incoming segment
   if (lastDisk) renderDisk(lastDisk);                           // reflect it without waiting for the 10s home poll
   const c = s && s.counts;
-  if (!c || (c.inProgress + c.queued) < 1) { el.hidden = true; return; }       // nothing pending → hide
-  const b = s.bytes, total = (b.completed + b.inProgress + b.queued) || 1;
+  if (!c || (c.inProgress + c.queued + c.attention + c.blocked) < 1) { el.hidden = true; return; }
+  const b = s.bytes, total = (b.completed + b.inProgress + b.queued + b.attention + b.blocked) || 1;
   const pct = (x) => (x / total * 100).toFixed(2);
   const speed = s.speedBytes ? `${fmtBytes(s.speedBytes)}/s` : null;
-  // Hero line = the ETA; everything else folds into one muted sub-line so it stays clean on a phone.
-  const head = s.etaSeconds ? `≈ ${fmtDur(s.etaSeconds)} left`
-    : s.remainingBytes ? `≈ ${fmtBytes(s.remainingBytes)} to go` : 'Working…';
+  const hasIssues = (c.attention + c.blocked) > 0;
+  const eta = s.etaSeconds ? `≈ ${fmtDur(s.etaSeconds)} left` : s.remainingBytes ? `≈ ${fmtBytes(s.remainingBytes)} to go` : '';
+  // Hero line = stuck count + ETA for active items.
+  const head = hasIssues ? eta || '— needs attention'
+    : eta || 'Working…';
   const sub = [
     s.etaSeconds && s.remainingBytes ? fmtBytes(s.remainingBytes) : '',
     speed,
@@ -244,34 +258,46 @@ function renderDlSummary(s) {
   ].filter(Boolean).join(' · ');
   el.hidden = false;
   el.innerHTML = `
-    <div class="dls-head"><span class="dls-eta">${esc(head)}</span><span class="dls-rate">${esc(sub)}</span></div>
+    <div class="dls-head"><span class="dls-eta">${esc(head)}</span>${sub ? `<span class="dls-rate">${esc(sub)}</span>` : ''}</div>
     <div class="dls-bar">
       <span class="seg done" style="width:${pct(b.completed)}%"></span>
       <span class="seg prog" style="width:${pct(b.inProgress)}%"></span>
       <span class="seg queue" style="width:${pct(b.queued)}%"></span>
+      <span class="seg attn" style="width:${pct(b.attention)}%"></span>
+      <span class="seg blocked" style="width:${pct(b.blocked)}%"></span>
     </div>
     <div class="dls-legend">
       <span class="done">${c.completed} done</span>
       <span class="prog">${c.inProgress} downloading</span>
       <span class="queue">${c.queued} queued</span>
+      ${c.attention ? `<span class="attn">${c.attention} stuck</span>` : ''}
+      ${c.blocked ? `<span class="blocked">${c.blocked} blocked</span>` : ''}
     </div>`;
 }
 
 // Show a spinner ONLY until the first successful load (the library lookups make the first
 // fetch slow); the 4s background refreshes then update in place with no flicker.
-let dlLoaded = false, dlInflight = false;
+let dlLoaded = false, dlInflight = false, dlLastUpdate = 0;
 function setDlLoading(v) { const el = $('#downloads-loading'); if (el) el.hidden = !v; }
+function updateDlStale() {
+  const el = $('#dl-summary');
+  if (!el) return;
+  el.classList.toggle('stale', dlLastUpdate > 0 && Date.now() - dlLastUpdate > 10000);
+}
 async function pollDownloads() {
   if (offline) { setDlLoading(false); return; }
+  updateDlStale();
   if (dlInflight) return;                                     // a poll is still running — don't stack another
   if (!dlLoaded) setDlLoading(true);
   dlInflight = true;
   try {
     const data = await getJSON('/api/downloads');
+    dlLastUpdate = data.ts || Date.now();
     dlLoaded = true;
     setDlLoading(false);
     renderDownloads(data.items || []);
     renderDlSummary(data.summary);
+    updateDlStale();                                          // clear stale indicator
   } catch { if (dlLoaded) setDlLoading(false); /* else keep spinner; it retries next tick */ }
   finally { dlInflight = false; }
 }
@@ -292,21 +318,36 @@ function renderLibrary() {
   const items = q ? libItems.filter((m) => m.title.toLowerCase().includes(q)) : libItems;
   $('#library-empty').hidden = items.length > 0;
   $('#library-empty').textContent = libItems.length ? 'No matches.' : 'Nothing here yet.';
-  $('#library').innerHTML = items.map((m) => `
-    <li class="row">
+  $('#library').innerHTML = items.map((m) => {
+    let rate = '', rateCls = '';
+    if (m.hasFile && m.sizeBytes && m.runtimeMinutes > 0) {
+      const mbpm = m.sizeBytes / (1024 * 1024) / m.runtimeMinutes;
+      rate = `${mbpm.toFixed(1)} MB/min`;
+      rateCls = mbpm < 40 ? 'rate-ok' : mbpm < 80 ? 'rate-warn' : 'rate-bad';
+    }
+    const fmt = m.videoLabel || '';
+    const compat = m.gpuCompat || '';
+    const fmtCls = compat === 'ok' ? 'ok' : compat === 'warn' ? 'warn' : compat === 'bad' ? 'bad' : '';
+    return `<li class="row">
       <span class="grow">
         <span class="title">${esc(m.title)}${m.year ? ` <span class="muted">(${m.year})</span>` : ''}</span>
-        <div class="sub">${m.hasFile ? fmtBytes(m.sizeBytes) + ' on disk' : 'Not downloaded'}</div>
+        <div class="sub"><span class="sub-size">${m.hasFile ? fmtBytes(m.sizeBytes) + ' on disk' : 'Not downloaded'}</span>${rate ? `<span class="rate ${rateCls}">${rate}</span>` : ''}${fmt ? `<span class="format ${fmtCls}">${esc(fmt)}</span>` : ''}</div>
       </span>
       <button class="trash" data-id="${m.id}" aria-label="Remove ${esc(m.title)}">
         <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg>
       </button>
-    </li>`).join('');
+    </li>`;
+  }).join('');
   $$('#library .trash').forEach((btn) => btn.addEventListener('click', () => openSheet({ app: libApp, id: +btn.dataset.id })));
 }
 async function loadLibrary() {
   if (offline) { $('#library').innerHTML = ''; $('#library-empty').hidden = false; $('#library-empty').textContent = 'Connect to your home network to manage your library.'; return; }
-  try { libItems = (await getJSON(`/api/library?app=${libApp}`)).items || []; renderLibrary(); }
+  try {
+    libItems = (await getJSON(`/api/library?app=${libApp}`)).items || [];
+    const el = $(`#lib-count-${libApp}`);
+    if (el) el.textContent = libItems.length ? `(${libItems.length})` : '';
+    renderLibrary();
+  }
   catch { $('#library').innerHTML = ''; $('#library-empty').hidden = false; }
 }
 

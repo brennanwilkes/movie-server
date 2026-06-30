@@ -20,6 +20,23 @@ else
   ok "prowlarr: UI auth set to forms (brennan, bypassed on LAN)"
 fi
 
+# Patch TPB Cardigann definition: drop season/ep from tv-search mode.
+# TPB's keyword search doesn't handle "S01" appended after the series name
+# (e.g. "Bloodline S01" misses "Bloodline 2015 S01 ..."). Sonarr parses
+# season/ep from the title after the fact (same as RSS sync), so sending
+# just the show name works better.
+TPB_DEF=/config/Definitions/thepiratebay.yml
+if grep -q 'tv-search: \[q, season, ep\]' "$TPB_DEF" 2>/dev/null; then
+  sed -i 's/tv-search: \[q, season, ep\]/tv-search: [q]/' "$TPB_DEF"
+  ok "prowlarr: patched TPB tv-search to [q] — restarting"
+  pkill Prowlarr 2>/dev/null || true
+  sleep 8
+  wait_http "http://localhost:9696/api/v1/system/status" 60
+  ok "prowlarr: back up after TPB definition reload"
+else
+  ok "prowlarr: TPB tv-search already patched"
+fi
+
 # Register Radarr + Sonarr as applications (built from live schema).
 existing=$("${PG[@]}" "${PROW}/applications")
 prow_add_app() {  # implementation  appBaseUrl  appApiKey

@@ -72,22 +72,9 @@ const qbit = {
 };
 
 const seerr = {
-  cookie: null,
-  async login() {
-    const r = await tfetch(`${HOST.jellyseerr}/api/v1/auth/jellyfin`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: cfg.JELLYFIN_ADMIN_USER, password: cfg.JELLYFIN_ADMIN_PASS }),
-    }, 12000); // jellyfin-backed auth can be slow on a cold start
-    const sc = r.headers.get('set-cookie');
-    if (sc) this.cookie = sc.split(';')[0];
-    return this.cookie;
-  },
-  async fetch(p, opts = {}) {
-    if (!this.cookie) await this.login();
-    const go = () => tfetch(`${HOST.jellyseerr}${p}`, { ...opts, headers: { ...(opts.headers || {}), Cookie: this.cookie || '' } }, opts.ms || 10000);
-    let r = await go();
-    if (r.status === 401 || r.status === 403) { await this.login(); r = await go(); }
-    return r;
+  _key: cfg.SEERR_KEY || '',
+  fetch(p, opts = {}) {
+    return tfetch(`${HOST.jellyseerr}${p}`, { ...opts, headers: { ...(opts.headers || {}), 'X-Api-Key': this._key } }, opts.ms || 10000);
   },
 };
 
@@ -107,26 +94,31 @@ async function arrDelete(app, p) {
   const { base, key } = arrOf(app);
   return tfetch(`${base}${p}`, { method: 'DELETE', headers: { 'X-Api-Key': key || '' } }, 15000);
 }
+async function arrPost(app, p, body, ms = 10000) {
+  const { base, key } = arrOf(app);
+  const r = await tfetch(`${base}${p}`, { method: 'POST', headers: { 'X-Api-Key': key || '', 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, ms);
+  if (!r.ok) throw new Error(`${app} POST ${p} → HTTP ${r.status}`);
+  return r.json();
+}
 
 // ── Jellyfin helpers (API-key auth) ──
+let _jfUserId = null;
 async function jellyfinUserId() {
+  if (_jfUserId) return _jfUserId;
   const r = await tfetch(`${HOST.jellyfin}/Users`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 5000);
   const u = await r.json();
-  return (u.find((x) => x.Policy && x.Policy.IsAdministrator) || u[0] || {}).Id;
+  _jfUserId = (u.find((x) => x.Policy && x.Policy.IsAdministrator) || u[0] || {}).Id;
+  return _jfUserId;
 }
-// Find the library item + whether its type-library would be empty after removal.
+// Find the library item by tmdbId (preferred) or exact title match.
 async function jellyfinResolve(type, title, tmdbId) {
-  if (!cfg.JELLYFIN_KEY) return { itemId: null, libraryEmptyAfter: false };
+  if (!cfg.JELLYFIN_KEY) return { itemId: null };
   const uid = await jellyfinUserId();
   const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
-  const q1 = new URLSearchParams({ recursive: 'true', includeItemTypes: type, searchTerm: title, fields: 'ProviderIds,ProductionYear', limit: '50' });
-  const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q1}`, { headers: h }, 6000)).json()).Items) || [];
-  // Confident match only: pin on the *arr tmdb id, else accept a lone unambiguous search hit.
-  // (We explicitly DELETE this item below, so never fall through to a fuzzy items[0] guess.)
+  const q = new URLSearchParams({ recursive: 'true', includeItemTypes: type, searchTerm: title, fields: 'ProviderIds,ProductionYear', limit: '50' });
+  const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 6000)).json()).Items) || [];
   const match = items.find((i) => tmdbId && i.ProviderIds && i.ProviderIds.Tmdb === String(tmdbId)) || (items.length === 1 ? items[0] : null);
-  const q2 = new URLSearchParams({ recursive: 'true', includeItemTypes: type, limit: '0', enableTotalRecordCount: 'true' });
-  const total = (await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q2}`, { headers: h }, 6000)).json()).TotalRecordCount || 0;
-  return { itemId: (match && match.Id) || null, libraryEmptyAfter: total <= 1 };
+  return { itemId: (match && match.Id) || null };
 }
 
 // Server identity (the `serverId` deep-link param) — stable per Jellyfin install, cached.
@@ -167,10 +159,20 @@ async function arrTmdbId(app, id) {
 
 // ── Jellyseerr media row lookup by TMDB id ──
 async function seerrMediaId(kind, tmdbId) {
-  const r = await seerr.fetch(`/api/v1/${kind}/${tmdbId}`);
-  if (!r.ok) return null;
+  const r = await seerr.fetch(`/api/v1/${kind}/${tmdbId}`, { ms: 12000 });
+  if (!r.ok) { console.log(`seerrMediaId: ${kind}/${tmdbId} → HTTP ${r.status}`); return null; }
   const d = await r.json();
-  return (d.mediaInfo && d.mediaInfo.id) || null;
+  if (d.mediaInfo && d.mediaInfo.id) return d.mediaInfo.id;
+  // Fallback: /api/v1/media list may have the record under a different shape.
+  try {
+    const mr = await seerr.fetch(`/api/v1/media?take=5000&sort=mediaAddedAt&order=desc`, { ms: 8000 });
+    if (mr.ok) {
+      const data = await mr.json();
+      const found = (data.results || []).find((x) => String(x.tmdbId) === String(tmdbId) || String(x.tvdbId) === String(tmdbId));
+      if (found && found.id) { console.log(`seerrMediaId: found via media list fallback (id=${found.id})`); return found.id; }
+    }
+  } catch (e) { console.log(`seerrMediaId: fallback search failed — ${e.message || e}`); }
+  return null;
 }
 
 // ── App ──
@@ -184,10 +186,10 @@ app.use(express.static(path.join(__dirname, 'web')));
 const STATUS_SERVICES = [
   // Jellyfin (Watch) + Jellyseerr (Request) are the everyday actions — promoted to the
   // two big buttons on Home, so they're intentionally not in this "tools" status list.
-  { id: 'qbittorrent', name: 'Downloads', brand: 'qBittorrent', url: `${HOST.qbittorrent}/api/v2/app/version`, text: true },
+  { id: 'qbittorrent', name: 'Torrents', brand: 'qBittorrent', url: `${HOST.qbittorrent}/api/v2/app/version`, text: true },
   { id: 'radarr', name: 'Movies', brand: 'Radarr', url: `${HOST.radarr}/api/v3/system/status`, headers: () => ({ 'X-Api-Key': cfg.RADARR_KEY || '' }), version: (j) => j.version },
   { id: 'sonarr', name: 'TV Shows', brand: 'Sonarr', url: `${HOST.sonarr}/api/v3/system/status`, headers: () => ({ 'X-Api-Key': cfg.SONARR_KEY || '' }), version: (j) => j.version },
-  { id: 'prowlarr', name: 'Torrents', brand: 'Prowlarr', url: `${HOST.prowlarr}/api/v1/system/status`, headers: () => ({ 'X-Api-Key': cfg.PROWLARR_KEY || '' }), version: (j) => j.version },
+  { id: 'prowlarr', name: 'Sources', brand: 'Prowlarr', url: `${HOST.prowlarr}/api/v1/system/status`, headers: () => ({ 'X-Api-Key': cfg.PROWLARR_KEY || '' }), version: (j) => j.version },
   { id: 'bazarr', name: 'Subtitles', brand: 'Bazarr', url: `${HOST.bazarr}/api/system/status`, headers: () => ({ 'X-Api-Key': cfg.BAZARR_KEY || '' }), version: (j) => j.data && j.data.bazarr_version },
   // FlareSolverr is internal plumbing (Cloudflare proxy for Prowlarr) — not user-facing.
 ];
@@ -508,15 +510,46 @@ async function buildDownloads() {
     }
     const finished = state === 'Ready' || state === 'Done';
     const show = !finished || ((t.completion_on || 0) > 0 && now - t.completion_on <= DAY);
-    if (show) items.push({ title: t.name, progress: (state === 'Importing' || state === 'Needs attention' || state === 'Getting subtitles' || state === 'Processing') ? 100 : prog, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || (hi && hi.size) || (qrec && qrec.size) || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash });
+    // "Ready"/"Done" items always show full bar even if qBit reports 0% (missing files)
+    const displayProg = (finished || state === 'Importing' || state === 'Needs attention' || state === 'Getting subtitles' || state === 'Processing') ? 100 : prog;
+    if (show) items.push({ title: t.name, progress: displayProg, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || (hi && hi.size) || (qrec && qrec.size) || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash });
   }
+  // Surface missing items: monitored, no file, no queue, no torrent — as warnings.
+  try {
+    const appIdsInQueue = { radarr: new Set(), sonarr: new Set() };
+    for (const app of ['radarr', 'sonarr']) {
+      if (!queues[app]) continue;
+      for (const [, qrec] of queues[app]) {
+        const id = qrec.movieId || qrec.seriesId;
+        if (id != null) appIdsInQueue[app].add(id);
+      }
+    }
+    const appIdsWithTorrent = { radarr: new Set(), sonarr: new Set() };
+    for (const t of torrents) {
+      const a = torrentApp(t);
+      if (a && t.hash) appIdsWithTorrent[a].add(t.hash.toLowerCase());
+    }
+    for (const app of ['radarr', 'sonarr']) {
+      let list = [];
+      try { list = await arrGet(app, app === 'radarr' ? '/movie' : '/series', 8000); } catch { continue; }
+      for (const it of list) {
+        const id = it.id;
+        const hasF = app === 'radarr' ? !!it.hasFile : (it.statistics && it.statistics.episodeFileCount) > 0;
+        if (hasF || it.monitored === false) continue;
+        if (appIdsInQueue[app].has(id)) continue;
+        const title = it.title + (it.year ? ` (${it.year})` : '');
+        items.push({ title, progress: 0, state: 'Not found', etaSeconds: null, sizeBytes: 0, source: app, attention: true, hash: `missing:${app}:${id}`, _id: id });
+      }
+    }
+  } catch { /* missing scan best-effort */ }
+
   // Sort tiers: any problem to the very top, then anything actively transferring (partial
   // progress, whatever its label), then the rest in progress, then recently-finished (Ready/Done
   // only ever survive the 24h `show` window above), and finally the long Queued backlog at the
   // bottom. Within a tier, the closer to done floats higher.
   const rank = (it) => {
     const s = it.state, p = it.progress || 0;
-    if (s === 'Needs attention' || s === 'Error') return 0;    // errors of any kind first
+    if (s === 'Needs attention' || s === 'Error' || s === 'Not found') return 0;    // errors of any kind first
     if (p > 0 && p < 100) return 1;                            // mid-transfer → near the top regardless of status
     if (s === 'Queued') return 4;                              // the big backlog at the bottom
     if (s === 'Ready' || s === 'Done') return 3;               // recently finished (≤ 24h)
@@ -558,7 +591,7 @@ app.get('/api/downloads', (_req, res) => {
     sizeBytes: d.neededBytes, neededBytes: d.neededBytes, freeBytes: d.freeBytes, source: d.source || 'request', attention: false, hash });
   for (const [h, d] of declined) if (now - d.ts <= DAY) items.unshift(asRow(h, d));
   for (const [h, b] of blocked) if (now - b.ts <= DAY) items.unshift(asRow(h, b));
-  res.json({ items, summary: _dl.summary });
+  res.json({ items, summary: _dl.summary, ts: _dl.ts });
 });
 
 // Batch ETA — "how long until this whole backlog is done?" Remaining bytes ÷ throughput.
@@ -598,12 +631,13 @@ async function downloadSummary(items) {
 
   // Three buckets for the visual bar: completed / in-progress / queued, sized by (approx) bytes.
   const DONE = new Set(['Ready', 'Done']);
-  const SKIP = new Set(['Declined', 'Paused', 'Error', 'Needs attention']);   // not part of the active flow
   const done = items.filter((i) => DONE.has(i.state));
   const queued = items.filter((i) => i.state === 'Queued');
-  const inProg = items.filter((i) => !DONE.has(i.state) && i.state !== 'Queued' && !SKIP.has(i.state));
+  const inProg = items.filter((i) => !DONE.has(i.state) && i.state !== 'Queued' && i.state !== 'Declined' && i.state !== 'Paused' && i.state !== 'Error' && !i.attention);
+  const blocked = items.filter((i) => i.state === 'Declined' || i.state === 'Paused');
+  const attention = items.filter((i) => i.attention && !blocked.includes(i) && i.state !== 'Paused');
   const sum = (arr) => Math.round(arr.reduce((a, i) => a + sizeOf(i), 0));
-  const bytes = { completed: sum(done), inProgress: sum(inProg), queued: sum(queued) };
+  const bytes = { completed: sum(done), inProgress: sum(inProg), queued: sum(queued), attention: sum(attention), blocked: sum(blocked) };
 
   // Remaining to download = the unfinished part of in-progress + all of queued.
   const inProgRemaining = inProg.reduce((a, i) => a + sizeOf(i) * (1 - Math.min(100, i.progress || 0) / 100), 0);
@@ -611,7 +645,7 @@ async function downloadSummary(items) {
   const sizing = [...queued, ...inProg].filter((i) => !(i.sizeBytes > 0)).length;   // still fetching metadata
 
   return {
-    counts: { completed: done.length, inProgress: inProg.length, queued: queued.length },
+    counts: { completed: done.length, inProgress: inProg.length, queued: queued.length, attention: attention.length, blocked: blocked.length },
     bytes,
     remainingBytes,
     speedBytes,
@@ -778,15 +812,102 @@ async function stallRecovery() {
 setInterval(stallRecovery, 300000); // every 5 min — STALL_DEAD/throttles gate the actual actions
 setTimeout(stallRecovery, 20000);
 
+// Video format labelling and GPU-compatibility tier.
+function videoLabel(mi) {
+  if (!mi) return '';
+  const c = (mi.videoCodec || '').toLowerCase();
+  let codec = '';
+  if (c.includes('x265') || c.includes('hevc')) codec = 'HEVC';
+  else if (c.includes('av1')) codec = 'AV1';
+  else if (c.includes('x264') || c.includes('h264') || c.includes('avc')) codec = 'H.264';
+  else if (c.includes('vp9')) codec = 'VP9';
+  else codec = c.toUpperCase() || '';
+  const d = mi.videoBitDepth ? mi.videoBitDepth + 'bit' : '';
+  const dr = mi.videoDynamicRange || '';
+  const drt = (mi.videoDynamicRangeType || '').toUpperCase();
+  let hdr = '';
+  if (drt.includes('DV')) hdr = 'DV';
+  else if (drt.includes('HDR10')) hdr = 'HDR10+';
+  else if (dr && dr !== 'SDR') hdr = dr;
+  return [codec, d, hdr].filter(Boolean).join(' ');
+}
+function gpuTier(mi) {
+  if (!mi) return '';
+  const c = (mi.videoCodec || '').toLowerCase();
+  const d = mi.videoBitDepth || 8;
+  const dr = mi.videoDynamicRange || '';
+  const drt = (mi.videoDynamicRangeType || '').toUpperCase();
+  // Tuned for this NUC's i5-6260U (Skylake Iris 540):
+  //   HW decode: H.264 8-bit, HEVC 8-bit only (10-bit is software).
+  //   HW encode: H.264, H.265 8-bit only.
+  //   VP9 decode, no AV1, no DoVi.
+  if (c.includes('av1')) return 'bad';
+  if (drt.includes('DV')) return 'bad';
+  if (d >= 10) return 'warn';
+  if (drt.includes('HDR') || dr === 'HDR') return 'warn';
+  return 'ok';
+}
+
 // Library — titles to clean up, biggest first.
 app.get('/api/library', async (req, res) => {
   const a = req.query.app === 'sonarr' ? 'sonarr' : 'radarr';
   try {
-    let items;
+    let items, queue = [];
+    try { const qr = await arrGet(a, `/queue?pageSize=200&includeUnknownMovieItems=true`); queue = qr.records || []; }
+    catch { /* queue down */ }
+    const qByItemId = {};
+    for (const qe of queue) {
+      const id = qe.movieId || qe.seriesId;
+      if (id != null && !qByItemId[id]) qByItemId[id] = qe;
+    }
     if (a === 'radarr') {
-      items = (await arrGet('radarr', '/movie')).map((m) => ({ id: m.id, title: m.title, year: m.year, hasFile: !!m.hasFile, sizeBytes: (m.movieFile && m.movieFile.size) || m.sizeOnDisk || 0, tmdbId: m.tmdbId }));
+      const movies = await arrGet('radarr', '/movie');
+      items = movies.map((m) => {
+        const item = { id: m.id, title: m.title, year: m.year, hasFile: !!m.hasFile, sizeBytes: (m.movieFile && m.movieFile.size) || m.sizeOnDisk || 0, tmdbId: m.tmdbId, runtimeMinutes: m.runtime || 0, videoLabel: videoLabel(m.movieFile && m.movieFile.mediaInfo), gpuCompat: gpuTier(m.movieFile && m.movieFile.mediaInfo) };
+        if (!m.hasFile) {
+          const qe = qByItemId[m.id];
+          if (qe) {
+            if (qe.status === 'completed' || qe.trackedDownloadState === 'imported') { item.downloadStatus = 'importing'; item.downloadDetail = 'Importing…'; }
+            else if (qe.status === 'downloading') { item.downloadStatus = 'downloading'; item.downloadDetail = `Downloading${qe.size && qe.sizeleft ? ' (' + Math.round((1 - qe.sizeleft / qe.size) * 100) + '%)' : ''}`; }
+            else if (qe.status === 'queued' || qe.status === 'paused') { item.downloadStatus = 'queued'; item.downloadDetail = 'Queued'; }
+            else if (qe.trackedDownloadState === 'importBlocked') { item.downloadStatus = 'blocked'; item.downloadDetail = qe.errorMessage || 'Import blocked'; }
+            else if (qe.trackedDownloadState === 'failed') { item.downloadStatus = 'failed'; item.downloadDetail = qe.errorMessage || 'Download failed'; }
+            else { item.downloadStatus = 'queued'; item.downloadDetail = qe.status || 'Queued'; }
+          } else {
+            item.downloadStatus = m.monitored === false ? 'paused' : 'missing';
+            item.downloadDetail = m.monitored === false ? 'Paused (unmonitored)' : 'Not found';
+          }
+        }
+        return item;
+      });
     } else {
-      items = (await arrGet('sonarr', '/series')).map((s) => ({ id: s.id, title: s.title, year: s.year, hasFile: ((s.statistics && s.statistics.episodeFileCount) || 0) > 0, sizeBytes: (s.statistics && s.statistics.sizeOnDisk) || 0, tmdbId: s.tmdbId }));
+      const seriesList = await arrGet('sonarr', '/series');
+      let miBySeries = {};
+      await Promise.allSettled(seriesList.filter((s) => s.statistics && s.statistics.episodeFileCount > 0).map(async (s) => {
+        const efs = await arrGet('sonarr', `/episodefile?seriesId=${s.id}`, 5000);
+        if (!Array.isArray(efs) || !efs.length) return;
+        const mi = efs.find((ef) => ef.mediaInfo);
+        if (mi) miBySeries[s.id] = mi.mediaInfo;
+      }));
+      items = seriesList.map((s) => {
+        const mi = miBySeries[s.id];
+        const item = { id: s.id, title: s.title, year: s.year, hasFile: ((s.statistics && s.statistics.episodeFileCount) || 0) > 0, sizeBytes: (s.statistics && s.statistics.sizeOnDisk) || 0, tmdbId: s.tmdbId, runtimeMinutes: (s.runtime && s.statistics && s.statistics.episodeFileCount) ? s.runtime * s.statistics.episodeFileCount : 0, videoLabel: videoLabel(mi), gpuCompat: gpuTier(mi) };
+        if (!item.hasFile) {
+          const qe = qByItemId[s.id];
+          if (qe) {
+            if (qe.status === 'completed' || qe.trackedDownloadState === 'imported') { item.downloadStatus = 'importing'; item.downloadDetail = 'Importing…'; }
+            else if (qe.status === 'downloading') { item.downloadStatus = 'downloading'; item.downloadDetail = `Downloading${qe.size && qe.sizeleft ? ' (' + Math.round((1 - qe.sizeleft / qe.size) * 100) + '%)' : ''}`; }
+            else if (qe.status === 'queued' || qe.status === 'paused') { item.downloadStatus = 'queued'; item.downloadDetail = 'Queued'; }
+            else if (qe.trackedDownloadState === 'importBlocked') { item.downloadStatus = 'blocked'; item.downloadDetail = qe.errorMessage || 'Import blocked'; }
+            else if (qe.trackedDownloadState === 'failed') { item.downloadStatus = 'failed'; item.downloadDetail = qe.errorMessage || 'Download failed'; }
+            else { item.downloadStatus = 'queued'; item.downloadDetail = qe.status || 'Queued'; }
+          } else {
+            item.downloadStatus = s.monitored === false ? 'paused' : 'missing';
+            item.downloadDetail = s.monitored === false ? 'Paused (unmonitored)' : 'Not found';
+          }
+        }
+        return item;
+      });
     }
     items.sort((x, y) => y.sizeBytes - x.sizeBytes);
     res.json({ app: a, items });
@@ -799,23 +920,26 @@ async function buildDeletePlan(app, id) {
   const item = await arrGet(app, isMovie ? `/movie/${id}` : `/series/${id}`);
   const title = item.title + (item.year ? ` (${item.year})` : '');
   const sizeBytes = isMovie ? ((item.movieFile && item.movieFile.size) || item.sizeOnDisk || 0) : ((item.statistics && item.statistics.sizeOnDisk) || 0);
-  // Torrent hashes via *arr history → match existing qBittorrent torrents.
-  let hashes = [];
-  try {
-    const hist = await arrGet(app, isMovie ? `/history/movie?movieId=${id}` : `/history/series?seriesId=${id}`);
-    const recs = Array.isArray(hist) ? hist : (hist.records || []);
-    hashes = [...new Set(recs.map((r) => r.downloadId).filter(Boolean).map((h) => h.toLowerCase()))];
-  } catch { /* no history */ }
-  let torrents = [];
-  if (hashes.length) {
-    try { const r = await qbit.fetch('/api/v2/torrents/info'); if (r.ok) torrents = (await r.json()).filter((t) => hashes.includes((t.hash || '').toLowerCase())); }
-    catch { /* qbit down */ }
-  }
-  let jf = { itemId: null, libraryEmptyAfter: false };
-  try { jf = await jellyfinResolve(isMovie ? 'Movie' : 'Series', item.title, item.tmdbId); } catch { /* jellyfin down */ }
-  let seerrId = null;
-  try { if (item.tmdbId) seerrId = await seerrMediaId(isMovie ? 'movie' : 'tv', item.tmdbId); } catch { /* seerr down */ }
-  return { isMovie, id: Number(id), title, sizeBytes, torrents, jf, seerrId };
+  // Jellyfin + Seerr (need tmdbId from item) and history→torrents are independent → parallel.
+  const [histTor, jf, seerrId] = await Promise.all([
+    (async () => {
+      let hashes = [];
+      try {
+        const hist = await arrGet(app, isMovie ? `/history/movie?movieId=${id}` : `/history/series?seriesId=${id}`);
+        const recs = Array.isArray(hist) ? hist : (hist.records || []);
+        hashes = [...new Set(recs.map((r) => r.downloadId).filter(Boolean).map((h) => h.toLowerCase()))];
+      } catch { /* no history */ }
+      let torrents = [];
+      if (hashes.length) {
+        try { const r = await qbit.fetch(`/api/v2/torrents/info?hashes=${hashes.join('|')}`); if (r.ok) torrents = await r.json(); }
+        catch { /* qbit down */ }
+      }
+      return torrents;
+    })(),
+    (async () => { try { const id = await jellyfinIdByTmdb(isMovie ? 'Movie' : 'Series', item.tmdbId); return { itemId: id }; } catch { return { itemId: null }; } })(),
+    (async () => { try { if (item.tmdbId) return await seerrMediaId(isMovie ? 'movie' : 'tv', item.tmdbId); } catch { /* seerr down */ } return null; })(),
+  ]);
+  return { isMovie, id: Number(id), title, sizeBytes, torrents: histTor, jf, seerrId };
 }
 
 function planItems(p) {
@@ -879,7 +1003,7 @@ async function buildDeletePlanFromHash(hash, source) {
   // No *arr item — assemble a torrent-only plan (layer 1 will show as "not tracked").
   let t = null;
   try { const r = await qbit.fetch('/api/v2/torrents/info'); if (r.ok) t = (await r.json()).find((x) => (x.hash || '').toLowerCase() === h); } catch { /* qbit down */ }
-  return { isMovie: source !== 'sonarr', id: null, title: (t && t.name) || 'this download', sizeBytes: (t && t.size) || 0, torrents: t ? [t] : [], jf: { itemId: null, libraryEmptyAfter: false }, seerrId: null };
+  return { isMovie: source !== 'sonarr', id: null, title: (t && t.name) || 'this download', sizeBytes: (t && t.size) || 0, torrents: t ? [t] : [], jf: { itemId: null }, seerrId: null };
 }
 
 app.post('/api/delete', async (req, res) => {
@@ -887,7 +1011,13 @@ app.post('/api/delete', async (req, res) => {
   const byHash = id == null && !!hash;
   if (!byHash && (!['radarr', 'sonarr'].includes(a) || id == null)) return res.status(400).json({ error: 'body must be {app,id} or {hash,source?}' });
   try {
-    const p = byHash ? await buildDeletePlanFromHash(hash, source) : await buildDeletePlan(a, id);
+    let p;
+    if (byHash && hash.startsWith('missing:')) {
+      const parts = hash.split(':');
+      p = await buildDeletePlan(parts[1], Number(parts[2]));
+    } else {
+      p = byHash ? await buildDeletePlanFromHash(hash, source) : await buildDeletePlan(a, id);
+    }
     if (dryRun) return res.json({ dryRun: true, title: p.title, freedBytes: p.sizeBytes, plan: planItems(p) });
     const results = await executeDelete(p);
     triggerJellyfinScan(); // reconciling sweep AFTER files are gone (the explicit item delete already removed it)
@@ -919,6 +1049,20 @@ app.post('/api/declined/dismiss', (req, res) => {
   res.json({ ok: true });
 });
 
+// Retry search for a missing monitored item — same call arrSweep uses.
+app.post('/api/retry', async (req, res) => {
+  const { app: a, id } = req.body || {};
+  if (!['radarr', 'sonarr'].includes(a) || id == null) return res.status(400).json({ error: 'body must be {app,id}' });
+  try {
+    searchKeyClear(a, Number(id));  // a manual retry overrides the sweep cooldown + negative cache
+    persistState();
+    if (a === 'radarr') await arrPost(a, '/command', { name: 'MoviesSearch', movieIds: [Number(id)] }, 5000);
+    else await arrPost(a, '/command', { name: 'SeriesSearch', seriesId: Number(id) }, 5000);
+    console.log(`retry: triggered search for ${a} id=${id}`);
+    res.json({ ok: true });
+  } catch (e) { console.log(`retry: failed for ${a} id=${id} — ${e.message || e}`); res.status(500).json({ error: String(e.message || e) }); }
+});
+
 // ---- Disk gate: decline a download that can't fit under the 20 GB cap ----
 // Single-admin Jellyseerr auto-approves the owner's OWN requests, so there's no
 // "pending" window to gate at the request stage. Instead we intercept at the download
@@ -928,6 +1072,14 @@ app.post('/api/declined/dismiss', (req, res) => {
 // loop and the Jellyseerr mark is cleared) and remember WHY — the Downloads view then
 // shows "Declined — not enough disk space" instead of a stuck ENOSPC half-download.
 const declined = new Map(); // hash -> { title, neededBytes, freeBytes, ts, source }
+// These two are also restored by loadState() below, so they MUST be declared before it runs —
+// a `const` referenced before its line is a ReferenceError (TDZ) that loadState's catch would
+// swallow, silently losing the persisted state across reboots.
+const blocked = new Map();  // `app:id:seasons` -> { title, neededBytes, freeBytes, ts, lastCheck }
+// Per-item *arr search state, persisted so it survives a controller restart (an in-memory-only
+// version, wiped on every reboot, is what let a restart re-trigger the full search/grab storm).
+// Key `app:id` -> { ts: last auto-search ms, fails: consecutive fruitless searches, blockedUntil }.
+const searchState = new Map();
 
 // Persist declined + blocked tombstones across restarts so the "Declined" rows
 // survive a controller reboot.
@@ -935,9 +1087,10 @@ function persistState() {
   clearTimeout(persistState._timer);
   persistState._timer = setTimeout(() => {
     try {
-      const obj = { declined: {}, blocked: {} };
+      const obj = { declined: {}, blocked: {}, searchState: {} };
       for (const [k, v] of declined) obj.declined[k] = v;
       for (const [k, v] of blocked) obj.blocked[k] = v;
+      for (const [k, v] of searchState) obj.searchState[k] = v;
       fs.writeFileSync('/config/state.json', JSON.stringify(obj));
     } catch { /* */ }
   }, 500);
@@ -947,6 +1100,7 @@ function loadState() {
     const obj = JSON.parse(fs.readFileSync('/config/state.json', 'utf8'));
     if (obj.declined) for (const [k, v] of Object.entries(obj.declined)) declined.set(k, v);
     if (obj.blocked) for (const [k, v] of Object.entries(obj.blocked)) blocked.set(k, v);
+    if (obj.searchState) for (const [k, v] of Object.entries(obj.searchState)) searchState.set(k, v);
   } catch { /* */ }
 }
 loadState();
@@ -1124,6 +1278,197 @@ async function orphanSweep() {
 setInterval(orphanSweep, 60000);
 setTimeout(orphanSweep, 15000);
 
+// ---- Seerr orphan sweep: remove media entries whose *arr counterpart is gone ----
+let seerrSweepBusy = false;
+async function seerrSweep() {
+  if (seerrSweepBusy || !cfg.SEERR_KEY) return;
+  seerrSweepBusy = true;
+  try {
+    const [mr, sonarrItems, radarrItems] = await Promise.all([
+      seerr.fetch('/api/v1/media?take=5000', { ms: 10000 }),
+      arrGet('sonarr', '/series', 8000).catch(() => []),
+      arrGet('radarr', '/movie', 8000).catch(() => []),
+    ]);
+    if (!mr.ok) return;
+    const data = await mr.json();
+    const allSeerr = data.results || [];
+    if (!allSeerr.length) return;
+
+    const known = new Set();
+    for (const s of (Array.isArray(sonarrItems) ? sonarrItems : [])) { const t = s.tmdbId; if (t) known.add(String(t)); }
+    for (const r of (Array.isArray(radarrItems) ? radarrItems : [])) { const t = r.tmdbId; if (t) known.add(String(t)); }
+
+    const orphans = allSeerr.filter((m) => {
+      const tid = m.tmdbId;
+      const status = m.status || 0;
+      return tid && !known.has(String(tid)) && status >= 4;
+    });
+
+    if (!orphans.length) return;
+    for (const o of orphans) {
+      try {
+        const r = await seerr.fetch(`/api/v1/media/${o.id}`, { method: 'DELETE', ms: 5000 });
+        if (r.ok || r.status === 204) console.log(`seerrSweep: removed orphan id=${o.id} tmdb=${o.tmdbId}`);
+        else console.log(`seerrSweep: failed to delete id=${o.id} — HTTP ${r.status}`);
+      } catch (e) { console.log(`seerrSweep: error deleting id=${o.id} — ${e.message || e}`); }
+    }
+  } catch (e) { console.log(`seerrSweep: sweep failed — ${e.message || e}`); }
+  finally { seerrSweepBusy = false; }
+}
+setInterval(seerrSweep, 300000); // every 5 min
+setTimeout(seerrSweep, 30000);   // first run after 30s
+
+// ---- *arr sweep: auto-recover stuck queue items + trigger search for missing monitored items ----
+let arrSweepBusy = false;
+// searchState is declared up by `declined` (must exist before loadState() runs). Tuning knobs:
+const SEARCH_COOLDOWN_MS = 3600000;            // 1h between auto-searches of the same item
+const SEARCH_FAIL_LIMIT = 4;                   // after this many fruitless searches → negative-cache it
+const SEARCH_BLOCK_MS = 7 * 24 * 3600 * 1000;  // ...for a week (a manual /api/retry clears it sooner)
+const SWEEP_MAX_ACTIVE_DL = 10;                // capacity guard: no new searches while this many download
+const DL_STATES = new Set(['downloading', 'stalledDL', 'metaDL', 'forcedDL', 'queuedDL', 'checkingDL', 'allocating']);
+const searchKeyClear = (app, id) => searchState.delete(`${app}:${id}`); // manual retry overrides cooldown+block
+async function arrSweep() {
+  if (arrSweepBusy) return;
+  arrSweepBusy = true;
+  try {
+    for (const app of ['radarr', 'sonarr']) {
+      let queue = [];
+      try { const qr = await arrGet(app, '/queue?pageSize=200&includeUnknownMovieItems=true', 8000); queue = qr.records || []; }
+      catch { continue; }
+
+      const stuckIds = [];
+      const stalledHashes = [];
+      for (const qe of queue) {
+        const id = qe.movieId || qe.seriesId;
+        if (qe.trackedDownloadState === 'importBlocked' && qe.errorMessage && /missing file/i.test(qe.errorMessage)) {
+          stuckIds.push({ id, queueId: qe.id });
+        }
+        if ((qe.status === 'queued' || qe.status === 'paused') && qe.size === 0 && qe.sizeleft === 0 && qe.errorMessage && /metadata/i.test(qe.errorMessage)) {
+          stuckIds.push({ id, queueId: qe.id });
+          if (qe.downloadId) stalledHashes.push(qe.downloadId);
+        }
+      }
+
+      for (const s of stuckIds) {
+        try {
+          await arrDelete(app, `/queue/${s.queueId}?removeFromClient=true&blocklist=false`);
+          console.log(`arrSweep: removed stuck queue item id=${s.id} from ${app}`);
+        } catch (e) { console.log(`arrSweep: failed to remove queue item id=${s.id} from ${app} — ${e.message || e}`); }
+      }
+
+      if (stalledHashes.length) {
+        try {
+          const body = new URLSearchParams({ hashes: stalledHashes.join('|'), deleteFiles: 'true' });
+          await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+          console.log(`arrSweep: removed ${stalledHashes.length} stalled torrent(s) from qBittorrent`);
+        } catch (e) { console.log(`arrSweep: failed to remove stalled torrents — ${e.message || e}`); }
+      }
+
+      // Map this app's qBittorrent torrents to their *arr item id (via queue + history download
+      // hashes). This is the dedup / already-downloading guard the old sweep lacked: it decided
+      // what to search from the *arr QUEUE alone, which can list fewer items than qBittorrent
+      // actually holds — so it re-searched titles that were already downloading, and Radarr then
+      // grabbed a second, different release. That, plus the (formerly in-memory) cooldown being
+      // wiped on every restart, is what produced the duplicate-download storm.
+      let torrents = [];
+      try { torrents = await getQbitTorrents(); } catch { /* qbit down — skip dedup + guard this pass */ }
+      const hashToId = new Map();
+      for (const q of queue) if (q.downloadId) hashToId.set(q.downloadId.toLowerCase(), q.movieId || q.seriesId);
+      try {
+        for (const r of ((await arrGet(app, '/history?pageSize=500&sortKey=date&sortDirection=descending')).records || [])) {
+          const h = (r.downloadId || '').toLowerCase();
+          if (h && (r.movieId || r.seriesId) != null && !hashToId.has(h)) hashToId.set(h, r.movieId || r.seriesId);
+        }
+      } catch { /* history optional */ }
+
+      let activeDl = 0;
+      const inflightById = new Map();   // movieId -> [in-flight torrents] (dedup candidates, radarr only)
+      const hasTorrentIds = new Set();  // arrId -> a real (non-orphan) torrent exists → don't re-search
+      for (const t of torrents) {
+        const state = t.state || '';
+        const inflight = DL_STATES.has(state);
+        if (inflight) activeDl++;                                // global active-download count
+        if (torrentApp(t) !== app) continue;
+        const id = hashToId.get((t.hash || '').toLowerCase());
+        if (id == null) continue;
+        if (state !== 'missingFiles') hasTorrentIds.add(id);     // present/downloading/seeding — already handled
+        if (inflight) {
+          if (!inflightById.has(id)) inflightById.set(id, []);
+          inflightById.get(id).push(t);
+        }
+      }
+
+      // Duplicate resolution — MOVIES ONLY, and only among IN-FLIGHT (downloading) torrents.
+      //   • A Sonarr series legitimately holds many torrents (one per season/episode), so grouping
+      //     by seriesId would wrongly flag whole seasons as "duplicates" — never dedup TV here.
+      //   • Completed/seeding library torrents and orphaned missingFiles are never touched, so we
+      //     can't delete real media. Only a genuine concurrent download race (≥2 in-flight torrents
+      //     for the same movie) is resolved: keep the most-progressed, delete the rest (partial data).
+      if (app === 'radarr') {
+        for (const [id, ts] of inflightById) {
+          if (ts.length < 2) continue;
+          const sorted = ts.slice().sort((a, b) => (b.progress || 0) - (a.progress || 0) || (a.size || 0) - (b.size || 0));
+          const losers = sorted.slice(1).map((t) => t.hash).filter(Boolean);
+          if (!losers.length) continue;
+          try {
+            await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: losers.join('|'), deleteFiles: 'true' }) });
+            console.log(`arrSweep: radarr id=${id} had ${ts.length} in-flight torrents — kept "${sorted[0].name}", removed ${losers.length} duplicate download(s)`);
+          } catch (e) { console.log(`arrSweep: duplicate cleanup failed for radarr id=${id} — ${e.message || e}`); }
+        }
+      }
+      const downloadingIds = hasTorrentIds;
+
+      // Trigger search for monitored items with no file, not already queued, not already
+      // downloading in qBittorrent, not within cooldown, and not negative-cached.
+      let items = [];
+      try {
+        if (app === 'radarr') items = await arrGet('radarr', '/movie', 8000);
+        else items = await arrGet('sonarr', '/series', 8000);
+      } catch { continue; }
+
+      const now = Date.now();
+      const qIds = new Set(queue.map((q) => q.movieId || q.seriesId));
+      const needSearch = items.filter((i) => {
+        const hasContent = app === 'radarr' ? !!i.hasFile : !!(i.statistics && i.statistics.episodeFileCount);
+        if (hasContent) { searchKeyClear(app, i.id); return false; }   // got it — clear any fail count
+        if (i.monitored === false) return false;
+        if (qIds.has(i.id) || downloadingIds.has(i.id)) return false;  // already in flight
+        const st = searchState.get(`${app}:${i.id}`);
+        if (st && st.blockedUntil && st.blockedUntil > now) return false;   // negative-cached (no content)
+        if (st && st.ts && now - st.ts < SEARCH_COOLDOWN_MS) return false;  // within 1h cooldown
+        return true;
+      });
+
+      if (activeDl >= SWEEP_MAX_ACTIVE_DL) {
+        if (needSearch.length) console.log(`arrSweep: ${activeDl} active downloads ≥ ${SWEEP_MAX_ACTIVE_DL} — holding ${needSearch.length} ${app} search(es) this pass`);
+      } else if (needSearch.length) {
+        const slots = SWEEP_MAX_ACTIVE_DL - activeDl;
+        const batch = needSearch.slice(0, Math.min(5, slots)); // ≤5 per sweep AND never exceed capacity
+        for (const item of batch) {
+          const key = `${app}:${item.id}`;
+          const st = searchState.get(key) || { ts: 0, fails: 0, blockedUntil: 0 };
+          if (st.ts) st.fails = (st.fails || 0) + 1;   // a prior search left it with no content → it failed
+          st.ts = now;
+          if (st.fails >= SEARCH_FAIL_LIMIT) {
+            st.blockedUntil = now + SEARCH_BLOCK_MS;
+            console.log(`arrSweep: ${app} "${item.title}" (${item.id}) searched ${st.fails}× with no grab — negative-caching 7d (manual retry clears)`);
+          }
+          searchState.set(key, st);
+          try {
+            if (app === 'radarr') await arrPost(app, '/command', { name: 'MoviesSearch', movieIds: [item.id] }, 5000);
+            else await arrPost(app, '/command', { name: 'SeriesSearch', seriesId: item.id }, 5000);
+            console.log(`arrSweep: triggered search for ${app} "${item.title}" (${item.id})`);
+          } catch (e) { console.log(`arrSweep: search trigger failed for ${item.id} — ${e.message || e}`); }
+        }
+        persistState();
+      }
+    }
+  } catch (e) { console.log(`arrSweep: sweep failed — ${e.message || e}`); }
+  finally { arrSweepBusy = false; }
+}
+setInterval(arrSweep, 300000); // every 5 min
+setTimeout(arrSweep, 30000);    // first run after 30s
+
 // ---- Request gate: surface a request that Radarr/Sonarr REJECTED for disk space ----
 // The *arrs enforce the 20 GB cap themselves ("…will exceed available disk space") and
 // drop the release at SEARCH time — so nothing ever reaches qBittorrent and the disk gate
@@ -1132,7 +1477,7 @@ setTimeout(orphanSweep, 15000);
 // rejections via an interactive search. If the only thing standing between us and a grab is
 // space (a release rejected SOLELY for disk space exists), we flag it Declined with the
 // real numbers. Non-disk stalls ("no release found yet") are transient — left alone.
-const blocked = new Map(); // `app:id:seasons` -> { title, neededBytes, freeBytes, ts, lastCheck }
+// (`blocked` is declared up by `declined` so loadState() can restore it before this point.)
 const DISK_REJ = /exceed available disk space/i;
 
 async function freeUnderCap() {
