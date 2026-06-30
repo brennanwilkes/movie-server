@@ -175,4 +175,44 @@ provision_arr() {
       warn "${app}: Remux-1080p lockout did not persist — check the PUT response"
     fi
   fi
+
+  # 7. Codec bias — prefer releases the NUC's iGPU can hardware-decode (H.264 + 8-bit HEVC). The
+  #    Iris 540 can't HW-decode 10-bit HEVC / AV1 / VP9, so those fall to CPU decode. Custom-format
+  #    scores only break ties WITHIN a quality tier (which 1080p release to grab) — resolution and
+  #    quality are never sacrificed. HDR/DoVi is kept on top so HDR titles still get their 10-bit
+  #    copy. minFormatScore is very negative so nothing is ever REJECTED — only ordered by preference.
+  rt() {  # regex [negate] -> one ReleaseTitle specification object (regex passed via --arg, no escaping traps)
+    jq -n --arg v "$1" --argjson neg "${2:-false}" \
+      '{name:"s",implementation:"ReleaseTitleSpecification",negate:$neg,required:true,fields:[{name:"value",value:$v}]}'
+  }
+  local existing_cf; existing_cf=$("${AG[@]}" "${base}/customformat")
+  cf_ensure() {  # name  jq-spec-array  -> echoes the custom-format id (creates it if missing)
+    local n="$1" spec="$2" id
+    id=$(jq -r --arg n "$n" '.[]|select(.name==$n).id' <<<"$existing_cf")
+    if [[ -z "$id" || "$id" == "null" ]]; then
+      id=$("${AJ[@]}" "${base}/customformat" -d "$(jq -n --arg n "$n" --argjson s "$spec" \
+            '{name:$n,includeCustomFormatWhenRenaming:false,specifications:$s}')" | jq -r '.id')
+      ok "${app}: custom format '$n' created"
+    fi
+    echo "$id"
+  }
+  declare -A CFID CFSCORE
+  CFID["HDR / Dolby Vision (keep)"]=$(cf_ensure "HDR / Dolby Vision (keep)" "[$(rt '(?i)(\bhdr\b|hdr10|dolby.?vision|\bdovi\b)')]");      CFSCORE["HDR / Dolby Vision (keep)"]=400
+  CFID["HEVC 8-bit (GPU)"]=$(cf_ensure "HEVC 8-bit (GPU)" "[$(rt '(?i)(x265|h\.?265|hevc)'),$(rt '(?i)10.?bit' true)]");                  CFSCORE["HEVC 8-bit (GPU)"]=200
+  CFID["H.264 (GPU)"]=$(cf_ensure "H.264 (GPU)" "[$(rt '(?i)\b(x264|h\.?264|avc)\b')]");                                                  CFSCORE["H.264 (GPU)"]=150
+  CFID["10-bit (CPU)"]=$(cf_ensure "10-bit (CPU)" "[$(rt '(?i)10.?bit')]");                                                               CFSCORE["10-bit (CPU)"]=-150
+  CFID["AV1 (CPU)"]=$(cf_ensure "AV1 (CPU)" "[$(rt '(?i)\bav1\b')]");                                                                     CFSCORE["AV1 (CPU)"]=-1000
+  CFID["VP9 (CPU)"]=$(cf_ensure "VP9 (CPU)" "[$(rt '(?i)\bvp9\b')]");                                                                     CFSCORE["VP9 (CPU)"]=-1000
+  local cfprof; cfprof=$("${AG[@]}" "${base}/qualityprofile" | jq '[.[]|select(.name=="HD-1080p")][0]')
+  if [[ -n "$cfprof" && "$cfprof" != "null" ]]; then
+    local items='[]' n
+    for n in "${!CFID[@]}"; do
+      items=$(jq --argjson f "${CFID[$n]}" --arg n "$n" --argjson s "${CFSCORE[$n]}" '. + [{format:$f,name:$n,score:$s}]' <<<"$items")
+    done
+    "${AJ[@]}" -X PUT "${base}/qualityprofile/$(jq '.id' <<<"$cfprof")" \
+      -d "$(jq --argjson it "$items" '.minFormatScore=-10000 | .formatItems=$it' <<<"$cfprof")" >/dev/null
+    ok "${app}: codec bias applied to HD-1080p (HW-friendly preferred, HDR kept, nothing rejected)"
+  else
+    ok "${app}: no HD-1080p profile — skipping codec bias"
+  fi
 }
