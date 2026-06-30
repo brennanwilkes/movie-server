@@ -120,6 +120,43 @@ else
   ok "custom CSS theme applied"
 fi
 
+# 6b. Intel Quick Sync hardware transcoding. Requires the iGPU passed into the container via
+#     docker-compose (devices: /dev/dri + group_add render/video). The Iris 540 (Skylake) has no
+#     10-bit HEVC HW decode, so EnableDecodingColorDepth10Hevc=false → those fall back to software
+#     cleanly instead of erroring. (vainfo confirmed: H.264 + 8-bit HEVC decode/encode only.)
+log "  enabling Intel Quick Sync hardware transcoding"
+enc=$(curl -fsS "$JF/System/Configuration/encoding" -H "X-Emby-Token: $token")
+jq '.HardwareAccelerationType="qsv" | .QsvDevice="/dev/dri/renderD128" | .EnableHardwareEncoding=true
+    | .HardwareDecodingCodecs=["h264","hevc","mpeg2video","vc1"] | .EnableDecodingColorDepth10Hevc=false' <<<"$enc" \
+  | curl -fsS -X POST "$JF/System/Configuration/encoding" -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+ok "Quick Sync (QSV) enabled"
+
+# 6c. Network: Jellyfin runs on host networking (compose) so the PS3 can find it over DLNA. Pin the
+#     advertised address to the LAN IP and disable IPv6 — otherwise the DLNA plugin builds an
+#     invalid bare-'::' URI and fails to publish on the LAN.
+log "  pinning Jellyfin network to $NUC_IP (DLNA-friendly)"
+net=$(curl -fsS "$JF/System/Configuration/network" -H "X-Emby-Token: $token")
+jq --arg ip "$NUC_IP" '.EnableIPv6=false | .LocalNetworkAddresses=[$ip] | .PublishedServerUriBySubnet=["all=http://"+$ip+":8096"]' <<<"$net" \
+  | curl -fsS -X POST "$JF/System/Configuration/network" -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+ok "network advertised on $NUC_IP, IPv6 off"
+
+# 6d. DLNA plugin — removed from Jellyfin core in 10.10+, so the PS3 needs it installed to discover
+#     and browse Jellyfin. Lives in the default Jellyfin Stable repo. (Sony PS3 device profile ships
+#     with the plugin and auto-applies by the PS3's identity on connect.)
+if grep -qxF "DLNA" <<<"$installed"; then
+  ok "DLNA plugin already installed"
+else
+  pkgs=$(curl -fsS "$JF/Packages" -H "X-Emby-Token: $token")
+  dguid=$(jq -r '.[]|select(.name=="DLNA").guid' <<<"$pkgs")
+  dver=$(jq -r '.[]|select(.name=="DLNA").versions[0].version' <<<"$pkgs")
+  if [[ -n "$dguid" && "$dguid" != "null" ]]; then
+    curl -fsS -X POST "$JF/Packages/Installed/DLNA?assemblyGuid=$dguid&version=$dver" -H "X-Emby-Token: $token" >/dev/null
+    ok "DLNA plugin installed ($dver) — restart below activates it"
+  else
+    warn "DLNA package not found in catalog — PS3 discovery will be unavailable"
+  fi
+fi
+
 # 7. Restart Jellyfin so plugin and CSS changes take effect (Branding API writes
 #     to disk but server caches config in memory until restart).
 log "  restarting Jellyfin to apply changes"

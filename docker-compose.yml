@@ -6,7 +6,11 @@ services:
     volumes:
       - ${CONFIG}/jellyfin:/config
       - ${DATA}/media:/media
-    ports: ["8096:8096"]
+    # Host networking so the PS3 can discover Jellyfin over DLNA/SSDP (UDP 1900 multicast doesn't
+    # cross Docker's bridge). Jellyfin still serves on the NUC's IP :8096 exactly as before — only
+    # internal container refs changed (now reach it at ${NUC_IP}:8096, not the 'jellyfin' DNS name).
+    # LAN-only; nothing new is exposed to the internet.
+    network_mode: host
     # Intel Quick Sync: pass the iGPU (Iris 540) so Jellyfin transcodes/analyses on the GPU
     # instead of pegging the CPU. group_add = host render(133)+video(44) gids so the container
     # user can open /dev/dri/renderD128.

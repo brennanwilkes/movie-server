@@ -31,7 +31,8 @@ const NUC_IP = cfg.NUC_IP || '192.168.1.74';
 
 // Internal (container-network) bases + external ports for browser deep-links.
 const HOST = {
-  jellyfin: 'http://jellyfin:8096',
+  jellyfin: `http://${NUC_IP}:8096`,   // Jellyfin runs on host networking (for PS3 DLNA), so reach it
+                                        // via the NUC's IP, not the container DNS name 'jellyfin'.
   qbittorrent: 'http://qbittorrent:8080',
   prowlarr: 'http://prowlarr:9696',
   radarr: 'http://radarr:7878',

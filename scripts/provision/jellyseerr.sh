@@ -15,8 +15,8 @@ js_authed() { [[ "$(curl -s -b "$jar" "$JS/auth/me" | jq -r '.id // "null"')" !=
 js_login
 if ! js_authed; then
   curl -s -o /dev/null -c "$jar" -X POST "$JS/auth/jellyfin" -H 'Content-Type: application/json' \
-    -d "$(jq -n --arg u "$JELLYFIN_ADMIN_USER" --arg p "$JELLYFIN_ADMIN_PASS" --arg e "${JELLYSEERR_EMAIL:-${JELLYFIN_ADMIN_USER}@jellyseerr.local}" \
-          '{username:$u,password:$p,hostname:"jellyfin",port:8096,useSsl:false,urlBase:"",email:$e,serverType:2}')"
+    -d "$(jq -n --arg u "$JELLYFIN_ADMIN_USER" --arg p "$JELLYFIN_ADMIN_PASS" --arg e "${JELLYSEERR_EMAIL:-${JELLYFIN_ADMIN_USER}@jellyseerr.local}" --arg jf "${NUC_IP:-jellyfin}" \
+          '{username:$u,password:$p,hostname:$jf,port:8096,useSsl:false,urlBase:"",email:$e,serverType:2}')"
   js_authed || die "jellyseerr: could not authenticate or create owner (check Jellyfin creds)"
   ok "jellyseerr: owner created from Jellyfin login"
 else

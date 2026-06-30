@@ -64,13 +64,13 @@ provision_arr() {
   else
     local jfkey; jfkey=$(jellyfin_apikey arr)
     [[ -n "$jfkey" && "$jfkey" != "null" ]] || die "${app}: could not obtain a Jellyfin API key"
-    local notif; notif=$("${AG[@]}" "${base}/notification/schema" | jq --arg k "$jfkey" \
+    local notif; notif=$("${AG[@]}" "${base}/notification/schema" | jq --arg k "$jfkey" --arg jfhost "${NUC_IP:-jellyfin}" \
       '[.[]|select(.implementation=="MediaBrowser")][0]
        | .name="Jellyfin" | .onDownload=true | .onUpgrade=true | .onRename=true
        | reduce (to_entries[]|select(.key|test("^supportsOn.*Delete"))|select(.value)
                  |(.key|sub("supports";"")|(.[0:1]|ascii_downcase)+.[1:])) as $t (.; .[$t]=true)
        | .fields = (.fields | map(
-           if   .name=="host"          then .value="jellyfin"
+           if   .name=="host"          then .value=$jfhost
            elif .name=="port"          then .value=8096
            elif .name=="useSsl"        then .value=false
            elif .name=="urlBase"       then .value=""
