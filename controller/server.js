@@ -711,12 +711,27 @@ async function arrBlocklistAndResearch(app, queueId, itemId) {
   const cmd = app === 'radarr' ? { name: 'MoviesSearch', movieIds: [itemId] } : { name: 'SeriesSearch', seriesId: itemId };
   await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) }, 20000);
 }
+// Grab the single best-seeded release available for a title (radarr only — Sonarr's interactive
+// search is per-episode and messier). Used by the "accept rare" tier: when re-searching keeps
+// turning up only dead releases, we stop churning and just take the healthiest option there is.
+async function grabBestSeeded(app, itemId) {
+  if (app !== 'radarr') return null;
+  const { base, key } = arrOf(app);
+  const rels = await (await tfetch(`${base}/release?movieId=${itemId}`, { headers: { 'X-Api-Key': key } }, 60000)).json();
+  const best = (rels || []).slice().sort((a, b) => (b.seeders || 0) - (a.seeders || 0))[0];
+  if (!best || !best.guid) return null;
+  await tfetch(`${base}/release`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ guid: best.guid, indexerId: best.indexerId }) }, 30000);
+  return best.seeders || 0;
+}
 const _stallSince = new Map();   // hash -> first-seen-stalled-with-0-seeds ts
 const _lastReannounce = new Map();
 const _lastResearch = new Map();
+const _researchCount = new Map(); // app:itemId -> how many times we've blocklisted+re-searched this title
+const _accepted = new Set();      // app:itemId -> rare title: best-available grabbed, never abandon again
 const STALL_DEAD = 3600;          // s a torrent may sit at 0 seeds before we abandon the release
 const REANNOUNCE_EVERY = 600;
 const RESEARCH_EVERY = 6 * 3600;  // never re-research the same hash more than this often
+const MAX_RESEARCH = 3;           // after this many dead re-searches, accept the title is rare & let it sit
 async function stallRecovery() {
   const now = Math.floor(Date.now() / 1000);
   let torrents; try { torrents = await getQbitTorrents(); } catch { return; }
@@ -732,13 +747,31 @@ async function stallRecovery() {
     if (t.state !== 'metaDL' && (t.num_complete || 0) > 0) { _stallSince.delete(h); continue; }
     if (!_stallSince.has(h)) _stallSince.set(h, now);
     if (now - _stallSince.get(h) < STALL_DEAD) continue;                                 // give a 0-seed swarm time to appear
-    if (now - (_lastResearch.get(h) || 0) < RESEARCH_EVERY) continue;
     const app = torrentApp(t); const qrec = app && queues[app].get(h);
     if (!qrec || qrec.id == null) continue;
+    const itemId = app === 'radarr' ? qrec.movieId : qrec.seriesId;
+    const key = `${app}:${itemId}`;
+    if (_accepted.has(key)) { _stallSince.delete(h); continue; }                         // rare title we already chose to let sit
+    if (now - (_lastResearch.get(h) || 0) < RESEARCH_EVERY) continue;
     _lastResearch.set(h, now);
-    const mins = Math.round((now - _stallSince.get(h)) / 60);
-    try { await arrBlocklistAndResearch(app, qrec.id, app === 'radarr' ? qrec.movieId : qrec.seriesId); _stallSince.delete(h); console.log(`recovery: dead release (0 seeds ${mins}m) blocklisted + re-searched: ${t.name}`); }
-    catch (e) { console.log(`recovery: re-search failed for ${t.name}: ${e.message || e}`); }
+    const cnt = _researchCount.get(key) || 0;
+    try {
+      if (cnt < MAX_RESEARCH) {
+        // Still worth trying for a healthy copy: blocklist the dead one and re-search.
+        await arrBlocklistAndResearch(app, qrec.id, itemId);
+        _researchCount.set(key, cnt + 1);
+        console.log(`recovery: dead release blocklisted + re-searched (try ${cnt + 1}/${MAX_RESEARCH}): ${t.name}`);
+      } else {
+        // Tried enough — this title is genuinely rare. Drop the dead copy, grab the single
+        // best-seeded release available, and ACCEPT it: never abandon again, let it sit until a
+        // seed shows up. (Sonarr: just stop churning and let the current copy ride.)
+        await tfetch(`${arrOf(app).base}/queue/${qrec.id}?removeFromClient=true&blocklist=true`, { method: 'DELETE', headers: { 'X-Api-Key': arrOf(app).key } }, 20000);
+        const seeders = await grabBestSeeded(app, itemId);
+        _accepted.add(key);
+        console.log(`recovery: "${t.name}" is rare after ${MAX_RESEARCH} tries — grabbed best available (${seeders == null ? 'left as-is' : seeders + ' seeds'}) and letting it sit`);
+      }
+      _stallSince.delete(h);
+    } catch (e) { console.log(`recovery action failed for ${t.name}: ${e.message || e}`); }
   }
 }
 setInterval(stallRecovery, 300000); // every 5 min — STALL_DEAD/throttles gate the actual actions

@@ -7,6 +7,14 @@ services:
       - ${CONFIG}/jellyfin:/config
       - ${DATA}/media:/media
     ports: ["8096:8096"]
+    # Intel Quick Sync: pass the iGPU (Iris 540) so Jellyfin transcodes/analyses on the GPU
+    # instead of pegging the CPU. group_add = host render(133)+video(44) gids so the container
+    # user can open /dev/dri/renderD128.
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "133"
+      - "44"
     restart: unless-stopped
 
   qbittorrent:
