@@ -85,8 +85,14 @@ provision_arr() {
     else warn "${app}: Jellyfin connection issue: $(echo "$resp" | jq -c '(.[0].errorMessage // .message // .)' 2>/dev/null)"; fi
   fi
 
-  # 5. Quality definitions — set preferred sizes so *arr favours reasonably-sized
-  #    releases but still allows larger ones as fallbacks. Sizes in MB/min.
+  # 5. Quality definitions — sizes in MB/min. preferredSize is a soft target (Radarr
+  #    aims for it when a near-size release exists); maxSize is the HARD reject ceiling
+  #    and is the real lever. For 1080p streaming to TVs we target ~25 MB/min and cap
+  #    at 40 (≈6.9 GB for a 3 h film) — a full-bitrate catalog Bluray runs 50–70 MB/min
+  #    (a 9.6 GB Godfather) which is overkill. WEB-1080p ships at 95/100 by default, so
+  #    it must be tightened too or WEB grabs sail through uncapped. Note: with a near-
+  #    empty 8 TB /data, the free-space import guard no longer brakes oversized grabs the
+  #    way the old ~50 GB disk did, so maxSize is now the only thing holding size down.
   local qd_skip=true
   local qd
   qd=$("${AG[@]}" "${base}/qualitydefinition")
@@ -112,17 +118,22 @@ provision_arr() {
     fi
   done <<< "$(echo "$qd" | if [[ "$app" == "radarr" ]]; then
     jq -r '.[] | select(.quality.name as \$n |
-      \$n == "Bluray-1080p" or \$n == "HDTV-1080p" or \$n == "Bluray-720p" or \$n == "HDTV-720p" or \$n == "Remux-1080p")
+      \$n == "Bluray-1080p" or \$n == "HDTV-1080p" or \$n == "WEBDL-1080p" or \$n == "WEBRip-1080p"
+      or \$n == "Bluray-720p" or \$n == "HDTV-720p" or \$n == "Remux-1080p")
       | "\(.quality.name):\(
-        if .quality.name == "Bluray-1080p" then 35
-        elif .quality.name == "HDTV-1080p" then 28
+        if .quality.name == "Bluray-1080p" then 25
+        elif .quality.name == "HDTV-1080p" then 22
+        elif .quality.name == "WEBDL-1080p" then 25
+        elif .quality.name == "WEBRip-1080p" then 25
         elif .quality.name == "Bluray-720p" then 20
         elif .quality.name == "HDTV-720p" then 15
         elif .quality.name == "Remux-1080p" then 0
         else 0 end):\(
         if .quality.name == "Remux-1080p" then ""
-        elif .quality.name == "Bluray-1080p" then 120
-        elif .quality.name == "HDTV-1080p" then 100
+        elif .quality.name == "Bluray-1080p" then 40
+        elif .quality.name == "HDTV-1080p" then 40
+        elif .quality.name == "WEBDL-1080p" then 40
+        elif .quality.name == "WEBRip-1080p" then 40
         elif .quality.name == "Bluray-720p" then 60
         elif .quality.name == "HDTV-720p" then 50
         else "" end)"'
@@ -145,7 +156,7 @@ provision_arr() {
   $qd_skip && ok "${app}: quality definition preferred sizes already set"
 
   # 6. Disallow Remux-1080p in the HD-1080p profile. Remuxes are 20–40 GB/movie —
-  #    far too big for the 50 GB /data cap, and Radarr always prefers the highest
+  #    far too big to stream, and Radarr always prefers the highest
   #    allowed tier, so a reachable Remux tier means giant grabs (e.g. a 20 GB Shrek
   #    over a 1 GB Bluray). Bluray-1080p is the sane ceiling for streaming to TVs.
   #    (Sonarr's HD-1080p has no Remux-1080p item, so this is a no-op there.)

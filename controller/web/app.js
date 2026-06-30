@@ -17,10 +17,10 @@ function openJellyfin(path = '') {
 
 // Static fallback so the launcher renders the "Tools" without the backend (matches /api/status).
 const CATALOG = [
-  { id: 'qbittorrent', name: 'Downloads', brand: 'qBittorrent', port: 8080 },
+  { id: 'qbittorrent', name: 'Torrents', brand: 'qBittorrent', port: 8080 },
   { id: 'radarr', name: 'Movies', brand: 'Radarr', port: 7878 },
   { id: 'sonarr', name: 'TV Shows', brand: 'Sonarr', port: 8989 },
-  { id: 'prowlarr', name: 'Torrents', brand: 'Prowlarr', port: 9696 },
+  { id: 'prowlarr', name: 'Sources', brand: 'Prowlarr', port: 9696 },
   { id: 'bazarr', name: 'Subtitles', brand: 'Bazarr', port: 6767 },
 ];
 
@@ -41,11 +41,22 @@ function fmtEta(s) {
   if (s < 86400) return `~${Math.round(s / 3600)} h`;
   return `~${Math.round(s / 86400)} d`;
 }
+// Coarser, two-part duration for the batch estimate (e.g. "2d 4h", "9h 30m", "12 min").
+function fmtDur(s) {
+  if (!s || s <= 0) return '';
+  if (s >= 86400) return `${Math.floor(s / 86400)}d ${Math.round((s % 86400) / 3600)}h`;
+  if (s >= 3600) return `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m`;
+  return `${Math.max(1, Math.round(s / 60))} min`;
+}
 
-async function getJSON(path) {
-  const r = await fetch(API + path, { headers: { Accept: 'application/json' } });
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  return r.json();
+async function getJSON(path, timeoutMs = 12000) {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), timeoutMs);          // never hang forever on a busy server
+  try {
+    const r = await fetch(API + path, { headers: { Accept: 'application/json' }, signal: ac.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(t); }
 }
 async function postJSON(path, body) {
   const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -89,15 +100,26 @@ function renderLauncher() {
   const ss = $('#sysstats'); if (ss) ss.hidden = true; // host stats need the backend
   if (location.protocol === 'https:') { const b = $('#live-btn'); b.href = API; b.hidden = false; }
 }
+// Projected bytes the in-progress + queued downloads will add to disk once finished — set by the
+// downloads poll, drawn as a second segment on the disk meter so it's clear how much is incoming.
+let projectedIncoming = 0, lastDisk = null;
 function renderDisk(d) {
-  const used = d.used_bytes, cap = d.cap_bytes;
-  const pct = Math.min(100, d.used_pct || 0);
-  const toGB = b => (b / (1024 ** 3)).toFixed(1);
-  $('#disk-text').textContent = `${toGB(used)}/${toGB(cap)} GB`;
+  const used = d.used_bytes, cap = d.cap_bytes, free = d.free_bytes;
+  const usedPct = Math.min(100, d.used_pct || 0);
+  const tb = (b) => (b / 1024 ** 4).toFixed(1);
   const fill = $('#disk-fill');
-  fill.style.width = pct + '%';
-  fill.classList.toggle('warn', pct >= 80 && pct < 92);
-  fill.classList.toggle('full', pct >= 92);
+  fill.style.width = usedPct + '%';
+  fill.classList.toggle('warn', usedPct >= 80 && usedPct < 92);
+  fill.classList.toggle('full', usedPct >= 92);
+  const inc = projectedIncoming || 0;
+  const incEl = $('#disk-incoming');
+  if (incEl) {
+    const incPct = cap ? Math.min(Math.max(0, 100 - usedPct), inc / cap * 100) : 0;
+    incEl.style.left = usedPct + '%';
+    incEl.style.width = incPct + '%';
+    incEl.classList.toggle('over', inc > free);                 // queue exceeds free space
+  }
+  $('#disk-text').textContent = `${tb(used)} / ${tb(cap)} TB`;     // current / max; the bar shows incoming
 }
 // Color-coded so it's obvious at a glance when the NUC is struggling — the meter always
 // carries a health colour (green/amber/red), and the value turns amber/red once it's high,
@@ -123,6 +145,7 @@ async function pollHome() {
     setOffline(false);
     $('#live-btn').hidden = true;
     renderServices(status);
+    lastDisk = disk;
     renderDisk(disk);
     renderSystem(sys);
   } catch { setOffline(true); renderLauncher(); }
@@ -134,9 +157,13 @@ function renderDownloads(items) {
   const COLOR = { Declined: 'var(--danger)', 'Needs attention': 'var(--danger)', Error: 'var(--danger)', 'Ready': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--warn)', 'Getting subtitles': 'var(--warn)', Processing: 'var(--warn)', Stalled: 'var(--warn)' };
   $('#downloads').innerHTML = items.map((d) => {
     const eta = d.state === 'Downloading' ? fmtEta(d.etaSeconds) : '';
+    // Show the % on anything mid-transfer (not just "Downloading") — a partially-grabbed torrent
+    // that's currently Queued/Stalled has real progress, and the bar floats it near the top, so
+    // the label must explain why ("Queued · 25% · 8.5 GB") instead of looking like it hasn't started.
+    const pctShown = d.progress > 0 && d.progress < 100 ? d.progress + '%' : '';
     const leftMeta = d.state === 'Declined'
       ? `Declined · Not enough disk space — needs ${fmtBytes(d.neededBytes)}, only ${fmtBytes(d.freeBytes)} free`
-      : [d.state, d.state === 'Downloading' && d.progress ? d.progress + '%' : '', fmtBytes(d.sizeBytes)].filter(Boolean).join(' · ');
+      : [d.state, pctShown, fmtBytes(d.sizeBytes)].filter(Boolean).join(' · ');
     const color = COLOR[d.state] || '';
     const barW = d.state === 'Declined' ? 100 : Math.min(100, d.progress);
     const isDone = d.state === 'Ready' || d.state === 'Done';
@@ -196,9 +223,57 @@ function renderDownloads(items) {
     }
   });
 }
+// Batch estimate — "how long to clear the backlog": remaining bytes ÷ current speed. Hidden
+// unless there's actually pending work, so a settled queue shows nothing.
+function renderDlSummary(s) {
+  const el = $('#dl-summary'); if (!el) return;
+  projectedIncoming = (s && s.remainingBytes) || 0;             // feed the disk meter's incoming segment
+  if (lastDisk) renderDisk(lastDisk);                           // reflect it without waiting for the 10s home poll
+  const c = s && s.counts;
+  if (!c || (c.inProgress + c.queued) < 1) { el.hidden = true; return; }       // nothing pending → hide
+  const b = s.bytes, total = (b.completed + b.inProgress + b.queued) || 1;
+  const pct = (x) => (x / total * 100).toFixed(2);
+  const speed = s.speedBytes ? `${fmtBytes(s.speedBytes)}/s` : null;
+  // Hero line = the ETA; everything else folds into one muted sub-line so it stays clean on a phone.
+  const head = s.etaSeconds ? `≈ ${fmtDur(s.etaSeconds)} left`
+    : s.remainingBytes ? `≈ ${fmtBytes(s.remainingBytes)} to go` : 'Working…';
+  const sub = [
+    s.etaSeconds && s.remainingBytes ? fmtBytes(s.remainingBytes) : '',
+    speed,
+    s.sizing ? `${s.sizing} sizing` : '',
+  ].filter(Boolean).join(' · ');
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="dls-head"><span class="dls-eta">${esc(head)}</span><span class="dls-rate">${esc(sub)}</span></div>
+    <div class="dls-bar">
+      <span class="seg done" style="width:${pct(b.completed)}%"></span>
+      <span class="seg prog" style="width:${pct(b.inProgress)}%"></span>
+      <span class="seg queue" style="width:${pct(b.queued)}%"></span>
+    </div>
+    <div class="dls-legend">
+      <span class="done">${c.completed} done</span>
+      <span class="prog">${c.inProgress} downloading</span>
+      <span class="queue">${c.queued} queued</span>
+    </div>`;
+}
+
+// Show a spinner ONLY until the first successful load (the library lookups make the first
+// fetch slow); the 4s background refreshes then update in place with no flicker.
+let dlLoaded = false, dlInflight = false;
+function setDlLoading(v) { const el = $('#downloads-loading'); if (el) el.hidden = !v; }
 async function pollDownloads() {
-  if (offline) return;
-  try { renderDownloads((await getJSON('/api/downloads')).items || []); } catch { /* home poll owns the banner */ }
+  if (offline) { setDlLoading(false); return; }
+  if (dlInflight) return;                                     // a poll is still running — don't stack another
+  if (!dlLoaded) setDlLoading(true);
+  dlInflight = true;
+  try {
+    const data = await getJSON('/api/downloads');
+    dlLoaded = true;
+    setDlLoading(false);
+    renderDownloads(data.items || []);
+    renderDlSummary(data.summary);
+  } catch { if (dlLoaded) setDlLoading(false); /* else keep spinner; it retries next tick */ }
+  finally { dlInflight = false; }
 }
 
 // ── Library + delete ──

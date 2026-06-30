@@ -1,4 +1,4 @@
-.PHONY: bootstrap deploy provision up down clean destroy validate ps logs mdns resize-data
+.PHONY: bootstrap deploy provision up down clean destroy validate ps logs mdns resize-data remount
 bootstrap:  ## one-time host prep (dirs, cap, .env, hook)
 	./scripts/bootstrap.sh
 deploy:     ## validate + pull + start (make deploy s=jellyfin for one)
@@ -19,6 +19,8 @@ validate:   ## lint the compose file
 	docker compose config -q && echo OK
 resize-data: ## grow the $DATA loopback image to $DATA_IMG_SIZE (run 'make down' first)
 	./scripts/resize-data.sh
+remount:    ## re-mount the media drive at $DATA after a replug, then run 'make up'
+	./scripts/ensure-data.sh
 mdns:       ## (re)publish $MDNS_NAME (e.g. movies.local movie.local) on the LAN, persistent (asks for sudo)
 	chmod +x scripts/mdns-publish.sh
 	sudo install -m644 scripts/movie-mdns.service /etc/systemd/system/movie-mdns.service

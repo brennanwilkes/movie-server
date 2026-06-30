@@ -34,7 +34,10 @@ body {
 .topbar h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.02em; flex: none; width: 155px; }
 .header-disk-row { display: flex; align-items: center; gap: 12px; }
 .disk-label { font-size: 13px; font-weight: 600; flex: none; }
-.header-disk-bar { flex: 1; height: 3px; background: var(--card-2); border-radius: 99px; overflow: hidden; }
+.header-disk-bar { position: relative; flex: 1; height: 3px; background: var(--card-2); border-radius: 99px; overflow: hidden; }
+/* projected size of in-progress + queued downloads, stacked right after the used portion */
+#disk-incoming { position: absolute; top: 0; height: 100%; width: 0; background: var(--accent); opacity: .6; transition: width .4s ease, left .4s ease; }
+#disk-incoming.over { background: var(--danger); opacity: .85; }   /* the queue won't fit */
 
 main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .tab { display: flex; flex-direction: column; gap: 14px; }
@@ -50,6 +53,23 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .section-label { margin: 6px 2px 0; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 .muted { color: var(--muted); }
 .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+.dl-summary { background: var(--card-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; }
+.dls-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 10px; }
+.dls-eta { font-size: 1.2rem; font-weight: 700; line-height: 1.2; }
+.dls-rate { color: var(--muted); font-size: .82em; }
+.dls-bar { display: flex; height: 9px; border-radius: 5px; overflow: hidden; margin: 9px 0 7px; background: var(--line); }
+.dls-bar .seg { height: 100%; }
+.dls-bar .seg.done { background: var(--ok); }
+.dls-bar .seg.prog { background: var(--accent); }
+.dls-bar .seg.queue { background: var(--off); }
+.dls-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: .8em; }
+.dls-legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+.dls-legend .done::before { background: var(--ok); }
+.dls-legend .prog::before { background: var(--accent); }
+.dls-legend .queue::before { background: var(--off); }
+.loading { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); padding: 40px 0; }
+.spinner { width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* System stats strip (NUC CPU / RAM / temp) */
 .stat-strip { display: flex; gap: 10px; margin-top: 10px; }
@@ -67,7 +87,7 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 /* Storage */
 .storage-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; font-weight: 600; }
 .bar { height: 12px; background: var(--card-2); border-radius: 99px; overflow: hidden; }
-.bar-fill { height: 100%; width: 0; background: var(--ok); border-radius: 99px; transition: width .4s ease, background .3s; }
+.bar-fill { position: absolute; left: 0; top: 0; height: 100%; width: 0; background: var(--ok); border-radius: 99px; transition: width .4s ease, background .3s; }
 .bar-fill.warn { background: var(--warn); }
 .bar-fill.full { background: var(--danger); }
 

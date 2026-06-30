@@ -275,7 +275,7 @@ function parseTimeleft(s) {
 }
 function friendlyTorrentState(t) {
   const s = t.state || '';
-  if (s.startsWith('paused')) return 'Paused';
+  if (s.startsWith('paused') || s.startsWith('stopped')) return 'Paused';   // qBittorrent v5 renamed paused* → stopped*
   if (s === 'error' || s === 'missingFiles') return 'Error';
   if ((t.progress || 0) >= 1) return 'Seeding';
   if (s === 'metaDL' || s.startsWith('checking')) return 'Starting';
@@ -287,37 +287,67 @@ function friendlyTorrentState(t) {
 // The AUTHORITY for "it's in the library and playable" is Radarr/Sonarr's own hasFile —
 // not a filesystem guess. So the bar can never say "ready" before the app actually has
 // the file, and never falsely flags an imported title.
-async function getQbitTorrents() {
-  try { const r = await qbit.fetch('/api/v2/torrents/info'); return r.ok ? await r.json() : []; } catch { return []; }
-}
-async function getQueueMap(app) {
-  const m = new Map();
-  try { for (const r of ((await arrGet(app, '/queue?pageSize=200')).records || [])) if (r.downloadId) m.set(r.downloadId.toLowerCase(), r); } catch { /* arr down */ }
-  return m;
-}
-// downloadId(hash) -> { imported, id } from recent history (maps a torrent to its movie/series).
-async function getHistoryIndex(app) {
-  const idx = new Map();
+// ── Resilient cache: fresh within `ttl`, else refetch — and CRUCIALLY, if the refetch throws
+// (qBittorrent/*arr timing out while the NUC is busy) keep serving the last-known-good value
+// rather than blanking. Blanking is exactly what made finished downloads flicker to a false
+// "Needs attention" under load. Two payoffs: accuracy survives load spikes, and per-poll API
+// calls collapse to one per TTL window no matter how many dashboard tabs are open. ────────────
+const _cache = {};   // key -> { ts, val }
+async function cachedFetch(key, ttl, fn, fallback) {
+  const c = _cache[key];
+  if (c && Date.now() - c.ts < ttl) return c.val;
   try {
-    for (const r of ((await arrGet(app, '/history?pageSize=250&sortKey=date&sortDirection=descending')).records || [])) {
+    const val = await fn();
+    _cache[key] = { ts: Date.now(), val };
+    return val;
+  } catch {
+    return c ? c.val : fallback;                               // last-known-good, or the default on a cold miss
+  }
+}
+const HIST_TTL = 20000;   // history + library hasFile: change slowly
+const QUEUE_TTL = 8000;   // *arr queue + qBit torrents: change faster, but stale-on-error still beats blank
+
+const getQbitTorrents = () => cachedFetch('qbit:torrents', 5000, async () => {
+  const r = await qbit.fetch('/api/v2/torrents/info'); if (!r.ok) throw new Error('qbit ' + r.status);
+  return r.json();
+}, []);
+
+const getQueueMap = (app) => cachedFetch(`queue:${app}`, QUEUE_TTL, async () => {
+  const m = new Map();
+  for (const r of ((await arrGet(app, '/queue?pageSize=500')).records || [])) if (r.downloadId) m.set(r.downloadId.toLowerCase(), r);
+  return m;
+}, new Map());
+
+// downloadId(hash) -> { imported, id, size }. One newest-first pass over *arr history captures
+// everything: import events flag `imported` (+ movie/series id), and GRABBED events carry the
+// indexer-reported `data.size` — the only place we learn a magnet's size BEFORE qBittorrent
+// fetches its metadata, which is what makes the progress bar real immediately. A thrown page
+// aborts the whole fetch so cachedFetch falls back to the last good index (no half-built map).
+const getHistoryIndex = (app) => cachedFetch(`hist:${app}`, HIST_TTL, async () => {
+  const idx = new Map();
+  const PAGE = 250, MAX_PAGES = 20;                            // backstop ceiling: 5000 events
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const recs = (await arrGet(app, `/history?page=${page}&pageSize=${PAGE}&sortKey=date&sortDirection=descending`)).records || [];
+    for (const r of recs) {
       const h = (r.downloadId || '').toLowerCase(); if (!h) continue;
-      const cur = idx.get(h) || { imported: false, id: null };
+      const cur = idx.get(h) || { imported: false, id: null, size: 0 };
       if ((r.eventType || '').toLowerCase().includes('import')) cur.imported = true;
       if (r.movieId) cur.id = r.movieId; if (r.seriesId) cur.id = r.seriesId;
+      const sz = Number(r.data && r.data.size) || 0; if (sz > cur.size) cur.size = sz;   // indexer-reported size
       idx.set(h, cur);
     }
-  } catch { /* arr down */ }
+    if (recs.length < PAGE) break;                             // exhausted history
+  }
   return idx;
-}
-// id -> hasFile, the authoritative "in the library" flag.
-async function getHasFileMap(app) {
+}, new Map());
+
+// id -> hasFile, the authoritative "in the library" flag (cached + stale-on-error, like history).
+const getHasFileMap = (app) => cachedFetch(`hasFile:${app}`, HIST_TTL, async () => {
   const m = new Map();
-  try {
-    if (app === 'radarr') for (const mv of await arrGet('radarr', '/movie')) m.set(mv.id, !!mv.hasFile);
-    else for (const s of await arrGet('sonarr', '/series')) m.set(s.id, ((s.statistics && s.statistics.episodeFileCount) || 0) > 0);
-  } catch { /* arr down */ }
+  if (app === 'radarr') for (const mv of await arrGet('radarr', '/movie')) m.set(mv.id, !!mv.hasFile);
+  else for (const s of await arrGet('sonarr', '/series')) m.set(s.id, ((s.statistics && s.statistics.episodeFileCount) || 0) > 0);
   return m;
-}
+}, new Map());
 const torrentApp = (t) => { const c = (t.category || '').toLowerCase(); return (c === 'radarr' || c === 'sonarr' || c === 'tv-sonarr') ? (c === 'tv-sonarr' ? 'sonarr' : c) : null; };
 
 // ── Bazarr: subtitle-acquisition gate ──
@@ -389,18 +419,34 @@ async function jellyfinReady(app, arrId, completionOn) {
 const importState = new Map(); // folder -> { lastTry, reason }
 const knownInLibrary = new Set(); // torrent hash -> tracked for event-driven scan
 
+// A torrent qBittorrent has flagged as broken — typically after an unclean shutdown (power
+// loss), when on recheck its files don't line up with its resume data. It reports progress 0
+// even though the real media is usually still on disk (and often already imported by *arr).
+const isErrored = (t) => { const s = t.state || ''; return s === 'error' || s === 'missingFiles'; };
+
+// Resolve a torrent that *arr has already imported to its user-facing "in the library" state,
+// gating green on Bazarr subs + a Jellyfin probe (so Watch never errors). Shared by the normal
+// completed path and the self-heal path for errored-but-imported torrents.
+async function resolveLibraryState(app, hi, t) {
+  const h = (t.hash || '').toLowerCase();
+  if (!knownInLibrary.has(h)) { knownInLibrary.add(h); triggerJellyfinScan(); }
+  if (!(await subsReady(app, hi && hi.id, t.completion_on))) return 'Getting subtitles';
+  if (!(await jellyfinReady(app, hi && hi.id, t.completion_on))) return 'Processing';
+  return 'Ready';
+}
+
 async function buildDownloads() {
   const now = Math.floor(Date.now() / 1000), DAY = 86400;
   const torrents = await getQbitTorrents();
   const queues = { radarr: await getQueueMap('radarr'), sonarr: await getQueueMap('sonarr') };
-  // Only pay for history + library lookups if there's a completed, untracked torrent to classify.
-  const need = new Set();
-  for (const t of torrents) {
-    const app = torrentApp(t); if (!app) continue;
-    if (Math.round((t.progress || 0) * 100) >= 100 && !queues[app].has((t.hash || '').toLowerCase())) need.add(app);
-  }
+  // History (imported flag + indexer-reported size) and library hasFile, for whichever apps own a
+  // torrent. Both are 20s-cached, so fetching unconditionally is cheap — we need them to size queued
+  // torrents (real progress bar) and to classify idle/errored ones against the library.
   const hist = {}, hasFile = {};
-  for (const app of need) { hist[app] = await getHistoryIndex(app); hasFile[app] = await getHasFileMap(app); }
+  for (const app of new Set(torrents.map(torrentApp).filter(Boolean))) {
+    hist[app] = await getHistoryIndex(app);
+    hasFile[app] = await getHasFileMap(app);
+  }
 
   const items = [];
   for (const t of torrents) {
@@ -409,8 +455,22 @@ async function buildDownloads() {
     const prog = Math.round((t.progress || 0) * 100);
     const eta = (t.eta && t.eta < 8640000) ? t.eta : null;
     const qrec = app ? queues[app].get(h) : null;
+    // Ground truth, independent of qBittorrent's (post-crash) progress/state: has *arr actually
+    // imported this release into the library?
+    const hi = app && hist[app] && hist[app].get(h);
+    const imported = !!(hi && (hi.imported || (hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
     let state, attention = false, recover = null;
-    if (qrec) {                                    // *arr is actively tracking it
+    if (app && imported) {
+      // Already imported into the library = the download is DONE, no matter what the torrent is
+      // doing now (errored after a crash, paused, or a zombie pointing at files *arr already
+      // hardlinked/moved out). Trust the library, never the torrent — and never re-download
+      // content we already have. resolveLibraryState still gates green on subs + a Jellyfin probe.
+      state = await resolveLibraryState(app, hi, t);
+    } else if (isErrored(t) && app) {
+      // Errored AND not in the library — the data really is missing. Flag it for a human instead
+      // of silently re-downloading (potentially gigabytes) or hiding the problem.
+      state = 'Needs attention'; attention = true;
+    } else if (qrec) {                              // *arr is actively tracking it
       // *arr's queue exposes BOTH its own view (trackedDownloadState/Status) and the underlying
       // torrent (t.state). Surface real trouble from EITHER source — a stalled or errored
       // download that *arr still lists must never masquerade as "Downloading".
@@ -418,31 +478,26 @@ async function buildDownloads() {
       const tdStatus = (qrec.trackedDownloadStatus || '').toLowerCase(); // ok|warning|error
       const ts = friendlyTorrentState(t);                               // Paused|Error|Seeding|Starting|Queued|Stalled|Downloading
       if ((qrec.status || '').toLowerCase() === 'paused' || ts === 'Paused') state = 'Paused';
-      else if (ts === 'Error') { state = 'Error'; attention = true; }                          // qbit errored / lost its files
       else if (tds === 'failed' || tds === 'failedpending' || tdStatus === 'error') { state = 'Needs attention'; attention = true; } // download/import failed in *arr
-      else if (tds.includes('import')) state = 'Importing';                                    // importPending/importing
+      else if (tds.includes('import')) {
+        state = 'Importing';
+        // *arr parked the import (e.g. importBlocked: "matched by ID — manual import required").
+        // Hand it to the recovery sweep so it runs a Manual Import automatically rather than
+        // sitting in 'Importing' forever.
+        if (tdStatus === 'warning' && t.content_path) recover = { app, folder: t.content_path, id: app === 'radarr' ? qrec.movieId : qrec.seriesId };
+      }
       else if (prog < 100) state = (ts === 'Stalled' || ts === 'Queued' || ts === 'Starting') ? ts : 'Downloading'; // honour a real stall
       else state = 'Importing';                                         // complete in qbit, waiting on *arr to import
     } else if (prog < 100) {                        // still downloading, *arr not (yet) tracking
       state = friendlyTorrentState(t);
     } else if (app) {                               // complete, no longer in the *arr queue
-      const hi = hist[app] && hist[app].get(h);
-      const imported = !!(hi && (hi.imported || (hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
       if (imported) {
         // *arr has the file, but "Ready" is the only clickable/playable state — so it must mean
         // *fully* ready: subtitles fetched AND Jellyfin has scanned+probed the file (else Watch
-        // errors with "no valid media source"). Kick the scan as soon as the file lands so
-        // Jellyfin is working while we hold the row; gate green on both checks below.
-        if (!knownInLibrary.has(h)) { knownInLibrary.add(h); triggerJellyfinScan(); }
-        if (!(await subsReady(app, hi && hi.id, t.completion_on))) {
-          state = 'Getting subtitles';              // in the library, Bazarr still working on subs
-        } else if (!(await jellyfinReady(app, hi && hi.id, t.completion_on))) {
-          state = 'Processing';                     // Jellyfin still scanning/probing — not playable yet
-        } else {
-          state = 'Ready';                          // imported, subs settled, Jellyfin probed — watchable
-        }
+        // errors with "no valid media source"). resolveLibraryState kicks the scan and gates green.
+        state = await resolveLibraryState(app, hi, t);
       } else {                                      // downloaded but *arr has NOT imported it
-        recover = { app, folder: t.content_path };
+        recover = { app, folder: t.content_path, id: hi && hi.id };
         const reason = (importState.get(t.content_path) || {}).reason;
         if (reason) { state = 'Needs attention'; attention = true; }
         else state = 'Importing';                   // the watchdog will import it shortly
@@ -452,25 +507,120 @@ async function buildDownloads() {
     }
     const finished = state === 'Ready' || state === 'Done';
     const show = !finished || ((t.completion_on || 0) > 0 && now - t.completion_on <= DAY);
-    if (show) items.push({ title: t.name, progress: (state === 'Importing' || state === 'Needs attention' || state === 'Getting subtitles' || state === 'Processing') ? 100 : prog, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash });
+    if (show) items.push({ title: t.name, progress: (state === 'Importing' || state === 'Needs attention' || state === 'Getting subtitles' || state === 'Processing') ? 100 : prog, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || (hi && hi.size) || (qrec && qrec.size) || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash });
   }
-  const rank = (s) => (s === 'Needs attention' || s === 'Error') ? 0 : (s === 'Ready' || s === 'Done') ? 2 : 1;
-  items.sort((a, b) => rank(a.state) - rank(b.state));
+  // Sort tiers: any problem to the very top, then anything actively transferring (partial
+  // progress, whatever its label), then the rest in progress, then recently-finished (Ready/Done
+  // only ever survive the 24h `show` window above), and finally the long Queued backlog at the
+  // bottom. Within a tier, the closer to done floats higher.
+  const rank = (it) => {
+    const s = it.state, p = it.progress || 0;
+    if (s === 'Needs attention' || s === 'Error') return 0;    // errors of any kind first
+    if (p > 0 && p < 100) return 1;                            // mid-transfer → near the top regardless of status
+    if (s === 'Queued') return 4;                              // the big backlog at the bottom
+    if (s === 'Ready' || s === 'Done') return 3;               // recently finished (≤ 24h)
+    return 2;                                                  // everything else in progress (100% but not done: Importing/Processing/…)
+  };
+  items.sort((a, b) => rank(a) - rank(b) || (b.progress || 0) - (a.progress || 0));
   return items;
 }
 
-app.get('/api/downloads', async (_req, res) => {
+// Precomputed snapshot. The heavy work — qBittorrent + both *arr queues + history + library +
+// the per-item Bazarr/Jellyfin gate checks — runs in ONE background loop, never inside a client
+// request. So /api/downloads returns instantly from memory: a dashboard tab can't hang waiting on
+// a busy NUC, requests can't pile up, and N open tabs cost the same as one. The snapshot keeps its
+// last good value if a refresh fails, and `_dlRefreshing` guarantees refreshes never overlap (so a
+// slow cycle under load self-throttles instead of stacking).
+let _dl = { served: [], raw: [], summary: null, ts: 0 };
+let _dlRefreshing = false;
+async function refreshDownloads() {
+  if (_dlRefreshing) return;
+  _dlRefreshing = true;
+  try {
+    const raw = await buildDownloads();
+    const served = raw.map(({ _recover, ...r }) => r);
+    const summary = await downloadSummary(served);
+    _dl = { served, raw, summary, ts: Date.now() };
+  } catch (e) { console.log('refreshDownloads failed (keeping last snapshot):', e.message || e); }
+  finally { _dlRefreshing = false; }
+}
+setInterval(refreshDownloads, 5000);
+setTimeout(refreshDownloads, 1500);
+
+app.get('/api/downloads', (_req, res) => {
   const now = Math.floor(Date.now() / 1000), DAY = 86400;
-  const items = (await buildDownloads()).map(({ _recover, ...r }) => r);
+  const items = _dl.served.slice();
   // Surface titles we declined for disk space — both the download-stage gate (`declined`,
   // keyed by torrent hash) and the request-stage gate (`blocked`, *arr-rejected before any
-  // download). Both render as a terminal red "Declined" row at the top.
+  // download). Both render as a terminal red "Declined" row at the top. (In-memory maps, instant.)
   const asRow = (hash, d) => ({ title: d.title, progress: 0, state: 'Declined', etaSeconds: null,
     sizeBytes: d.neededBytes, neededBytes: d.neededBytes, freeBytes: d.freeBytes, source: d.source || 'request', attention: false, hash });
   for (const [h, d] of declined) if (now - d.ts <= DAY) items.unshift(asRow(h, d));
   for (const [h, b] of blocked) if (now - b.ts <= DAY) items.unshift(asRow(h, b));
-  res.json({ items });
+  res.json({ items, summary: _dl.summary });
 });
+
+// Batch ETA — "how long until this whole backlog is done?" Remaining bytes ÷ throughput.
+// Wrinkles, all handled:
+//  • Concurrency (qBittorrent runs ~3 at once): no special-casing needed — we divide by the
+//    AGGREGATE speed (sum across all active torrents), so total wall-clock time is the same
+//    however the queue is sliced, as long as it stays saturated (it is: 100+ queued).
+//  • Speed stability: instantaneous aggregate speed is noisy, so we blend it with the SUSTAINED
+//    throughput actually achieved by recently-completed torrents (bytes done ÷ wall-clock span).
+//    That historic rate already reflects the real 3-at-a-time concurrency and disk/peer ceiling.
+//  • Unknown sizes: queued torrents without metadata (size 0) are estimated at the average size
+//    of the releases we do know, and we report how many are still being sized.
+//  • Only states that actually consume bandwidth count toward remaining (Paused/Error/finished
+//    are excluded from the in-progress + queued buckets below).
+async function downloadSummary(items) {
+  let liveSpeed = 0, torrents = [];
+  try { const r = await qbit.fetch('/api/v2/transfer/info'); if (r.ok) liveSpeed = (await r.json()).dl_info_speed || 0; } catch { /* qbit down */ }
+  try { torrents = await getQbitTorrents(); } catch { /* qbit down */ }
+
+  // Sustained throughput from torrents completed in the last 6h: total bytes ÷ time since the
+  // first of them finished. Needs a few data points to be meaningful, else we lean on live speed.
+  const now = Math.floor(Date.now() / 1000), WINDOW = 6 * 3600;
+  const doneRecently = torrents.filter((t) => t.completion_on > 0 && now - t.completion_on <= WINDOW && t.size > 0);
+  let histSpeed = null;
+  if (doneRecently.length >= 3) {
+    const span = now - Math.min(...doneRecently.map((t) => t.completion_on));
+    if (span > 120) histSpeed = doneRecently.reduce((a, t) => a + t.size, 0) / span;
+  }
+  // Blend: weight the stable historic rate, let live speed pull it toward current conditions.
+  const speedBytes = Math.round((histSpeed && liveSpeed) ? histSpeed * 0.6 + liveSpeed * 0.4 : (histSpeed || liveSpeed));
+
+  // Estimate the size of metadata-less queued torrents (size 0) from the average of EVERY release
+  // we do have metadata for — completed, downloading, and queued alike — the broadest sample.
+  const knownSized = items.filter((i) => i.sizeBytes > 0 && i.state !== 'Declined');
+  const avgItemBytes = knownSized.length ? knownSized.reduce((a, i) => a + i.sizeBytes, 0) / knownSized.length : 0;
+  const sizeOf = (i) => (i.sizeBytes > 0 ? i.sizeBytes : avgItemBytes);
+
+  // Three buckets for the visual bar: completed / in-progress / queued, sized by (approx) bytes.
+  const DONE = new Set(['Ready', 'Done']);
+  const SKIP = new Set(['Declined', 'Paused', 'Error', 'Needs attention']);   // not part of the active flow
+  const done = items.filter((i) => DONE.has(i.state));
+  const queued = items.filter((i) => i.state === 'Queued');
+  const inProg = items.filter((i) => !DONE.has(i.state) && i.state !== 'Queued' && !SKIP.has(i.state));
+  const sum = (arr) => Math.round(arr.reduce((a, i) => a + sizeOf(i), 0));
+  const bytes = { completed: sum(done), inProgress: sum(inProg), queued: sum(queued) };
+
+  // Remaining to download = the unfinished part of in-progress + all of queued.
+  const inProgRemaining = inProg.reduce((a, i) => a + sizeOf(i) * (1 - Math.min(100, i.progress || 0) / 100), 0);
+  const remainingBytes = Math.round(inProgRemaining + bytes.queued);
+  const sizing = [...queued, ...inProg].filter((i) => !(i.sizeBytes > 0)).length;   // still fetching metadata
+
+  return {
+    counts: { completed: done.length, inProgress: inProg.length, queued: queued.length },
+    bytes,
+    remainingBytes,
+    speedBytes,
+    liveSpeedBytes: liveSpeed,
+    histSpeedBytes: histSpeed ? Math.round(histSpeed) : null,
+    etaSeconds: speedBytes > 0 && remainingBytes > 0 ? Math.round(remainingBytes / speedBytes) : null,
+    sizing,
+    avgItemBytes: Math.round(avgItemBytes),
+  };
+}
 
 // Resolve a (cleaned) title to a Jellyfin item id + server id, so the UI can deep-link
 // straight to the item's details page instead of dropping the user on a search results page.
@@ -499,7 +649,7 @@ app.get('/api/jellyfin/resolve', async (req, res) => {
 // without importing (the delete→re-download race), there's no event to react to — so a
 // periodic sweep is the only way to catch the *absence* of an import. It runs the same
 // Manual Import the *arr UI offers, and retries with backoff until the file lands.
-async function importViaManual(app, folder) {
+async function importViaManual(app, folder, expectedId) {
   const { base, key } = arrOf(app);
   const r = await tfetch(`${base}/manualimport?folder=${encodeURIComponent(folder)}&filterExistingFiles=true`, { headers: { 'X-Api-Key': key } }, 20000);
   if (!r.ok) return { ok: false, reason: `manualimport HTTP ${r.status}` };
@@ -508,7 +658,10 @@ async function importViaManual(app, folder) {
     if (!c.path) continue;
     if (c.rejections && c.rejections.length) { reason = c.rejections[0].reason || 'rejected'; continue; }
     const f = { path: c.path, quality: c.quality, languages: c.languages || [], releaseGroup: c.releaseGroup || '' };
-    if (app === 'radarr') { if (!c.movie) { reason = 'no matching movie'; continue; } f.movieId = c.movie.id; }
+    // Fall back to the grab-history movie id (expectedId) when the FILE NAME doesn't parse to a
+    // movie — e.g. a release titled "Monty Python Life of Brian" for the library entry "Life of
+    // Brian". *arr blocks auto-import on an ID-only match; we trust the grab link and import anyway.
+    if (app === 'radarr') { const mid = (c.movie && c.movie.id) || expectedId; if (!mid) { reason = 'no matching movie'; continue; } f.movieId = mid; }
     else { if (!c.series) { reason = 'no matching series'; continue; } f.seriesId = c.series.id; f.episodeIds = (c.episodes || []).map((e) => e.id); if (!f.episodeIds.length) { reason = 'no matching episode'; continue; } }
     files.push(f);
   }
@@ -518,16 +671,18 @@ async function importViaManual(app, folder) {
 }
 
 async function importWatchdog() {
-  let snap; try { snap = await buildDownloads(); } catch { return; }
+  const snap = _dl.raw;                                             // reuse the background snapshot — no extra buildDownloads
+  if (!snap || !snap.length) return;
   const now = Math.floor(Date.now() / 1000);
   for (const it of snap) {
-    const rec = it._recover; if (!rec) continue;                    // only completed-but-not-imported
-    let isDir = false; try { isDir = (await fs.promises.stat(rec.folder)).isDirectory(); } catch { /* gone */ }
-    if (!isDir) continue;                                            // single-file torrents: leave to *arr
+    const rec = it._recover; if (!rec) continue;                    // only completed-but-not-imported / import-blocked
+    try { await fs.promises.stat(rec.folder); } catch { continue; } // content gone → nothing to import
+    // (manualimport accepts a single file path OR a folder, so we no longer skip single-file torrents —
+    //  import-blocked single files like "matched by ID, manual import required" must be rescued too.)
     const st = importState.get(rec.folder) || { lastTry: 0, reason: null };
     if (now - st.lastTry < 120) continue;                           // backoff between attempts
     st.lastTry = now;
-    const res = await importViaManual(rec.app, rec.folder);
+    const res = await importViaManual(rec.app, rec.folder, rec.id);
     st.reason = res.ok ? null : res.reason;                         // cleared on success; retried next sweep
     if (res.ok) triggerJellyfinScan();
     importState.set(rec.folder, st);
@@ -536,6 +691,58 @@ async function importWatchdog() {
 }
 setInterval(importWatchdog, 30000); // sweep often; per-folder 120s backoff caps real attempts
 setTimeout(importWatchdog, 8000);
+
+// ── Stalled-download recovery (backend, container-to-container) ──────────────────────────────
+// Two tiers, escalating, so the queue heals itself instead of sitting on dead torrents:
+//   1. Gentle: a stalled torrent gets periodic reannounces — enough to wake one that simply lost
+//      its peers (e.g. our Out of Africa, 9 seeds).
+//   2. Give-up: a torrent stalled with ZERO seeds for STALL_DEAD has grabbed a dead release (the
+//      movie isn't obscure — Cast Away had 121-seed alternatives). We blocklist that release in
+//      *arr (so it won't be re-grabbed) and kick off a fresh search, which pulls a seeded copy.
+// All actions are throttled per-hash so a sweep can't thrash trackers or *arr.
+async function qbitReannounce(hash) {
+  try { await qbit.fetch('/api/v2/torrents/reannounce', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `hashes=${hash}` }); } catch { /* qbit hiccup */ }
+}
+async function arrBlocklistAndResearch(app, queueId, itemId) {
+  const { base, key } = arrOf(app);
+  // remove from qBittorrent + blocklist the dead release so *arr never re-grabs this exact copy
+  await tfetch(`${base}/queue/${queueId}?removeFromClient=true&blocklist=true`, { method: 'DELETE', headers: { 'X-Api-Key': key } }, 20000);
+  // then search for a replacement (a better-seeded release)
+  const cmd = app === 'radarr' ? { name: 'MoviesSearch', movieIds: [itemId] } : { name: 'SeriesSearch', seriesId: itemId };
+  await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) }, 20000);
+}
+const _stallSince = new Map();   // hash -> first-seen-stalled-with-0-seeds ts
+const _lastReannounce = new Map();
+const _lastResearch = new Map();
+const STALL_DEAD = 3600;          // s a torrent may sit at 0 seeds before we abandon the release
+const REANNOUNCE_EVERY = 600;
+const RESEARCH_EVERY = 6 * 3600;  // never re-research the same hash more than this often
+async function stallRecovery() {
+  const now = Math.floor(Date.now() / 1000);
+  let torrents; try { torrents = await getQbitTorrents(); } catch { return; }
+  const queues = { radarr: await getQueueMap('radarr'), sonarr: await getQueueMap('sonarr') };
+  for (const t of torrents) {
+    const h = (t.hash || '').toLowerCase();
+    const stalled = (t.state === 'stalledDL' || t.state === 'metaDL') && (t.progress || 0) < 1;
+    if (!stalled) { _stallSince.delete(h); continue; }
+    if (now - (_lastReannounce.get(h) || 0) > REANNOUNCE_EVERY) { _lastReannounce.set(h, now); qbitReannounce(h); }  // tier 1
+    // A stalledDL WITH seeds is recoverable — reannounce reconnects it, so don't abandon. But
+    // metaDL (can't even fetch the torrent's metadata) or a 0-seed stall is dead even if it claims
+    // a seed (an unresponsive one), so let those escalate to blocklist+research below.
+    if (t.state !== 'metaDL' && (t.num_complete || 0) > 0) { _stallSince.delete(h); continue; }
+    if (!_stallSince.has(h)) _stallSince.set(h, now);
+    if (now - _stallSince.get(h) < STALL_DEAD) continue;                                 // give a 0-seed swarm time to appear
+    if (now - (_lastResearch.get(h) || 0) < RESEARCH_EVERY) continue;
+    const app = torrentApp(t); const qrec = app && queues[app].get(h);
+    if (!qrec || qrec.id == null) continue;
+    _lastResearch.set(h, now);
+    const mins = Math.round((now - _stallSince.get(h)) / 60);
+    try { await arrBlocklistAndResearch(app, qrec.id, app === 'radarr' ? qrec.movieId : qrec.seriesId); _stallSince.delete(h); console.log(`recovery: dead release (0 seeds ${mins}m) blocklisted + re-searched: ${t.name}`); }
+    catch (e) { console.log(`recovery: re-search failed for ${t.name}: ${e.message || e}`); }
+  }
+}
+setInterval(stallRecovery, 300000); // every 5 min — STALL_DEAD/throttles gate the actual actions
+setTimeout(stallRecovery, 20000);
 
 // Library — titles to clean up, biggest first.
 app.get('/api/library', async (req, res) => {

@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+./scripts/ensure-data.sh                  # remount the media drive at $DATA if it moved (no-op otherwise)
 docker compose config -q                  # fail fast on bad compose/env
 docker compose pull "$@"                   # latest images
 docker compose up -d --remove-orphans --build "$@"   # --build re-bakes the controller image on code changes

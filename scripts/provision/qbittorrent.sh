@@ -22,8 +22,16 @@ if ! qb_authed; then
   log "  logged in with temp password (first run)"
 fi
 
-# Set save paths + WebUI credentials. (qBittorrent has no native low-disk pause;
-# the 20 GB loopback cap enforces the ceiling — it pauses torrents on the write error.)
+# Set save paths + WebUI credentials + throughput/concurrency tuning. Data drive is an 8 TB USB
+# disk, so disk isn't the limiter. Concurrency notes (NUC = 2-core/4-thread i5-6260U):
+#   - More active downloads = more throughput, because the gain comes from running many torrents
+#     in parallel (each high-seed one alone hit ~10 MB/s; 18 active reached ~45 MB/s at load ~6).
+#     Higher slots ALSO surface high-seed torrents stuck behind low-seed ones in the queue.
+#   - dont_count_slow_torrents keeps a dead-seeded torrent from squatting an active slot.
+#   - The CPU risk is NOT the downloading (qBittorrent ~36%); it's MANY titles importing+being
+#     analysed by Jellyfin ffmpeg at once (the one-time storm that pegged the NUC). That backlog
+#     is transient. Until Quick Sync HW transcode is enabled (see memory), avoid dumping a huge
+#     well-seeded batch that finishes faster than Jellyfin can analyse. 12 is a safe steady default.
 prefs=$(jq -n --arg u "$QBIT_USER" --arg p "$QBIT_PASS" '{
   web_ui_username: $u,
   web_ui_password: $p,
@@ -33,7 +41,16 @@ prefs=$(jq -n --arg u "$QBIT_USER" --arg p "$QBIT_PASS" '{
   auto_tmm_enabled: true,
   category_changed_tmm_enabled: true,
   save_path_changed_tmm_enabled: true,
-  auto_delete_mode: 0
+  auto_delete_mode: 0,
+  queueing_enabled: true,
+  max_active_downloads: 12,
+  max_active_torrents: 18,
+  max_active_uploads: 3,
+  dont_count_slow_torrents: true,
+  slow_torrent_dl_rate_threshold: 50,
+  slow_torrent_ul_rate_threshold: 50,
+  slow_torrent_inactive_timer: 60,
+  upnp: true
 }')
 curl -s -b "$jar" --data-urlencode "json=$prefs" "$QB/api/v2/app/setPreferences" >/dev/null
 ok "WebUI creds + save paths set ($QBIT_USER / save=/data/torrents/complete)"

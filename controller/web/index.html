@@ -12,7 +12,7 @@
   <header class="topbar">
     <div class="header-disk-row">
       <h1 id="page-title">Home</h1>
-      <div class="header-disk-bar"><div id="disk-fill" class="bar-fill"></div></div>
+      <div class="header-disk-bar"><div id="disk-fill" class="bar-fill"></div><div id="disk-incoming"></div></div>
       <span id="disk-text" class="disk-label muted">—</span>
     </div>
   </header>
@@ -44,8 +44,10 @@
 
     <!-- DOWNLOADS -->
     <section id="tab-downloads" class="tab" hidden>
+      <div id="dl-summary" class="dl-summary" hidden></div>
       <h2 class="section-label">Recent</h2>
       <ul id="downloads" class="list"></ul>
+      <div id="downloads-loading" class="loading" hidden><span class="spinner"></span>Loading downloads…</div>
       <p id="downloads-empty" class="empty" hidden>Nothing downloading right now.</p>
     </section>
 
