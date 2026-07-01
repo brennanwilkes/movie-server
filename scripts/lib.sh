@@ -33,7 +33,7 @@ require() { for c in "$@"; do command -v "$c" >/dev/null || die "missing require
 # jellyfin_apikey APPNAME — get-or-create a Jellyfin API key for APPNAME and print it.
 # Uses JELLYFIN_ADMIN_USER/PASS from the environment. Idempotent (reuses an existing key).
 jellyfin_apikey() {
-  local app="$1" jf="http://localhost:8096" tok key
+  local app="$1" jf="http://${NUC_IP:-localhost}:8096" tok key   # host-net Jellyfin binds to $NUC_IP, not localhost
   tok=$(curl -s -X POST "$jf/Users/AuthenticateByName" \
     -H 'X-Emby-Authorization: MediaBrowser Client="prov", Device="cli", DeviceId="prov", Version="1"' \
     -H 'Content-Type: application/json' \

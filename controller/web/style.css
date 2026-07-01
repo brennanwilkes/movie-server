@@ -200,7 +200,25 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .plan li.skip { color: var(--muted); }
 .plan .app { font-weight: 600; }
 .sheet-actions { display: flex; gap: 12px; margin-top: 8px; }
-.sheet-actions .btn-ghost, .sheet-actions .btn-danger { width: auto; flex: 1; }
+.sheet-actions .btn-ghost, .sheet-actions .btn-danger, .sheet-actions .btn-primary { width: auto; flex: 1; }
+
+/* Pause/resume action (downloads) — matches the stop/retry buttons */
+.dl-title-row .dl-pause { flex: none; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.dl-title-row .dl-pause:active { background: var(--card-2); transform: scale(.92); }
+.dl-title-row .dl-pause svg { width: 20px; height: 20px; }
+.dl-title-row .dl-pause:disabled { opacity: .5; }
+
+/* Redownload button (library, movies only) — like trash but accent-coloured */
+.redl { flex: none; width: 44px; height: 44px; border-radius: 12px; border: 0; background: var(--card-2); color: var(--accent); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.redl:active { transform: scale(.94); }
+.redl svg { width: 20px; height: 20px; }
+
+/* Quality-tier picker (redownload sheet) */
+.tier-picker { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.tier-picker button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; width: 100%; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--card-2); color: var(--text); cursor: pointer; }
+.tier-picker button.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--card-2)); }
+.tier-picker .tier-name { font-weight: 700; font-size: 16px; }
+.tier-picker .tier-desc { font-size: 13px; color: var(--muted); }
 
 /* SVG icon sizing in tabbar/rows */
 svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

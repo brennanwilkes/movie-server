@@ -173,7 +173,31 @@ provision_arr() {
     fi
   fi
 
-  # 7. Custom formats + the THREE fuzzy quality tiers shown in Jellyseerr's request dropdown:
+  # 7. Delay profile — collect RSS arrivals in a 30 min window, then grab the best.
+  #    bypassIfAboveCustomFormatScore=true + minimumCustomFormatScore=0 means releases
+  #    scoring >= 0 (decent-size H.264 or better) skip the delay and grab immediately.
+  #    Scores below 0 wait 30 min — during that window a better release may appear (fixes
+  #    the "two grabs" bug: YTS 720p at -450 was grabbed 9 s before a 1080p +60 arrived).
+  #    After 30 min the best of whatever arrived is grabbed (something over nothing).
+  local delay; delay=$("${AG[@]}" "${base}/delayprofile" | jq '.[0] // empty')
+  if [[ -n "$delay" ]]; then
+    local cur_s; cur_s=$(echo "$delay" | jq '{enableUsenet,enableTorrent,preferredProtocol,usenetDelay,torrentDelay,bypassIfHighestQuality,bypassIfAboveCustomFormatScore,minimumCustomFormatScore,tags}')
+    local des_s; des_s=$(echo "$cur_s" | jq '.torrentDelay=30|.bypassIfHighestQuality=false|.bypassIfAboveCustomFormatScore=true|.minimumCustomFormatScore=0')
+    if [[ "$cur_s" == "$des_s" ]]; then
+      ok "${app}: delay profile already set (30 min, bypass on score≥0)"
+    else
+      local body; body=$(echo "$delay" | jq '.torrentDelay=30|.bypassIfHighestQuality=false|.bypassIfAboveCustomFormatScore=true|.minimumCustomFormatScore=0')
+      "${AJ[@]}" -X PUT "${base}/delayprofile/$(echo "$delay" | jq '.id')" -d "$body" >/dev/null \
+        && ok "${app}: delay profile set to 30 min, bypassIf≥0" \
+        || warn "${app}: failed to update delay profile"
+    fi
+  else
+    "${AJ[@]}" -X POST "${base}/delayprofile" -d '{"enableUsenet":true,"enableTorrent":true,"preferredProtocol":"usenet","usenetDelay":0,"torrentDelay":30,"bypassIfHighestQuality":false,"bypassIfAboveCustomFormatScore":true,"minimumCustomFormatScore":0,"tags":[]}' >/dev/null \
+      && ok "${app}: delay profile created (30 min, bypass on score≥0)" \
+      || warn "${app}: failed to create delay profile"
+  fi
+
+  # 8. Custom formats + the THREE fuzzy quality tiers shown in Jellyseerr's request dropdown:
   #      "Low (save space)"  ·  "Normal"  ·  "Beloved (best quality)"
   #    The requester picks one in plain language ("is this beloved, normal, or low-importance?") and
   #    the tier decides the quality↔disk tradeoff — no resolution jargon. The projector is 1080p-max,
@@ -237,36 +261,49 @@ provision_arr() {
         elif ($name|startswith("Size")) then
           ((if $app=="sonarr"
             then {"Size <1.5 GB":{low:30,normal:0,beloved:-40},"Size 1.5-3 GB":{low:20,normal:0,beloved:-20},"Size 3-6 GB":{low:0,normal:0,beloved:-10},"Size 6-10 GB":{low:-10,normal:0,beloved:0},"Size 10-15 GB":{low:-20,normal:0,beloved:20},"Size >15 GB":{low:-40,normal:0,beloved:40}}
-            else {"Size <1.5 GB":{low:80,normal:30,beloved:-500},"Size 1.5-3 GB":{low:60,normal:80,beloved:-250},"Size 3-6 GB":{low:0,normal:40,beloved:-80},"Size 6-10 GB":{low:-300,normal:-150,beloved:60},"Size 10-15 GB":{low:-800,normal:-500,beloved:80},"Size >15 GB":{low:-2000,normal:-1500,beloved:-100}}
+            else {"Size <1.5 GB":{low:150,normal:30,beloved:-500},"Size 1.5-3 GB":{low:-100,normal:80,beloved:-250},"Size 3-6 GB":{low:-200,normal:40,beloved:-80},"Size 6-10 GB":{low:-500,normal:-150,beloved:60},"Size 10-15 GB":{low:-1500,normal:-500,beloved:80},"Size >15 GB":{low:-3000,normal:-1500,beloved:-100}}
             end)[$name][$tier])
         else 0 end;
       [$ids|to_entries[]|{format:.value,name:.key,score:(sc(.key) // 0)}]'
   }
-  # 8. Build the three tier profiles. Shared policy (applied to each): FULL SD→1080p allow-list so
+  # 9. Build the three tier profiles
+  # Shared policy (applied to each): FULL SD→1080p allow-list so
   #    resolution is never a hard gate; junk (CAM/TS/SCR/workprint), Remux (20–40 GB) and 2160p/4K
   #    (projector tops out at 1080p) stay OFF; cutoff = Bluray-1080p (the upgrade target — 1080p
   #    preferred, 720p/SD the something-over-nothing fallback); minFormatScore=-10000 so nothing is
   #    ever rejected; formatItems = the tier's codec+size scores.
   local schema; schema=$("${AG[@]}" "${base}/qualityprofile/schema")
-  local cutid; cutid=$(jq 'first(..|objects|select(.quality?.name=="Bluray-1080p").quality.id)' <<<"$schema")
-  profile_body() {  # base-json(schema|current)  name  formatItems-json -> full profile body
-    jq --arg n "$2" --argjson cut "$cutid" --argjson it "$3" '
+  local cutid cut720
+  cutid=$(jq 'first(..|objects|select(.quality?.name=="Bluray-1080p").quality.id)' <<<"$schema")
+  cut720=$(jq 'first(..|objects|select(.quality?.name=="Bluray-720p").quality.id)' <<<"$schema")
+  # profile_body: base-json  name  formatItems  tier  cutoff-id
+  #   The "low" tier RE-ORDERS the quality list so 720p ranks ABOVE 1080p — *arr compares quality
+  #   tier before custom-format score, so without this a "smallest 1080p" (e.g. a 2.5 GB 40-Year-Old
+  #   Virgin) always beats a ~1 GB 720p. Low therefore grabs the small 720p and only falls back to
+  #   1080p when no 720p exists (still something-over-nothing). Normal/Beloved keep 1080p on top.
+  profile_body() {
+    jq --arg n "$2" --argjson it "$3" --arg tier "$4" --argjson cut "$5" '
       (["SDTV","DVD","Bluray-480p","Bluray-576p","HDTV-720p","Bluray-720p","HDTV-1080p","WEBDL-1080p","WEBRip-1080p","Bluray-1080p"]) as $allow
       | (["WEB 480p","WEB 720p","WEB 1080p"]) as $gallow
+      | (if $tier=="low"
+          then ["Unknown","WORKPRINT","CAM","TELESYNC","TELECINE","REGIONAL","DVDSCR","SDTV","DVD","DVD-R","WEB 480p","Bluray-480p","Bluray-576p","HDTV-1080p","WEB 1080p","Bluray-1080p","Bluray-720p","HDTV-720p","WEB 720p","Remux-1080p","HDTV-2160p","WEB 2160p","Bluray-2160p","Remux-2160p","BR-DISK","Raw-HD"]
+          else null end) as $order
       | .name=$n | .upgradeAllowed=true | .cutoff=$cut | .minFormatScore=-10000 | .cutoffFormatScore=0 | .formatItems=$it
       | .items=(.items|map(
           if (.quality and .quality.name) then ((.quality.name) as $qn | .allowed=(($allow|index($qn))!=null))
           elif (.items!=null and .items!=[]) then (.name as $gn | (($gallow|index($gn))!=null) as $ga | .allowed=$ga | .items=(.items|map(.allowed=$ga)))
-          else . end))' <<<"$1"
+          else . end))
+      | (if $order then .items=(.items | sort_by((.quality.name // .name) as $qn | ($order|index($qn)) // 999)) else . end)' <<<"$1"
   }
   ensure_tier() {  # display-name  tier(low|normal|beloved)
-    local pname="$1" tier="$2" fitems cur
+    local pname="$1" tier="$2" fitems cur cut
     fitems=$(build_formatitems "$tier")
+    if [[ "$tier" == "low" ]]; then cut="$cut720"; else cut="$cutid"; fi
     cur=$("${AG[@]}" "${base}/qualityprofile" | jq --arg n "$pname" '[.[]|select(.name==$n)][0]')
     if [[ -z "$cur" || "$cur" == "null" ]]; then
-      "${AJ[@]}" -X POST "${base}/qualityprofile" -d "$(profile_body "$schema" "$pname" "$fitems")" >/dev/null && ok "${app}: tier profile '$pname' created"
+      "${AJ[@]}" -X POST "${base}/qualityprofile" -d "$(profile_body "$schema" "$pname" "$fitems" "$tier" "$cut")" >/dev/null && ok "${app}: tier profile '$pname' created"
     else
-      "${AJ[@]}" -X PUT "${base}/qualityprofile/$(jq '.id' <<<"$cur")" -d "$(profile_body "$cur" "$pname" "$fitems")" >/dev/null && ok "${app}: tier profile '$pname' updated"
+      "${AJ[@]}" -X PUT "${base}/qualityprofile/$(jq '.id' <<<"$cur")" -d "$(profile_body "$cur" "$pname" "$fitems" "$tier" "$cut")" >/dev/null && ok "${app}: tier profile '$pname' updated"
     fi
   }
   # Rename the legacy HD-1080p profile to "Normal" ONCE (preserves its id, so every already-assigned
@@ -291,4 +328,33 @@ provision_arr() {
   else
     ok "${app}: all items already on a tier profile"
   fi
+  # Also migrate Radarr Collections (list imports) — they can pin a profile "in use".
+  if [[ "$app" == "radarr" ]]; then
+    local stray_cols; stray_cols=$("${AG[@]}" "${base}/collection" | jq -c --argjson t "$tier_ids" '[.[]|select((.qualityProfileId) as $p|($t|index($p))==null).id]')
+    if [[ -n "$stray_cols" && "$stray_cols" != "[]" ]]; then
+      for _cid in $(echo "$stray_cols" | jq -r '.[]'); do
+        "${AJ[@]}" -X PUT "${base}/collection/${_cid}" -d "$(jq -n --argjson q "$norm_id" '{qualityProfileId:$q}')" >/dev/null
+      done
+      ok "${app}: migrated $(jq 'length' <<<"$stray_cols") collection(s) → Normal"
+    fi
+  fi
+  # Cleanup: DELETE every non-tier profile so Jellyseerr's request dropdown shows ONLY the three
+  # tiers. The item/collection migration above left them unreferenced, so DELETE succeeds (verified
+  # 200 on both Radarr and Sonarr — including the built-in HD-720p/Ultra-HD/Any/SD). Renaming does
+  # NOT work: Jellyseerr lists every profile regardless of name. Fallback (rename to hidden) only if
+  # a delete is ever refused because something still references it.
+  local _p _pid _pname _code
+  while IFS= read -r _p; do
+    _pid="${_p%%:*}" _pname="${_p#*:}"
+    [[ -z "$_pid" || "$_pid" == "null" ]] && continue
+    case "$_pname" in "Low (save space)"|"Normal"|"Beloved (best quality)") continue;; esac
+    _code=$("${AG[@]}" -o /dev/null -w '%{http_code}' -X DELETE "${base}/qualityprofile/${_pid}" 2>/dev/null)
+    if [[ "$_code" =~ ^2 ]]; then
+      ok "${app}: deleted non-tier profile '$_pname' (id=$_pid) — dropdown shows tiers only"
+    else
+      "${AG[@]}" "${base}/qualityprofile/${_pid}" | jq --arg n "_$_pname (hidden)" '.name=$n' \
+        | "${AJ[@]}" -X PUT "${base}/qualityprofile/${_pid}" -d @- >/dev/null 2>&1
+      warn "${app}: could not delete '$_pname' (id=$_pid, still referenced?) — renamed hidden"
+    fi
+  done < <("${AG[@]}" "${base}/qualityprofile" | jq -r '.[] | select(.id != null) | "\(.id):\(.name)"')
 }

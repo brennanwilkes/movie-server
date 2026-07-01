@@ -100,6 +100,12 @@ async function arrPost(app, p, body, ms = 10000) {
   if (!r.ok) throw new Error(`${app} POST ${p} → HTTP ${r.status}`);
   return r.json();
 }
+async function arrPut(app, p, body, ms = 15000) {
+  const { base, key } = arrOf(app);
+  const r = await tfetch(`${base}${p}`, { method: 'PUT', headers: { 'X-Api-Key': key || '', 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, ms);
+  if (!r.ok) throw new Error(`${app} PUT ${p} → HTTP ${r.status}`);
+  return r.json();
+}
 
 // ── Jellyfin helpers (API-key auth) ──
 let _jfUserId = null;
@@ -452,6 +458,10 @@ async function buildDownloads() {
   }
 
   const items = [];
+  // arrIds that already have a torrent-derived row (downloading/importing/seeding/etc.). The
+  // missing-item surfacing below skips these so a title can't appear BOTH as its live download AND
+  // as a phantom "Searching…/Not found" row (e.g. a season pack downloading before Sonarr queues it).
+  const shownIds = { radarr: new Set(), sonarr: new Set() };
   for (const t of torrents) {
     const h = (t.hash || '').toLowerCase();
     const app = torrentApp(t);
@@ -462,6 +472,8 @@ async function buildDownloads() {
     // imported this release into the library?
     const hi = app && hist[app] && hist[app].get(h);
     const imported = !!(hi && (hi.imported || (hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
+    const _arrId = (qrec && (qrec.movieId || qrec.seriesId)) ?? (hi && hi.id);
+    if (app && _arrId != null) shownIds[app].add(_arrId);   // this title has a live download → don't also list it as missing
     let state, attention = false, recover = null;
     if (app && imported) {
       // Already imported into the library = the download is DONE, no matter what the torrent is
@@ -524,21 +536,35 @@ async function buildDownloads() {
         if (id != null) appIdsInQueue[app].add(id);
       }
     }
-    const appIdsWithTorrent = { radarr: new Set(), sonarr: new Set() };
-    for (const t of torrents) {
-      const a = torrentApp(t);
-      if (a && t.hash) appIdsWithTorrent[a].add(t.hash.toLowerCase());
-    }
+    // A JUST-grabbed torrent (redownload / fresh request) is in qBittorrent seconds before the
+    // 20s-cached *arr queue/history links it to its item — so shownIds/queue miss it and the title
+    // would show BOTH its download row AND a phantom "Searching…" row. Bridge that window by matching
+    // the item's title+year against the raw torrent names of the same category.
+    const norm = (s) => String(s || '').toLowerCase().replace(/[._'’:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
+    const catTorNames = { radarr: [], sonarr: [] };
+    for (const t of torrents) { const a = torrentApp(t); if (a) catTorNames[a].push(norm(t.name)); }
+    const beingFetched = (app, it) => {
+      const tn = norm(it.title); if (!tn) return false;
+      const yr = it.year ? String(it.year) : '';
+      return catTorNames[app].some((n) => (n === tn || n.startsWith(tn + ' ')) && (!yr || n.includes(yr)));
+    };
     for (const app of ['radarr', 'sonarr']) {
       let list = [];
       try { list = await arrGet(app, app === 'radarr' ? '/movie' : '/series', 8000); } catch { continue; }
       for (const it of list) {
         const id = it.id;
         const hasF = app === 'radarr' ? !!it.hasFile : (it.statistics && it.statistics.episodeFileCount) > 0;
-        if (hasF || it.monitored === false) continue;
-        if (appIdsInQueue[app].has(id)) continue;
+        if (hasF || it.monitored === false) { noteResolved(app, id); continue; }
+        if (appIdsInQueue[app].has(id) || shownIds[app].has(id) || beingFetched(app, it)) { noteResolved(app, id); continue; }   // in queue / linked / freshly-grabbed torrent → not missing
+        // A freshly-requested item briefly has no file/queue while *arr's own search resolves. Show
+        // "Searching…" (not the alarming "Not found") until NOTFOUND_GRACE — this is what stops the
+        // "Not found → found seconds later" flip-flop. Only after the grace do we call it "Not found".
+        const firstMissing = noteMissing(app, id);
+        const searching = Date.now() - firstMissing < NOTFOUND_GRACE_MS;
         const title = it.title + (it.year ? ` (${it.year})` : '');
-        items.push({ title, progress: 0, state: 'Not found', etaSeconds: null, sizeBytes: 0, source: app, attention: true, hash: `missing:${app}:${id}`, _id: id });
+        items.push({ title, progress: 0, state: searching ? 'Searching…' : 'Not found',
+          etaSeconds: null, sizeBytes: 0, source: app, attention: !searching,
+          hash: `missing:${app}:${id}`, _id: id });
       }
     }
   } catch { /* missing scan best-effort */ }
@@ -632,16 +658,18 @@ async function downloadSummary(items) {
   // Three buckets for the visual bar: completed / in-progress / queued, sized by (approx) bytes.
   const DONE = new Set(['Ready', 'Done']);
   const done = items.filter((i) => DONE.has(i.state));
-  const queued = items.filter((i) => i.state === 'Queued');
-  const inProg = items.filter((i) => !DONE.has(i.state) && i.state !== 'Queued' && i.state !== 'Declined' && i.state !== 'Paused' && i.state !== 'Error' && !i.attention);
   const blocked = items.filter((i) => i.state === 'Declined' || i.state === 'Paused');
   const attention = items.filter((i) => i.attention && !blocked.includes(i) && i.state !== 'Paused');
+  // Accent (blue) = ONLY torrents actively pulling bytes. Everything else that's pending — Queued,
+  // Starting, Stalled, Searching…, Importing, Getting subtitles, Processing — is grey ("pending"),
+  // so the blue segment reflects true live download activity, not the whole backlog.
+  const inProg = items.filter((i) => i.state === 'Downloading' && !i.attention);
+  const queued = items.filter((i) => !DONE.has(i.state) && i.state !== 'Downloading' && i.state !== 'Declined' && i.state !== 'Paused' && i.state !== 'Error' && !i.attention);
   const sum = (arr) => Math.round(arr.reduce((a, i) => a + sizeOf(i), 0));
   const bytes = { completed: sum(done), inProgress: sum(inProg), queued: sum(queued), attention: sum(attention), blocked: sum(blocked) };
 
-  // Remaining to download = the unfinished part of in-progress + all of queued.
-  const inProgRemaining = inProg.reduce((a, i) => a + sizeOf(i) * (1 - Math.min(100, i.progress || 0) / 100), 0);
-  const remainingBytes = Math.round(inProgRemaining + bytes.queued);
+  // Remaining to download = the unfinished part of everything not done (downloading + all pending).
+  const remainingBytes = Math.round([...inProg, ...queued].reduce((a, i) => a + sizeOf(i) * (1 - Math.min(100, i.progress || 0) / 100), 0));
   const sizing = [...queued, ...inProg].filter((i) => !(i.sizeBytes > 0)).length;   // still fetching metadata
 
   return {
@@ -1039,6 +1067,84 @@ app.post('/api/torrent/delete', async (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 
+// Pause / resume ONE torrent. qBittorrent v5 renamed pause→stop, resume→start; try the v5 verb
+// and fall back to the legacy one so this is version-robust. Acts only on the single hash passed.
+async function qbitPauseResume(hash, resume) {
+  const verbs = resume ? ['start', 'resume'] : ['stop', 'pause'];
+  let r;
+  for (const v of verbs) {
+    r = await qbit.fetch(`/api/v2/torrents/${v}`, { method: 'POST', body: new URLSearchParams({ hashes: hash }), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+    if (r.status !== 404) break;   // 404 = this qBittorrent version doesn't have that verb → try the other
+  }
+  return r;
+}
+app.post('/api/torrent/pause', async (req, res) => {
+  const { hash } = req.body || {};
+  if (!hash || typeof hash !== 'string') return res.status(400).json({ error: 'hash (string) is required' });
+  try { const r = await qbitPauseResume(hash, false); res.status(r.ok ? 200 : 502).json({ ok: r.ok, paused: true }); }
+  catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+app.post('/api/torrent/resume', async (req, res) => {
+  const { hash } = req.body || {};
+  if (!hash || typeof hash !== 'string') return res.status(400).json({ error: 'hash (string) is required' });
+  try { const r = await qbitPauseResume(hash, true); res.status(r.ok ? 200 : 502).json({ ok: r.ok, paused: false }); }
+  catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
+// Redownload a MOVIE at a chosen quality tier: deep-delete the current file + torrent(s) + Jellyfin
+// entry (the movie stays in Radarr), switch its quality profile to the tier, then trigger a fresh
+// search. dryRun returns the title/tier/size for the confirm sheet without changing anything.
+// Movies only — TV season/episode teardown is out of scope (per product decision).
+const REDL_TIERS = { low: 'Low (save space)', normal: 'Normal', beloved: 'Beloved (best quality)' };
+app.post('/api/redownload', async (req, res) => {
+  const { app: a, id, tier, dryRun } = req.body || {};
+  if (a !== 'radarr') return res.status(400).json({ error: 'redownload is movies-only (radarr)' });
+  const mid = Number(id);
+  if (!Number.isInteger(mid) || mid <= 0) return res.status(400).json({ error: 'valid movie id required' });
+  if (!REDL_TIERS[tier]) return res.status(400).json({ error: 'tier must be one of low|normal|beloved' });
+  try {
+    const profs = await arrGet('radarr', '/qualityprofile');
+    const prof = profs.find((p) => p.name === REDL_TIERS[tier]);
+    if (!prof) return res.status(500).json({ error: `quality profile "${REDL_TIERS[tier]}" not found — run provision.sh radarr` });
+    const movie = await arrGet('radarr', `/movie/${mid}`);
+    const title = movie.title + (movie.year ? ` (${movie.year})` : '');
+    const files = await arrGet('radarr', `/moviefile?movieId=${mid}`).catch(() => []);
+    const freedBytes = (Array.isArray(files) ? files : []).reduce((s, f) => s + (f.size || 0), 0) || movie.sizeOnDisk || 0;
+    // Torrents that belong to this movie (matched via *arr grab history → downloadId).
+    let hashes = [];
+    try {
+      const hist = await arrGet('radarr', `/history/movie?movieId=${mid}`);
+      const recs = Array.isArray(hist) ? hist : (hist.records || []);
+      hashes = [...new Set(recs.map((r) => r.downloadId).filter(Boolean).map((x) => String(x).toLowerCase()))];
+    } catch { /* no history */ }
+    if (dryRun) return res.json({ dryRun: true, title, tier, tierName: REDL_TIERS[tier], freedBytes, fileCount: (files || []).length, torrentCount: hashes.length });
+
+    const steps = [];
+    // 1) Switch the quality profile to the chosen tier (and ensure it's monitored so the search grabs).
+    try { await arrPut('radarr', `/movie/${mid}`, { ...movie, qualityProfileId: prof.id, monitored: true }); steps.push(`profile→${REDL_TIERS[tier]}`); }
+    catch (e) { return res.status(502).json({ error: `could not set quality profile: ${String(e.message || e)}` }); }
+    // 2) Delete the current movie file(s) — keeps the movie in Radarr, frees the disk.
+    for (const f of (Array.isArray(files) ? files : [])) {
+      try { await arrDelete('radarr', `/moviefile/${f.id}`); } catch { /* best-effort */ }
+    }
+    if ((files || []).length) steps.push(`removed ${(files || []).length} file(s)`);
+    // 3) Remove the torrent(s) from qBittorrent (deleteFiles: partial/complete data gone too).
+    if (hashes.length) {
+      try {
+        await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', body: new URLSearchParams({ hashes: hashes.join('|'), deleteFiles: 'true' }), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+        steps.push(`removed ${hashes.length} torrent(s)`);
+      } catch { /* qbit down — file+profile already changed; search still proceeds */ }
+    }
+    // 4) Remove the stale Jellyfin entry so it doesn't point at a deleted file (re-added on import).
+    try { const jfId = await jellyfinIdByTmdb('Movie', movie.tmdbId); if (jfId) { await tfetch(`${HOST.jellyfin}/Items/${jfId}`, { method: 'DELETE', headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 10000); } } catch { /* auto-scan reconciles */ }
+    // 5) Fresh search — clear the sweep cooldown/negative-cache so it grabs immediately at the new tier.
+    searchKeyClear('radarr', mid); persistState();
+    await arrPost('radarr', '/command', { name: 'MoviesSearch', movieIds: [mid] }, 8000);
+    console.log(`redownload: "${title}" → ${REDL_TIERS[tier]} (${steps.join(', ')}) — search triggered`);
+    res.json({ ok: true, title, tier, tierName: REDL_TIERS[tier], freedBytes });
+  } catch (e) { console.log(`redownload: failed for radarr id=${mid} — ${e.message || e}`); res.status(500).json({ error: String(e.message || e) }); }
+});
+
 // Dismiss a declined entry from the Downloads view (torrent already gone, just
 // remove the tombstone so the row disappears).
 app.post('/api/declined/dismiss', (req, res) => {
@@ -1321,10 +1427,29 @@ setTimeout(seerrSweep, 30000);   // first run after 30s
 // ---- *arr sweep: auto-recover stuck queue items + trigger search for missing monitored items ----
 let arrSweepBusy = false;
 // searchState is declared up by `declined` (must exist before loadState() runs). Tuning knobs:
-const SEARCH_COOLDOWN_MS = 3600000;            // 1h between auto-searches of the same item
+const SEARCH_COOLDOWN_MS = 6 * 3600000;        // 6h between recovery re-searches of the same item
 const SEARCH_FAIL_LIMIT = 4;                   // after this many fruitless searches → negative-cache it
 const SEARCH_BLOCK_MS = 7 * 24 * 3600 * 1000;  // ...for a week (a manual /api/retry clears it sooner)
 const SWEEP_MAX_ACTIVE_DL = 10;                // capacity guard: no new searches while this many download
+// The sweep is RECOVERY, not the first responder: Radarr/Sonarr already auto-search on request
+// (Jellyseerr sets searchForMovie). The sweep must NOT re-search a freshly-requested item while
+// that initial search is still resolving — that's what caused duplicate grabs AND the "Not found →
+// found seconds later" flip-flop. So we track when an item was FIRST seen missing and only let the
+// sweep act after RECOVERY_GRACE. The UI shows "Searching…" (not the alarming "Not found") until
+// NOTFOUND_GRACE, covering normal grab latency.
+const RECOVERY_GRACE_MS = 2 * 3600000;         // 2h: leave a missing item to *arr's own search first
+const NOTFOUND_GRACE_MS = 20 * 60000;          // 20min: show "Searching…" before "Not found" in the UI
+// firstMissing bookkeeping shared by buildDownloads (UI) and arrSweep (recovery). Starts the clock
+// the first time an item is seen missing; cleared once it has a file / queue / torrent again.
+function noteMissing(app, id) {
+  const k = `${app}:${id}`; const st = searchState.get(k) || {};
+  if (!st.firstMissing) { st.firstMissing = Date.now(); searchState.set(k, st); }
+  return st.firstMissing;
+}
+function noteResolved(app, id) {  // item now has file/queue/torrent → reset the missing clock
+  const k = `${app}:${id}`; const st = searchState.get(k);
+  if (st && st.firstMissing) { st.firstMissing = 0; searchState.set(k, st); }
+}
 const DL_STATES = new Set(['downloading', 'stalledDL', 'metaDL', 'forcedDL', 'queuedDL', 'checkingDL', 'allocating']);
 const searchKeyClear = (app, id) => searchState.delete(`${app}:${id}`); // manual retry overrides cooldown+block
 async function arrSweep() {
@@ -1430,12 +1555,14 @@ async function arrSweep() {
       const qIds = new Set(queue.map((q) => q.movieId || q.seriesId));
       const needSearch = items.filter((i) => {
         const hasContent = app === 'radarr' ? !!i.hasFile : !!(i.statistics && i.statistics.episodeFileCount);
-        if (hasContent) { searchKeyClear(app, i.id); return false; }   // got it — clear any fail count
+        if (hasContent) { searchKeyClear(app, i.id); return false; }             // got it — clear all state
         if (i.monitored === false) return false;
-        if (qIds.has(i.id) || downloadingIds.has(i.id)) return false;  // already in flight
+        if (qIds.has(i.id) || downloadingIds.has(i.id)) { noteResolved(app, i.id); return false; } // in flight — reset clock
+        const firstMissing = noteMissing(app, i.id);                            // start/read the missing clock
         const st = searchState.get(`${app}:${i.id}`);
-        if (st && st.blockedUntil && st.blockedUntil > now) return false;   // negative-cached (no content)
-        if (st && st.ts && now - st.ts < SEARCH_COOLDOWN_MS) return false;  // within 1h cooldown
+        if (st && st.blockedUntil && st.blockedUntil > now) return false;        // negative-cached (no content)
+        if (now - firstMissing < RECOVERY_GRACE_MS) return false;               // still *arr's own job — don't interfere
+        if (st && st.ts && now - st.ts < SEARCH_COOLDOWN_MS) return false;       // already recovered recently
         return true;
       });
 

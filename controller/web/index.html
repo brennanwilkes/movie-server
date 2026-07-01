@@ -76,6 +76,23 @@
     </div>
   </div>
 
+  <!-- Redownload sheet (movies): deep-delete + re-request at a chosen quality tier -->
+  <div id="redl-backdrop" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <h3 id="redl-title">Redownload?</h3>
+      <p id="redl-sub" class="muted"></p>
+      <div class="tier-picker" id="redl-tiers">
+        <button data-tier="low"><span class="tier-name">Low</span><span class="tier-desc">Save space · ~1 GB</span></button>
+        <button data-tier="normal" class="active"><span class="tier-name">Normal</span><span class="tier-desc">Balanced · ~2–3 GB</span></button>
+        <button data-tier="beloved"><span class="tier-name">Beloved</span><span class="tier-desc">Best looking · ~6–15 GB</span></button>
+      </div>
+      <div class="sheet-actions">
+        <button id="redl-cancel" class="btn-ghost">Cancel</button>
+        <button id="redl-confirm" class="btn-primary">Redownload</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="toast" class="toast" hidden></div>
 

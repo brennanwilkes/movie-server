@@ -169,6 +169,11 @@ function renderDownloads(items) {
     const isDone = d.state === 'Ready' || d.state === 'Done';
     const canDelete = d.hash && d.state !== 'Ready' && d.state !== 'Done';
     const isMissing = d.state === 'Not found';
+    // Pause/resume: only for a real torrent that's actively in flight (not a "missing:" pseudo-row,
+    // not a finished/importing item). Paused rows offer Resume; the rest offer Pause.
+    const realHash = d.hash && !String(d.hash).startsWith('missing:');
+    const pausable = realHash && ['Downloading', 'Stalled', 'Queued', 'Starting', 'Paused'].includes(d.state);
+    const isPaused = d.state === 'Paused';
     let cleanTitle = '';
     if (isDone) {
       const mt = d.title.match(/^(.+?)[. _-]+(?:S\d{2,}|Season\s*\d+|19\d{2}|20\d{2}|Full|COMPLETE)/i);
@@ -181,7 +186,7 @@ function renderDownloads(items) {
     return `<li class="row dl${(d.attention || d.state === 'Declined') ? ' attn' : ''}${isDone ? ' done' : ''}" data-hash="${esc(d.hash || '')}" data-state="${esc(d.state)}" data-title="${esc(cleanTitle)}" data-source="${esc(d.source)}"${d._id ? ` data-app="${esc(d.source)}" data-id="${esc(d._id)}"` : ''}>
       <div class="dl-title-row">
         <span class="title">${esc(d.title)}</span>
-        <span class="dl-actions">${isMissing ? `<button class="dl-retry" aria-label="Retry search"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></button>` : ''}${canDelete ? `<button class="dl-stop" aria-label="Delete torrent & files"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg></button>` : ''}</span>
+        <span class="dl-actions">${isMissing ? `<button class="dl-retry" aria-label="Retry search"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></button>` : ''}${pausable ? `<button class="dl-pause" aria-label="${isPaused ? 'Resume' : 'Pause'} download">${isPaused ? '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>'}</button>` : ''}${canDelete ? `<button class="dl-stop" aria-label="Delete torrent & files"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg></button>` : ''}</span>
       </div>
       <div class="mini-bar"><div style="width:${barW}%${color ? `;background:${color}` : ''}"></div></div>
       <div class="sub dl-meta"><span>${esc(leftMeta)}</span>${eta ? `<span>${esc(eta)}</span>` : ''}</div>
@@ -194,8 +199,20 @@ function renderDownloads(items) {
     dl.addEventListener('click', async (e) => {
       const btn = e.target.closest('.dl-stop');
       const rbtn = e.target.closest('.dl-retry');
+      const pbtn = e.target.closest('.dl-pause');
       const li = e.target.closest('li.dl.done');
-      if (rbtn) {
+      if (pbtn) {
+        const bli = pbtn.closest('li');
+        const hash = bli && bli.dataset.hash;
+        if (!hash) return;
+        const paused = bli.dataset.state === 'Paused';
+        pbtn.disabled = true;
+        try {
+          await postJSON(paused ? '/api/torrent/resume' : '/api/torrent/pause', { hash });
+          toast(paused ? 'Resumed' : 'Paused');
+          pollDownloads();                       // refresh so the icon flips to its new state
+        } catch { pbtn.disabled = false; toast(paused ? 'Resume failed' : 'Pause failed'); }
+      } else if (rbtn) {
         const bli = rbtn.closest('li');
         const app = bli && bli.dataset.app;
         const id = bli && bli.dataset.id;
@@ -269,7 +286,7 @@ function renderDlSummary(s) {
     <div class="dls-legend">
       <span class="done">${c.completed} done</span>
       <span class="prog">${c.inProgress} downloading</span>
-      <span class="queue">${c.queued} queued</span>
+      <span class="queue">${c.queued} pending</span>
       ${c.attention ? `<span class="attn">${c.attention} stuck</span>` : ''}
       ${c.blocked ? `<span class="blocked">${c.blocked} blocked</span>` : ''}
     </div>`;
@@ -333,12 +350,16 @@ function renderLibrary() {
         <span class="title">${esc(m.title)}${m.year ? ` <span class="muted">(${m.year})</span>` : ''}</span>
         <div class="sub"><span class="sub-size">${m.hasFile ? fmtBytes(m.sizeBytes) + ' on disk' : 'Not downloaded'}</span>${rate ? `<span class="rate ${rateCls}">${rate}</span>` : ''}${fmt ? `<span class="format ${fmtCls}">${esc(fmt)}</span>` : ''}</div>
       </span>
+      ${libApp === 'radarr' ? `<button class="redl" data-id="${m.id}" aria-label="Redownload ${esc(m.title)}">
+        <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 3v5h-5"/></svg>
+      </button>` : ''}
       <button class="trash" data-id="${m.id}" aria-label="Remove ${esc(m.title)}">
         <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg>
       </button>
     </li>`;
   }).join('');
   $$('#library .trash').forEach((btn) => btn.addEventListener('click', () => openSheet({ app: libApp, id: +btn.dataset.id })));
+  $$('#library .redl').forEach((btn) => btn.addEventListener('click', () => openRedl(+btn.dataset.id)));
 }
 async function loadLibrary() {
   if (offline) { $('#library').innerHTML = ''; $('#library-empty').hidden = false; $('#library-empty').textContent = 'Connect to your home network to manage your library.'; return; }
@@ -397,6 +418,42 @@ $('#sheet-confirm').addEventListener('click', async () => {
     if (isDl) pollDownloads();
   } catch { toast('Something went wrong'); }
   finally { $('#sheet-confirm').textContent = 'Remove'; closeSheet(); }
+});
+
+// Redownload sheet (movies only) — deep-delete + re-request at a chosen quality tier.
+let redlPending = null, redlTier = 'normal';
+function closeRedl() { $('#redl-backdrop').hidden = true; redlPending = null; }
+$('#redl-cancel').addEventListener('click', closeRedl);
+$('#redl-backdrop').addEventListener('click', (e) => { if (e.target === $('#redl-backdrop')) closeRedl(); });
+$('#redl-tiers').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  redlTier = b.dataset.tier;
+  $$('#redl-tiers button').forEach((x) => x.classList.toggle('active', x === b));
+});
+function openRedl(id) {
+  const m = libItems.find((x) => x.id === id) || {};
+  redlPending = { id, title: m.title };
+  redlTier = 'normal';
+  $$('#redl-tiers button').forEach((x) => x.classList.toggle('active', x.dataset.tier === 'normal'));
+  $('#redl-title').textContent = `Redownload “${m.title || 'this movie'}”?`;
+  $('#redl-sub').textContent = m.hasFile
+    ? `Deletes the current file${m.sizeBytes ? ` (${fmtBytes(m.sizeBytes)})` : ''} and re-fetches at the quality you pick.`
+    : 'Fetches this movie at the quality you pick.';
+  $('#redl-confirm').disabled = false;
+  $('#redl-backdrop').hidden = false;
+}
+$('#redl-confirm').addEventListener('click', async () => {
+  if (!redlPending) return;
+  const { id, title } = redlPending;
+  $('#redl-confirm').disabled = true;
+  $('#redl-confirm').textContent = 'Starting…';
+  try {
+    await postJSON('/api/redownload', { app: 'radarr', id, tier: redlTier });
+    toast(`Redownloading “${title}” — ${redlTier}`);
+    pollDownloads();
+    loadLibrary();
+  } catch { toast('Redownload failed'); }
+  finally { $('#redl-confirm').textContent = 'Redownload'; closeRedl(); }
 });
 
 let toastTimer;

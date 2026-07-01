@@ -1,6 +1,9 @@
 # Jellyfin — complete the first-run wizard and ensure Movies/TV libraries exist.
 # Sourced by provision.sh (lib.sh helpers + .env already loaded). Idempotent.
-JF="http://localhost:8096"
+# Jellyfin runs on HOST networking and pins itself to $NUC_IP below (LocalNetworkAddresses), so it
+# binds ONLY to $NUC_IP:8096 — localhost:8096 stops responding after the first provision. Target
+# $NUC_IP so wait_http + every API call work on a fresh install AND on idempotent re-runs.
+JF="http://${NUC_IP:-localhost}:8096"
 wait_http "$JF/System/Info/Public" 120
 
 # 1. First-run wizard (only if not already completed).
