@@ -36,10 +36,29 @@ function fmtBytes(b) {
 }
 function fmtEta(s) {
   if (!s || s <= 0) return '';
-  if (s < 90) return '~1 min';
-  if (s < 3600) return `~${Math.round(s / 60)} min`;
-  if (s < 86400) return `~${Math.round(s / 3600)} h`;
-  return `~${Math.round(s / 86400)} d`;
+  if (s < 90) return '1 min';
+  if (s < 3600) return `${Math.round(s / 60)} min`;
+  if (s < 86400) return `${Math.round(s / 3600)} h`;
+  return `${Math.round(s / 86400)} d`;
+}
+// "Not found" rows: say when the next recovery search will actually fire, so it doesn't just
+// sit there looking abandoned. d.recoveryNext is an absolute ms timestamp from the server.
+function fmtRecovery(d) {
+  if (d.recoveryBlocked) return `gave up after ${d.recoveryFails} tries, will retry ${fmtWhen(d.recoveryNext)}`;
+  if (!d.recoveryNext) return 'retrying soon';
+  const ms = d.recoveryNext - Date.now();
+  if (ms <= 0) return 'retrying now';
+  return `next retry in ${fmtDur(ms / 1000)}`;
+}
+// "Stalled" rows: say when the give-up (blocklist + re-search) clock fires.
+function fmtGiveUp(giveUpAt) {
+  const ms = giveUpAt - Date.now();
+  if (ms <= 0) return 'giving up now';
+  return `giving up in ${fmtDur(ms / 1000)}`;
+}
+function fmtWhen(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 // Coarser, two-part duration for the batch estimate (e.g. "2d 4h", "9h 30m", "12 min").
 function fmtDur(s) {
@@ -133,10 +152,10 @@ function renderSystem(s) {
   const cell = (label, val, status, width) =>
     `<div class="stat ${status}"><div class="stat-top"><span class="stat-label">${label}</span><span class="stat-val">${val}</span></div><div class="stat-meter"><div style="width:${width}%"></div></div></div>`;
   el.innerHTML = [
-    cell('CPU', s.cpuPct == null ? '—' : s.cpuPct + '%', lvl(s.cpuPct, 70, 90), s.cpuPct == null ? 0 : clamp(s.cpuPct)),
-    cell('RAM', s.memPct == null ? '—' : s.memPct + '%', lvl(s.memPct, 75, 90), s.memPct == null ? 0 : clamp(s.memPct)),
+    cell('CPU', s.cpuPct == null ? 'N/A' : s.cpuPct + '%', lvl(s.cpuPct, 70, 90), s.cpuPct == null ? 0 : clamp(s.cpuPct)),
+    cell('RAM', s.memPct == null ? 'N/A' : s.memPct + '%', lvl(s.memPct, 75, 90), s.memPct == null ? 0 : clamp(s.memPct)),
     // temperature has no fixed max — map ~30–95 °C onto the meter so the bar tracks severity
-    cell('Temp', s.tempC == null ? '—' : s.tempC + '°', lvl(s.tempC, 70, 85), s.tempC == null ? 0 : clamp((s.tempC - 30) / 65 * 100)),
+    cell('Temp', s.tempC == null ? 'N/A' : s.tempC + '°', lvl(s.tempC, 70, 85), s.tempC == null ? 0 : clamp((s.tempC - 30) / 65 * 100)),
   ].join('');
 }
 async function pollHome() {
@@ -154,7 +173,11 @@ async function pollHome() {
 // ── Downloads ──
 function renderDownloads(items) {
   $('#downloads-empty').hidden = items.length > 0;
-  const COLOR = { Declined: 'var(--danger)', 'Needs attention': 'var(--danger)', Error: 'var(--danger)', 'Ready': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--warn)', 'Getting subtitles': 'var(--warn)', Processing: 'var(--warn)', Stalled: 'var(--warn)' };
+  // Red is reserved for "a human needs to look at this" (Needs attention, Error, Declined, and a
+  // Not found that's been negative-cached). Blue is anything actively progressing on its own —
+  // including the post-download steps (subtitles/import/processing), not just live byte transfer.
+  // Orange is everything else mid-recovery: stalled, still searching/retrying, not yet resolved.
+  const COLOR = { Declined: 'var(--danger)', 'Needs attention': 'var(--danger)', Error: 'var(--danger)', 'Ready': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--accent)', 'Getting subtitles': 'var(--accent)', Processing: 'var(--accent)', Stalled: 'var(--warn)', 'Not found': 'var(--warn)' };
   $('#downloads').innerHTML = items.map((d) => {
     const eta = d.state === 'Downloading' ? fmtEta(d.etaSeconds) : '';
     // Show the % on anything mid-transfer (not just "Downloading") — a partially-grabbed torrent
@@ -162,9 +185,14 @@ function renderDownloads(items) {
     // the label must explain why ("Queued · 25% · 8.5 GB") instead of looking like it hasn't started.
     const pctShown = d.progress > 0 && d.progress < 100 ? d.progress + '%' : '';
     const leftMeta = d.state === 'Declined'
-      ? `Declined · Not enough disk space — needs ${fmtBytes(d.neededBytes)}, only ${fmtBytes(d.freeBytes)} free`
+      ? `Declined · Not enough disk space, needs ${fmtBytes(d.neededBytes)}, only ${fmtBytes(d.freeBytes)} free`
+      : d.state === 'Not found'
+      ? `Not found · ${fmtRecovery(d)}`
+      : d.state === 'Stalled' && d.stallGiveUpAt
+      ? `Stalled · ${fmtGiveUp(d.stallGiveUpAt)}`
       : [d.state, pctShown, fmtBytes(d.sizeBytes)].filter(Boolean).join(' · ');
     const color = COLOR[d.state] || '';
+    const seedsShown = typeof d.seeds === 'number' ? `Seeds: ${d.seeds}` : '';
     const barW = (d.state === 'Declined' || d.attention) ? 100 : Math.min(100, d.progress);
     const isDone = d.state === 'Ready' || d.state === 'Done';
     const canDelete = d.hash && d.state !== 'Ready' && d.state !== 'Done';
@@ -189,7 +217,7 @@ function renderDownloads(items) {
         <span class="dl-actions">${isMissing ? `<button class="dl-retry" aria-label="Retry search"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></button>` : ''}${pausable ? `<button class="dl-pause" aria-label="${isPaused ? 'Resume' : 'Pause'} download">${isPaused ? '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>'}</button>` : ''}${canDelete ? `<button class="dl-stop" aria-label="Delete torrent & files"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg></button>` : ''}</span>
       </div>
       <div class="mini-bar"><div style="width:${barW}%${color ? `;background:${color}` : ''}"></div></div>
-      <div class="sub dl-meta"><span>${esc(leftMeta)}</span>${eta ? `<span>${esc(eta)}</span>` : ''}</div>
+      <div class="sub dl-meta"><span>${esc(leftMeta)}</span><span class="dl-meta-right">${[eta, seedsShown].filter(Boolean).map(esc).join(' · ')}</span></div>
     </li>`;
   }).join('');
   // Event delegation on the parent list (survives 4s DOM replacement from poll)
@@ -221,7 +249,7 @@ function renderDownloads(items) {
         try {
           await postJSON('/api/retry', { app, id: Number(id) });
           rbtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>';
-          toast('Search triggered — check back soon');
+          toast('Search triggered · check back soon');
         } catch { rbtn.disabled = false; toast('Retry failed'); }
       } else if (btn) {
         const bli = btn.closest('li');
@@ -263,11 +291,8 @@ function renderDlSummary(s) {
   const b = s.bytes, total = (b.completed + b.inProgress + b.queued + b.attention + b.blocked) || 1;
   const pct = (x) => (x / total * 100).toFixed(2);
   const speed = s.speedBytes ? `${fmtBytes(s.speedBytes)}/s` : null;
-  const hasIssues = (c.attention + c.blocked) > 0;
-  const eta = s.etaSeconds ? `≈ ${fmtDur(s.etaSeconds)} left` : s.remainingBytes ? `≈ ${fmtBytes(s.remainingBytes)} to go` : '';
-  // Hero line = stuck count + ETA for active items.
-  const head = hasIssues ? eta || '— needs attention'
-    : eta || 'Working…';
+  // Hero line is JUST the time estimate — no status commentary, no filler when there isn't one yet.
+  const head = s.etaSeconds ? `${fmtDur(s.etaSeconds)} left` : s.remainingBytes ? `${fmtBytes(s.remainingBytes)} to go` : '';
   const sub = [
     s.etaSeconds && s.remainingBytes ? fmtBytes(s.remainingBytes) : '',
     speed,
@@ -285,10 +310,10 @@ function renderDlSummary(s) {
     </div>
     <div class="dls-legend">
       <span class="done">${c.completed} done</span>
-      <span class="prog">${c.inProgress} downloading</span>
+      <span class="prog">${c.inProgress} resolving</span>
       <span class="queue">${c.queued} pending</span>
-      ${c.attention ? `<span class="attn">${c.attention} stuck</span>` : ''}
-      ${c.blocked ? `<span class="blocked">${c.blocked} blocked</span>` : ''}
+      ${c.attention ? `<span class="attn">${c.attention} needs attention</span>` : ''}
+      ${c.blocked ? `<span class="blocked">${c.blocked} waiting</span>` : ''}
     </div>`;
 }
 
@@ -309,7 +334,7 @@ function renderMovieMode(paused) {
   mmBtn.classList.toggle('on', !!paused);
   mmBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
   const label = mmBtn.querySelector('.mm-label');
-  if (label) label.textContent = paused ? 'Paused for streaming — tap to resume everything' : 'Movie Mode — pause everything for streaming';
+  if (label) label.textContent = paused ? 'Paused for streaming · tap to resume everything' : 'Movie Mode · pause everything for streaming';
   const path = mmBtn.querySelector('svg path');
   if (path) path.setAttribute('d', paused ? 'M7 5l12 7-12 7z' : 'M9 5v14M15 5v14');   // play triangle when paused, pause bars otherwise
 }
@@ -320,7 +345,7 @@ if (mmBtn) mmBtn.addEventListener('click', async () => {
   renderMovieMode(pausing);                                   // optimistic flip
   try {
     await postJSON(pausing ? '/api/master-pause' : '/api/master-resume', {});
-    toast(pausing ? 'Movie Mode on — everything paused' : 'Resumed — downloads back on');
+    toast(pausing ? 'Movie Mode on · everything paused' : 'Resumed · downloads back on');
     pollDownloads();
   } catch { renderMovieMode(!pausing); toast('Could not reach the server'); }
   finally { mmBusy = false; mmBtn.disabled = false; }
@@ -423,7 +448,7 @@ async function openSheet(target) {
     $('#sheet-plan').innerHTML = plan.plan.map((p) => `
       <li class="${p.willRun ? 'run' : 'skip'}">
         <span class="badge">${p.willRun ? p.layer : '–'}</span>
-        <span><span class="app">${esc(p.app)}</span> — ${esc(p.action)}</span>
+        <span><span class="app">${esc(p.app)}</span> · ${esc(p.action)}</span>
       </li>`).join('');
     $('#sheet-confirm').disabled = false;
   } catch {
@@ -475,7 +500,7 @@ $('#redl-confirm').addEventListener('click', async () => {
   $('#redl-confirm').textContent = 'Starting…';
   try {
     await postJSON('/api/redownload', { app: 'radarr', id, tier: redlTier });
-    toast(`Redownloading “${title}” — ${redlTier}`);
+    toast(`Redownloading “${title}” · ${redlTier}`);
     pollDownloads();
     loadLibrary();
   } catch { toast('Redownload failed'); }

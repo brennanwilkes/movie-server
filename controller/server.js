@@ -334,16 +334,26 @@ const getQueueMap = (app) => cachedFetch(`queue:${app}`, QUEUE_TTL, async () => 
 // aborts the whole fetch so cachedFetch falls back to the last good index (no half-built map).
 const getHistoryIndex = (app) => cachedFetch(`hist:${app}`, HIST_TTL, async () => {
   const idx = new Map();
+  // A re-grab of the SAME release (identical magnet/hash) is common after an upgrade deletes a
+  // file and the next search turns up nothing better — Radarr/Sonarr reuse the exact downloadId.
+  // Records are newest-first, so once we reach a hash's most recent 'grabbed' event, everything
+  // OLDER for that same hash belongs to a previous cycle (possibly already imported-then-deleted)
+  // and must not leak its "imported" flag into the current one — else a re-grab that never
+  // actually re-imports gets mislabeled Ready forever, which also disables the import watchdog.
+  const cycleClosed = new Set();
   const PAGE = 250, MAX_PAGES = 20;                            // backstop ceiling: 5000 events
   for (let page = 1; page <= MAX_PAGES; page++) {
     const recs = (await arrGet(app, `/history?page=${page}&pageSize=${PAGE}&sortKey=date&sortDirection=descending`)).records || [];
     for (const r of recs) {
       const h = (r.downloadId || '').toLowerCase(); if (!h) continue;
+      if (cycleClosed.has(h)) continue;                        // stale cycle of a reused hash — ignore
+      const et = (r.eventType || '').toLowerCase();
       const cur = idx.get(h) || { imported: false, id: null, size: 0 };
-      if ((r.eventType || '').toLowerCase().includes('import')) cur.imported = true;
+      if (et.includes('import')) cur.imported = true;
       if (r.movieId) cur.id = r.movieId; if (r.seriesId) cur.id = r.seriesId;
       const sz = Number(r.data && r.data.size) || 0; if (sz > cur.size) cur.size = sz;   // indexer-reported size
       idx.set(h, cur);
+      if (et === 'grabbed') cycleClosed.add(h);                // cycle boundary — older records are a prior grab
     }
     if (recs.length < PAGE) break;                             // exhausted history
   }
@@ -352,11 +362,19 @@ const getHistoryIndex = (app) => cachedFetch(`hist:${app}`, HIST_TTL, async () =
 
 // id -> hasFile, the authoritative "in the library" flag (cached + stale-on-error, like history).
 const getHasFileMap = (app) => cachedFetch(`hasFile:${app}`, HIST_TTL, async () => {
-  const m = new Map();
-  if (app === 'radarr') for (const mv of await arrGet('radarr', '/movie')) m.set(mv.id, !!mv.hasFile);
-  else for (const s of await arrGet('sonarr', '/series')) m.set(s.id, ((s.statistics && s.statistics.episodeFileCount) || 0) > 0);
-  return m;
-}, new Map());
+  const hasFile = new Map(), nameIds = new Map();
+  const norm = (s) => String(s || '').toLowerCase().replace(/[._'’:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (app === 'radarr') for (const mv of await arrGet('radarr', '/movie')) {
+    hasFile.set(mv.id, !!mv.hasFile);
+    nameIds.set(norm(mv.title), mv.id);
+    if (mv.year) nameIds.set(norm(`${mv.title} ${mv.year}`), mv.id);
+  } else for (const s of await arrGet('sonarr', '/series')) {
+    hasFile.set(s.id, ((s.statistics && s.statistics.episodeFileCount) || 0) > 0);
+    nameIds.set(norm(s.title), s.id);
+    if (s.year) nameIds.set(norm(`${s.title} ${s.year}`), s.id);
+  }
+  return { hasFile, nameIds };
+}, { hasFile: new Map(), nameIds: new Map() });
 const torrentApp = (t) => { const c = (t.category || '').toLowerCase(); return (c === 'radarr' || c === 'sonarr' || c === 'tv-sonarr') ? (c === 'tv-sonarr' ? 'sonarr' : c) : null; };
 
 // ── Bazarr: subtitle-acquisition gate ──
@@ -451,10 +469,12 @@ async function buildDownloads() {
   // History (imported flag + indexer-reported size) and library hasFile, for whichever apps own a
   // torrent. Both are 20s-cached, so fetching unconditionally is cheap — we need them to size queued
   // torrents (real progress bar) and to classify idle/errored ones against the library.
-  const hist = {}, hasFile = {};
+  const hist = {}, hasFile = {}, nameIds = {};
   for (const app of new Set(torrents.map(torrentApp).filter(Boolean))) {
     hist[app] = await getHistoryIndex(app);
-    hasFile[app] = await getHasFileMap(app);
+    const lib = await getHasFileMap(app);
+    hasFile[app] = lib.hasFile;
+    nameIds[app] = lib.nameIds;
   }
 
   const items = [];
@@ -486,9 +506,28 @@ async function buildDownloads() {
       // content we already have. resolveLibraryState still gates green on subs + a Jellyfin probe.
       state = await resolveLibraryState(app, hi, t);
     } else if (isErrored(t) && app) {
-      // Errored AND not in the library — the data really is missing. Flag it for a human instead
-      // of silently re-downloading (potentially gigabytes) or hiding the problem.
-      state = 'Needs attention'; attention = true;
+      // Errored AND not in the library via history (hi=null = cold cache after restart, or
+      // history window too small). Try a title match as fallback before flagging — the media
+      // is often still on disk and already imported by *arr (qBittorrent just lost its resume
+      // data after a crash/recheck). Only if the *arr library also has no file for this title
+      // do we flag for human attention.
+      let resolved = false;
+      if (!hi && nameIds[app]) {
+        const tn = (t.name || '').toLowerCase().replace(/[._'’:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
+        const yr = (t.name || '').match(/\b(19\d\d|20\d\d)\b/)?.[1];
+        for (const [nt, id] of nameIds[app]) {
+          if (tn === nt || (tn.startsWith(nt + ' ') && (!yr || tn.includes(yr)))) {
+            if (hasFile[app] && hasFile[app].get(id) === true) {
+              state = await resolveLibraryState(app, { id, imported: true, size: 0 }, t);
+              resolved = true;
+            }
+            break;
+          }
+        }
+      }
+      if (!resolved) {
+        state = 'Needs attention'; attention = true;
+      }
     } else if (qrec) {                              // *arr is actively tracking it
       // *arr's queue exposes BOTH its own view (trackedDownloadState/Status) and the underlying
       // torrent (t.state). Surface real trouble from EITHER source — a stalled or errored
@@ -529,7 +568,13 @@ async function buildDownloads() {
     // "Ready"/"Done" items always show full bar even if qBit reports 0% (missing files)
     const displayProg = (finished || state === 'Importing' || state === 'Needs attention' || state === 'Getting subtitles' || state === 'Processing') ? 100 : prog;
     if (show) {
-      const item = { title: t.name, progress: displayProg, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || (hi && hi.size) || (qrec && qrec.size) || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash };
+      // Seed count matters while a torrent still needs peers to finish (or to explain a stall) —
+      // not once it's done, where it's just noise.
+      const seeds = !finished && typeof t.num_seeds === 'number' ? t.num_seeds : null;
+      // "Stalled" mirrors stallRecovery's own give-up clock (STALL_DEAD after first seen at 0
+      // seeds) so the UI can say when it'll blocklist-and-research instead of sitting silent.
+      const stallGiveUpAt = state === 'Stalled' && _stallSince.has(h) ? (_stallSince.get(h) + STALL_DEAD) * 1000 : null;
+      const item = { title: t.name, progress: displayProg, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || (hi && hi.size) || (qrec && qrec.size) || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash, seeds, stallGiveUpAt };
       if (finished && app === 'radarr' && _arrId != null) {
         const key = `radarr:${_arrId}`, comp = t.completion_on || 0, prev = completedByMovie.get(key);
         if (prev && comp <= prev.completion) continue;                 // older/equal duplicate of a movie we already show — drop it
@@ -573,11 +618,25 @@ async function buildDownloads() {
         // "Searching…" (not the alarming "Not found") until NOTFOUND_GRACE — this is what stops the
         // "Not found → found seconds later" flip-flop. Only after the grace do we call it "Not found".
         const firstMissing = noteMissing(app, id);
-        const searching = Date.now() - firstMissing < NOTFOUND_GRACE_MS;
+        const now2 = Date.now();
+        const searching = now2 - firstMissing < NOTFOUND_GRACE_MS;
         const title = it.title + (it.year ? ` (${it.year})` : '');
+        // Mirror arrSweep's own scheduling logic so the UI can say when the NEXT recovery search
+        // will actually fire, instead of leaving "Not found" with no indication of what happens next.
+        const st = searchState.get(`${app}:${id}`) || {};
+        const recoveryBlocked = !!(st.blockedUntil && st.blockedUntil > now2);
+        let recoveryNext;
+        if (recoveryBlocked) recoveryNext = st.blockedUntil;
+        else if (now2 - firstMissing < RECOVERY_GRACE_MS) recoveryNext = firstMissing + RECOVERY_GRACE_MS;
+        else if (st.ts) recoveryNext = st.ts + SEARCH_COOLDOWN_MS;
+        else recoveryNext = now2; // sweep hasn't tried yet — due on its next 5-min tick
+        // attention (→ red) is reserved for items automation has actually given up on
+        // (negative-cached). A "Not found" that's still going to retry on its own is orange, not
+        // red — red should mean "a human needs to look at this," not "still working on it."
         items.push({ title, progress: 0, state: searching ? 'Searching…' : 'Not found',
-          etaSeconds: null, sizeBytes: 0, source: app, attention: !searching,
-          hash: `missing:${app}:${id}`, _id: id });
+          etaSeconds: null, sizeBytes: 0, source: app, attention: recoveryBlocked,
+          hash: `missing:${app}:${id}`, _id: id,
+          recoveryNext, recoveryFails: st.fails || 0, recoveryBlocked });
       }
     }
   } catch { /* missing scan best-effort */ }
@@ -668,16 +727,18 @@ async function downloadSummary(items) {
   const avgItemBytes = knownSized.length ? knownSized.reduce((a, i) => a + i.sizeBytes, 0) / knownSized.length : 0;
   const sizeOf = (i) => (i.sizeBytes > 0 ? i.sizeBytes : avgItemBytes);
 
-  // Three buckets for the visual bar: completed / in-progress / queued, sized by (approx) bytes.
+  // Buckets for the visual bar mirror the row colors exactly, so the summary never shows a
+  // different picture than the list underneath it: red = needs a human, blue = actively resolving
+  // on its own (including subtitles/import/processing, not just live byte transfer), orange =
+  // mid-recovery (stalled/retrying/paused), grey = plain pending, green = done.
   const DONE = new Set(['Ready', 'Done']);
+  const BLUE_STATES = new Set(['Downloading', 'Importing', 'Getting subtitles', 'Processing']);
+  const ORANGE_STATES = new Set(['Stalled', 'Not found', 'Paused']);
   const done = items.filter((i) => DONE.has(i.state));
-  const blocked = items.filter((i) => i.state === 'Declined' || i.state === 'Paused');
-  const attention = items.filter((i) => i.attention && !blocked.includes(i) && i.state !== 'Paused');
-  // Accent (blue) = ONLY torrents actively pulling bytes. Everything else that's pending — Queued,
-  // Starting, Stalled, Searching…, Importing, Getting subtitles, Processing — is grey ("pending"),
-  // so the blue segment reflects true live download activity, not the whole backlog.
-  const inProg = items.filter((i) => i.state === 'Downloading' && !i.attention);
-  const queued = items.filter((i) => !DONE.has(i.state) && i.state !== 'Downloading' && i.state !== 'Declined' && i.state !== 'Paused' && i.state !== 'Error' && !i.attention);
+  const attention = items.filter((i) => i.attention || i.state === 'Needs attention' || i.state === 'Error' || i.state === 'Declined');
+  const inProg = items.filter((i) => BLUE_STATES.has(i.state) && !attention.includes(i));
+  const blocked = items.filter((i) => ORANGE_STATES.has(i.state) && !attention.includes(i));
+  const queued = items.filter((i) => !DONE.has(i.state) && !attention.includes(i) && !inProg.includes(i) && !blocked.includes(i));
   const sum = (arr) => Math.round(arr.reduce((a, i) => a + sizeOf(i), 0));
   const bytes = { completed: sum(done), inProgress: sum(inProg), queued: sum(queued), attention: sum(attention), blocked: sum(blocked) };
 
