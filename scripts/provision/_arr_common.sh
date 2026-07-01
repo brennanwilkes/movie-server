@@ -197,6 +197,21 @@ provision_arr() {
       || warn "${app}: failed to create delay profile"
   fi
 
+  # 7b. Minimum seeders = 5 on every torrent indexer. Custom-format score alone would grab a +330
+  #     2-seeder over a +310 85-seeder — the dead one stalls, gets removed, is re-grabbed = the
+  #     "Not found" churn. Rejecting <5-seed releases makes selection pick a copy that actually
+  #     downloads; a genuinely seedless title simply waits (re-searched each sweep) until seeds
+  #     appear. forceSave skips the connectivity test (1337x is Cloudflare-fronted and would 400).
+  local ms_changed=false _ixid _ixj
+  for _ixid in $("${AG[@]}" "${base}/indexer" | jq -r '.[]|select(.protocol=="torrent").id'); do
+    _ixj=$("${AG[@]}" "${base}/indexer/${_ixid}")
+    [[ "$(echo "$_ixj" | jq -r '(.fields[]|select(.name=="minimumSeeders").value) // 1')" == "5" ]] && continue
+    echo "$_ixj" | jq '(.fields[]|select(.name=="minimumSeeders").value)=5' \
+      | "${AJ[@]}" -X PUT "${base}/indexer/${_ixid}?forceSave=true" -d @- >/dev/null && ms_changed=true
+  done
+  $ms_changed && ok "${app}: minimum seeders set to 5 on torrent indexers (skip dead releases)" \
+              || ok "${app}: minimum seeders already 5 on torrent indexers"
+
   # 8. Custom formats + the THREE fuzzy quality tiers shown in Jellyseerr's request dropdown:
   #      "Low (save space)"  ·  "Normal"  ·  "Beloved (best quality)"
   #    The requester picks one in plain language ("is this beloved, normal, or low-importance?") and
@@ -211,6 +226,10 @@ provision_arr() {
   #    something-over-nothing fallback when no 1080p exists.
   rt() { jq -n --arg v "$1" --argjson neg "${2:-false}" '{name:"s",implementation:"ReleaseTitleSpecification",negate:$neg,required:true,fields:[{name:"value",value:$v}]}'; }
   sz() { jq -n --argjson lo "$1" --argjson hi "$2" '{name:"s",implementation:"SizeSpecification",negate:false,required:true,fields:[{name:"min",value:$lo},{name:"max",value:$hi}]}'; }
+  # lang ID [exceptLanguage] — LanguageSpecification. Language -2 is the special "Original" value:
+  # it matches when the release's parsed language INCLUDES the title's own TMDb original language,
+  # so one format works for every title (English, Japanese, French…) with no per-title config.
+  lg() { jq -n --argjson v "$1" --argjson ex "${2:-false}" '{name:"s",implementation:"LanguageSpecification",negate:false,required:true,fields:[{name:"value",value:$v},{name:"exceptLanguage",value:$ex}]}'; }
   local existing_cf; existing_cf=$("${AG[@]}" "${base}/customformat")
   cf_ensure() {  # name spec-array -> custom-format id (creates if missing); ok() to stderr so $() captures only the id
     local n="$1" spec="$2" id
@@ -235,6 +254,22 @@ provision_arr() {
   CFID["Size 6-10 GB"]=$(cf_ensure "Size 6-10 GB" "[$(sz 6 10)]")
   CFID["Size 10-15 GB"]=$(cf_ensure "Size 10-15 GB" "[$(sz 10 15)]")
   CFID["Size >15 GB"]=$(cf_ensure "Size >15 GB" "[$(sz 15 99999)]")
+  # Language: prefer releases that CARRY the original-language audio; penalise explicit English dubs.
+  #   • "Original-language audio" matches releases whose language includes the title's original language
+  #     (MULTi/DUAL releases match too — they contain the original alongside a dub, which is fine).
+  #   • "Dubbed" catches the explicit release-title marker (a dub-only rip). These ORDER releases (a big
+  #     +/- spread) but never gate: a foreign film with only-dub releases still grabs (something-over-
+  #     nothing) — this is a bias, not a guarantee. English subs are handled separately by Bazarr.
+  CFID["Original-language audio"]=$(cf_ensure "Original-language audio" "[$(lg -2 false)]")
+  CFID["Dubbed"]=$(cf_ensure "Dubbed" "[$(rt '(?i)\b(dubbed|dublado|dubbing)\b')]")
+  # Movie-only: prefer the LONGER cut (Redux/Extended/Director's/Final/etc.) when one exists, and
+  # nudge explicitly-labelled Theatrical down. Matched on the RELEASE TITLE (not Radarr's flaky
+  # edition parser). Only affects the initial grab — an already-imported theatrical won't auto-swap
+  # (cutoffFormatScore=0 marks it "done"); re-grab those via Interactive Search. See test notes.
+  if [[ "$app" == "radarr" ]]; then
+    CFID["Extended / Long Cut"]=$(cf_ensure "Extended / Long Cut" "[$(rt '(?i)(\bredux\b|\bextended\b|\buncut\b|\bintegral\b|\broadshow\b|\bdirector.?s?.?cut\b|\bfinal.?cut\b|\bultimate.?(edition|cut)\b|\bthe.?complete\b|\bimax.?edition\b)')]")
+    CFID["Theatrical Cut"]=$(cf_ensure "Theatrical Cut" "[$(rt '(?i)\btheatrical\b')]")
+  fi
   # Remove superseded custom formats from earlier iterations so they don't linger at score 0.
   local _cf_all _old _oid; _cf_all=$("${AG[@]}" "${base}/customformat")
   for _old in "Tiny (<2.5 GB)" "Oversized (>6 GB)" "Bloated (>10 GB)" "Huge (>14 GB)" "HDR / Dolby Vision (keep)"; do
@@ -253,7 +288,11 @@ provision_arr() {
   build_formatitems() {
     jq -n --argjson ids "$CF_IDMAP" --arg tier "$1" --arg app "$app" '
       def sc($name):
-        if   $name=="H.264 (GPU)" then 50
+        if   $name=="Original-language audio" then 200
+        elif $name=="Dubbed" then -800
+        elif $name=="Extended / Long Cut" then 500
+        elif $name=="Theatrical Cut" then -100
+        elif $name=="H.264 (GPU)" then 50
         elif $name=="HEVC 8-bit (GPU)" then 40
         elif $name=="HDR / Dolby Vision (CPU)" then -100
         elif $name=="10-bit (CPU)" then -80

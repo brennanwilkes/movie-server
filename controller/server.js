@@ -462,6 +462,10 @@ async function buildDownloads() {
   // missing-item surfacing below skips these so a title can't appear BOTH as its live download AND
   // as a phantom "Searching…/Not found" row (e.g. a season pack downloading before Sonarr queues it).
   const shownIds = { radarr: new Set(), sonarr: new Set() };
+  // Collapse duplicate COMPLETED rows for the same MOVIE (e.g. an old orphaned torrent still seeding
+  // after an upgrade/redownload + the current library copy) — keep the most-recently-completed. Movies
+  // only: a Sonarr series legitimately has many completed torrents (one per season/episode).
+  const completedByMovie = new Map();   // "radarr:movieId" -> { completion, item }
   for (const t of torrents) {
     const h = (t.hash || '').toLowerCase();
     const app = torrentApp(t);
@@ -524,7 +528,16 @@ async function buildDownloads() {
     const show = !finished || ((t.completion_on || 0) > 0 && now - t.completion_on <= DAY);
     // "Ready"/"Done" items always show full bar even if qBit reports 0% (missing files)
     const displayProg = (finished || state === 'Importing' || state === 'Needs attention' || state === 'Getting subtitles' || state === 'Processing') ? 100 : prog;
-    if (show) items.push({ title: t.name, progress: displayProg, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || (hi && hi.size) || (qrec && qrec.size) || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash });
+    if (show) {
+      const item = { title: t.name, progress: displayProg, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || (hi && hi.size) || (qrec && qrec.size) || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash };
+      if (finished && app === 'radarr' && _arrId != null) {
+        const key = `radarr:${_arrId}`, comp = t.completion_on || 0, prev = completedByMovie.get(key);
+        if (prev && comp <= prev.completion) continue;                 // older/equal duplicate of a movie we already show — drop it
+        if (prev) { const i = items.indexOf(prev.item); if (i >= 0) items.splice(i, 1); }  // newer copy wins — remove the stale row
+        completedByMovie.set(key, { completion: comp, item });
+      }
+      items.push(item);
+    }
   }
   // Surface missing items: monitored, no file, no queue, no torrent — as warnings.
   try {
@@ -617,7 +630,7 @@ app.get('/api/downloads', (_req, res) => {
     sizeBytes: d.neededBytes, neededBytes: d.neededBytes, freeBytes: d.freeBytes, source: d.source || 'request', attention: false, hash });
   for (const [h, d] of declined) if (now - d.ts <= DAY) items.unshift(asRow(h, d));
   for (const [h, b] of blocked) if (now - b.ts <= DAY) items.unshift(asRow(h, b));
-  res.json({ items, summary: _dl.summary, ts: _dl.ts });
+  res.json({ items, summary: _dl.summary, ts: _dl.ts, masterPaused });
 });
 
 // Batch ETA — "how long until this whole backlog is done?" Remaining bytes ÷ throughput.
@@ -734,6 +747,7 @@ async function importViaManual(app, folder, expectedId) {
 }
 
 async function importWatchdog() {
+  if (masterPaused) return;                                         // Movie Mode — no imports/analysis
   const snap = _dl.raw;                                             // reuse the background snapshot — no extra buildDownloads
   if (!snap || !snap.length) return;
   const now = Math.floor(Date.now() / 1000);
@@ -796,6 +810,7 @@ const REANNOUNCE_EVERY = 600;
 const RESEARCH_EVERY = 6 * 3600;  // never re-research the same hash more than this often
 const MAX_RESEARCH = 3;           // after this many dead re-searches, accept the title is rare & let it sit
 async function stallRecovery() {
+  if (masterPaused) return;                                         // Movie Mode — leave torrents as-is
   const now = Math.floor(Date.now() / 1000);
   let torrents; try { torrents = await getQbitTorrents(); } catch { return; }
   const queues = { radarr: await getQueueMap('radarr'), sonarr: await getQueueMap('sonarr') };
@@ -1091,6 +1106,30 @@ app.post('/api/torrent/resume', async (req, res) => {
   catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 
+// ── Movie Mode (master pause) — free the NUC's CPU + the USB disk for smooth Jellyfin playback ──
+// Pauses ALL torrents AND every controller background sweep (search/import/recovery/dedup/disk-gate).
+// New *arr grabs (if RSS fires) land stopped while paused, so nothing consumes resources. Resume
+// restores auto-start + starts every torrent + re-enables the sweeps.
+async function qbitSetAddStopped(v) {
+  try { await qbit.fetch('/api/v2/app/setPreferences', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ json: JSON.stringify({ add_stopped_enabled: !!v }) }) }); } catch { /* qbit down */ }
+}
+app.post('/api/master-pause', async (_req, res) => {
+  masterPaused = true; persistState();
+  await qbitSetAddStopped(true);                       // grabs during Movie Mode stay stopped
+  let ok = false;
+  try { ok = (await qbitPauseResume('all', false)).ok; } catch { /* qbit down — flag still set, sweeps paused */ }
+  console.log('master-pause: Movie Mode ON — torrents stopped, all sweeps paused');
+  res.json({ ok: true, paused: true, qbit: ok });
+});
+app.post('/api/master-resume', async (_req, res) => {
+  masterPaused = false; persistState();
+  await qbitSetAddStopped(false);                      // back to normal auto-start
+  let ok = false;
+  try { ok = (await qbitPauseResume('all', true)).ok; } catch { /* qbit down */ }
+  console.log('master-resume: Movie Mode OFF — torrents + sweeps resumed');
+  res.json({ ok: true, paused: false, qbit: ok });
+});
+
 // Redownload a MOVIE at a chosen quality tier: deep-delete the current file + torrent(s) + Jellyfin
 // entry (the movie stays in Radarr), switch its quality profile to the tier, then trigger a fresh
 // search. dryRun returns the title/tier/size for the confirm sheet without changing anything.
@@ -1186,6 +1225,10 @@ const blocked = new Map();  // `app:id:seasons` -> { title, neededBytes, freeByt
 // version, wiped on every reboot, is what let a restart re-trigger the full search/grab storm).
 // Key `app:id` -> { ts: last auto-search ms, fails: consecutive fruitless searches, blockedUntil }.
 const searchState = new Map();
+// "Movie Mode" master switch: when true, ALL background work (downloads + every sweep) is paused so
+// the NUC's CPU + the single USB disk are free for smooth Jellyfin playback. Persisted so it stays
+// off/on across a controller restart — only an explicit resume turns it back on.
+let masterPaused = false;
 
 // Persist declined + blocked tombstones across restarts so the "Declined" rows
 // survive a controller reboot.
@@ -1193,7 +1236,7 @@ function persistState() {
   clearTimeout(persistState._timer);
   persistState._timer = setTimeout(() => {
     try {
-      const obj = { declined: {}, blocked: {}, searchState: {} };
+      const obj = { declined: {}, blocked: {}, searchState: {}, masterPaused };
       for (const [k, v] of declined) obj.declined[k] = v;
       for (const [k, v] of blocked) obj.blocked[k] = v;
       for (const [k, v] of searchState) obj.searchState[k] = v;
@@ -1207,6 +1250,7 @@ function loadState() {
     if (obj.declined) for (const [k, v] of Object.entries(obj.declined)) declined.set(k, v);
     if (obj.blocked) for (const [k, v] of Object.entries(obj.blocked)) blocked.set(k, v);
     if (obj.searchState) for (const [k, v] of Object.entries(obj.searchState)) searchState.set(k, v);
+    if (typeof obj.masterPaused === 'boolean') masterPaused = obj.masterPaused;
   } catch { /* */ }
 }
 loadState();
@@ -1220,6 +1264,7 @@ async function arrIdForHash(app, hash) {
 
 let gateBusy = false;
 async function diskGate() {
+  if (masterPaused) return;                               // Movie Mode — torrents are stopped, nothing to gate
   if (gateBusy) return;                                   // teardown can outlast the interval
   gateBusy = true;
   try {
@@ -1327,6 +1372,7 @@ setTimeout(diskGate, 6000);
 // them from. This sweep finds and removes them.
 let orphanBusy = false;
 async function orphanSweep() {
+  if (masterPaused) return;                               // Movie Mode — no cleanup churn
   if (orphanBusy) return;
   orphanBusy = true;
   try {
@@ -1387,7 +1433,7 @@ setTimeout(orphanSweep, 15000);
 // ---- Seerr orphan sweep: remove media entries whose *arr counterpart is gone ----
 let seerrSweepBusy = false;
 async function seerrSweep() {
-  if (seerrSweepBusy || !cfg.SEERR_KEY) return;
+  if (masterPaused || seerrSweepBusy || !cfg.SEERR_KEY) return;     // Movie Mode — no request processing
   seerrSweepBusy = true;
   try {
     const [mr, sonarrItems, radarrItems] = await Promise.all([
@@ -1453,7 +1499,7 @@ function noteResolved(app, id) {  // item now has file/queue/torrent → reset t
 const DL_STATES = new Set(['downloading', 'stalledDL', 'metaDL', 'forcedDL', 'queuedDL', 'checkingDL', 'allocating']);
 const searchKeyClear = (app, id) => searchState.delete(`${app}:${id}`); // manual retry overrides cooldown+block
 async function arrSweep() {
-  if (arrSweepBusy) return;
+  if (masterPaused || arrSweepBusy) return;               // Movie Mode — no searches/grabs/recovery
   arrSweepBusy = true;
   try {
     for (const app of ['radarr', 'sonarr']) {
@@ -1466,18 +1512,20 @@ async function arrSweep() {
       for (const qe of queue) {
         const id = qe.movieId || qe.seriesId;
         if (qe.trackedDownloadState === 'importBlocked' && qe.errorMessage && /missing file/i.test(qe.errorMessage)) {
-          stuckIds.push({ id, queueId: qe.id });
+          stuckIds.push({ id, queueId: qe.id, blocklist: false });   // good release, import glitch — don't blocklist
         }
         if ((qe.status === 'queued' || qe.status === 'paused') && qe.size === 0 && qe.sizeleft === 0 && qe.errorMessage && /metadata/i.test(qe.errorMessage)) {
-          stuckIds.push({ id, queueId: qe.id });
+          // Dead magnet: couldn't even fetch metadata (0 seeds). Blocklist it so *arr grabs a DIFFERENT
+          // release next search instead of re-grabbing the same corpse (that loop = the "Not found" churn).
+          stuckIds.push({ id, queueId: qe.id, blocklist: true });
           if (qe.downloadId) stalledHashes.push(qe.downloadId);
         }
       }
 
       for (const s of stuckIds) {
         try {
-          await arrDelete(app, `/queue/${s.queueId}?removeFromClient=true&blocklist=false`);
-          console.log(`arrSweep: removed stuck queue item id=${s.id} from ${app}`);
+          await arrDelete(app, `/queue/${s.queueId}?removeFromClient=true&blocklist=${s.blocklist}`);
+          console.log(`arrSweep: removed stuck queue item id=${s.id} from ${app}${s.blocklist ? ' (blocklisted dead release)' : ''}`);
         } catch (e) { console.log(`arrSweep: failed to remove queue item id=${s.id} from ${app} — ${e.message || e}`); }
       }
 
@@ -1508,6 +1556,7 @@ async function arrSweep() {
 
       let activeDl = 0;
       const inflightById = new Map();   // movieId -> [in-flight torrents] (dedup candidates, radarr only)
+      const completedById = new Map();  // movieId -> [completed/seeding torrents] (supersede cleanup, radarr only)
       const hasTorrentIds = new Set();  // arrId -> a real (non-orphan) torrent exists → don't re-search
       for (const t of torrents) {
         const state = t.state || '';
@@ -1520,6 +1569,9 @@ async function arrSweep() {
         if (inflight) {
           if (!inflightById.has(id)) inflightById.set(id, []);
           inflightById.get(id).push(t);
+        } else if ((t.progress || 0) >= 1 && state !== 'missingFiles') {
+          if (!completedById.has(id)) completedById.set(id, []);
+          completedById.get(id).push(t);
         }
       }
 
@@ -1539,6 +1591,19 @@ async function arrSweep() {
             await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: losers.join('|'), deleteFiles: 'true' }) });
             console.log(`arrSweep: radarr id=${id} had ${ts.length} in-flight torrents — kept "${sorted[0].name}", removed ${losers.length} duplicate download(s)`);
           } catch (e) { console.log(`arrSweep: duplicate cleanup failed for radarr id=${id} — ${e.message || e}`); }
+        }
+        // Superseded copies: a movie with >1 COMPLETED torrent (old pre-upgrade/redownload copy still
+        // seeding + the current one). Keep the newest, delete the rest. Safe: the library file is a
+        // separate/hard-linked copy, so removing the torrent's copy never deletes the movie from Jellyfin.
+        for (const [id, ts] of completedById) {
+          if (ts.length < 2) continue;
+          const sorted = ts.slice().sort((a, b) => (b.completion_on || 0) - (a.completion_on || 0));  // newest first
+          const losers = sorted.slice(1).map((t) => t.hash).filter(Boolean);
+          if (!losers.length) continue;
+          try {
+            await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: losers.join('|'), deleteFiles: 'true' }) });
+            console.log(`arrSweep: radarr id=${id} had ${ts.length} completed torrents — kept newest "${sorted[0].name}", removed ${losers.length} superseded copy(ies)`);
+          } catch (e) { console.log(`arrSweep: superseded cleanup failed for radarr id=${id} — ${e.message || e}`); }
         }
       }
       const downloadingIds = hasTorrentIds;
@@ -1566,11 +1631,15 @@ async function arrSweep() {
         return true;
       });
 
-      if (activeDl >= SWEEP_MAX_ACTIVE_DL) {
-        if (needSearch.length) console.log(`arrSweep: ${activeDl} active downloads ≥ ${SWEEP_MAX_ACTIVE_DL} — holding ${needSearch.length} ${app} search(es) this pass`);
-      } else if (needSearch.length) {
-        const slots = SWEEP_MAX_ACTIVE_DL - activeDl;
-        const batch = needSearch.slice(0, Math.min(5, slots)); // ≤5 per sweep AND never exceed capacity
+      if (needSearch.length) {
+        // Up to 8 recovery searches per 5-min sweep — gentle on indexers, and it does NOT gate on
+        // how many are already downloading: qBittorrent's own max_active_downloads caps real
+        // concurrency (extra grabs just queue), so a full missing-library backlog steadily fills in
+        // instead of being starved whenever a handful of downloads are active (which stranded a pile
+        // of requested movies at "Not found"). A grab storm is prevented by compact sizes + dedup +
+        // the qBittorrent cap, not by refusing to search.
+        const batch = needSearch.slice(0, 8);
+        if (activeDl >= SWEEP_MAX_ACTIVE_DL) console.log(`arrSweep: ${activeDl} downloading; still searching ${batch.length} missing ${app} item(s) (qBittorrent caps concurrency)`);
         for (const item of batch) {
           const key = `${app}:${item.id}`;
           const st = searchState.get(key) || { ts: 0, fails: 0, blockedUntil: 0 };

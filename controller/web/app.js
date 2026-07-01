@@ -301,6 +301,31 @@ function updateDlStale() {
   if (!el) return;
   el.classList.toggle('stale', dlLastUpdate > 0 && Date.now() - dlLastUpdate > 10000);
 }
+// Movie Mode (master pause) — one tap frees the NUC's CPU + disk for smooth Jellyfin playback.
+const mmBtn = $('#movie-mode-btn');
+let mmBusy = false;
+function renderMovieMode(paused) {
+  if (!mmBtn) return;
+  mmBtn.classList.toggle('on', !!paused);
+  mmBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
+  const label = mmBtn.querySelector('.mm-label');
+  if (label) label.textContent = paused ? 'Paused for streaming — tap to resume everything' : 'Movie Mode — pause everything for streaming';
+  const path = mmBtn.querySelector('svg path');
+  if (path) path.setAttribute('d', paused ? 'M7 5l12 7-12 7z' : 'M9 5v14M15 5v14');   // play triangle when paused, pause bars otherwise
+}
+if (mmBtn) mmBtn.addEventListener('click', async () => {
+  if (mmBusy) return;
+  const pausing = !mmBtn.classList.contains('on');
+  mmBusy = true; mmBtn.disabled = true;
+  renderMovieMode(pausing);                                   // optimistic flip
+  try {
+    await postJSON(pausing ? '/api/master-pause' : '/api/master-resume', {});
+    toast(pausing ? 'Movie Mode on — everything paused' : 'Resumed — downloads back on');
+    pollDownloads();
+  } catch { renderMovieMode(!pausing); toast('Could not reach the server'); }
+  finally { mmBusy = false; mmBtn.disabled = false; }
+});
+
 async function pollDownloads() {
   if (offline) { setDlLoading(false); return; }
   updateDlStale();
@@ -314,6 +339,7 @@ async function pollDownloads() {
     setDlLoading(false);
     renderDownloads(data.items || []);
     renderDlSummary(data.summary);
+    renderMovieMode(data.masterPaused);
     updateDlStale();                                          // clear stale indicator
   } catch { if (dlLoaded) setDlLoading(false); /* else keep spinner; it retries next tick */ }
   finally { dlInflight = false; }

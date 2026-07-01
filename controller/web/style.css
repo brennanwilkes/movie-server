@@ -213,6 +213,14 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .redl:active { transform: scale(.94); }
 .redl svg { width: 20px; height: 20px; }
 
+/* Movie Mode (master pause) toggle */
+.movie-mode { width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card-2); color: var(--text); font-size: 15px; font-weight: 600; cursor: pointer; }
+.movie-mode svg { width: 20px; height: 20px; color: var(--accent); flex: none; }
+.movie-mode:active { transform: scale(.99); }
+.movie-mode:disabled { opacity: .6; }
+.movie-mode.on { background: color-mix(in srgb, var(--warn) 22%, var(--card)); border-color: var(--warn); }
+.movie-mode.on svg { color: var(--warn); }
+
 /* Quality-tier picker (redownload sheet) */
 .tier-picker { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
 .tier-picker button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; width: 100%; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--card-2); color: var(--text); cursor: pointer; }
