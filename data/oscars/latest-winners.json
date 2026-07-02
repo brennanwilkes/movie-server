@@ -1,0 +1,138 @@
+{
+  "Oscar: Best Picture (Winners)": [
+    {"tmdb_id": 1054867, "title": "One Battle After Another", "year": 2025},
+    {"tmdb_id": 1064213, "title": "Anora", "year": 2024}
+  ],
+  "Oscar: Best Picture (Nominees)": [
+    {"tmdb_id": 1054867, "title": "One Battle After Another", "year": 2025},
+    {"tmdb_id": 1064213, "title": "Anora", "year": 2024},
+    {"tmdb_id": 549509, "title": "The Brutalist", "year": 2024},
+    {"tmdb_id": 661539, "title": "A Complete Unknown", "year": 2024},
+    {"tmdb_id": 974576, "title": "Conclave", "year": 2024},
+    {"tmdb_id": 693134, "title": "Dune: Part Two", "year": 2024},
+    {"tmdb_id": 974950, "title": "Emilia P\u00e9rez", "year": 2024},
+    {"tmdb_id": 1000837, "title": "I'm Still Here", "year": 2024},
+    {"tmdb_id": 1028196, "title": "Nickel Boys", "year": 2024},
+    {"tmdb_id": 933260, "title": "The Substance", "year": 2024},
+    {"tmdb_id": 402431, "title": "Wicked", "year": 2024},
+    {"tmdb_id": 701387, "title": "Bugonia", "year": 2025},
+    {"tmdb_id": 911430, "title": "F1", "year": 2025},
+    {"tmdb_id": 1062722, "title": "Frankenstein", "year": 2025},
+    {"tmdb_id": 858024, "title": "Hamnet", "year": 2025},
+    {"tmdb_id": 1317288, "title": "Marty Supreme", "year": 2025},
+    {"tmdb_id": 1220564, "title": "The Secret Agent", "year": 2025},
+    {"tmdb_id": 1124566, "title": "Sentimental Value", "year": 2025},
+    {"tmdb_id": 1233413, "title": "Sinners", "year": 2025},
+    {"tmdb_id": 1241983, "title": "Train Dreams", "year": 2025}
+  ],
+  "Oscar: Best Director (Winners)": [
+    {"tmdb_id": 1054867, "title": "One Battle After Another", "year": 2025},
+    {"tmdb_id": 1064213, "title": "Anora", "year": 2024}
+  ],
+  "Oscar: Best Director (Nominees)": [
+    {"tmdb_id": 1054867, "title": "One Battle After Another", "year": 2025},
+    {"tmdb_id": 1064213, "title": "Anora", "year": 2024},
+    {"tmdb_id": 549509, "title": "The Brutalist", "year": 2024},
+    {"tmdb_id": 661539, "title": "A Complete Unknown", "year": 2024},
+    {"tmdb_id": 974950, "title": "Emilia P\u00e9rez", "year": 2024},
+    {"tmdb_id": 933260, "title": "The Substance", "year": 2024},
+    {"tmdb_id": 858024, "title": "Hamnet", "year": 2025},
+    {"tmdb_id": 1317288, "title": "Marty Supreme", "year": 2025},
+    {"tmdb_id": 1124566, "title": "Sentimental Value", "year": 2025},
+    {"tmdb_id": 1233413, "title": "Sinners", "year": 2025}
+  ],
+  "Oscar: Best Actor (Winners)": [
+    {"tmdb_id": 1233413, "title": "Sinners", "year": 2025},
+    {"tmdb_id": 549509, "title": "The Brutalist", "year": 2024}
+  ],
+  "Oscar: Best Actor (Nominees)": [
+    {"tmdb_id": 1233413, "title": "Sinners", "year": 2025},
+    {"tmdb_id": 549509, "title": "The Brutalist", "year": 2024},
+    {"tmdb_id": 661539, "title": "A Complete Unknown", "year": 2024},
+    {"tmdb_id": 1155828, "title": "Sing Sing", "year": 2024},
+    {"tmdb_id": 974576, "title": "Conclave", "year": 2024},
+    {"tmdb_id": 1182047, "title": "The Apprentice", "year": 2024},
+    {"tmdb_id": 1317288, "title": "Marty Supreme", "year": 2025},
+    {"tmdb_id": 1054867, "title": "One Battle After Another", "year": 2025},
+    {"tmdb_id": 1299655, "title": "Blue Moon", "year": 2025},
+    {"tmdb_id": 1220564, "title": "The Secret Agent", "year": 2025}
+  ],
+  "Oscar: Best Actress (Winners)": [
+    {"tmdb_id": 858024, "title": "Hamnet", "year": 2025},
+    {"tmdb_id": 1064213, "title": "Anora", "year": 2024}
+  ],
+  "Oscar: Best Actress (Nominees)": [
+    {"tmdb_id": 858024, "title": "Hamnet", "year": 2025},
+    {"tmdb_id": 1064213, "title": "Anora", "year": 2024},
+    {"tmdb_id": 402431, "title": "Wicked", "year": 2024},
+    {"tmdb_id": 974950, "title": "Emilia P\u00e9rez", "year": 2024},
+    {"tmdb_id": 933260, "title": "The Substance", "year": 2024},
+    {"tmdb_id": 1000837, "title": "I'm Still Here", "year": 2024},
+    {"tmdb_id": 1160360, "title": "If I Had Legs I'd Kick You", "year": 2025},
+    {"tmdb_id": 1371185, "title": "Song Sung Blue", "year": 2025},
+    {"tmdb_id": 1124566, "title": "Sentimental Value", "year": 2025},
+    {"tmdb_id": 701387, "title": "Bugonia", "year": 2025}
+  ],
+  "Oscar: Best Supporting Actor (Winners)": [
+    {"tmdb_id": 1054867, "title": "One Battle After Another", "year": 2025},
+    {"tmdb_id": 1013850, "title": "A Real Pain", "year": 2024}
+  ],
+  "Oscar: Best Supporting Actor (Nominees)": [
+    {"tmdb_id": 1054867, "title": "One Battle After Another", "year": 2025},
+    {"tmdb_id": 1013850, "title": "A Real Pain", "year": 2024},
+    {"tmdb_id": 1064213, "title": "Anora", "year": 2024},
+    {"tmdb_id": 661539, "title": "A Complete Unknown", "year": 2024},
+    {"tmdb_id": 549509, "title": "The Brutalist", "year": 2024},
+    {"tmdb_id": 1182047, "title": "The Apprentice", "year": 2024},
+    {"tmdb_id": 1062722, "title": "Frankenstein", "year": 2025},
+    {"tmdb_id": 1233413, "title": "Sinners", "year": 2025},
+    {"tmdb_id": 1124566, "title": "Sentimental Value", "year": 2025}
+  ],
+  "Oscar: Best Supporting Actress (Winners)": [
+    {"tmdb_id": 1078605, "title": "Weapons", "year": 2025},
+    {"tmdb_id": 974950, "title": "Emilia P\u00e9rez", "year": 2024}
+  ],
+  "Oscar: Best Supporting Actress (Nominees)": [
+    {"tmdb_id": 1078605, "title": "Weapons", "year": 2025},
+    {"tmdb_id": 974950, "title": "Emilia P\u00e9rez", "year": 2024},
+    {"tmdb_id": 661539, "title": "A Complete Unknown", "year": 2024},
+    {"tmdb_id": 402431, "title": "Wicked", "year": 2024},
+    {"tmdb_id": 549509, "title": "The Brutalist", "year": 2024},
+    {"tmdb_id": 974576, "title": "Conclave", "year": 2024},
+    {"tmdb_id": 1124566, "title": "Sentimental Value", "year": 2025},
+    {"tmdb_id": 1233413, "title": "Sinners", "year": 2025},
+    {"tmdb_id": 1054867, "title": "One Battle After Another", "year": 2025}
+  ],
+  "Oscar: Best Film Editing (Winners)": [
+    {"tmdb_id": 1054867, "title": "One Battle After Another", "year": 2025},
+    {"tmdb_id": 1064213, "title": "Anora", "year": 2024}
+  ],
+  "Oscar: Best Film Editing (Nominees)": [
+    {"tmdb_id": 1054867, "title": "One Battle After Another", "year": 2025},
+    {"tmdb_id": 1064213, "title": "Anora", "year": 2024},
+    {"tmdb_id": 549509, "title": "The Brutalist", "year": 2024},
+    {"tmdb_id": 974576, "title": "Conclave", "year": 2024},
+    {"tmdb_id": 974950, "title": "Emilia P\u00e9rez", "year": 2024},
+    {"tmdb_id": 402431, "title": "Wicked", "year": 2024},
+    {"tmdb_id": 911430, "title": "F1", "year": 2025},
+    {"tmdb_id": 1317288, "title": "Marty Supreme", "year": 2025},
+    {"tmdb_id": 1124566, "title": "Sentimental Value", "year": 2025},
+    {"tmdb_id": 1233413, "title": "Sinners", "year": 2025}
+  ],
+  "Oscar: Best Cinematography (Winners)": [
+    {"tmdb_id": 1233413, "title": "Sinners", "year": 2025},
+    {"tmdb_id": 549509, "title": "The Brutalist", "year": 2024}
+  ],
+  "Oscar: Best Cinematography (Nominees)": [
+    {"tmdb_id": 1233413, "title": "Sinners", "year": 2025},
+    {"tmdb_id": 549509, "title": "The Brutalist", "year": 2024},
+    {"tmdb_id": 693134, "title": "Dune: Part Two", "year": 2024},
+    {"tmdb_id": 974950, "title": "Emilia P\u00e9rez", "year": 2024},
+    {"tmdb_id": 1038263, "title": "Maria", "year": 2024},
+    {"tmdb_id": 426063, "title": "Nosferatu", "year": 2024},
+    {"tmdb_id": 1062722, "title": "Frankenstein", "year": 2025},
+    {"tmdb_id": 1317288, "title": "Marty Supreme", "year": 2025},
+    {"tmdb_id": 1054867, "title": "One Battle After Another", "year": 2025},
+    {"tmdb_id": 1241983, "title": "Train Dreams", "year": 2025}
+  ]
+}

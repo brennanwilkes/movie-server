@@ -45,6 +45,17 @@ if mountpoint -q "$DATA" && ! grep -qs "RequiresMountsFor=$DATA" "$DOCKER_DROPIN
   echo "Installed docker.service drop-in: containers now wait for $DATA to mount at boot."
 fi
 
+# 2c. PS3 normalization timer: fresh imports get audio→AC3 / container→mp4 (video untouched)
+#     so the best-quality grabs (WEB-DL EAC3/MKV) still direct-play on the PS3. Host-side
+#     because the controller mounts /data read-only and ffmpeg lives in the jellyfin image.
+if ! cmp -s scripts/ps3fix.service /etc/systemd/system/ps3fix.service 2>/dev/null \
+   || ! cmp -s scripts/ps3fix.timer /etc/systemd/system/ps3fix.timer 2>/dev/null; then
+  sudo install -m 644 scripts/ps3fix.service scripts/ps3fix.timer /etc/systemd/system/
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now ps3fix.timer
+  echo "Installed ps3fix.timer (post-import PS3 audio normalization, every 30 min)."
+fi
+
 # 3. create the data + config tree (single $DATA root enables hardlinks)
 sudo mkdir -p "$DATA"/torrents/{incomplete,complete} \
               "$DATA"/media/{movies,tv} \

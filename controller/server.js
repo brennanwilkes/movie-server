@@ -24,6 +24,8 @@ function loadCfg() {
 }
 const cfg = loadCfg();
 
+const oscarWinners = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'oscar-winners.json'), 'utf8')); } catch { return {}; } })();
+
 const PORT = Number(cfg.CONTROLLER_PORT || 8088);
 const NUC_IP = cfg.NUC_IP || '192.168.1.74';
 // The $DATA loopback image IS the hard cap, so its live filesystem size (from statfs
@@ -802,41 +804,62 @@ app.get('/api/jellyfin/resolve', async (req, res) => {
   } catch { res.json({ id: null, serverId: null }); }
 });
 
-// ── HSS custom section: "Off the Shelf" — a rotating auto-collection as a HOME ROW ──────────
-// Registered with the Home Screen Sections plugin (POST /HomeScreen/RegisterSection with a
-// resultsEndpoint): the plugin calls this endpoint when building the home page and renders
-// whatever items come back. We rotate through the vibe/decade collections hourly, serving
-// their (already-shuffled) contents as native Jellyfin dtos — the library's own shelves,
-// right on the home screen.
+// ── HSS custom sections: rotating collection SHELVES as home rows ───────────────────────────
+// Three rows registered with the Home Screen Sections plugin, each titled with the ACTUAL
+// collection it's showing ("Mob Classics", "90s Movies", …). The registration's displayText
+// is the row title and additionalData carries the collection id back to our endpoint, so the
+// controller re-registers every 10 min with the current hour's picks — titles and contents
+// rotate together. Contents come back as native Jellyfin dtos (already shuffled by the
+// collections sweep). NOTE: the plugin POSTs its payload to resultsEndpoint — a GET-only
+// route returns Express HTML that breaks its JSON parser, hence app.all.
+const SHELF_IDS = ['ShelfA', 'ShelfB', 'ShelfC', 'ShelfD', 'ShelfE', 'ShelfF'];   // 6 rotating shelf rows (grow: add ids here + rows in jellyfin.sh)
+async function shelfCatalog() {
+  const uid = await jellyfinUserId();
+  const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
+  const bq = new URLSearchParams({ IncludeItemTypes: 'BoxSet', Recursive: 'true', Limit: '300' });
+  const sets = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${bq}`, { headers: h }, 10000)).json()).Items) || [];
+  return sets.filter((s) => !/Collection$/.test(s.Name));   // ours, not TMDb franchise sets
+}
+function shelfPicks(autos) {   // three distinct collections, rotating hourly, spread across the catalog
+  if (!autos.length) return [];
+  const n = autos.length, base = Math.floor(Date.now() / 3600000);
+  const step = Math.max(1, Math.floor(n / SHELF_IDS.length));
+  const picks = SHELF_IDS.map((_, i) => autos[((base * 7) + (i * step)) % n]);
+  return [...new Map(picks.map((p) => [p.Id, p])).values()];
+}
 app.all('/api/hss/shelf', async (req, res) => {
   try {
-    // The plugin POSTs its HomeScreenSectionPayload (UserId et al.) to the endpoint; accept
-    // GET too for manual poking. A GET-only route made Express answer POSTs with an HTML 404
-    // that the plugin's JSON deserializer choked on.
     const uid = (req.body && (req.body.UserId || req.body.userId)) || req.query.userId || await jellyfinUserId();
     const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
-    const bq = new URLSearchParams({ IncludeItemTypes: 'BoxSet', Recursive: 'true', Limit: '300' });
-    const sets = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${bq}`, { headers: h }, 10000)).json()).Items) || [];
-    const autos = sets.filter((s) => !/Collection$/.test(s.Name));   // ours, not TMDb franchise sets
-    if (!autos.length) return res.json({ Items: [], TotalRecordCount: 0 });
-    const pick = autos[Math.floor(Date.now() / 3600000) % autos.length];   // rotate hourly
-    const cq = new URLSearchParams({ ParentId: pick.Id, Limit: '16' });
+    let setId = (req.body && (req.body.AdditionalData || req.body.additionalData)) || req.query.setId || '';
+    if (!setId) {
+      const p = shelfPicks(await shelfCatalog())[0];
+      if (!p) return res.json({ Items: [], TotalRecordCount: 0 });
+      setId = p.Id;
+    }
+    const cq = new URLSearchParams({ ParentId: setId, Limit: '16' });
     const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 10000)).json()).Items) || [];
-    res.json({ Items: items, TotalRecordCount: items.length, DisplayText: `Off the Shelf · ${pick.Name}` });
+    res.json({ Items: items, TotalRecordCount: items.length });
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 async function registerHssShelf() {
   if (!cfg.JELLYFIN_KEY) return;
   try {
-    const r = await tfetch(`${HOST.jellyfin}/HomeScreen/RegisterSection`, {
-      method: 'POST',
-      headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: 'OffTheShelf', displayText: 'Off the Shelf', limit: 1, resultsEndpoint: `http://${NUC_IP}:8088/api/hss/shelf` }),
-    }, 10000);
-    if (r.ok && !registerHssShelf._done) { registerHssShelf._done = true; console.log('hssShelf: "Off the Shelf" section registered with Home Screen Sections'); }
+    const picks = shelfPicks(await shelfCatalog());
+    for (let i = 0; i < picks.length; i++) {
+      await tfetch(`${HOST.jellyfin}/HomeScreen/RegisterSection`, {
+        method: 'POST',
+        headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: SHELF_IDS[i], displayText: picks[i].Name, limit: 1, additionalData: picks[i].Id, resultsEndpoint: `http://${NUC_IP}:8088/api/hss/shelf` }),
+      }, 10000);
+    }
+    if (picks.length && registerHssShelf._last !== picks.map((p) => p.Id).join()) {
+      registerHssShelf._last = picks.map((p) => p.Id).join();
+      console.log(`hssShelf: shelf rows registered — ${picks.map((p) => p.Name).join(' · ')}`);
+    }
   } catch { /* HSS not installed / Jellyfin down — retried next tick */ }
 }
-setInterval(registerHssShelf, 600000);   // re-register every 10 min (registrations don't survive Jellyfin restarts)
+setInterval(registerHssShelf, 600000);   // every 10 min: survives Jellyfin restarts, tracks hourly rotation
 setTimeout(registerHssShelf, 20000);
 
 // ---- Auto-import watchdog (backend, container-to-container; NOT driven by the UI) ----
@@ -1170,11 +1193,30 @@ async function collectionsSweep() {
   try {
     const uid = await jellyfinUserId();
     const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
-    const q = new URLSearchParams({ IncludeItemTypes: 'Movie', Recursive: 'true', Fields: 'ProductionYear,Genres,CommunityRating,RunTimeTicks', Limit: '5000' });
+    const q = new URLSearchParams({ IncludeItemTypes: 'Movie', Recursive: 'true', Fields: 'ProductionYear,Genres,CommunityRating,RunTimeTicks,ProviderIds', Limit: '5000' });
     const movies = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 15000)).json()).Items) || [];
     if (movies.length < 20) return;                       // tiny library — don't spam collections
     const buckets = new Map();                            // collection name -> { ids:Set, desc }
     const add = (name, desc, id) => { if (!buckets.has(name)) buckets.set(name, { ids: new Set(), desc }); buckets.get(name).ids.add(id); };
+    const oscarBuckets = new Map();                        // collection name -> { items: Map<jfId, year>, desc }
+    const OSCAR_DESC = {
+      'Oscar: Best Picture (Winners)': 'The Academy Award for Best Picture — the year\'s finest film, as voted by the industry.',
+      'Oscar: Best Picture (Nominees)': 'Every film nominated for Best Picture — the Academy\'s pick of the year\'s best.',
+      'Oscar: Best Director (Winners)': 'Academy Award for Best Director — recognising outstanding directorial achievement.',
+      'Oscar: Best Director (Nominees)': 'Every film whose director earned a nomination — the year\'s most acclaimed helmers.',
+      'Oscar: Best Actor (Winners)': 'Academy Award for Best Actor — a leading performance that defined the year.',
+      'Oscar: Best Actor (Nominees)': 'Every nominated lead performance — the year\'s most celebrated actors.',
+      'Oscar: Best Actress (Winners)': 'Academy Award for Best Actress — a leading performance that defined the year.',
+      'Oscar: Best Actress (Nominees)': 'Every nominated lead performance — the year\'s most celebrated actresses.',
+      'Oscar: Best Supporting Actor (Winners)': 'Academy Award for Best Supporting Actor — scene-stealing in the best way.',
+      'Oscar: Best Supporting Actor (Nominees)': 'Every nominated supporting performance — scene-stealers who nearly won.',
+      'Oscar: Best Supporting Actress (Winners)': 'Academy Award for Best Supporting Actress — scene-stealing in the best way.',
+      'Oscar: Best Supporting Actress (Nominees)': 'Every nominated supporting performance — scene-stealers who nearly won.',
+      'Oscar: Best Film Editing (Winners)': 'Academy Award for Best Film Editing — the invisible art that shapes every great film.',
+      'Oscar: Best Film Editing (Nominees)': 'Every nominated film for editing — the cuts that nearly took the prize.',
+      'Oscar: Best Cinematography (Winners)': 'Academy Award for Best Cinematography — the year\'s most stunning visuals.',
+      'Oscar: Best Cinematography (Nominees)': 'Every nominated film for cinematography — the year\'s most beautiful-looking films.',
+    };
     // VIBE COMBOS — short titles, flowery blurbs (→ the collection's Overview), and per-vibe
     // GENRE EXCLUSIONS so tones don't bleed (no cartoons in date night, no romance in the
     // action shelf). Thin results (<5 titles) auto-hide, so the list can be aspirational —
@@ -1242,6 +1284,15 @@ async function collectionsSweep() {
       if (mins > 0 && mins <= 100) add('Short & Sweet', 'Ninety-odd minutes, zero commitment.', m.Id);
       if (mins >= 150) add('Epics', 'Settle in — sagas that take their time and earn it.', m.Id);
       for (const [name, desc, test] of VIBES) if (test(m, y, mins, r)) add(name, desc, m.Id);
+      const tmdb = m.ProviderIds?.Tmdb;
+      if (tmdb && oscarWinners) {
+        for (const [colName, items] of Object.entries(oscarWinners)) {
+          if (items.some(i => String(i.tmdb_id) === String(tmdb))) {
+            if (!oscarBuckets.has(colName)) oscarBuckets.set(colName, { items: new Map(), desc: OSCAR_DESC[colName] || colName });
+            oscarBuckets.get(colName).items.set(m.Id, m.ProductionYear || 0);
+          }
+        }
+      }
     }
     for (const [name, b] of [...buckets]) if (b.ids.size < 5) buckets.delete(name);
     // Poster per collection: a RANDOM pick from its five best-rated members, re-rolled every
@@ -1256,15 +1307,18 @@ async function collectionsSweep() {
     // DisplayOrder=Default makes Jellyfin honor STORED membership order (verified 2026-07-02)
     // — so re-writing membership shuffled = genuinely random browse order, refreshed each
     // sweep. Same dto update carries the flowery Overview.
-    const ensureMeta = async (setId, desc) => {
-      try {
-        const dto = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${setId}`, { headers: h }, 10000)).json();
-        if (dto.DisplayOrder !== 'Default' || (desc && dto.Overview !== desc)) {
-          dto.DisplayOrder = 'Default';
-          if (desc) dto.Overview = desc;
-          await tfetch(`${HOST.jellyfin}/Items/${setId}`, { method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(dto) }, 15000);
-        }
-      } catch { /* metadata best-effort */ }
+    const ensureMeta = async (setId, desc, retries = 2) => {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const dto = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${setId}`, { headers: h }, 15000)).json();
+          if (dto.DisplayOrder !== 'Default' || (desc && dto.Overview !== desc)) {
+            dto.DisplayOrder = 'Default';
+            if (desc) dto.Overview = desc;
+            const r = await tfetch(`${HOST.jellyfin}/Items/${setId}`, { method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(dto) }, 30000);
+            if (r.ok || r.status === 204) break;
+          } else break;
+        } catch (e) { if (attempt === retries) console.log(`ensureMeta: failed after ${retries + 1} attempts — ${e.message || e}`); }
+      }
     };
     const setPoster = async (setId, memberId) => {
       const ir = await tfetch(`${HOST.jellyfin}/Items/${memberId}/Images/Primary?maxWidth=600&quality=90`, {}, 15000);
@@ -1286,6 +1340,10 @@ async function collectionsSweep() {
       'Rom-Coms Through the Ages', 'Feel-Good Comedies', 'Edge-of-Seat Thrillers', 'Sci-Fi Mindbenders',
       'Family Movie Night', 'Old Hollywood (pre-70s)', 'Modern Masterpieces', '80s Adventure Classics',
       'Documentaries that Wow', 'Epic Runtimes',
+      // Oscar collections renamed with (Winners)/(Nominees) suffixes
+      'Oscar: Best Picture', 'Oscar: Best Director', 'Oscar: Best Actor', 'Oscar: Best Actress',
+      'Oscar: Best Supporting Actor', 'Oscar: Best Supporting Actress',
+      'Oscar: Best Film Editing', 'Oscar: Best Cinematography',
     ]);
     let removed = 0;
     for (const s of sets) {
@@ -1317,7 +1375,50 @@ async function collectionsSweep() {
       const pick = posterPick(want);
       if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
     }
-    if (created || updated || postered || removed) console.log(`collectionsSweep: ${created} created, ${updated} reshuffled, ${postered} poster(s) rotated, ${removed} retired (${buckets.size} auto-collections maintained)`);
+    // Oscar winner collections: year-descending order (newest first), never shuffled.
+    // First, fix DisplayOrder for all existing Oscar collections (robust repair).
+    for (const [colName] of oscarBuckets) {
+      const setId = byName.get(colName);
+      if (setId) await ensureMeta(setId);
+    }
+    for (const [colName, { items, desc }] of oscarBuckets) {
+      const sorted = [...items.entries()].sort((a, b) => b[1] - a[1]);
+      const want = new Set(sorted.map(([id]) => id));
+      let setId = byName.get(colName);
+      if (!setId) {
+        const ids = [...want];
+        // create collection with first chunk; add remaining chunks to it
+        const first = ids.slice(0, 100);
+        const r = await tfetch(`${HOST.jellyfin}/Collections?${new URLSearchParams({ Name: colName, Ids: first.join(',') })}`, { method: 'POST', headers: h }, 45000);
+        if (!r.ok) continue;
+        created++;
+        try { setId = (await r.json()).Id; } catch { setId = null; }
+        if (!setId) continue;
+        for (let i = 100; i < ids.length; i += 100) {
+          await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${ids.slice(i, i + 100).join(',')}`, { method: 'POST', headers: h }, 45000);
+        }
+        await ensureMeta(setId, desc);
+        const pick = posterPick(want);
+        if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
+        continue;
+      }
+      await ensureMeta(setId, desc);
+      const cq = new URLSearchParams({ ParentId: setId, Limit: '5000' });
+      const have = (((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 30000)).json()).Items) || []).map((i) => i.Id);
+      if (have.length) {
+        for (let i = 0; i < have.length; i += 100) {
+          await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${have.slice(i, i + 100).join(',')}`, { method: 'DELETE', headers: h }, 45000);
+        }
+      }
+      const ids = [...want];
+      for (let i = 0; i < ids.length; i += 100) {
+        await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${ids.slice(i, i + 100).join(',')}`, { method: 'POST', headers: h }, 45000);
+      }
+      updated++;
+      const pick = posterPick(want);
+      if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
+    }
+    if (created || updated || postered || removed) console.log(`collectionsSweep: ${created} created, ${updated} reshuffled, ${postered} poster(s) rotated, ${removed} retired (${buckets.size} auto-collections, ${oscarBuckets.size} Oscar collections)`);
   } catch (e) { console.log(`collectionsSweep: failed — ${e.message || e}`); }
   finally { collSweepBusy = false; }
 }

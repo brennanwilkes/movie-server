@@ -7,6 +7,7 @@ COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --no-audit --no-fund
 
 COPY server.js ./
+COPY oscar-winners.json ./
 COPY web ./web
 
 ENV CONTROLLER_PORT=8088

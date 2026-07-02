@@ -49,3 +49,5 @@ test:       ## fast read-only PASS/FAIL assertions for the whole stack (run afte
 	./scripts/smoke-test.sh
 why:        ## why isn't this playing (well) on the PS3/projector? (make why q="Pulp Fiction")
 	./scripts/why-playback.sh "$(q)"
+ps3ify:     ## convert a title's files to PS3-native mp4+AC3, video untouched (make ps3ify q="Mormon Wives" [app=radarr])
+	./scripts/ps3ify.sh $(if $(filter radarr,$(app)),--radarr) "$(q)"
