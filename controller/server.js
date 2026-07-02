@@ -495,7 +495,13 @@ async function buildDownloads() {
     // Ground truth, independent of qBittorrent's (post-crash) progress/state: has *arr actually
     // imported this release into the library?
     const hi = app && hist[app] && hist[app].get(h);
-    const imported = !!(hi && (hi.imported || (hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
+    // Has *arr actually imported THIS torrent? `hi.imported` is per-downloadId (an import event
+    // referenced this exact hash) and is authoritative for both apps. The hasFile fallback (for a
+    // cold history cache after restart) is RADARR-ONLY: a movie's hasFile is 1:1 with its torrent,
+    // but a Sonarr series' hasFile is true if it holds ANY episode — so using it here flagged every
+    // still-downloading episode of a partially-present series as "imported → Ready", hiding the
+    // live download from the UI. For Sonarr we trust the per-hash import event alone.
+    const imported = !!(hi && (hi.imported || (app === 'radarr' && hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
     const _arrId = (qrec && (qrec.movieId || qrec.seriesId)) ?? (hi && hi.id);
     if (app && _arrId != null) shownIds[app].add(_arrId);   // this title has a live download → don't also list it as missing
     let state, attention = false, recover = null;
@@ -568,9 +574,11 @@ async function buildDownloads() {
     // "Ready"/"Done" items always show full bar even if qBit reports 0% (missing files)
     const displayProg = (finished || state === 'Importing' || state === 'Needs attention' || state === 'Getting subtitles' || state === 'Processing') ? 100 : prog;
     if (show) {
-      // Seed count matters while a torrent still needs peers to finish (or to explain a stall) —
-      // not once it's done, where it's just noise.
-      const seeds = !finished && typeof t.num_seeds === 'number' ? t.num_seeds : null;
+      // Seed count is only meaningful once a torrent is actually talking to the swarm: while
+      // 'Downloading' (explains progress/speed) or 'Stalled' (0 seeds explains the stall). A
+      // 'Queued'/'Starting' torrent hasn't announced to the tracker yet, so its num_seeds is a
+      // misleading 0 that isn't a true reflection of the release's availability — omit it there.
+      const seeds = (state === 'Downloading' || state === 'Stalled') && typeof t.num_seeds === 'number' ? t.num_seeds : null;
       // "Stalled" mirrors stallRecovery's own give-up clock (STALL_DEAD after first seen at 0
       // seeds) so the UI can say when it'll blocklist-and-research instead of sitting silent.
       const stallGiveUpAt = state === 'Stalled' && _stallSince.has(h) ? (_stallSince.get(h) + STALL_DEAD) * 1000 : null;
@@ -1559,6 +1567,18 @@ function noteResolved(app, id) {  // item now has file/queue/torrent → reset t
 }
 const DL_STATES = new Set(['downloading', 'stalledDL', 'metaDL', 'forcedDL', 'queuedDL', 'checkingDL', 'allocating']);
 const searchKeyClear = (app, id) => searchState.delete(`${app}:${id}`); // manual retry overrides cooldown+block
+// The specific episodes of a Sonarr series that still need a file: monitored, aired (or with no
+// known air date), and not already on disk. This is what we hand to EpisodeSearch so a season with
+// no pack fills in episode-by-episode. Returns [] on any error (skip this series this pass).
+async function missingEpisodeIds(seriesId) {
+  let eps;
+  try { eps = await arrGet('sonarr', `/episode?seriesId=${seriesId}`, 8000); }
+  catch { return []; }
+  const now = Date.now();
+  return (Array.isArray(eps) ? eps : [])
+    .filter((e) => !e.hasFile && e.monitored && (!e.airDateUtc || new Date(e.airDateUtc).getTime() <= now))
+    .map((e) => e.id);
+}
 async function arrSweep() {
   if (masterPaused || arrSweepBusy) return;               // Movie Mode — no searches/grabs/recovery
   arrSweepBusy = true;
@@ -1680,7 +1700,13 @@ async function arrSweep() {
       const now = Date.now();
       const qIds = new Set(queue.map((q) => q.movieId || q.seriesId));
       const needSearch = items.filter((i) => {
-        const hasContent = app === 'radarr' ? !!i.hasFile : !!(i.statistics && i.statistics.episodeFileCount);
+        // Sonarr: a series is "complete" only when every monitored, aired episode has a file.
+        // The old `!!episodeFileCount` treated a series holding ANY file as done, so a partially
+        // filled series (e.g. S1 present, S2–S4 missing) was cleared and NEVER recovered.
+        const ss = app === 'sonarr' && i.statistics;
+        const hasContent = app === 'radarr'
+          ? !!i.hasFile
+          : !!(ss && ss.episodeCount > 0 && ss.episodeFileCount >= ss.episodeCount);
         if (hasContent) { searchKeyClear(app, i.id); return false; }             // got it — clear all state
         if (i.monitored === false) return false;
         if (qIds.has(i.id) || downloadingIds.has(i.id)) { noteResolved(app, i.id); return false; } // in flight — reset clock
@@ -1703,6 +1729,15 @@ async function arrSweep() {
         if (activeDl >= SWEEP_MAX_ACTIVE_DL) console.log(`arrSweep: ${activeDl} downloading; still searching ${batch.length} missing ${app} item(s) (qBittorrent caps concurrency)`);
         for (const item of batch) {
           const key = `${app}:${item.id}`;
+          // Sonarr: resolve exactly which episodes still need grabbing BEFORE touching the fail
+          // counter — if nothing is searchable (all missing episodes are unaired) we skip without
+          // burning a "fail", so an airing show never gets negative-cached for episodes that
+          // simply haven't come out yet.
+          let episodeIds = null;
+          if (app === 'sonarr') {
+            episodeIds = await missingEpisodeIds(item.id);
+            if (!episodeIds.length) continue;
+          }
           const st = searchState.get(key) || { ts: 0, fails: 0, blockedUntil: 0 };
           if (st.ts) st.fails = (st.fails || 0) + 1;   // a prior search left it with no content → it failed
           st.ts = now;
@@ -1712,9 +1747,17 @@ async function arrSweep() {
           }
           searchState.set(key, st);
           try {
-            if (app === 'radarr') await arrPost(app, '/command', { name: 'MoviesSearch', movieIds: [item.id] }, 5000);
-            else await arrPost(app, '/command', { name: 'SeriesSearch', seriesId: item.id }, 5000);
-            console.log(`arrSweep: triggered search for ${app} "${item.title}" (${item.id})`);
+            if (app === 'radarr') {
+              await arrPost(app, '/command', { name: 'MoviesSearch', movieIds: [item.id] }, 5000);
+              console.log(`arrSweep: triggered search for radarr "${item.title}" (${item.id})`);
+            } else {
+              // EpisodeSearch (NOT SeriesSearch): SeriesSearch/SeasonSearch only look for whole-season
+              // PACKS, which airing shows usually lack — so those searches find nothing and the season
+              // never fills in. EpisodeSearch with explicit episode IDs makes Sonarr grab the
+              // individual-episode releases that actually exist, one per missing episode.
+              await arrPost(app, '/command', { name: 'EpisodeSearch', episodeIds }, 8000);
+              console.log(`arrSweep: triggered EpisodeSearch for sonarr "${item.title}" (${item.id}) — ${episodeIds.length} missing episode(s)`);
+            }
           } catch (e) { console.log(`arrSweep: search trigger failed for ${item.id} — ${e.message || e}`); }
         }
         persistState();

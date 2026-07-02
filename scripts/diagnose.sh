@@ -51,10 +51,11 @@ curl -sf "$BASE/api/status" >/dev/null 2>&1 && CONTROLLER_UP=true
 
 # ── qBittorrent: cookie login + fetch all torrents ──
 qbit_login() {
-  local cookie
-  cookie=$(curl -sf -c - "http://localhost:8080/api/v2/auth/login" \
-    -d "username=${QBIT_USER}&password=${QBIT_PASS}" 2>/dev/null | grep SID | awk '{print $NF}')
-  echo "$cookie"
+  # Return the full "NAME=VALUE" auth cookie. qBittorrent v5 renamed the cookie SID → QBT_SID_<port>,
+  # so we must NOT hardcode the name — capture whatever the Set-Cookie header actually sets.
+  curl -sf -i "http://localhost:8080/api/v2/auth/login" \
+    -d "username=${QBIT_USER}&password=${QBIT_PASS}" 2>/dev/null \
+    | sed -n 's/^[Ss]et-[Cc]ookie: \([^;]*\).*/\1/p' | head -n1
 }
 
 QBIT_COOKIE=""
@@ -64,7 +65,7 @@ qbit_fetch() {
     cookie=$(qbit_login)
     QBIT_COOKIE="$cookie"
   fi
-  curl -sf "http://localhost:8080${path}" -b "SID=${cookie}" 2>/dev/null
+  curl -sf "http://localhost:8080${path}" -b "${cookie}" 2>/dev/null
 }
 
 # ── *arr helpers ──

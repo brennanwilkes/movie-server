@@ -32,6 +32,7 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `scripts/show-quality-profiles.sh` | **Tool**: dump *arr quality profile config |
 | `scripts/search-releases.sh` | **Tool**: search available *arr releases sorted by seeders |
 | `scripts/diagnose.sh` | **Tool**: cross-service state comparison (qBit vs *arr vs controller) |
+| `scripts/show-indexers.sh` | **Tool**: Prowlarr indexer health/tags/proxy, live-test, per-indexer search counts |
 | `scripts/provision/_arr_common.sh` | Shared *arr provisioning: quality profiles, custom formats, delay profiles, indexers |
 | `scripts/provision/radarr.sh` | Radarr provisioning wrapper |
 | `scripts/provision/sonarr.sh` | Sonarr provisioning wrapper |
@@ -128,6 +129,24 @@ QUEUE_TTL           = 8s         # *arr queue + qBit cache TTL
    - Use `--sonarr` for TV shows, `--top3/--top5/--top10` to limit output
    - Helps answer: did the profile pick the best-seeded release?
    - If a better-seeded option exists, manually remove the current torrent and re-search
+
+6. **Check indexers are actually up** → `./scripts/show-indexers.sh` (then `--test` / `--search "term"`)
+   - If a whole search comes back thin/empty, an indexer is probably down, not the request
+   - **Cloudflare-protected trackers (EZTV) MUST carry the `flaresolverr` tag** or they 403/blocked
+   - `error code: 1006` = the tracker IP-banned this host; FlareSolverr can NOT fix it — disable that
+     mirror and lean on **Knaben** (meta-aggregator over 30+ sites, incl. 1337x/RARBG/TGx)
+   - Indexer config is IaC in `scripts/provision/prowlarr.sh` (a self-healing reconciler); re-run
+     `make provision s=prowlarr` to restore tags/enable/priority after any manual UI change
+
+### "Why is a TV series stuck with only some seasons?"
+
+Sonarr's on-add / `SeriesSearch` only looks for whole-season **packs**. A currently-airing show
+usually has no pack, so those seasons come back empty and never fill in on their own.
+- The controller's `arrSweep` recovers this by firing `EpisodeSearch` on the specific missing
+  **monitored, aired** episode IDs (see `missingEpisodeIds` in `controller/server.js`) — per-episode
+  search finds the individual releases that packs-only search misses. Respects per-season monitoring,
+  so requesting one season still grabs only that season.
+- Manual kick: `curl -X POST .../api/v3/command -d '{"name":"EpisodeSearch","episodeIds":[...]}'`
 
 ### "Why is this stuck at 'Importing'?"
 

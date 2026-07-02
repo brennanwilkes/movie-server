@@ -8,7 +8,12 @@
 #   ./scripts/search-releases.sh --sonarr "Rick and Morty"      # Sonarr
 #   ./scripts/search-releases.sh --raw "Skyfall"                # raw JSON
 #   ./scripts/search-releases.sh --top3 "Skyfall"               # top 3 by seeders
+#   ./scripts/search-releases.sh --scores "Moneyball"           # sort by custom-format SCORE + show matched formats
 #   ./scripts/search-releases.sh --watch "Moneyball"            # poll every 10s
+#
+# --scores answers "why did *arr grab THIS release?" — it sorts by the same
+# customFormatScore *arr uses to pick, and prints which custom formats matched
+# (codec/size/language). The winning grab is the top row (ties broken by seeders).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -27,6 +32,7 @@ for arg in "$@"; do
     --sonarr) APP=sonarr ;;
     --radarr) APP=radarr ;;
     --watch)  WATCH=true ;;
+    --scores) MODE=scores ;;
     --raw)    MODE=raw ;;
     --top3)   TOP_N=3 ;;
     --top5)   TOP_N=5 ;;
@@ -76,9 +82,10 @@ show_releases() {
       continue
     fi
 
-    echo "$RELEASES" | TOP_N="$TOP_N" python3 -c "
+    echo "$RELEASES" | TOP_N="$TOP_N" MODE="$MODE" python3 -c "
 import json, sys, os
 data = json.load(sys.stdin)
+mode = os.environ.get('MODE', 'normal')
 releases = []
 for r in data:
     releases.append({
@@ -89,20 +96,37 @@ for r in data:
         'quality': r.get('quality', {}).get('name', ''),
         'age': r.get('ageMinutes', 0) // 60,
         'protocol': r.get('protocol', ''),
+        'score': r.get('customFormatScore', 0),
+        'formats': [f.get('name','') for f in r.get('customFormats', [])],
     })
-releases.sort(key=lambda x: -x['seeders'])
+# --scores: sort by the score *arr actually picks on (ties -> seeders), like a real grab decision.
+# default: sort by seeders (best-connected first).
+if mode == 'scores':
+    releases.sort(key=lambda x: (-x['score'], -x['seeders']))
+else:
+    releases.sort(key=lambda x: -x['seeders'])
 top_n = int(os.environ.get('TOP_N', '0'))
 if top_n > 0:
     releases = releases[:top_n]
-print(f'{\"Seed\":>6}  {\"Size\":>7}  {\"Age\":>4}  {\"Quality\":>18}  {\"Indexer\":>20}  Title')
-print('-'*110)
-for r in releases:
-    proto = '*' if r['protocol'] == 'usenet' else ' '
-    age = r['age']
-    age_str = f'{age}h' if age < 99 else f'{age//24}d' if age < 99*24 else 'old'
-    q = r['quality'] if r['quality'] else 'any'
-    title = r['title'][:90]
-    print(f'{r[\"seeders\"]:>5}{proto}  {r[\"sizeGB\"]:>6.1f}GB  {age_str:>4}  {q:>18}  {r[\"indexer\"]:>20}  {title}')
+if mode == 'scores':
+    print(f'{\"Score\":>6}  {\"Seed\":>6}  {\"Size\":>7}  {\"Quality\":>18}  Matched custom formats / Title')
+    print('-'*110)
+    for r in releases:
+        proto = '*' if r['protocol'] == 'usenet' else ' '
+        q = r['quality'] if r['quality'] else 'any'
+        fmts = ', '.join(r['formats']) if r['formats'] else '(none)'
+        print(f'{r[\"score\"]:>6}  {r[\"seeders\"]:>5}{proto}  {r[\"sizeGB\"]:>6.1f}GB  {q:>18}  [{fmts}]')
+        print(f'{\"\":>44}{r[\"title\"][:64]}')
+else:
+    print(f'{\"Seed\":>6}  {\"Size\":>7}  {\"Age\":>4}  {\"Score\":>6}  {\"Quality\":>18}  {\"Indexer\":>20}  Title')
+    print('-'*118)
+    for r in releases:
+        proto = '*' if r['protocol'] == 'usenet' else ' '
+        age = r['age']
+        age_str = f'{age}h' if age < 99 else f'{age//24}d' if age < 99*24 else 'old'
+        q = r['quality'] if r['quality'] else 'any'
+        title = r['title'][:90]
+        print(f'{r[\"seeders\"]:>5}{proto}  {r[\"sizeGB\"]:>6.1f}GB  {age_str:>4}  {r[\"score\"]:>6}  {q:>18}  {r[\"indexer\"]:>20}  {title}')
 " 2>/dev/null
     echo
   done <<< "$MATCHES"

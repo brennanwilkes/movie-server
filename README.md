@@ -18,6 +18,17 @@ Docker daemon restarts the containers on boot, not your login session.
     make clean         # reset app config, KEEP media (images cached)
     make destroy       # delete config, media AND images (asks you to type 'destroy')
 
+## Debugging the grab algorithm ("why did it pick THAT release?")
+    make search q="Pulp Fiction"   # available releases, ranked by the custom-format SCORE *arr grabs on,
+                                   #   with the matched formats (codec/size/language) shown per release.
+                                   #   The grab is the top row (ties broken by seeders). Add s=1 for Sonarr.
+    make profiles                  # live quality-profile scores per tier (Low / Normal / Beloved)
+    make history a=--missing       # recent grab/import history (flags: --missing --attention --summary)
+    make querylogs s=radarr a='--grep grab'
+    make diagnose                  # full stack health check
+Codec/size weights live in `scripts/provision/_arr_common.sh` (§8, `build_formatitems`);
+change them there and `make provision s=radarr` — never edit scores in the *arr UI (IaC-first).
+
 ## Teardown levels
 - `down`    — remove containers/networks. Media, config, and images all kept.
 - `clean`   — `down` + wipe `/opt/appdata` (app config). Media + images kept.

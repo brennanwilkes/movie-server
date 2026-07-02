@@ -1,4 +1,5 @@
-.PHONY: bootstrap deploy provision up down clean destroy validate ps logs mdns resize-data remount
+.PHONY: bootstrap deploy provision up down clean destroy validate ps logs mdns resize-data remount \
+        search profiles history querylogs diagnose
 bootstrap:  ## one-time host prep (dirs, cap, .env, hook)
 	./scripts/bootstrap.sh
 deploy:     ## validate + pull + start (make deploy s=jellyfin for one)
@@ -32,3 +33,15 @@ ps:
 	docker compose ps
 logs:       ## tail logs (make logs s=radarr)
 	docker compose logs -f --tail=100 $(s)
+
+# --- Debug / introspection (read-only; answer "why did the algo pick THAT?") ---
+search:     ## list available releases w/ custom-format SCORE (make search q="Pulp Fiction")
+	./scripts/search-releases.sh --scores $(if $(s),--sonarr) "$(q)"
+profiles:   ## dump live quality-profile scores per tier (make profiles [s=radarr|sonarr])
+	./scripts/show-quality-profiles.sh $(s)
+history:    ## show recent grab/import history (make history [a=--missing])
+	./scripts/show-history.sh $(a)
+querylogs:  ## tail/grep a service's logs (make querylogs s=radarr a='--grep grab')
+	./scripts/query-logs.sh $(s) $(a)
+diagnose:   ## full stack health check
+	./scripts/diagnose.sh

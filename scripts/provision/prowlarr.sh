@@ -81,23 +81,47 @@ else
   ok "prowlarr: FlareSolverr proxy added (host flaresolverr:8191, tag flaresolverr)"
 fi
 
-# add a public indexer from its Cardigann definition; forceSave so a flaky tracker test
-# doesn't block provisioning. needs_flare=yes tags it for the FlareSolverr proxy.
-prow_add_indexer() {  # definitionName  priority  needs_flare(yes|no)
-  if "${PG[@]}" "${PROW}/indexer" | jq -e --arg d "$1" 'any(.[]; .definitionName==$d)' >/dev/null; then
-    ok "prowlarr: indexer '$1' present"; return
+# Reconcile a public indexer from its Cardigann definition to the desired state. Idempotent AND
+# self-healing: if the indexer already exists it PATCHES tags/enable/priority to match (so drift —
+# e.g. a Cloudflare tracker missing its FlareSolverr tag — is corrected on every re-provision, not
+# just on first create). forceSave so a flaky tracker test never blocks provisioning.
+#   needs_flare=yes → tag for the FlareSolverr proxy (required for Cloudflare-protected trackers).
+#   enabled=no      → keep the definition on record but disabled (e.g. an IP-banned mirror).
+prow_add_indexer() {  # definitionName  priority  needs_flare(yes|no)  [enabled(yes|no)=yes]
+  local def="$1" prio="$2" flare="$3" want_enable="${4:-yes}"
+  local tags='[]'; [[ "$flare" == yes ]] && tags="[$tagid]"
+  local en=true;  [[ "$want_enable" == no ]] && en=false
+  local how="$([[ $flare == yes ]] && echo 'via FlareSolverr' || echo direct)$([[ $en == false ]] && echo ', disabled')"
+
+  local existing; existing=$("${PG[@]}" "${PROW}/indexer" | jq --arg d "$def" '[.[]|select(.definitionName==$d)][0] // empty')
+  if [[ -n "$existing" ]]; then
+    local desired; desired=$(echo "$existing" | jq --argjson tags "$tags" --argjson en "$en" --argjson prio "$prio" '.tags=$tags | .enable=$en | .priority=$prio')
+    if [[ "$(echo "$existing" | jq -cS '{tags,enable,priority}')" == "$(echo "$desired" | jq -cS '{tags,enable,priority}')" ]]; then
+      ok "prowlarr: indexer '$def' already correct ($how)"
+    else
+      local id; id=$(echo "$existing" | jq -r '.id')
+      "${PJ[@]}" -X PUT "${PROW}/indexer/${id}?forceSave=true" -d "$desired" >/dev/null
+      ok "prowlarr: indexer '$def' reconciled ($how, priority $prio)"
+    fi
+    return
   fi
-  local tags='[]'; [[ "$3" == yes ]] && tags="[$tagid]"
-  local ix; ix=$("${PG[@]}" "${PROW}/indexer/schema" | jq --arg d "$1" --argjson app "$appid" --argjson prio "$2" --argjson tags "$tags" \
-    '[.[]|select(.definitionName==$d)][0] | .enable=true | .appProfileId=$app | .priority=$prio | .tags=$tags')
+
+  local ix; ix=$("${PG[@]}" "${PROW}/indexer/schema" | jq --arg d "$def" --argjson app "$appid" --argjson prio "$prio" --argjson tags "$tags" --argjson en "$en" \
+    '[.[]|select(.definitionName==$d)][0] | .enable=$en | .appProfileId=$app | .priority=$prio | .tags=$tags')
   local resp; resp=$("${PJ[@]}" -X POST "${PROW}/indexer?forceSave=true" -d "$ix")
   if echo "$resp" | jq -e '.id' >/dev/null 2>&1; then
-    ok "prowlarr: indexer '$1' added (priority $2$([[ $3 == yes ]] && echo ', via FlareSolverr'))"
+    ok "prowlarr: indexer '$def' added (priority $prio, $how)"
   else
-    warn "prowlarr: indexer '$1' add issue: $(echo "$resp" | jq -c '(.[0].errorMessage // .) // "unknown"' 2>/dev/null)"
+    warn "prowlarr: indexer '$def' add issue: $(echo "$resp" | jq -c '(.[0].errorMessage // .) // "unknown"' 2>/dev/null)"
   fi
 }
-prow_add_indexer yts          10 no    # movies, small direct-play-friendly encodes
-prow_add_indexer thepiratebay 25 no    # broad catalog, no Cloudflare
-prow_add_indexer 1337x        25 yes   # broad catalog, behind Cloudflare
-prow_add_indexer eztv         25 no    # TV-focused
+# Public indexers. FlareSolverr is required for Cloudflare-protected trackers (EZTV); the rest are
+# reachable directly. Knaben is a meta-aggregator that searches 30+ torrent sites at once (incl.
+# 1337x, RARBG, TGx) — the single highest-coverage add and our replacement for the direct 1337x
+# indexer, whose default mirror IP-bans this host (Cloudflare error 1006, unfixable via FlareSolverr).
+prow_add_indexer yts          10 no      # movies, small direct-play-friendly encodes
+prow_add_indexer thepiratebay 25 no      # broad catalog, no Cloudflare
+prow_add_indexer eztv         25 yes     # TV-focused, Cloudflare-protected → needs FlareSolverr
+prow_add_indexer Knaben       20 no      # meta-aggregator (30+ sites) — broadest coverage
+prow_add_indexer limetorrents 25 no      # broad catalog, no Cloudflare
+prow_add_indexer 1337x        25 yes no  # IP-banned (CF 1006) — kept on record but DISABLED; Knaben covers it
