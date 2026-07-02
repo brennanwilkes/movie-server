@@ -62,6 +62,18 @@ jf_add_library() {  # name  collectionType  path
 jf_add_library Movies movies   /media/movies
 jf_add_library TV     tvshows  /media/tv
 
+# 3b. Auto-collections: group movies into TMDb box sets (trilogies/sagas) automatically —
+#     zero new software, big browse win. Idempotent, same pattern as trickplay below.
+vf=$(curl -fsS "$JF/Library/VirtualFolders" -H "X-Emby-Token: $token" | jq '.[]|select(.Name=="Movies")')
+if [[ "$(jq -r '.LibraryOptions.AutomaticallyAddToCollection // false' <<<"$vf")" == "true" ]]; then
+  ok "Movies library already auto-adds to collections"
+else
+  jq '{Id: .ItemId, LibraryOptions: (.LibraryOptions | .AutomaticallyAddToCollection=true)}' <<<"$vf" \
+    | curl -fsS -X POST "$JF/Library/VirtualFolders/LibraryOptions" \
+        -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+  ok "Movies library now auto-adds to TMDb collections (box sets)"
+fi
+
 # 4. Install Intro Skipper plugin (auto-skip intros/credits in TV shows).
 #     Requires a third-party repository; the manifest is versioned by Jellyfin ABI.
 log "  ensuring Intro Skipper plugin is installed"
@@ -157,6 +169,23 @@ else
     ok "DLNA plugin installed ($dver) — restart below activates it"
   else
     warn "DLNA package not found in catalog — PS3 discovery will be unavailable"
+  fi
+fi
+
+# 6d2. Playback Reporting plugin (official Jellyfin repo) — records who watched what, when.
+#      The raw material for taste-aware home rows, pruning decisions, and SuggestArr-style
+#      recommendations. Same install pattern as the DLNA plugin above.
+if grep -qxF "Playback Reporting" <<<"$installed"; then
+  ok "Playback Reporting plugin already installed"
+else
+  pkgs=${pkgs:-$(curl -fsS "$JF/Packages" -H "X-Emby-Token: $token")}
+  prguid=$(jq -r '.[]|select(.name=="Playback Reporting").guid' <<<"$pkgs")
+  prver=$(jq -r '.[]|select(.name=="Playback Reporting").versions[0].version' <<<"$pkgs")
+  if [[ -n "$prguid" && "$prguid" != "null" ]]; then
+    curl -fsS -X POST "$JF/Packages/Installed/Playback%20Reporting?assemblyGuid=$prguid&version=$prver" -H "X-Emby-Token: $token" >/dev/null
+    ok "Playback Reporting plugin installed ($prver) — restart below activates it"
+  else
+    warn "Playback Reporting not found in plugin catalog — skipped"
   fi
 fi
 

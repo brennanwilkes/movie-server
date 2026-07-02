@@ -20,7 +20,7 @@ chk "docker waits for /data (systemd drop-in)" test -f /etc/systemd/system/docke
 chk "controller state.json parses" sh -c 'jq -e . /opt/appdata/controller/state.json'
 
 echo "=== containers ==="
-for c in jellyfin qbittorrent prowlarr radarr sonarr bazarr jellyseerr flaresolverr controller; do
+for c in jellyfin qbittorrent prowlarr radarr sonarr bazarr jellyseerr flaresolverr controller suggestarr; do
   chk "container $c running" sh -c "docker inspect -f '{{.State.Running}}' $c | grep -q true"
 done
 
@@ -30,6 +30,7 @@ chk "/api/status: all services up" jqt "http://localhost:8088/api/status" 'all(.
 chk "/api/downloads snapshot built (ts>0)" jqt "http://localhost:8088/api/downloads" '.ts > 0'
 chk "/api/disk sane" jqt "http://localhost:8088/api/disk" '.total_bytes > 1e12'
 chk "/api/library (radarr) answers" jqt "http://localhost:8088/api/library?app=radarr" '.items | length > 0'
+chk "/api/whattowatch answers (Pick tab)" jqt "http://localhost:8088/api/whattowatch" '.items | length > 0'
 
 echo "=== *arr config (the grab algorithm) ==="
 RKEY=$(sed -n 's:.*<ApiKey>\(.*\)</ApiKey>.*:\1:p' /opt/appdata/radarr/config.xml | head -1)
@@ -66,6 +67,15 @@ if [[ -n "$JFKEY" ]]; then
   chk "DLNA plugin active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -e 'any(.[]; .Name==\"DLNA\" and .Status==\"Active\")'"
 fi
 chk "custom PS3 DLNA profile installed" test -f "${CONFIG:-/opt/appdata}/jellyfin/data/plugins/configurations/dlna/user/Sony PlayStation 3.xml"
+if [[ -n "$JFKEY" ]]; then
+  chk "Playback Reporting plugin active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -e 'any(.[]; .Name==\"Playback Reporting\" and .Status==\"Active\")'"
+fi
+
+echo "=== jellyseerr ==="
+SEERRKEY=$(jq -r '.main.apiKey' "${CONFIG:-/opt/appdata}/jellyseerr/settings.json" 2>/dev/null || true)
+if [[ -n "$SEERRKEY" ]]; then
+  chk "custom discovery sliders present + enabled" sh -c "curl -sf -H 'X-Api-Key: $SEERRKEY' http://localhost:5055/api/v1/settings/discover | jq -e '[.[]|select(.isBuiltIn|not)] | length >= 4 and all(.[]; .enabled)'"
+fi
 
 echo
 if [[ $FAIL -eq 0 ]]; then echo "ALL PASS"; else echo "$FAIL FAILURE(S) — see above"; fi

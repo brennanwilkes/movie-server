@@ -241,37 +241,32 @@ with `EnableDecodingColorDepth10Hevc=false` (correct for Skylake Iris 540).
 
 ---
 
-## 7. Expansion ideas: browsing, discovery, ratings, playlists
+## 7. Browsing, discovery, ratings, playlists — implemented 2026-07-02 (all IaC)
 
-Requested 2026-07-02: better ways to pick a movie and discover new ones. Curated for this
-stack (self-hosted, IaC-friendly, 1080p projector). Already installed and worth configuring
-first: **Home Screen Sections**, **Jellyfin Enhanced**, OMDb/TMDb metadata plugins.
-
-1. **Radarr collection monitoring + Jellyfin Box Sets** (zero new software). Radarr already
-   knows every movie's TMDb collection; enabling collection display groups trilogies/sagas in
-   Jellyfin automatically. IaC: one flag per collection via Radarr API. *Effort: S.*
-2. **Home Screen Sections rows** (plugin already installed — just configure): "Top rated you
-   haven't watched", per-genre rows, "Recently added", "Continue watching" reordering. This is
-   the biggest pick-a-movie win for the least work. *Effort: S.*
-3. **Smart Playlists plugin** (third-party repo): rule-based auto-playlists — "unwatched
-   comedies under 2h", "90s rewatchables", "short movies for weeknights". Rules live as JSON →
-   fits IaC. *Effort: M.*
-4. **Playback Reporting plugin + Jellystat container**: watch statistics (what actually gets
-   watched, by whom) — the raw material for taste-aware rows and pruning decisions. Jellystat
-   is a separate container + Postgres, so it's a compose addition. *Effort: M.*
-5. **Recommendarr container**: LLM-driven recommendations from your actual library/watch
-   history, wired to Radarr/Sonarr/Jellyseerr so a recommendation is one click from a request.
-   Pairs perfectly with the wife-proof request flow. *Effort: M.*
-6. **Jellyseerr discovery sliders** (built-in, unconfigured): custom discovery rows by
-   genre/keyword/studio on the request page — shape what she sees when browsing for new
-   titles. *Effort: S.*
-7. **Controller "What to watch" tab** (bespoke, best fit): a dashboard tab that queries
-   Jellyfin for unwatched titles with filters (genre chips, runtime slider, rating sort,
-   "surprise me" random pick) and deep-links straight into playback. The controller already
-   has Jellyfin auth + deep-link plumbing (`/api/jellyfin/resolve`) — this is an app.js/server.js
-   feature, not new infrastructure. *Effort: M–L, highest ceiling.*
-
-Suggested order: 2 → 1 → 6 (pure config), then 7, then 3/5.
+- **[DONE] "Pick" tab in the dashboard** — new controller feature: unwatched-library picker
+  with genre chips, runtime filter, top-rated/newest/shuffle sort, poster rows, and a
+  🎲 "Surprise me" button; every row deep-links into Jellyfin playback. Server:
+  `/api/whattowatch` (60s-cached Jellyfin unwatched query). This is the wife-proof
+  "what do we watch tonight" answer.
+- **[DONE] Jellyfin auto-collections** (`jellyfin.sh` §3b): Movies library now auto-groups
+  into TMDb box sets (trilogies/sagas) — zero new software.
+- **[DONE] Playback Reporting plugin** (`jellyfin.sh` §6d2, official repo): records watch
+  history from now on — raw material for taste-aware features and pruning decisions.
+- **[DONE] Jellyseerr discovery sliders** (`jellyseerr.sh`): Comedy/Sci-Fi/Thriller/Family
+  genre rows on the request page. Gotcha codified: `/settings/discover/add` creates sliders
+  DISABLED and per-id PUT can't enable them — only the batch POST (full list) does.
+- **[DONE] SuggestArr container** (compose): TMDb-similarity recommendations from Jellyfin
+  watch history, auto-requested through Jellyseerr (user-selected over Recommendarr — no LLM
+  key needed, purpose-built for this exact stack). **Needs one-time setup:** open
+  `http://<nuc>:5000`, supply a free TMDb API key + Jellyfin/Jellyseerr URLs+keys; config
+  persists in `/opt/appdata/suggestarr`. Suggest conservative limits (a few requests/run) and
+  the Low/Normal tier as its default profile.
+- **[REC] Home Screen Sections plugin** — correction to the earlier draft: it is NOT
+  installed (stray config XMLs misled; only stock plugins + DLNA/Intro Skipper/Playback
+  Reporting are). It needs a third-party repo + two dependency plugins — do it in a
+  supervised session. Custom home rows remain the biggest Jellyfin-home upgrade.
+- **[REC] Smart Playlists plugin** (third-party repo) and **Jellystat** (container+Postgres
+  stats dashboard) — both good, both deferred for the same supervised-install reason.
 
 ## 8. Live-stack snapshot (2026-07-02, for future reference)
 

@@ -85,6 +85,18 @@ services:
     ports: ["5055:5055"]
     restart: unless-stopped
 
+  # SuggestArr — recommendation engine: reads Jellyfin watch history, finds similar titles
+  # via TMDb, and auto-requests them through Jellyseerr (so they land in the normal
+  # request→download→library pipeline). One-time setup wizard at :5000 (needs a free TMDb
+  # API key + the Jellyfin/Jellyseerr URLs and keys); config persists in ${CONFIG}/suggestarr.
+  suggestarr:
+    image: ciuse99/suggestarr:latest
+    container_name: suggestarr
+    environment: ["TZ=${TZ}", "LOG_LEVEL=info", "SUGGESTARR_PORT=5000"]
+    volumes: ["${CONFIG}/suggestarr:/app/config/config_files"]
+    ports: ["5000:5000"]
+    restart: unless-stopped
+
   # Web controller — mobile dashboard + same-origin API that aggregates the stack
   # and runs the one-click "delete everywhere" recipe. Keys are wired by
   # scripts/provision/controller.sh into ${CONFIG}/controller/keys.env (read at

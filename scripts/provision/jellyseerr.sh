@@ -88,6 +88,37 @@ else
   ok "jellyseerr: defaultPermissions already 8224 (REQUEST + REQUEST_ADVANCED)"
 fi
 
+# Custom discovery sliders — extra browse rows on the request page (movie genres via TMDb).
+# Type 14 = TMDB_MOVIE_GENRE, data = TMDb genre id. /add creates them DISABLED with order=-1,
+# so a follow-up PUT enables each. Idempotent by title; a leftover "__iac_test" probe slider
+# is cleaned up. Reorder/curate freely in the Jellyseerr UI — this only ensures they exist.
+sliders=$(js "$JS/settings/discover")
+slider_ensure() {  # title  tmdb-genre-id
+  local id; id=$(jq -r --arg t "$1" '.[]|select(.title==$t).id // empty' <<<"$sliders" | head -1)
+  if [[ -n "$id" ]]; then ok "jellyseerr: discovery slider '$1' present"; return; fi
+  local created; created=$(js -X POST "$JS/settings/discover/add" -H 'Content-Type: application/json' \
+    -d "$(jq -nc --arg t "$1" --arg d "$2" '{title:$t,type:14,data:$d,enabled:true}')")
+  id=$(jq -r '.id // empty' <<<"$created")
+  if [[ -n "$id" ]]; then ok "jellyseerr: discovery slider '$1' created"; sliders_changed=true
+  else warn "jellyseerr: could not create discovery slider '$1'"; fi
+}
+for tid in $(jq -r '.[]|select(.title=="__iac_test").id' <<<"$sliders"); do
+  js -o /dev/null -X DELETE "$JS/settings/discover/$tid" && ok "jellyseerr: removed test slider (id=$tid)"
+done
+sliders_changed=false
+slider_ensure "Comedy Picks"   35
+slider_ensure "Sci-Fi Picks"   878
+slider_ensure "Thriller Picks" 53
+slider_ensure "Family Night"   10751
+# /add creates sliders DISABLED (order=-1) and the per-id PUT does NOT flip `enabled` —
+# only the batch save (POST the full list, like the UI does) enables them. Verified live.
+if $sliders_changed; then
+  js "$JS/settings/discover" \
+    | jq '[.[]|{id,type,order,title,data,enabled:(if .isBuiltIn then .enabled else true end),isBuiltIn}]' \
+    | js -o /dev/null -X POST "$JS/settings/discover" -H 'Content-Type: application/json' -d @-
+  ok "jellyseerr: custom sliders enabled (batch save)"
+fi
+
 # Mark setup complete (no-op if already initialized).
 js -o /dev/null -X POST "$JS/settings/initialize"
 ok "jellyseerr: initialized"

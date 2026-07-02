@@ -41,6 +41,7 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `scripts/smoke-test.sh` | **Tool**: `make test` — 30+ read-only PASS/FAIL assertions over the whole stack. Run FIRST when anything seems off, and after every change |
 | `scripts/why-playback.sh` | **Tool**: `make why q="Title"` — per-title playback diagnosis (PS3 direct-play? transcode feasible? live transcode reasons) |
 | `AUDIT.md` | Deep audit 2026-07-02: verified findings, fix log, live-stack snapshot, open [REC] items |
+| `docker-compose.yml` → `suggestarr` | Recommendation engine (:5000): Jellyfin history → TMDb similar → Jellyseerr auto-requests. One-time web-UI setup (TMDb key) |
 | `scripts/provision/dlna-ps3-profile.xml` | Custom PS3 DLNA device profile (installed by jellyfin.sh; overrides the plugin's built-in) |
 | `scripts/provision/_arr_common.sh` | Shared *arr provisioning: quality profiles, custom formats, delay profiles, indexers |
 | `scripts/provision/radarr.sh` | Radarr provisioning wrapper |

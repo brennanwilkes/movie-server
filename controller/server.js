@@ -798,6 +798,39 @@ app.get('/api/jellyfin/resolve', async (req, res) => {
   } catch { res.json({ id: null, serverId: null }); }
 });
 
+// ── What to watch: unwatched-library picker ──
+// Full unwatched-movie list straight from Jellyfin (play state is per-user; the household
+// shares the admin user), with the fields the picker filters on. 60s cache; filtering/sort
+// happens client-side (the library is a few hundred titles — one small payload). Poster URLs
+// are Jellyfin's anonymous image endpoints, loaded by the browser directly.
+app.get('/api/whattowatch', async (_req, res) => {
+  try {
+    const data = await cachedFetch('jf:unwatched', 60000, async () => {
+      const uid = await jellyfinUserId();
+      const q = new URLSearchParams({
+        IncludeItemTypes: 'Movie', Recursive: 'true', Filters: 'IsUnplayed',
+        Fields: 'Genres,CommunityRating,ProductionYear,RunTimeTicks', Limit: '2000',
+      });
+      const r = await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 10000);
+      if (!r.ok) throw new Error(`jellyfin ${r.status}`);
+      const items = ((await r.json()).Items) || [];
+      const serverId = await jellyfinServerId();
+      return {
+        serverId,
+        items: items.map((i) => ({
+          id: i.Id, title: i.Name, year: i.ProductionYear || null,
+          rating: i.CommunityRating ? Math.round(i.CommunityRating * 10) / 10 : null,
+          runtimeMinutes: i.RunTimeTicks ? Math.round(i.RunTimeTicks / 600000000) : null,
+          genres: i.Genres || [],
+          poster: `http://${NUC_IP}:8096/Items/${i.Id}/Images/Primary?maxWidth=160&quality=90`,
+        })),
+      };
+    }, null);
+    if (!data) return res.status(502).json({ error: 'jellyfin unavailable' });
+    res.json(data);
+  } catch (e) { res.status(502).json({ error: String(e.message || e) }); }
+});
+
 // ---- Auto-import watchdog (backend, container-to-container; NOT driven by the UI) ----
 // The happy path is event-driven: qBittorrent finishes → *arr imports → *arr pushes a
 // "library updated" notification to Jellyfin. But when *arr DROPS a completed download
@@ -980,13 +1013,21 @@ setTimeout(stallRecovery, 20000);
 // ---- GPU-compat verification sweep (movies): post-import ground truth ────────────────────
 // Release titles can't prove bit depth — modern x265 is 10-bit-by-default without saying so,
 // so some hidden-10-bit releases will always slip past the title-based custom formats. After
-// import, Radarr's ffprobe mediaInfo KNOWS the truth. For a freshly-imported movie whose file
-// isn't GPU-decodable (10-bit / HDR / DV / AV1 / VP9): remove its torrent + file, blocklist
-// the exact release (history/failed — also stops re-grabs), and re-search; the codec scores
-// then pick the H.264 copy. Strictly bounded: once per movie EVER (persisted in gpuSwapped),
-// max 2 per cycle, only files imported < 48h ago, never while the movie has queue activity,
-// never in Movie Mode. Worst case (only 10-bit exists) it re-lands equivalent quality once
-// and the once-guard ends it. Movies only — TV episode teardown is out of scope.
+// import, Radarr's ffprobe mediaInfo KNOWS the truth.
+//
+// SWAP-SAFE DESIGN (a library title must never just vanish, and a swap must never downgrade):
+//   1. Only files imported < 48h ago — a settled library is NEVER touched.
+//   2. Playstate guard: skip anything anyone has started watching (fail-CLOSED: if Jellyfin
+//      can't confirm, we don't act); already-watched titles are marked done (swap value ~0).
+//   3. Search FIRST, act only if a STRICTLY better GPU-friendly release exists (custom-format
+//      score > the current file's, real H.264, no 10-bit/HDR/AV1 markers, actually seeded) —
+//      an indexer outage can't make us trade a small 10-bit file for a bloated x264.
+//   4. Grab the replacement FIRST; only after the grab succeeds do we remove the old torrent
+//      + file (so the incoming import lands cleanly instead of "not an upgrade"). The gap a
+//      viewer could notice is download-time only — never "deleted and still searching".
+//   5. Once per movie EVER on success/watched (persisted in gpuSwapped); a no-better-release
+//      pass retries at most every 6h within the 48h window. Max 2 movies per cycle. Never in
+//      Movie Mode. Movies only — TV episode teardown is out of scope.
 const GPU_SWAP_WINDOW_MS = 48 * 3600 * 1000;
 let gpuVerifyBusy = false;
 async function gpuVerifySweep() {
@@ -997,42 +1038,70 @@ async function gpuVerifySweep() {
     const queuedIds = new Set([...(await getQueueMap('radarr')).values()].map((q) => q.movieId));
     const now = Date.now();
     let acted = 0;
+    const BAD_CF = new Set(['10-bit (CPU)', 'HDR / Dolby Vision (CPU)', 'Likely 10-bit group (CPU)', 'AV1 (CPU)', 'VP9 (CPU)']);
     for (const m of movies) {
       if (acted >= 2) break;
       const mf = m.movieFile;
       if (!m.hasFile || !mf || !mf.mediaInfo) continue;
-      if (gpuSwapped.has(m.id) || queuedIds.has(m.id)) continue;
+      if (queuedIds.has(m.id)) continue;
+      const st = gpuSwapped.get(m.id);
+      if (st && (st.done || st === true || typeof st === 'number')) continue;   // done (legacy entries = plain ts)
+      if (st && now - st.ts < 6 * 3600000) continue;                            // no-better-release backoff
       const added = new Date(mf.dateAdded || 0).getTime();
       if (!added || now - added > GPU_SWAP_WINDOW_MS) continue;    // settled library — only police fresh imports
       if (gpuTier(mf.mediaInfo) === 'ok') continue;
       const label = videoLabel(mf.mediaInfo);
       try {
-        // Grab history: the release to blocklist + its torrent hash(es).
-        let hashes = [], grabId = null;
+        // Playstate guard — fail CLOSED: if Jellyfin can't confirm nobody's watching, don't act.
+        try {
+          const jfId = await jellyfinIdByTmdb('Movie', m.tmdbId);
+          if (jfId) {
+            const uid = await jellyfinUserId();
+            const it = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${jfId}`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 6000)).json();
+            const ud = it.UserData || {};
+            if (ud.PlayCount > 0) { gpuSwapped.set(m.id, { ts: now, done: true }); persistState(); continue; }  // already watched fine — swap value ~0
+            if ((ud.PlaybackPositionTicks || 0) > 0) continue;                   // someone is mid-watch — hands off
+          }
+        } catch { continue; }
+        // Search FIRST. Act only if a STRICTLY better GPU-friendly release exists right now.
+        const fileScore = mf.customFormatScore ?? 0;
+        const { base, key } = arrOf('radarr');
+        const rels = await (await tfetch(`${base}/release?movieId=${m.id}`, { headers: { 'X-Api-Key': key } }, 90000)).json();
+        const best = (Array.isArray(rels) ? rels : [])
+          .filter((r) => !r.rejected && (r.seeders || 0) > 0)
+          .filter((r) => {
+            const names = (r.customFormats || []).map((c) => c.name);
+            return names.includes('H.264 (GPU)') && !names.some((n) => BAD_CF.has(n));
+          })
+          .sort((a, b) => (b.customFormatScore || 0) - (a.customFormatScore || 0) || (b.seeders || 0) - (a.seeders || 0))[0];
+        acted++;                                                   // a /release search is the expensive unit — count it
+        if (!best || (best.customFormatScore || 0) <= fileScore) {
+          gpuSwapped.set(m.id, { ts: now, done: false });          // nothing better out there — retry in 6h within the window
+          persistState();
+          console.log(`gpuVerify: "${m.title}" is ${label} but no better H.264 release available (file score ${fileScore}) — keeping it, retry in 6h`);
+          continue;
+        }
+        // Snapshot the OLD copy's torrent hashes BEFORE grabbing, so the replacement's own
+        // torrent can never appear in the removal list.
+        let oldHashes = [];
         try {
           const hist = await arrGet('radarr', `/history/movie?movieId=${m.id}`);
           const recs = Array.isArray(hist) ? hist : (hist.records || []);
-          hashes = [...new Set(recs.map((r) => r.downloadId).filter(Boolean))];
-          const grab = recs.filter((r) => (r.eventType || '').toLowerCase() === 'grabbed')
-            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-          grabId = grab ? grab.id : null;
-        } catch { /* history down — still safe to proceed on file alone */ }
-        // Torrent first, so the import watchdog can't re-import the bad copy from the seed dir.
-        if (hashes.length) {
-          try { await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: hashes.join('|'), deleteFiles: 'true' }) }); } catch { /* */ }
+          oldHashes = [...new Set(recs.map((r) => r.downloadId).filter(Boolean))];
+        } catch { /* */ }
+        // Grab the replacement FIRST — if this fails, the current file is untouched.
+        const gr = await tfetch(`${base}/release`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ guid: best.guid, indexerId: best.indexerId }) }, 30000);
+        if (!gr.ok) { console.log(`gpuVerify: "${m.title}" replacement grab failed (HTTP ${gr.status}) — leaving file in place`); continue; }
+        // Replacement inbound → now clear the old copy so the import lands as a clean new file
+        // (not "not an upgrade"). Old torrent goes too, so the watchdog can't re-import it.
+        if (oldHashes.length) {
+          try { await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: oldHashes.join('|'), deleteFiles: 'true' }) }); } catch { /* */ }
         }
         const files = await arrGet('radarr', `/moviefile?movieId=${m.id}`).catch(() => []);
         for (const f of (Array.isArray(files) ? files : [])) { try { await arrDelete('radarr', `/moviefile/${f.id}`); } catch { /* */ } }
-        // Blocklist the release; Radarr's failed-handling may also fire its own re-search.
-        if (grabId != null) {
-          try { const { base, key } = arrOf('radarr'); await tfetch(`${base}/history/failed/${grabId}`, { method: 'POST', headers: { 'X-Api-Key': key } }, 15000); } catch { /* */ }
-        }
-        searchKeyClear('radarr', m.id);
-        try { await arrPost('radarr', '/command', { name: 'MoviesSearch', movieIds: [m.id] }, 8000); } catch { /* */ }
-        gpuSwapped.set(m.id, now);
+        gpuSwapped.set(m.id, { ts: now, done: true });
         persistState();
-        acted++;
-        console.log(`gpuVerify: "${m.title}" imported as ${label} — not GPU-decodable; blocklisted + re-searching for an H.264 copy (once-only)`);
+        console.log(`gpuVerify: "${m.title}" was ${label} (file score ${fileScore}) — grabbed better H.264 "${(best.title || '').slice(0, 60)}" (score ${best.customFormatScore}, ${best.seeders} seeds), old copy removed`);
       } catch (e) { console.log(`gpuVerify: failed for "${m.title}" — ${e.message || e}`); }
     }
   } finally { gpuVerifyBusy = false; }
