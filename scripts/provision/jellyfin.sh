@@ -242,3 +242,57 @@ for i in $(seq 1 30); do
   sleep 2
 done
 [[ -n "$token" && "$token" != "null" ]] || die "auth failed after restart"
+
+# 8. Home Screen Sections — declared section layout + integrations (IaC). Runs after the
+#    restart so the plugin is loaded. Schema discovered from the plugin's OpenAPI:
+#    SectionSettings = {SectionId, Enabled, AllowUserOverride, LowerLimit, UpperLimit,
+#    OrderIndex, ViewMode(Portrait|Landscape|Square|Small), HideWatchedItems}.
+#    Jellyfin runs HOST networking, so integrations use $NUC_IP, never container DNS names.
+hss_id=$(curl -fsS "$JF/Plugins" -H "X-Emby-Token: $token" | jq -r '.[]|select(.Name=="Home Screen Sections" and .Status=="Active").Id // empty')
+if [[ -z "$hss_id" ]]; then
+  warn "Home Screen Sections not active — skipping section layout (re-run make provision s=jellyfin)"
+else
+  seerr_key=$(jq -r '.main.apiKey // empty' "${CONFIG:-/opt/appdata}/jellyseerr/settings.json" 2>/dev/null)
+  radarr_key=$(arr_apikey /opt/appdata/radarr 2>/dev/null || true)
+  sonarr_key=$(arr_apikey /opt/appdata/sonarr 2>/dev/null || true)
+  hss_cur=$(curl -fsS "$JF/Plugins/${hss_id}/Configuration" -H "X-Emby-Token: $token")
+  # Layout: everyday rows first (media, resume, fresh arrivals), then taste (because-you-
+  # watched, genre rows, top ten, watch-again), then outward discovery (Jellyseerr discover +
+  # requests, *arr upcoming). Overlapping/irrelevant rows explicitly disabled. Users can
+  # override anything (AllowUserOverride on every row).
+  hss_desired=$(jq --arg ip "$NUC_IP" --arg sk "$seerr_key" --arg rk "$radarr_key" --arg nk "$sonarr_key" '
+    def row($id; $ord; $en; $hide; $max; $vm):
+      {SectionId:$id, Enabled:$en, AllowUserOverride:true, LowerLimit:1, UpperLimit:$max,
+       OrderIndex:$ord, ViewMode:$vm, HideWatchedItems:$hide};
+    .Enabled=true | .AllowUserOverride=true
+    | .JellyseerrUrl=("http://"+$ip+":5055") | .JellyseerrApiKey=$sk
+    | .Radarr.Url=("http://"+$ip+":7878") | .Radarr.ApiKey=$rk
+    | .Sonarr.Url=("http://"+$ip+":8989") | .Sonarr.ApiKey=$nk
+    | .SectionSettings=[
+        row("MyMedia";                1; true;  false; 1; "Landscape"),
+        row("ContinueWatchingNextUp"; 2; true;  false; 1; "Landscape"),
+        row("RecentlyAddedMovies";    3; true;  true;  1; "Landscape"),
+        row("RecentlyAddedShows";     4; true;  true;  1; "Landscape"),
+        row("BecauseYouWatched";      5; true;  true;  3; "Landscape"),
+        row("Genre";                  6; true;  true;  3; "Landscape"),
+        row("TopTen";                 7; true;  false; 1; "Landscape"),
+        row("WatchAgain";             8; true;  false; 1; "Landscape"),
+        row("DiscoverMovies";         9; true;  false; 1; "Portrait"),
+        row("DiscoverTv";            10; true;  false; 1; "Portrait"),
+        row("UpcomingMovies";        11; true;  false; 1; "Portrait"),
+        row("UpcomingShows";         12; true;  false; 1; "Portrait"),
+        row("MyRequests";            13; true;  false; 1; "Landscape"),
+        row("ContinueWatching";     999; false; false; 1; "Landscape"),
+        row("LatestMovies";         999; false; false; 1; "Landscape"),
+        row("LatestShows";          999; false; false; 1; "Landscape"),
+        row("LiveTv";               999; false; false; 1; "Landscape"),
+        row("MyList";               999; false; false; 1; "Landscape")
+      ]' <<<"$hss_cur")
+  if [[ "$(jq -S 'del(.CacheBustCounter)' <<<"$hss_cur")" == "$(jq -S 'del(.CacheBustCounter)' <<<"$hss_desired")" ]]; then
+    ok "Home Screen Sections layout already configured"
+  else
+    curl -fsS -X POST "$JF/Plugins/${hss_id}/Configuration" -H "X-Emby-Token: $token" \
+      -H 'Content-Type: application/json' -d "$hss_desired" >/dev/null
+    ok "Home Screen Sections layout applied (13 rows enabled, integrations wired to $NUC_IP)"
+  fi
+fi

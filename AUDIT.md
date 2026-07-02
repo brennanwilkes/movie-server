@@ -261,16 +261,25 @@ with `EnableDecodingColorDepth10Hevc=false` (correct for Skylake Iris 540).
   `http://<nuc>:5000`, supply a free TMDb API key + Jellyfin/Jellyseerr URLs+keys; config
   persists in `/opt/appdata/suggestarr`. Suggest conservative limits (a few requests/run) and
   the Low/Normal tier as its default profile.
-- **[DONE] Auto-collections sweep** (controller, `collectionsSweep`): decade collections
-  (50s→2020s), top-8 genre collections, and "Critically Loved" (≥7.5) — maintained natively
-  via the Jellyfin Collections API every 12h, no plugin fragility. 17 created on first run.
+- **[DONE] Auto-collections sweep** (controller, `collectionsSweep`): decades (50s→2020s),
+  top-8 + curated genres (Horror/Animation/Family/Documentary/… when ≥5 titles), Critically
+  Loved (≥7.5), Short & Sweet (≤100 min), Epic Runtimes (≥150 min) — 26 collections
+  maintained natively every 12h. **Posters set automatically** from each collection's
+  highest-rated member (no more generic blue folders).
 - **[DONE] Home Screen Sections + File Transformation plugins** (iamparadox.dev repo, IaC in
-  `jellyfin.sh`, installed supervised 2026-07-02, both Active on 10.11.11): configurable
-  home rows. **Configure rows in Jellyfin → Dashboard → Plugins → Home Screen Sections**
-  (e.g. a "Because you watched" row, genre rows, the new auto-collections).
-- **[DONE] SuggestArr approval gate**: dedicated `suggestarr` Jellyseerr user (REQUEST-only,
-  provisioned) — point the SuggestArr wizard at that user and every suggestion lands in
-  Jellyseerr "Pending approval"; nothing downloads until Brennan approves it.
+  `jellyfin.sh`) — AND the **section layout itself is IaC** (schema recovered from the
+  plugin's OpenAPI; written via `/Plugins/{id}/Configuration`): 13 rows enabled in order —
+  My Media, Continue Watching/Next Up, Recently Added Movies/Shows (hide watched), Because
+  You Watched (≤3), Genre rows (≤3), Top Ten, Watch Again, Discover Movies/TV +
+  My Requests (Jellyseerr-wired), Upcoming Movies/Shows (Radarr/Sonarr-wired). Music/book/
+  LiveTV rows disabled; every row user-overridable. NOTE: integrations use $NUC_IP (Jellyfin
+  is host-networked — container DNS names never resolve from it).
+- **[DONE] SuggestArr fully IaC — the web wizard is bypassed** (`provision/suggestarr.sh`
+  writes `config.yaml` directly + restarts): Jellyfin history → TMDb similar → requests as
+  the request-only `suggestarr` user → **Pending approval, nothing auto-downloads**; daily
+  03:00, 3 movies + 1 show per run. **The one thing only Brennan can do: put a free TMDb
+  key in `.env` (`TMDB_API_KEY=`, themoviedb.org/settings/api) then
+  `make provision s=suggestarr`.** Until then SuggestArr idles harmlessly.
 - **[REC] Smart Playlists plugin** (third-party repo) and **Jellystat** (container+Postgres
   stats dashboard) — still deferred; the native collections sweep covers the decade/genre
   playlist ask without them.

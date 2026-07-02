@@ -1166,7 +1166,7 @@ async function collectionsSweep() {
   try {
     const uid = await jellyfinUserId();
     const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
-    const q = new URLSearchParams({ IncludeItemTypes: 'Movie', Recursive: 'true', Fields: 'ProductionYear,Genres,CommunityRating', Limit: '5000' });
+    const q = new URLSearchParams({ IncludeItemTypes: 'Movie', Recursive: 'true', Fields: 'ProductionYear,Genres,CommunityRating,RunTimeTicks', Limit: '5000' });
     const movies = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 15000)).json()).Items) || [];
     if (movies.length < 20) return;                       // tiny library — don't spam collections
     const buckets = new Map();                            // collection name -> Set(itemId)
@@ -1180,20 +1180,49 @@ async function collectionsSweep() {
       }
       for (const g of (m.Genres || [])) genreCount[g] = (genreCount[g] || 0) + 1;
       if ((m.CommunityRating || 0) >= 7.5) add('Critically Loved', m.Id);
+      const mins = m.RunTimeTicks ? Math.round(m.RunTimeTicks / 600000000) : 0;
+      if (mins > 0 && mins <= 100) add('Short & Sweet', m.Id);        // weeknight-sized
+      if (mins >= 150) add('Epic Runtimes', m.Id);                    // settle-in-for-it
     }
+    // Genres: the top-8 by volume PLUS a curated set that's browse-worthy even when small
+    // (Horror for October, Family for kids' nights, …) — anything with ≥5 titles makes it.
+    const CURATED = ['Horror', 'Animation', 'Family', 'Documentary', 'Fantasy', 'Mystery', 'War', 'Western', 'Music'];
     const topGenres = new Set(Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 8).filter(([, c]) => c >= 10).map(([g]) => g));
+    for (const g of CURATED) if ((genreCount[g] || 0) >= 5) topGenres.add(g);
     for (const m of movies) for (const g of (m.Genres || [])) if (topGenres.has(g)) add(`${g} Movies`, m.Id);
     for (const [name, ids] of [...buckets]) if (ids.size < 5) buckets.delete(name);
+    // Poster source per collection: its highest-rated member's poster (set below when a
+    // collection has no Primary image, so they don't sit as generic blue folders).
+    const byId = new Map(movies.map((m) => [m.Id, m]));
+    const posterPick = (want) => [...want].map((x) => byId.get(x)).filter(Boolean)
+      .sort((a, b) => (b.CommunityRating || 0) - (a.CommunityRating || 0))[0];
+    const setPoster = async (setId, memberId) => {
+      const ir = await tfetch(`${HOST.jellyfin}/Items/${memberId}/Images/Primary?maxWidth=600&quality=90`, {}, 15000);
+      if (!ir.ok) return false;
+      const b64 = Buffer.from(await ir.arrayBuffer()).toString('base64');
+      const ur = await tfetch(`${HOST.jellyfin}/Items/${setId}/Images/Primary`, { method: 'POST', headers: { ...h, 'Content-Type': ir.headers.get('content-type') || 'image/jpeg' }, body: b64 }, 20000);
+      return ur.ok;
+    };
     const bq = new URLSearchParams({ IncludeItemTypes: 'BoxSet', Recursive: 'true', Limit: '1000' });
     const sets = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${bq}`, { headers: h }, 15000)).json()).Items) || [];
     const byName = new Map(sets.map((s) => [s.Name, s.Id]));
-    let created = 0, updated = 0;
+    const noPoster = new Set(sets.filter((s) => !(s.ImageTags && s.ImageTags.Primary)).map((s) => s.Id));
+    let created = 0, updated = 0, postered = 0;
     for (const [name, want] of buckets) {
-      const setId = byName.get(name);
+      let setId = byName.get(name);
       if (!setId) {
         const r = await tfetch(`${HOST.jellyfin}/Collections?${new URLSearchParams({ Name: name, Ids: [...want].join(',') })}`, { method: 'POST', headers: h }, 20000);
-        if (r.ok) created++;
+        if (r.ok) {
+          created++;
+          try { setId = (await r.json()).Id; } catch { setId = null; }
+          const pick = posterPick(want);
+          if (setId && pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
+        }
         continue;
+      }
+      if (noPoster.has(setId)) {
+        const pick = posterPick(want);
+        if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
       }
       const cq = new URLSearchParams({ ParentId: setId, Limit: '5000' });
       const have = new Set((((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 15000)).json()).Items) || []).map((i) => i.Id));
@@ -1203,7 +1232,7 @@ async function collectionsSweep() {
       if (toDel.length) await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${toDel.join(',')}`, { method: 'DELETE', headers: h }, 20000);
       if (toAdd.length || toDel.length) updated++;
     }
-    if (created || updated) console.log(`collectionsSweep: ${created} created, ${updated} refreshed (${buckets.size} auto-collections maintained)`);
+    if (created || updated || postered) console.log(`collectionsSweep: ${created} created, ${updated} refreshed, ${postered} poster(s) set (${buckets.size} auto-collections maintained)`);
   } catch (e) { console.log(`collectionsSweep: failed — ${e.message || e}`); }
   finally { collSweepBusy = false; }
 }

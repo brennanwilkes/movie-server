@@ -70,6 +70,7 @@ chk "custom PS3 DLNA profile installed" test -f "${CONFIG:-/opt/appdata}/jellyfi
 if [[ -n "$JFKEY" ]]; then
   chk "Playback Reporting plugin active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -e 'any(.[]; .Name==\"Playback Reporting\" and .Status==\"Active\")'"
   chk "Home Screen Sections + File Transformation active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -e '[.[]|select(.Name==\"Home Screen Sections\" or .Name==\"File Transformation\")|select(.Status==\"Active\")]|length == 2'"
+  chk "HSS home layout configured (13+ rows declared)" sh -c "PID=\$(curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -r '.[]|select(.Name==\"Home Screen Sections\").Id'); curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins/\$PID/Configuration | jq -e '.SectionSettings|length >= 13'"
 fi
 
 echo "=== jellyseerr ==="
