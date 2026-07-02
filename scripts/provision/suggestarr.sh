@@ -30,19 +30,26 @@ import yaml
 p = '/app/config/config_files/config.yaml'
 cfg = yaml.safe_load(open(p)) or {}
 cfg.update({
+    'AUTH_MODE': 'disabled',                       # LAN-only box, house policy: no per-tool logins
     'SELECTED_SERVICE': 'jellyfin',
     'JELLYFIN_API_URL': 'http://${NUC_IP}:8096',   # Jellyfin is HOST-networked: IP, not DNS name
     'JELLYFIN_TOKEN': '${sa_jf_token}',
     'SEER_API_URL': 'http://jellyseerr:5055',      # suggestarr is on the compose bridge: DNS ok
     'SEER_TOKEN': '${sa_seer_key}',
-    'SEER_USER_NAME': 'suggestarr',                # request-only user -> pending approvals
-    'SEER_USER_PSW': '${QBIT_PASS}',
+    'SEER_USER_NAME': 'suggestarr@haleiwa.local',  # Jellyseerr local login is by EMAIL (username → 403)
+    'SEER_USER_PSW': '${QBIT_PASS}',               # request-only user -> pending approvals
     'TMDB_API_KEY': '${TMDB_API_KEY}',
-    'MAX_SIMILAR_MOVIE': '3',
-    'MAX_SIMILAR_TV': '1',
+    'MAX_SIMILAR_MOVIE': 3,
+    'MAX_SIMILAR_TV': 1,
     'CRON_TIMES': '0 3 * * *',
     'SETUP_COMPLETED': True,
 })
+# The stock config quotes numerics as strings ('10'), and the automation compares them to
+# ints (TypeError: '>' not supported int/str). Coerce every known numeric knob.
+for k in ('MAX_SIMILAR_MOVIE','MAX_SIMILAR_TV','MAX_CONTENT_CHECKS','SEARCH_SIZE',
+          'API_RETRIES','API_TIMEOUT','CACHE_TTL','MAX_CACHE_SIZE','SEER_REQUEST_DELAY'):
+    try: cfg[k] = int(cfg[k])
+    except (KeyError, TypeError, ValueError): pass
 yaml.safe_dump(cfg, open(p, 'w'), default_flow_style=False, sort_keys=True)
 PY
 docker restart suggestarr >/dev/null

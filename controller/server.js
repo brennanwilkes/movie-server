@@ -1191,7 +1191,16 @@ async function collectionsSweep() {
       ['War Stories', (m) => has(m, 'War')],
       ['Old Hollywood (pre-70s)', (m, y, mins, r) => y > 0 && y < 1970 && r >= 7],
       ['Modern Masterpieces', (m, y, mins, r) => y >= 2010 && r >= 7.8],
-      ['Date Night', (m, y, mins, r) => (has(m, 'Romance') || has(m, 'Comedy')) && r >= 7.2 && mins > 0 && mins <= 135],
+      // Date-night family — split by era/mood so Chaplin and Superbad stop sharing a shelf.
+      ['Old-School Date Night', (m, y, mins, r) => (has(m, 'Romance') || has(m, 'Comedy')) && y > 0 && y < 1980 && r >= 7],
+      ['Fun Date Night', (m, y, mins, r) => has(m, 'Comedy') && (has(m, 'Romance') || has(m, 'Adventure') || has(m, 'Action')) && y >= 1995 && r >= 6.8 && mins > 0 && mins <= 130],
+      ['Romantic Evening', (m, y, mins, r) => has(m, 'Romance') && !has(m, 'Horror') && r >= 7 && mins > 0 && mins <= 145],
+      ['Modern Rom-Coms (2010s+)', (m, y) => has(m, 'Romance') && has(m, 'Comedy') && y >= 2010],
+      ['70s New Hollywood', (m, y, mins, r) => y >= 1970 && y < 1980 && r >= 7.2],
+      ['80s Adventure Classics', (m, y, mins, r) => (has(m, 'Adventure') || has(m, 'Action')) && y >= 1980 && y < 1990 && r >= 6.5],
+      ['90s Comedies', (m, y) => has(m, 'Comedy') && y >= 1990 && y < 2000],
+      ['Animation Greats', (m, y, mins, r) => has(m, 'Animation') && r >= 7.3],
+      ['Documentaries that Wow', (m, y, mins, r) => has(m, 'Documentary') && r >= 7.5],
     ];
     for (const m of movies) {
       const y = m.ProductionYear || 0;
@@ -1224,7 +1233,10 @@ async function collectionsSweep() {
     const byName = new Map(sets.map((s) => [s.Name, s.Id]));
     // Retire the earlier plain-genre collections (redundant with the Genres tab). Explicit
     // name list so a TMDb franchise box set can never be caught by accident.
-    const RETIRED = new Set(['Action', 'Adventure', 'Comedy', 'Crime', 'Drama', 'Romance', 'Science Fiction', 'Thriller', 'Horror', 'Animation', 'Family', 'Documentary', 'Fantasy', 'Mystery', 'War', 'Western', 'Music'].map((g) => `${g} Movies`));
+    const RETIRED = new Set([
+      ...['Action', 'Adventure', 'Comedy', 'Crime', 'Drama', 'Romance', 'Science Fiction', 'Thriller', 'Horror', 'Animation', 'Family', 'Documentary', 'Fantasy', 'Mystery', 'War', 'Western', 'Music'].map((g) => `${g} Movies`),
+      'Date Night',                              // split into Old-School/Fun/Romantic variants
+    ]);
     let removed = 0;
     for (const s of sets) {
       if (RETIRED.has(s.Name) && !buckets.has(s.Name)) {
