@@ -172,6 +172,28 @@ else
   fi
 fi
 
+# 6d1. Home Screen Sections (+ File Transformation dependency) — modular, configurable home
+#      rows ("Because you watched", genre rows, etc.): the discoverability upgrade for the
+#      stock home page. Third-party repo (iamparadox.dev); versions verified against this
+#      server's 10.11 ABI on 2026-07-02. If a Jellyfin upgrade ever breaks it, the plugin
+#      shows "Malfunctioned" in the dashboard and can be disabled there — core is unaffected.
+hss_repo="https://www.iamparadox.dev/jellyfin/plugins/manifest.json"
+repos=$(curl -fsS "$JF/Repositories" -H "X-Emby-Token: $token")
+if ! jq -e --arg u "$hss_repo" '.[]|select(.Url==$u)' <<<"$repos" >/dev/null 2>&1; then
+  jq --arg u "$hss_repo" '. + [{"Name":"iamparadox (Home Screen Sections)","Url":$u,"Enabled":true}]' <<<"$repos" \
+    | curl -fsS -X POST "$JF/Repositories" -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+  ok "Home Screen Sections repository registered"
+fi
+for hss_pkg in "File Transformation" "Home Screen Sections"; do
+  if grep -qxF "$hss_pkg" <<<"$installed"; then ok "$hss_pkg plugin already installed"; continue; fi
+  hss_enc=$(jq -rn --arg s "$hss_pkg" '$s|@uri')
+  if curl -fsS -X POST "$JF/Packages/Installed/${hss_enc}" -H "X-Emby-Token: $token" >/dev/null 2>&1; then
+    ok "$hss_pkg plugin installed — restart below activates it"
+  else
+    warn "$hss_pkg install failed (catalog may need a minute after repo add) — re-run make provision s=jellyfin"
+  fi
+done
+
 # 6d2. Playback Reporting plugin (official Jellyfin repo) — records who watched what, when.
 #      The raw material for taste-aware home rows, pruning decisions, and SuggestArr-style
 #      recommendations. Same install pattern as the DLNA plugin above.

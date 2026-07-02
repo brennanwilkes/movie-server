@@ -86,9 +86,11 @@ services:
     restart: unless-stopped
 
   # SuggestArr — recommendation engine: reads Jellyfin watch history, finds similar titles
-  # via TMDb, and auto-requests them through Jellyseerr (so they land in the normal
-  # request→download→library pipeline). One-time setup wizard at :5000 (needs a free TMDb
-  # API key + the Jellyfin/Jellyseerr URLs and keys); config persists in ${CONFIG}/suggestarr.
+  # via TMDb, and files them as Jellyseerr REQUESTS. NOTHING AUTO-DOWNLOADS: the wizard must
+  # use the dedicated 'suggestarr' Jellyseerr user (request-only, provisioned by
+  # jellyseerr.sh), so every suggestion sits in "Pending approval" until Brennan approves or
+  # declines it — an inbox, not a downloader. One-time setup wizard at :5000 (needs a free
+  # TMDb API key + Jellyfin/Jellyseerr URLs and keys); config persists in ${CONFIG}/suggestarr.
   suggestarr:
     image: ciuse99/suggestarr:latest
     container_name: suggestarr

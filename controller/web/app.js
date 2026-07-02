@@ -196,7 +196,7 @@ function renderDownloads(items) {
       ? `Not found · ${fmtRecovery(d)}`
       : d.state === 'Stalled' && d.stallGiveUpAt
       ? `Stalled · ${fmtGiveUp(d.stallGiveUpAt)}`
-      : [d.state, pctShown, d.sizeBytes > 0 ? fmtBytes(d.sizeBytes) : ''].filter(Boolean).join(' · ');
+      : [d.state, pctShown, d.sizeBytes > 0 ? fmtBytes(d.sizeBytes) : '', d.note].filter(Boolean).join(' · ');
     const color = COLOR[d.state] || '';
     const seedsShown = typeof d.seeds === 'number' ? `Seeds: ${d.seeds}` : '';
     const barW = (d.state === 'Declined' || d.attention) ? 100 : Math.min(100, d.progress);

@@ -69,12 +69,14 @@ fi
 chk "custom PS3 DLNA profile installed" test -f "${CONFIG:-/opt/appdata}/jellyfin/data/plugins/configurations/dlna/user/Sony PlayStation 3.xml"
 if [[ -n "$JFKEY" ]]; then
   chk "Playback Reporting plugin active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -e 'any(.[]; .Name==\"Playback Reporting\" and .Status==\"Active\")'"
+  chk "Home Screen Sections + File Transformation active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -e '[.[]|select(.Name==\"Home Screen Sections\" or .Name==\"File Transformation\")|select(.Status==\"Active\")]|length == 2'"
 fi
 
 echo "=== jellyseerr ==="
 SEERRKEY=$(jq -r '.main.apiKey' "${CONFIG:-/opt/appdata}/jellyseerr/settings.json" 2>/dev/null || true)
 if [[ -n "$SEERRKEY" ]]; then
   chk "custom discovery sliders present + enabled" sh -c "curl -sf -H 'X-Api-Key: $SEERRKEY' http://localhost:5055/api/v1/settings/discover | jq -e '[.[]|select(.isBuiltIn|not)] | length >= 4 and all(.[]; .enabled)'"
+  chk "'suggestarr' request-only user exists (approval gate)" sh -c "curl -sf -H 'X-Api-Key: $SEERRKEY' 'http://localhost:5055/api/v1/user?take=200' | jq -e '.results[]|select((.username // .displayName // .email)|test(\"suggestarr\";\"i\"))'"
 fi
 
 echo

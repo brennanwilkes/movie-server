@@ -261,12 +261,19 @@ with `EnableDecodingColorDepth10Hevc=false` (correct for Skylake Iris 540).
   `http://<nuc>:5000`, supply a free TMDb API key + Jellyfin/Jellyseerr URLs+keys; config
   persists in `/opt/appdata/suggestarr`. Suggest conservative limits (a few requests/run) and
   the Low/Normal tier as its default profile.
-- **[REC] Home Screen Sections plugin** — correction to the earlier draft: it is NOT
-  installed (stray config XMLs misled; only stock plugins + DLNA/Intro Skipper/Playback
-  Reporting are). It needs a third-party repo + two dependency plugins — do it in a
-  supervised session. Custom home rows remain the biggest Jellyfin-home upgrade.
+- **[DONE] Auto-collections sweep** (controller, `collectionsSweep`): decade collections
+  (50s→2020s), top-8 genre collections, and "Critically Loved" (≥7.5) — maintained natively
+  via the Jellyfin Collections API every 12h, no plugin fragility. 17 created on first run.
+- **[DONE] Home Screen Sections + File Transformation plugins** (iamparadox.dev repo, IaC in
+  `jellyfin.sh`, installed supervised 2026-07-02, both Active on 10.11.11): configurable
+  home rows. **Configure rows in Jellyfin → Dashboard → Plugins → Home Screen Sections**
+  (e.g. a "Because you watched" row, genre rows, the new auto-collections).
+- **[DONE] SuggestArr approval gate**: dedicated `suggestarr` Jellyseerr user (REQUEST-only,
+  provisioned) — point the SuggestArr wizard at that user and every suggestion lands in
+  Jellyseerr "Pending approval"; nothing downloads until Brennan approves it.
 - **[REC] Smart Playlists plugin** (third-party repo) and **Jellystat** (container+Postgres
-  stats dashboard) — both good, both deferred for the same supervised-install reason.
+  stats dashboard) — still deferred; the native collections sweep covers the decade/genre
+  playlist ask without them.
 
 ## 8. Live-stack snapshot (2026-07-02, for future reference)
 

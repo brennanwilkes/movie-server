@@ -83,7 +83,8 @@ The controller runs 6 background sweeps. Each is independent and has its own int
 | `arrSweep` | 5min | `1520-1685` | Remove stuck queue items, dedup duplicates, trigger searches for missing items |
 | `requestGate` | 1min | `1786-1779` | Flag Jellyseerr requests stuck on disk space |
 | `jfLibraryRefresh` | event + 2min watchdog | `1787-1816` | Trigger Jellyfin library scan after imports |
-| `gpuVerifySweep` | 10min | search `gpuVerifySweep` | Post-import ground truth: a movie imported <48h ago whose mediaInfo is 10-bit/HDR/AV1/VP9 gets its release blocklisted + re-searched (once per movie EVER — `gpuSwapped` persisted; max 2/cycle). Log prefix `gpuVerify:` |
+| `gpuVerifySweep` | 10min | search `gpuVerifySweep` | Post-import ground truth, ZERO-GAP: a movie imported <48h ago whose mediaInfo is 10-bit/HDR/AV1/VP9 gets a strictly-better H.264 release grabbed (search-first, playstate-guarded); the OLD FILE STAYS until the replacement completes (`gpuPending` persisted), then swap+import. Once per movie ever (`gpuSwapped`); UI labels the download "Auto-upgrade". Log prefix `gpuVerify:` |
+| `collectionsSweep` | 12h | search `collectionsSweep` | Maintains native auto-collections from library metadata: decades (50s→2020s), top-8 genres, Critically Loved (≥7.5). No plugin — pure Jellyfin Collections API. Log prefix `collectionsSweep:` |
 
 (Line numbers drift — prefer grepping the sweep name in `controller/server.js`. Other cleanups
 living inside the sweeps above: `arrSweep` also removes+blocklists terminal import rejections

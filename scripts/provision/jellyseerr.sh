@@ -105,6 +105,22 @@ slider_ensure() {  # title  tmdb-genre-id
 for tid in $(jq -r '.[]|select(.title=="__iac_test").id' <<<"$sliders"); do
   js -o /dev/null -X DELETE "$JS/settings/discover/$tid" && ok "jellyseerr: removed test slider (id=$tid)"
 done
+# Dedicated request-only user for SuggestArr (NO auto-approve): defaultPermissions above
+# grants plain REQUEST, so anything SuggestArr requests as this user sits in "Pending
+# approval" until Brennan approves/declines in Jellyseerr — suggestions become an inbox,
+# never silent downloads. The SuggestArr wizard must be pointed at THIS user.
+if js "$JS/user?take=200" | jq -e '.results[]|select((.username // .displayName // .email)|test("suggestarr";"i"))' >/dev/null 2>&1; then
+  ok "jellyseerr: 'suggestarr' request-only user present"
+else
+  resp=$(js -X POST "$JS/user" -H 'Content-Type: application/json' \
+    -d '{"email":"suggestarr@haleiwa.local","username":"suggestarr","password":"brennan","permissions":32}')
+  if echo "$resp" | jq -e '.id' >/dev/null 2>&1; then
+    ok "jellyseerr: 'suggestarr' user created (REQUEST only — its requests need approval)"
+  else
+    warn "jellyseerr: could not create 'suggestarr' user: $(echo "$resp" | jq -c '.message // .' 2>/dev/null)"
+  fi
+fi
+
 sliders_changed=false
 slider_ensure "Comedy Picks"   35
 slider_ensure "Sci-Fi Picks"   878

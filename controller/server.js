@@ -583,6 +583,10 @@ async function buildDownloads() {
       // seeds) so the UI can say when it'll blocklist-and-research instead of sitting silent.
       const stallGiveUpAt = state === 'Stalled' && _stallSince.has(h) ? (_stallSince.get(h) + STALL_DEAD) * 1000 : null;
       const item = { title: t.name, progress: displayProg, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || (hi && hi.size) || (qrec && qrec.size) || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash, seeds, stallGiveUpAt };
+      // An auto-upgrade the user didn't request must explain itself in the UI.
+      if (app === 'radarr' && qrec && qrec.movieId != null && gpuPending.has(qrec.movieId)) {
+        item.note = 'Auto-upgrade: fetching a GPU-friendly copy — your current file stays watchable until this finishes';
+      }
       if (finished && app === 'radarr' && _arrId != null) {
         const key = `radarr:${_arrId}`, comp = t.completion_on || 0, prev = completedByMovie.get(key);
         if (prev && comp <= prev.completion) continue;                 // older/equal duplicate of a movie we already show — drop it
@@ -1022,12 +1026,14 @@ setTimeout(stallRecovery, 20000);
 //   3. Search FIRST, act only if a STRICTLY better GPU-friendly release exists (custom-format
 //      score > the current file's, real H.264, no 10-bit/HDR/AV1 markers, actually seeded) —
 //      an indexer outage can't make us trade a small 10-bit file for a bloated x264.
-//   4. Grab the replacement FIRST; only after the grab succeeds do we remove the old torrent
-//      + file (so the incoming import lands cleanly instead of "not an upgrade"). The gap a
-//      viewer could notice is download-time only — never "deleted and still searching".
+//   4. ZERO-GAP: the old file is NOT deleted when the replacement is grabbed. It stays fully
+//      playable until the new download COMPLETES; only then (Phase 1, playstate re-checked)
+//      is the old copy removed and the new file imported. If the replacement never completes
+//      (48h), the swap is abandoned and the old copy simply stays.
 //   5. Once per movie EVER on success/watched (persisted in gpuSwapped); a no-better-release
-//      pass retries at most every 6h within the 48h window. Max 2 movies per cycle. Never in
-//      Movie Mode. Movies only — TV episode teardown is out of scope.
+//      pass retries at most every 6h within the 48h window. Max 2 new swaps per cycle. Never
+//      in Movie Mode. Movies only. The Downloads UI labels the replacement download as an
+//      auto-upgrade so an un-requested download always explains itself.
 const GPU_SWAP_WINDOW_MS = 48 * 3600 * 1000;
 let gpuVerifyBusy = false;
 async function gpuVerifySweep() {
@@ -1035,15 +1041,57 @@ async function gpuVerifySweep() {
   gpuVerifyBusy = true;
   try {
     let movies; try { movies = await arrGet('radarr', '/movie'); } catch { return; }
-    const queuedIds = new Set([...(await getQueueMap('radarr')).values()].map((q) => q.movieId));
+    const queue = await getQueueMap('radarr');
+    const queuedIds = new Set([...queue.values()].map((q) => q.movieId));
     const now = Date.now();
+
+    // Phase 1 — finalize in-flight zero-gap swaps. The old copy is removed ONLY here: after
+    // the replacement finished downloading, and never while someone is mid-watch.
+    if (gpuPending.size) {
+      let torrents = [];
+      try { torrents = await getQbitTorrents(); } catch { /* qbit down — try next cycle */ }
+      for (const [mid, p] of gpuPending) {
+        if (now - p.ts > 48 * 3600000) {              // replacement never completed — stand down, keep the old copy
+          gpuPending.delete(mid); gpuSwapped.set(mid, { ts: now, done: true }); persistState();
+          console.log(`gpuVerify: upgrade of "${p.title}" abandoned after 48h — old copy kept`);
+          continue;
+        }
+        const old = new Set((p.oldHashes || []).map((x) => x.toLowerCase()));
+        const fresh = torrents.filter((t) => torrentApp(t) === 'radarr'
+          && !old.has((t.hash || '').toLowerCase())
+          && (queue.get((t.hash || '').toLowerCase()) || {}).movieId === mid);
+        const done = fresh.find((t) => (t.progress || 0) >= 1);
+        if (!done) continue;                          // replacement still downloading — old copy stays playable
+        try {                                          // fail CLOSED: no playstate confirmation → no deletion
+          const jfId = await jellyfinIdByTmdb('Movie', p.tmdbId);
+          if (jfId) {
+            const uid = await jellyfinUserId();
+            const it = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${jfId}`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 6000)).json();
+            if (((it.UserData || {}).PlaybackPositionTicks || 0) > 0) {
+              console.log(`gpuVerify: "${p.title}" replacement ready but someone is mid-watch — waiting`);
+              continue;
+            }
+          }
+        } catch { continue; }
+        const files = await arrGet('radarr', `/moviefile?movieId=${mid}`).catch(() => []);
+        for (const f of (Array.isArray(files) ? files : [])) { try { await arrDelete('radarr', `/moviefile/${f.id}`); } catch { /* */ } }
+        if (old.size) {
+          try { await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: [...old].join('|'), deleteFiles: 'true' }) }); } catch { /* */ }
+        }
+        if (done.content_path) { try { await importViaManual('radarr', done.content_path, mid); } catch { /* watchdog retries */ } }
+        gpuPending.delete(mid); gpuSwapped.set(mid, { ts: now, done: true }); persistState();
+        console.log(`gpuVerify: "${p.title}" upgraded — replacement complete, old copy removed, new file importing`);
+      }
+    }
+
+    // Phase 2 — scan fresh imports for non-GPU-decodable files and start new swaps.
     let acted = 0;
     const BAD_CF = new Set(['10-bit (CPU)', 'HDR / Dolby Vision (CPU)', 'Likely 10-bit group (CPU)', 'AV1 (CPU)', 'VP9 (CPU)']);
     for (const m of movies) {
       if (acted >= 2) break;
       const mf = m.movieFile;
       if (!m.hasFile || !mf || !mf.mediaInfo) continue;
-      if (queuedIds.has(m.id)) continue;
+      if (queuedIds.has(m.id) || gpuPending.has(m.id)) continue;
       const st = gpuSwapped.get(m.id);
       if (st && (st.done || st === true || typeof st === 'number')) continue;   // done (legacy entries = plain ts)
       if (st && now - st.ts < 6 * 3600000) continue;                            // no-better-release backoff
@@ -1092,22 +1140,75 @@ async function gpuVerifySweep() {
         // Grab the replacement FIRST — if this fails, the current file is untouched.
         const gr = await tfetch(`${base}/release`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ guid: best.guid, indexerId: best.indexerId }) }, 30000);
         if (!gr.ok) { console.log(`gpuVerify: "${m.title}" replacement grab failed (HTTP ${gr.status}) — leaving file in place`); continue; }
-        // Replacement inbound → now clear the old copy so the import lands as a clean new file
-        // (not "not an upgrade"). Old torrent goes too, so the watchdog can't re-import it.
-        if (oldHashes.length) {
-          try { await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: oldHashes.join('|'), deleteFiles: 'true' }) }); } catch { /* */ }
-        }
-        const files = await arrGet('radarr', `/moviefile?movieId=${m.id}`).catch(() => []);
-        for (const f of (Array.isArray(files) ? files : [])) { try { await arrDelete('radarr', `/moviefile/${f.id}`); } catch { /* */ } }
-        gpuSwapped.set(m.id, { ts: now, done: true });
+        // ZERO-GAP: the old file is NOT touched now. Register the pending swap — Phase 1
+        // removes the old copy only after the replacement finishes downloading (and nobody
+        // is watching). The Downloads UI labels this download as an auto-upgrade.
+        gpuPending.set(m.id, { oldHashes, ts: now, title: m.title, tmdbId: m.tmdbId });
         persistState();
-        console.log(`gpuVerify: "${m.title}" was ${label} (file score ${fileScore}) — grabbed better H.264 "${(best.title || '').slice(0, 60)}" (score ${best.customFormatScore}, ${best.seeders} seeds), old copy removed`);
+        console.log(`gpuVerify: "${m.title}" is ${label} (file score ${fileScore}) — grabbed better H.264 "${(best.title || '').slice(0, 60)}" (score ${best.customFormatScore}, ${best.seeders} seeds); old copy stays until it completes`);
       } catch (e) { console.log(`gpuVerify: failed for "${m.title}" — ${e.message || e}`); }
     }
   } finally { gpuVerifyBusy = false; }
 }
 setInterval(gpuVerifySweep, 600000); // every 10 min; per-cycle cap + once-per-movie guard bound the work
 setTimeout(gpuVerifySweep, 60000);
+
+// ---- Auto-collections sweep: decade / genre / top-rated collections, maintained natively ──
+// "Automatic playlists by decade and genre" with NO third-party plugin: the controller derives
+// rule-based Jellyfin COLLECTIONS (box sets — poster tiles in Movies → Collections) from
+// library metadata and reconciles membership every pass, so they grow with the library and
+// survive Jellyfin upgrades. Distinct names ("90s Movies", "Comedy Movies") can't collide
+// with TMDb franchise box sets ("James Bond Collection"). Thin buckets (<5 titles) skipped.
+let collSweepBusy = false;
+async function collectionsSweep() {
+  if (masterPaused || collSweepBusy || !cfg.JELLYFIN_KEY) return;
+  collSweepBusy = true;
+  try {
+    const uid = await jellyfinUserId();
+    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+    const q = new URLSearchParams({ IncludeItemTypes: 'Movie', Recursive: 'true', Fields: 'ProductionYear,Genres,CommunityRating', Limit: '5000' });
+    const movies = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 15000)).json()).Items) || [];
+    if (movies.length < 20) return;                       // tiny library — don't spam collections
+    const buckets = new Map();                            // collection name -> Set(itemId)
+    const add = (name, id) => { if (!buckets.has(name)) buckets.set(name, new Set()); buckets.get(name).add(id); };
+    const genreCount = {};
+    for (const m of movies) {
+      const y = m.ProductionYear || 0;
+      if (y >= 1950) {
+        const d = Math.floor(y / 10) * 10;
+        add(`${d >= 2000 ? d : String(d).slice(2)}s Movies`, m.Id);
+      }
+      for (const g of (m.Genres || [])) genreCount[g] = (genreCount[g] || 0) + 1;
+      if ((m.CommunityRating || 0) >= 7.5) add('Critically Loved', m.Id);
+    }
+    const topGenres = new Set(Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 8).filter(([, c]) => c >= 10).map(([g]) => g));
+    for (const m of movies) for (const g of (m.Genres || [])) if (topGenres.has(g)) add(`${g} Movies`, m.Id);
+    for (const [name, ids] of [...buckets]) if (ids.size < 5) buckets.delete(name);
+    const bq = new URLSearchParams({ IncludeItemTypes: 'BoxSet', Recursive: 'true', Limit: '1000' });
+    const sets = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${bq}`, { headers: h }, 15000)).json()).Items) || [];
+    const byName = new Map(sets.map((s) => [s.Name, s.Id]));
+    let created = 0, updated = 0;
+    for (const [name, want] of buckets) {
+      const setId = byName.get(name);
+      if (!setId) {
+        const r = await tfetch(`${HOST.jellyfin}/Collections?${new URLSearchParams({ Name: name, Ids: [...want].join(',') })}`, { method: 'POST', headers: h }, 20000);
+        if (r.ok) created++;
+        continue;
+      }
+      const cq = new URLSearchParams({ ParentId: setId, Limit: '5000' });
+      const have = new Set((((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 15000)).json()).Items) || []).map((i) => i.Id));
+      const toAdd = [...want].filter((x) => !have.has(x));
+      const toDel = [...have].filter((x) => !want.has(x));
+      if (toAdd.length) await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${toAdd.join(',')}`, { method: 'POST', headers: h }, 20000);
+      if (toDel.length) await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${toDel.join(',')}`, { method: 'DELETE', headers: h }, 20000);
+      if (toAdd.length || toDel.length) updated++;
+    }
+    if (created || updated) console.log(`collectionsSweep: ${created} created, ${updated} refreshed (${buckets.size} auto-collections maintained)`);
+  } catch (e) { console.log(`collectionsSweep: failed — ${e.message || e}`); }
+  finally { collSweepBusy = false; }
+}
+setInterval(collectionsSweep, 6 * 3600000);   // twice a day keeps them fresh
+setTimeout(collectionsSweep, 90000);
 
 // Video format labelling and GPU-compatibility tier.
 function videoLabel(mi) {
@@ -1487,9 +1588,13 @@ const declined = new Map(); // hash -> { title, neededBytes, freeBytes, ts, sour
 // a `const` referenced before its line is a ReferenceError (TDZ) that loadState's catch would
 // swallow, silently losing the persisted state across reboots.
 const blocked = new Map();  // `app:id:seasons` -> { title, neededBytes, freeBytes, ts, lastCheck }
-// movieId -> ts of a GPU-compat re-grab (gpuVerifySweep) — once per movie EVER, persisted,
-// so the verifier can never loop on a title whose only releases are 10-bit.
+// movieId -> {ts, done} for GPU-compat re-grabs (gpuVerifySweep) — once per movie EVER,
+// persisted, so the verifier can never loop on a title whose only releases are 10-bit.
 const gpuSwapped = new Map();
+// movieId -> {oldHashes, ts, title, tmdbId}: an in-flight ZERO-GAP swap. The better H.264
+// copy has been grabbed but the OLD FILE STAYS PLAYABLE until the download completes; only
+// then (and only if nobody is mid-watch) is the old copy removed and the new one imported.
+const gpuPending = new Map();
 // Per-item *arr search state, persisted so it survives a controller restart (an in-memory-only
 // version, wiped on every reboot, is what let a restart re-trigger the full search/grab storm).
 // Key `app:id` -> { ts: last auto-search ms, fails: consecutive fruitless searches, blockedUntil }.
@@ -1505,11 +1610,12 @@ function persistState() {
   clearTimeout(persistState._timer);
   persistState._timer = setTimeout(() => {
     try {
-      const obj = { declined: {}, blocked: {}, searchState: {}, gpuSwapped: {}, masterPaused };
+      const obj = { declined: {}, blocked: {}, searchState: {}, gpuSwapped: {}, gpuPending: {}, masterPaused };
       for (const [k, v] of declined) obj.declined[k] = v;
       for (const [k, v] of blocked) obj.blocked[k] = v;
       for (const [k, v] of searchState) obj.searchState[k] = v;
       for (const [k, v] of gpuSwapped) obj.gpuSwapped[k] = v;
+      for (const [k, v] of gpuPending) obj.gpuPending[k] = v;
       fs.writeFileSync('/config/state.json', JSON.stringify(obj));
     } catch { /* */ }
   }, 500);
@@ -1521,6 +1627,7 @@ function loadState() {
     if (obj.blocked) for (const [k, v] of Object.entries(obj.blocked)) blocked.set(k, v);
     if (obj.searchState) for (const [k, v] of Object.entries(obj.searchState)) searchState.set(k, v);
     if (obj.gpuSwapped) for (const [k, v] of Object.entries(obj.gpuSwapped)) gpuSwapped.set(Number(k), v);
+    if (obj.gpuPending) for (const [k, v] of Object.entries(obj.gpuPending)) gpuPending.set(Number(k), v);
     if (typeof obj.masterPaused === 'boolean') masterPaused = obj.masterPaused;
   } catch { /* */ }
 }
@@ -1825,7 +1932,11 @@ async function arrSweep() {
         // re-grabbed. Transient states (still downloading, missing-file glitch) don't match.
         const doneDl = (qe.status || '').toLowerCase() === 'completed'
           || (qe.trackedDownloadState === 'importPending' || qe.trackedDownloadState === 'importBlocked');
-        if (doneDl && (qe.trackedDownloadStatus || '').toLowerCase() === 'warning') {
+        // EXEMPT in-flight gpuVerify zero-gap swaps: their replacement will briefly sit at
+        // "not an upgrade" (old file still on disk by design) until Phase 1 clears the old
+        // copy — cleaning it up here would kill the upgrade mid-swap.
+        const isPendingSwap = app === 'radarr' && qe.movieId != null && gpuPending.has(qe.movieId);
+        if (doneDl && !isPendingSwap && (qe.trackedDownloadStatus || '').toLowerCase() === 'warning') {
           const msgs = ((qe.statusMessages || []).flatMap((m) => m.messages || []).join(' ') + ' ' + (qe.errorMessage || '')).toLowerCase();
           if (/not an upgrade|not a custom format upgrade|\bsample\b/.test(msgs)) {
             stuckIds.push({ id, queueId: qe.id, blocklist: true });
