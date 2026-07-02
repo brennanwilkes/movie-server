@@ -155,7 +155,7 @@ jq --arg ip "$NUC_IP" '.EnableIPv6=false | .LocalNetworkAddresses=[$ip] | .Publi
   | curl -fsS -X POST "$JF/System/Configuration/network" -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
 ok "network advertised on $NUC_IP, IPv6 off"
 
-# 6d. DLNA plugin — removed from Jellyfin core in 10.10+, so the PS3 needs it installed to discover
+# 6d. DLNA plugin — removed from Jellyfin core in 10.10+, so the PS4 needs it installed to discover
 #     and browse Jellyfin. Lives in the default Jellyfin Stable repo. (Sony PS3 device profile ships
 #     with the plugin and auto-applies by the PS3's identity on connect.)
 if grep -qxF "DLNA" <<<"$installed"; then
@@ -211,22 +211,23 @@ else
   fi
 fi
 
-# 6e. Custom PS3 DLNA device profile — the plugin's built-in "Sony PlayStation 3" profile
-#     direct-plays AAC 5.1 (PS3 only decodes stereo AAC → video with dead audio) and prefers
-#     an AAC (stereo) transcode target over AC3 (5.1). A profile in the plugin's USER dir with
-#     the same Identification overrides the built-in. See dlna-ps3-profile.xml for details.
-PS3_SRC="$(dirname "${BASH_SOURCE[0]}")/dlna-ps3-profile.xml"
-PS3_DST="${CONFIG:-/opt/appdata}/jellyfin/data/plugins/configurations/dlna/user/Sony PlayStation 3.xml"
-if [[ -f "$PS3_SRC" ]]; then
-  mkdir -p "$(dirname "$PS3_DST")"
-  if cmp -s "$PS3_SRC" "$PS3_DST" 2>/dev/null; then
-    ok "PS3 DLNA profile already installed"
+# 6e. PS4 DLNA device profile — the console is a PS4 (long mislabelled PS3): it identifies
+#     as "PLAYSTATION 4", so only a matching profile applies. Direct-plays MKV/MP4 with
+#     H.264 8-bit + AAC/AC3; everything else (E-AC3/DDP, DTS, HEVC, 10-bit) transcodes to
+#     TS H.264 + AC3 5.1. See dlna-ps4-profile.xml for the full capability notes.
+PS4_SRC="$(dirname "${BASH_SOURCE[0]}")/dlna-ps4-profile.xml"
+PS4_DST="${CONFIG:-/opt/appdata}/jellyfin/data/plugins/configurations/dlna/user/Sony PlayStation 4.xml"
+rm -f "${CONFIG:-/opt/appdata}/jellyfin/data/plugins/configurations/dlna/user/Sony PlayStation 3.xml"  # retired (wrong console)
+if [[ -f "$PS4_SRC" ]]; then
+  mkdir -p "$(dirname "$PS4_DST")"
+  if cmp -s "$PS4_SRC" "$PS4_DST" 2>/dev/null; then
+    ok "PS4 DLNA profile already installed"
   else
-    cp "$PS3_SRC" "$PS3_DST"
-    ok "PS3 DLNA profile installed (AAC capped at 2ch direct-play, AC3 5.1 transcode target) — restart below activates it"
+    cp "$PS4_SRC" "$PS4_DST"
+    ok "PS4 DLNA profile installed (MKV+H.264+AAC/AC3 direct-play; DDP/DTS/HEVC → TS+AC3 transcode) — restart below activates it"
   fi
 else
-  warn "dlna-ps3-profile.xml missing next to jellyfin.sh — PS3 profile not installed"
+  warn "dlna-ps4-profile.xml missing next to jellyfin.sh — PS4 profile not installed"
 fi
 
 # 7. Restart Jellyfin so plugin and CSS changes take effect (Branding API writes
@@ -273,23 +274,37 @@ else
     | .SectionSettings=[
         row("MyMedia";                1; true;  false; 1; "Landscape"),
         row("ContinueWatchingNextUp"; 2; true;  false; 1; "Landscape"),
-        row("BecauseYouWatched";      3; true;  true;  4; "Landscape"),
-        row("ShelfA";                 4; true;  false; 1; "Landscape"),
-        row("ShelfB";                 4; true;  false; 1; "Landscape"),
-        row("ShelfC";                 4; true;  false; 1; "Landscape"),
-        row("ShelfD";                 4; true;  false; 1; "Landscape"),
-        row("ShelfE";                 4; true;  false; 1; "Landscape"),
-        row("ShelfF";                 4; true;  false; 1; "Landscape"),
-        row("RecentlyAddedMovies";    5; true;  true;  1; "Landscape"),
-        row("RecentlyAddedShows";     5; true;  true;  1; "Landscape"),
-        row("Genre";                  6; true;  true;  3; "Landscape"),
-        row("TopTen";                 6; true;  false; 1; "Landscape"),
-        row("WatchAgain";             6; true;  false; 1; "Landscape"),
-        row("DiscoverMovies";         9; true;  false; 1; "Portrait"),
-        row("DiscoverTv";             9; true;  false; 1; "Portrait"),
-        row("UpcomingMovies";         9; true;  false; 1; "Portrait"),
-        row("UpcomingShows";          9; true;  false; 1; "Portrait"),
-        row("MyRequests";            13; true;  false; 1; "Landscape"),
+        row("ShelfA";                 4; true;  false; 10; "Landscape"),
+        row("ShelfB";                 4; true;  false; 10; "Landscape"),
+        row("ShelfC";                 4; true;  false; 10; "Landscape"),
+        row("ShelfD";                 4; true;  false; 10; "Landscape"),
+        row("ShelfE";                 4; true;  false; 10; "Landscape"),
+        row("ShelfF";                 4; true;  false; 10; "Landscape"),
+        row("ShelfG";                 4; true;  false; 10; "Landscape"),
+        row("ShelfH";                 4; true;  false; 10; "Landscape"),
+        row("ShelfI";                 4; true;  false; 10; "Landscape"),
+        row("ShelfJ";                 4; true;  false; 10; "Landscape"),
+        row("BecauseYouWatched";      5; true;  true;  4; "Landscape"),
+        row("ShelfK";                 6; true;  false; 10; "Landscape"),
+        row("ShelfL";                 6; true;  false; 10; "Landscape"),
+        row("ShelfM";                 6; true;  false; 10; "Landscape"),
+        row("ShelfN";                 6; true;  false; 10; "Landscape"),
+        row("ShelfO";                 6; true;  false; 10; "Landscape"),
+        row("ShelfP";                 6; true;  false; 10; "Landscape"),
+        row("ShelfQ";                 6; true;  false; 10; "Landscape"),
+        row("ShelfR";                 6; true;  false; 10; "Landscape"),
+        row("ShelfS";                 6; true;  false; 10; "Landscape"),
+        row("ShelfT";                 6; true;  false; 10; "Landscape"),
+        row("RecentlyAddedMovies";    7; true;  true;  1; "Landscape"),
+        row("RecentlyAddedShows";     7; true;  true;  1; "Landscape"),
+        row("Genre";                  8; true;  true;  3; "Landscape"),
+        row("TopTen";                 8; true;  false; 1; "Landscape"),
+        row("WatchAgain";             8; true;  false; 1; "Landscape"),
+        row("DiscoverMovies";        11; true;  false; 1; "Portrait"),
+        row("DiscoverTv";            11; true;  false; 1; "Portrait"),
+        row("UpcomingMovies";        11; true;  false; 1; "Portrait"),
+        row("UpcomingShows";         11; true;  false; 1; "Portrait"),
+        row("MyRequests";            15; true;  false; 1; "Landscape"),
         row("ContinueWatching";     999; false; false; 1; "Landscape"),
         row("LatestMovies";         999; false; false; 1; "Landscape"),
         row("LatestShows";          999; false; false; 1; "Landscape"),

@@ -297,3 +297,14 @@ with `EnableDecodingColorDepth10Hevc=false` (correct for Skylake Iris 540).
   disabled (Cloudflare 1006 IP ban; Knaben covers it). All recent grabs came via TPB.
 - Jellyfin 10.11.11 + DLNA plugin 11.0.0.0; QSV on; 10-bit HEVC → SW decode (correct).
 - Radarr v6.2.1 / Sonarr v4.0.19 / qBittorrent v5.2.2 (cookie `QBT_SID_<port>`).
+
+---
+
+**CORRECTION (2026-07-02, late):** the household console is a **PS4**, not a PS3 — every
+"PS3" reference above should be read accordingly. Consequences handled: the PS4 identifies
+as "PLAYSTATION 4" so the PS3 DLNA profile never matched (that, plus E-AC3 audio in every
+WEB-DL, is the complete "silent audio" story); a proper PS4 profile now ships
+(`dlna-ps4-profile.xml` — MKV is fine on PS4, E-AC3/DTS/HEVC/10-bit are not). The
+normalizer became **additive**: `ps4ify`/`ps4fix.timer` ADD a default-flagged AC3 5.1
+compat track and keep the original audio + container untouched — no quality is ever
+destroyed for compatibility. Grab-time audio bias renamed to "PS4-native audio (AC3)".

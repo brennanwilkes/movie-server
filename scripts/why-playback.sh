@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# why-playback.sh "Title" — answer "why isn't this playing (well) on the PS3 / projector?"
+# why-playback.sh "Title" — answer "why isn't this playing (well) on the PS4 / projector?"
 # Looks the movie up in Radarr, reads the file's ffprobe mediaInfo, and prints a verdict
-# per playback path (PS3 DLNA direct-play, PS3 via transcode, browser/Fire Stick).
+# per playback path (PS4 DLNA direct-play, transcode fallback, browser/Fire Stick).
 # Read-only. Movies only (TV: use `./scripts/search-releases.sh --sonarr` + ffprobe by hand).
 #
 #   ./scripts/why-playback.sh "Pulp Fiction"
@@ -46,16 +46,16 @@ is_h264=false; case "$v" in *x264*|*h264*|*avc*) is_h264=true;; esac
 is_hevc=false; case "$v" in *x265*|*h265*|*hevc*) is_hevc=true;; esac
 is_hdr=false;  [[ -n "$DR" && "$DR" != "SDR" ]] && is_hdr=true
 
-# --- PS3 direct-play (custom DLNA profile: mp4/ts + h264<=L4.1 8bit + aac<=2ch|ac3) ---
-echo "— PS3 direct-play:"
-if $is_h264 && [[ "$DEPTH" -le 8 && "$EXT" =~ ^(mp4|m4v|ts)$ ]] && { [[ "$a" == *ac3* ]] || { [[ "$a" == *aac* && "$ACHI" -le 2 ]]; }; }; then
+# --- PS4 direct-play (profile: mkv/mp4/ts + h264 8-bit + AAC(≤6ch)/AC3; NO eac3/dts/truehd) ---
+echo "— PS4 direct-play:"
+if $is_h264 && [[ "$DEPTH" -le 8 && "$EXT" =~ ^(mp4|m4v|ts|mkv)$ ]] && { [[ "$a" == *ac3* && "$a" != *eac3* && "$a" != *e-ac* ]] || { [[ "$a" == *aac* && "$ACHI" -le 6 ]]; }; }; then
   echo "   YES — should play untouched."
 else
   why=()
-  [[ "$EXT" =~ ^(mp4|m4v|ts)$ ]] || why+=("container $EXT (PS3 only mp4/ts)")
-  $is_h264 || why+=("video $VCODEC (PS3 only H.264 8-bit)")
-  [[ "$DEPTH" -le 8 ]] || why+=("${DEPTH}-bit (PS3 is 8-bit only)")
-  { [[ "$a" == *ac3* ]] || { [[ "$a" == *aac* && "$ACHI" -le 2 ]]; }; } || why+=("audio $ACODEC ${ACH}ch (PS3: AC3 or stereo AAC — 5.1 AAC = silent audio)")
+  [[ "$EXT" =~ ^(mp4|m4v|ts|mkv)$ ]] || why+=("container $EXT (PS4: mkv/mp4/ts)")
+  $is_h264 || why+=("video $VCODEC (PS4 media player is H.264-only — no HEVC)")
+  [[ "$DEPTH" -le 8 ]] || why+=("${DEPTH}-bit (PS4 is 8-bit only)")
+  { [[ "$a" == *ac3* && "$a" != *eac3* && "$a" != *e-ac* ]] || { [[ "$a" == *aac* && "$ACHI" -le 6 ]]; }; } || why+=("audio $ACODEC ${ACH}ch (PS4: AAC or AC3 only — EAC3/DDP, DTS, TrueHD = silent audio; fix: make ps4ify q=\"Title\")")
   reasons=$(printf '%s; ' "${why[@]}"); reasons=${reasons%; }
   echo "   NO — ${reasons} → Jellyfin transcodes/remuxes."
 fi

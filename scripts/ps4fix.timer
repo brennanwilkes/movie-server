@@ -1,5 +1,5 @@
 [Unit]
-Description=Run ps3ify-sweep every 30 minutes
+Description=Run ps4ify-sweep every 30 minutes
 
 [Timer]
 OnBootSec=10min

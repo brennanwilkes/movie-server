@@ -47,7 +47,7 @@ diagnose:   ## full stack health check
 	./scripts/diagnose.sh
 test:       ## fast read-only PASS/FAIL assertions for the whole stack (run after any change)
 	./scripts/smoke-test.sh
-why:        ## why isn't this playing (well) on the PS3/projector? (make why q="Pulp Fiction")
+why:        ## why isn't this playing (well) on the PS4/projector? (make why q="Pulp Fiction")
 	./scripts/why-playback.sh "$(q)"
-ps3ify:     ## convert a title's files to PS3-native mp4+AC3, video untouched (make ps3ify q="Mormon Wives" [app=radarr])
-	./scripts/ps3ify.sh $(if $(filter radarr,$(app)),--radarr) "$(q)"
+ps4ify:     ## convert a title's files to add AC3 compat track for PS4, quality untouched (make ps4ify q="Mormon Wives" [app=radarr])
+	./scripts/ps4ify.sh $(if $(filter radarr,$(app)),--radarr) "$(q)"

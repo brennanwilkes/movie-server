@@ -4,7 +4,7 @@ This doc helps agents auto-discover the system layout, failure modes, and where 
 
 **Fast start:** `make test` (30+ PASS/FAIL assertions — run it before AND after changes) ·
 `make search q="Title"` (why the grab algorithm picks what it picks) · `make why q="Title"`
-(why a title won't play on the PS3/projector) · `AUDIT.md` (2026-07-02 deep audit: verified
+(why a title won't play on the PS4/projector) · `AUDIT.md` (2026-07-02 deep audit: verified
 findings + what's already fixed + open recommendations).
 
 ## System Overview
@@ -39,10 +39,11 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `scripts/diagnose.sh` | **Tool**: cross-service state comparison (qBit vs *arr vs controller) |
 | `scripts/show-indexers.sh` | **Tool**: Prowlarr indexer health/tags/proxy, live-test, per-indexer search counts |
 | `scripts/smoke-test.sh` | **Tool**: `make test` — 30+ read-only PASS/FAIL assertions over the whole stack. Run FIRST when anything seems off, and after every change |
-| `scripts/why-playback.sh` | **Tool**: `make why q="Title"` — per-title playback diagnosis (PS3 direct-play? transcode feasible? live transcode reasons) |
+| `scripts/why-playback.sh` | **Tool**: `make why q="Title"` — per-title playback diagnosis (PS4 direct-play? transcode feasible? live transcode reasons) |
 | `AUDIT.md` | Deep audit 2026-07-02: verified findings, fix log, live-stack snapshot, open [REC] items |
 | `docker-compose.yml` → `suggestarr` | Recommendation engine (:5000): Jellyfin history → TMDb similar → Jellyseerr auto-requests. One-time web-UI setup (TMDb key) |
-| `scripts/provision/dlna-ps3-profile.xml` | Custom PS3 DLNA device profile (installed by jellyfin.sh; overrides the plugin's built-in) |
+| `scripts/provision/dlna-ps4-profile.xml` | PS4 DLNA device profile (installed by jellyfin.sh). The console IS a PS4 — it was mislabelled "PS3" until 2026-07-02; a PS4 identifies as "PLAYSTATION 4", so PS3 profiles never match |
+| `scripts/ps4ify.sh` + `scripts/ps4ify-sweep.sh` | **Tool + timer**: add an AC3 5.1 compat track (originals kept, video untouched) so DDP/DTS files direct-play on the PS4. Manual: `make ps4ify q="Title"`; automatic: ps4fix.timer (every 30 min, fresh imports) |
 | `scripts/provision/_arr_common.sh` | Shared *arr provisioning: quality profiles, custom formats, delay profiles, indexers |
 | `scripts/provision/radarr.sh` | Radarr provisioning wrapper |
 | `scripts/provision/sonarr.sh` | Sonarr provisioning wrapper |
@@ -68,7 +69,7 @@ Jellyseerr (request) → Prowlarr (indexer search) → qBittorrent (download) �
 
 All ports: `docker-compose.yml:104`
 
-**Network**: Host networking for Jellyfin (PS3 DLNA). Bridge for everything else. Controller reaches all services by container name.
+**Network**: Host networking for Jellyfin (PS4 DLNA/SSDP). Bridge for everything else. Controller reaches all services by container name.
 
 **Auth**: `brennan/brennan` everywhere (LAN-only, no inbound exposure). *arr keys auto-discovered via `arr_apikey()` from config.xml.
 
@@ -174,20 +175,22 @@ QUEUE_TTL           = 8s         # *arr queue + qBit cache TTL
    — and `gpuVerifySweep` auto-swaps such files if imported <48h ago (log: `gpuVerify:`).
    Older files: dashboard Library tab → Redownload.
 
-### "Why isn't this playing on the PS3?"
+### "Why isn't this playing on the PS4?" (the projector console — long mislabelled "PS3")
 
-1. `make why q="Title"` — one command: prints the file's codec/bit-depth/audio/container,
-   whether the PS3 can direct-play it, whether this NUC can transcode it in real time, and
-   any live Jellyfin session's transcode reasons.
-2. PS3 hard limits: H.264 8-bit ≤L4.1 video, mp4/ts containers, AC3 or STEREO AAC audio
-   (5.1 AAC = video plays with silent audio), no MKV, no HEVC, no 10-bit — ever.
-3. The custom DLNA profile (`scripts/provision/dlna-ps3-profile.xml`, installed to
-   `/opt/appdata/jellyfin/data/plugins/configurations/dlna/user/`) caps AAC direct-play at
-   2ch and transcodes to MPEG-TS H.264 + AC3 5.1. If the PS3 misbehaves, confirm that file
-   exists (make test checks it), then check Jellyfin logs for the chosen profile.
-4. Discovery problems (server not in PS3 menu): Jellyfin runs HOST networking bound to
-   $NUC_IP; DLNA plugin blasts alive every 180s. `curl -s http://$NUC_IP:8096/System/Info/Public`.
-5. Stutter/buffering during PS3 playback: 10-bit HEVC source = CPU decode on a 2c/4t box —
+1. `make why q="Title"` — one command: codec/bit-depth/audio/container, PS4 direct-play
+   verdict with reasons, transcode feasibility on this Skylake NUC, live transcode reasons.
+2. PS4 Media Player hard limits: MKV/MP4/TS containers OK; H.264 8-bit ≤L4.2 ONLY (no HEVC,
+   no 10-bit, no VP9/AV1); audio = AAC-LC and AC3 ONLY. **E-AC3/DDP, DTS, TrueHD = video
+   plays with SILENT AUDIO** — and DDP-in-MKV is what the best WEB-DLs ship, so this is the
+   most common failure. Fix per title: `make ps4ify q="Title"` (adds an AC3 compat track,
+   originals untouched); automatic for fresh imports via ps4fix.timer.
+3. The PS4 DLNA profile (`scripts/provision/dlna-ps4-profile.xml`, installed to
+   `/opt/appdata/jellyfin/data/plugins/configurations/dlna/user/`) matches identification
+   string "PLAYSTATION 4" and transcodes anything non-native to TS H.264 + AC3 5.1.
+   `make test` checks it's installed.
+4. Discovery problems (server not in PS4 media player): Jellyfin runs HOST networking bound
+   to $NUC_IP; DLNA plugin blasts alive every 180s. `curl -s http://$NUC_IP:8096/System/Info/Public`.
+5. Stutter/buffering during PS4 playback: 10-bit HEVC source = CPU decode on a 2c/4t box —
    check `curl -s localhost:8088/api/system` (load) and use Movie Mode (dashboard) to pause
    all downloads/sweeps while streaming.
 

@@ -33,7 +33,7 @@ const NUC_IP = cfg.NUC_IP || '192.168.1.74';
 
 // Internal (container-network) bases + external ports for browser deep-links.
 const HOST = {
-  jellyfin: `http://${NUC_IP}:8096`,   // Jellyfin runs on host networking (for PS3 DLNA), so reach it
+  jellyfin: `http://${NUC_IP}:8096`,   // Jellyfin runs on host networking (for PS4 DLNA), so reach it
                                         // via the NUC's IP, not the container DNS name 'jellyfin'.
   qbittorrent: 'http://qbittorrent:8080',
   prowlarr: 'http://prowlarr:9696',
@@ -812,7 +812,7 @@ app.get('/api/jellyfin/resolve', async (req, res) => {
 // rotate together. Contents come back as native Jellyfin dtos (already shuffled by the
 // collections sweep). NOTE: the plugin POSTs its payload to resultsEndpoint — a GET-only
 // route returns Express HTML that breaks its JSON parser, hence app.all.
-const SHELF_IDS = ['ShelfA', 'ShelfB', 'ShelfC', 'ShelfD', 'ShelfE', 'ShelfF'];   // 6 rotating shelf rows (grow: add ids here + rows in jellyfin.sh)
+const SHELF_IDS = ['ShelfA', 'ShelfB', 'ShelfC', 'ShelfD', 'ShelfE', 'ShelfF', 'ShelfG', 'ShelfH', 'ShelfI', 'ShelfJ', 'ShelfK', 'ShelfL', 'ShelfM', 'ShelfN', 'ShelfO', 'ShelfP', 'ShelfQ', 'ShelfR', 'ShelfS', 'ShelfT'];   // 20 rotating shelf rows (grow: add ids here + rows in jellyfin.sh)
 async function shelfCatalog() {
   const uid = await jellyfinUserId();
   const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
@@ -837,7 +837,7 @@ app.all('/api/hss/shelf', async (req, res) => {
       if (!p) return res.json({ Items: [], TotalRecordCount: 0 });
       setId = p.Id;
     }
-    const cq = new URLSearchParams({ ParentId: setId, Limit: '16' });
+    const cq = new URLSearchParams({ ParentId: setId, Limit: '24' });
     const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 10000)).json()).Items) || [];
     res.json({ Items: items, TotalRecordCount: items.length });
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
@@ -850,7 +850,7 @@ async function registerHssShelf() {
       await tfetch(`${HOST.jellyfin}/HomeScreen/RegisterSection`, {
         method: 'POST',
         headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: SHELF_IDS[i], displayText: picks[i].Name, limit: 1, additionalData: picks[i].Id, resultsEndpoint: `http://${NUC_IP}:8088/api/hss/shelf` }),
+        body: JSON.stringify({ id: SHELF_IDS[i], displayText: picks[i].Name, limit: 10, additionalData: picks[i].Id, resultsEndpoint: `http://${NUC_IP}:8088/api/hss/shelf` }),
       }, 10000);
     }
     if (picks.length && registerHssShelf._last !== picks.map((p) => p.Id).join()) {
@@ -1193,8 +1193,8 @@ async function collectionsSweep() {
   try {
     const uid = await jellyfinUserId();
     const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
-    const q = new URLSearchParams({ IncludeItemTypes: 'Movie', Recursive: 'true', Fields: 'ProductionYear,Genres,CommunityRating,RunTimeTicks,ProviderIds', Limit: '5000' });
-    const movies = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 15000)).json()).Items) || [];
+    const q = new URLSearchParams({ IncludeItemTypes: 'Movie', Recursive: 'true', Fields: 'ProductionYear,Genres,CommunityRating,RunTimeTicks,ProviderIds,People,Studios', Limit: '5000' });
+    const movies = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 45000)).json()).Items) || [];
     if (movies.length < 20) return;                       // tiny library — don't spam collections
     const buckets = new Map();                            // collection name -> { ids:Set, desc }
     const add = (name, desc, id) => { if (!buckets.has(name)) buckets.set(name, { ids: new Set(), desc }); buckets.get(name).ids.add(id); };
@@ -1217,6 +1217,18 @@ async function collectionsSweep() {
       'Oscar: Best Cinematography (Winners)': 'Academy Award for Best Cinematography — the year\'s most stunning visuals.',
       'Oscar: Best Cinematography (Nominees)': 'Every nominated film for cinematography — the year\'s most beautiful-looking films.',
     };
+    const personBuckets = new Map();
+    const pbAdd = (name, desc, id, year) => {
+      if (!personBuckets.has(name)) personBuckets.set(name, { items: new Map(), desc });
+      personBuckets.get(name).items.set(id, year || 0);
+    };
+    const GREAT_ACTORS = new Set(['robert de niro','al pacino','marlon brando','jack nicholson','daniel day-lewis','denzel washington','tom hanks','samuel l. jackson','leonardo dicaprio','clint eastwood','paul newman','robert duvall','dustin hoffman','meryl streep','katharine hepburn','audrey hepburn','cary grant','james stewart','humphrey bogart','judi dench','helen mirren','ingrid bergman','joaquin phoenix','brad pitt','julia roberts','spencer tracy','sean penn','robert redford','jack lemmon','peter o\'toole','john wayne','sean connery','christopher walken','joe pesci','ralph fiennes','matthew mcconaughey','christian bale','tom cruise','matt damon','harrison ford','adam sandler','ben stiller','simon pegg','vince vaughn','jennifer aniston','sacha baron cohen','laurence fishburne','jason sudeikis','jason bateman','bill hader','mark wahlberg','ryan gosling','ryan reynolds']);
+    const GREAT_DIRECTORS = new Set(['martin scorsese','steven spielberg','francis ford coppola','billy wilder','quentin tarantino','stanley kubrick','alfred hitchcock','akira kurosawa','david lean','john ford','orson welles','christopher nolan','ridley scott','sergio leone','charlie chaplin','frank capra','ingmar bergman','joel coen','ethan coen','bong joon ho']);
+    const STUDIO_ALIASES = new Map([['a24','Studio: A24'],['studio ghibli','Studio: Ghibli'],['ghibli','Studio: Ghibli'],['pixar','Studio: Pixar']]);
+    const QUERY_COLLECTIONS = [
+      { name: 'Great Cinematographers', people: ['Roger Deakins','Vittorio Storaro','Emmanuel Lubezki','Robert Richardson','Gregg Toland'], desc: 'The lens masters — cinema\'s greatest directors of photography.' },
+      { name: 'Great Editors', people: ['Thelma Schoonmaker','Michael Kahn','Walter Murch','Dede Allen','Sally Menke'], desc: 'The invisible artists — editors who shaped the films we love.' },
+    ];
     // VIBE COMBOS — short titles, flowery blurbs (→ the collection's Overview), and per-vibe
     // GENRE EXCLUSIONS so tones don't bleed (no cartoons in date night, no romance in the
     // action shelf). Thin results (<5 titles) auto-hide, so the list can be aspirational —
@@ -1293,8 +1305,31 @@ async function collectionsSweep() {
           }
         }
       }
+      // Person/studio matching
+      for (const p of m.People || []) {
+        const pn = (p.Name || '').toLowerCase();
+        if (p.Type === 'Actor' && GREAT_ACTORS.has(pn)) pbAdd('Great Actors', 'The most celebrated actors in cinema history.', m.Id, y);
+        if (p.Type === 'Director' && GREAT_DIRECTORS.has(pn)) pbAdd('Great Directors', 'Visionary filmmakers who shaped the art of cinema.', m.Id, y);
+      }
+      for (const s of m.Studios || []) {
+        const sn = (s.Name || '').toLowerCase();
+        const colName = STUDIO_ALIASES.get(sn);
+        if (colName) pbAdd(colName, colName === 'Studio: A24' ? 'A24 — bold, distinctive storytelling.' : colName === 'Studio: Ghibli' ? 'Studio Ghibli — the magic of Miyazaki and beyond.' : 'Pixar — animated masterpieces from the house that Woody built.', m.Id, y);
+      }
     }
     for (const [name, b] of [...buckets]) if (b.ids.size < 5) buckets.delete(name);
+    // Cinematographers and editors via per-person Jellyfin queries (not in People field)
+    for (const { name, people, desc } of QUERY_COLLECTIONS) {
+      const bucket = new Map();
+      for (const person of people) {
+        try {
+          const pq = new URLSearchParams({ IncludeItemTypes: 'Movie', Person: person, Limit: '200', Fields: 'ProductionYear' });
+          const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${pq}`, { headers: h }, 30000)).json()).Items) || [];
+          for (const m of items) bucket.set(m.Id, m.ProductionYear || 0);
+        } catch (e) { console.log(`personQuery: ${name}/${person} failed — ${e.message || e}`); }
+      }
+      if (bucket.size >= 5) personBuckets.set(name, { items: bucket, desc });
+    }
     // Poster per collection: a RANDOM pick from its five best-rated members, re-rolled every
     // sweep — shelves get fresh faces twice a day instead of a frozen thumbnail.
     const byId = new Map(movies.map((m) => [m.Id, m]));
@@ -1330,6 +1365,10 @@ async function collectionsSweep() {
     const bq = new URLSearchParams({ IncludeItemTypes: 'BoxSet', Recursive: 'true', Limit: '1000' });
     const sets = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${bq}`, { headers: h }, 15000)).json()).Items) || [];
     const byName = new Map(sets.map((s) => [s.Name, s.Id]));
+    // Fix DisplayOrder for all existing collections first, regardless of load.
+    for (const s of sets) {
+      if (!RETIRED.has(s.Name)) await ensureMeta(s.Id).catch(() => {});
+    }
     // Retire the earlier plain-genre collections (redundant with the Genres tab). Explicit
     // name list so a TMDb franchise box set can never be caught by accident.
     const RETIRED = new Set([
@@ -1376,11 +1415,6 @@ async function collectionsSweep() {
       if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
     }
     // Oscar winner collections: year-descending order (newest first), never shuffled.
-    // First, fix DisplayOrder for all existing Oscar collections (robust repair).
-    for (const [colName] of oscarBuckets) {
-      const setId = byName.get(colName);
-      if (setId) await ensureMeta(setId);
-    }
     for (const [colName, { items, desc }] of oscarBuckets) {
       const sorted = [...items.entries()].sort((a, b) => b[1] - a[1]);
       const want = new Set(sorted.map(([id]) => id));
@@ -1418,12 +1452,47 @@ async function collectionsSweep() {
       const pick = posterPick(want);
       if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
     }
-    if (created || updated || postered || removed) console.log(`collectionsSweep: ${created} created, ${updated} reshuffled, ${postered} poster(s) rotated, ${removed} retired (${buckets.size} auto-collections, ${oscarBuckets.size} Oscar collections)`);
+    // Person/studio collections: shuffled order, min 5 items.
+    for (const [colName, { items, desc }] of personBuckets) {
+      const want = shuffle([...items.keys()]);
+      if (want.length < 5) continue;
+      let setId = byName.get(colName);
+      if (!setId) {
+        const first = want.slice(0, 100);
+        const r = await tfetch(`${HOST.jellyfin}/Collections?${new URLSearchParams({ Name: colName, Ids: first.join(',') })}`, { method: 'POST', headers: h }, 45000);
+        if (!r.ok) continue;
+        created++;
+        try { setId = (await r.json()).Id; } catch { setId = null; }
+        if (!setId) continue;
+        for (let i = 100; i < want.length; i += 100) {
+          await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${want.slice(i, i + 100).join(',')}`, { method: 'POST', headers: h }, 45000);
+        }
+        await ensureMeta(setId, desc);
+        const pick = posterPick(new Set(want));
+        if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
+        continue;
+      }
+      await ensureMeta(setId, desc);
+      const cq = new URLSearchParams({ ParentId: setId, Limit: '5000' });
+      const have = (((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 30000)).json()).Items) || []).map((i) => i.Id);
+      if (have.length) {
+        for (let i = 0; i < have.length; i += 100) {
+          await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${have.slice(i, i + 100).join(',')}`, { method: 'DELETE', headers: h }, 45000);
+        }
+      }
+      for (let i = 0; i < want.length; i += 100) {
+        await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${want.slice(i, i + 100).join(',')}`, { method: 'POST', headers: h }, 45000);
+      }
+      updated++;
+      const pick = posterPick(new Set(want));
+      if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
+    }
+    if (created || updated || postered || removed) console.log(`collectionsSweep: ${created} created, ${updated} reshuffled, ${postered} poster(s) rotated, ${removed} retired (${buckets.size} auto-collections, ${oscarBuckets.size} Oscar, ${personBuckets.size} person/studio collections)`);
   } catch (e) { console.log(`collectionsSweep: failed — ${e.message || e}`); }
   finally { collSweepBusy = false; }
 }
 setInterval(collectionsSweep, 6 * 3600000);   // twice a day keeps them fresh
-setTimeout(collectionsSweep, 90000);
+setTimeout(collectionsSweep, 120000);
 
 // Video format labelling and GPU-compatibility tier.
 function videoLabel(mi) {

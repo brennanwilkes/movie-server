@@ -1,0 +1,8 @@
+[Unit]
+Description=PS4 audio/container normalization for fresh imports (movie-server)
+After=docker.service
+
+[Service]
+Type=oneshot
+User=brennan
+ExecStart=/home/brennan/movie-server/scripts/ps4ify-sweep.sh

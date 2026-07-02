@@ -276,10 +276,10 @@ provision_arr() {
   # Title text can't prove bit depth, so this is a probabilistic penalty, not a gate.
   CFID["Likely 10-bit group (CPU)"]=$(cf_ensure "Likely 10-bit group (CPU)" "[$(rt '(?i)\b(tigole|qxr|t3nzin|afm72|vyndros|psa)\b')]")
   # Audio bias — TIEBREAKER ONLY (±15/20, dwarfed by codec/size scores). AC3/"DD5.1" is
-  # PS3-native (direct-plays); TrueHD/DTS/Atmos/FLAC are big and always need transcoding.
-  # EAC3/DDP is deliberately NEUTRAL: it's what the best WEB-DLs ship, and the ps3fix timer
+  # PS4-native (direct-plays); TrueHD/DTS/Atmos/FLAC are big and always need transcoding.
+  # EAC3/DDP is deliberately NEUTRAL: it's what the best WEB-DLs ship, and the ps4fix timer
   # normalizes it to AC3 after import — don't trade source quality for audio codec.
-  CFID["PS3-native audio (AC3)"]=$(cf_ensure "PS3-native audio (AC3)" "[$(rt '(?i)\b(dd ?5\.?1|dd ?2\.?0|ac-?3)\b')]")
+  CFID["PS4-native audio (AC3)"]=$(cf_ensure "PS4-native audio (AC3)" "[$(rt '(?i)\b(dd ?5\.?1|dd ?2\.?0|ac-?3)\b')]")
   CFID["HD/lossless audio (transcode)"]=$(cf_ensure "HD/lossless audio (transcode)" "[$(rt '(?i)\b(truehd|atmos|dts(-?(hd|es|x))?( ?ma)?|flac|opus)\b')]")
   CFID["AV1 (CPU)"]=$(cf_ensure "AV1 (CPU)" "[$(rt '(?i)\bav1\b')]")
   CFID["VP9 (CPU)"]=$(cf_ensure "VP9 (CPU)" "[$(rt '(?i)\bvp9\b')]")
@@ -307,7 +307,7 @@ provision_arr() {
   fi
   # Remove superseded custom formats from earlier iterations so they don't linger at score 0.
   local _cf_all _old _oid; _cf_all=$("${AG[@]}" "${base}/customformat")
-  for _old in "Tiny (<2.5 GB)" "Oversized (>6 GB)" "Bloated (>10 GB)" "Huge (>14 GB)" "HDR / Dolby Vision (keep)"; do
+  for _old in "PS3-native audio (AC3)" "Tiny (<2.5 GB)" "Oversized (>6 GB)" "Bloated (>10 GB)" "Huge (>14 GB)" "HDR / Dolby Vision (keep)"; do
     _oid=$(jq -r --arg n "$_old" '.[]|select(.name==$n).id' <<<"$_cf_all")
     [[ -n "$_oid" && "$_oid" != "null" ]] && { "${AG[@]}" -X DELETE "${base}/customformat/${_oid}" >/dev/null; ok "${app}: removed superseded custom format '$_old'"; }
   done
@@ -336,7 +336,7 @@ provision_arr() {
         elif $name=="Likely 10-bit group (CPU)" then -120
         elif $name=="HDR / Dolby Vision (CPU)" then -200
         elif $name=="10-bit (CPU)" then -150
-        elif $name=="PS3-native audio (AC3)" then 15
+        elif $name=="PS4-native audio (AC3)" then 15
         elif $name=="HD/lossless audio (transcode)" then -20
         elif $name=="AV1 (CPU)" or $name=="VP9 (CPU)" then -1000
         elif ($name|startswith("Size")) then

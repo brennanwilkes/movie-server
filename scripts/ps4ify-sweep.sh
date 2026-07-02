@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# ps3ify-sweep.sh — AUTOMATIC post-import PS3 normalization (runs via ps3fix.timer, host-side).
+# ps4ify-sweep.sh — AUTOMATIC post-import PS4 normalization (runs via ps4fix.timer, host-side).
 #
 # WHY THIS EXISTS: the best sources (WEB-DLs) almost universally ship EAC3/DDP 5.1 audio in
-# MKV — and the PS3 can decode neither (it does AC3, stereo AAC, MP3, LPCM; no MKV). Penalizing
+# MKV — and the PS4 can decode neither (it does AC3, stereo AAC, MP3, LPCM; no MKV). Penalizing
 # DDP at grab time would push selection toward WORSE releases, so instead we grab the best
 # release and normalize the FILE after import: video stream-copied (quality untouched),
-# audio → AC3 5.1, container → mp4. Result: PS3 direct-play, no transcoding, no quality loss.
+# audio → AC3 5.1, container → mp4. Result: PS4 direct-play, no transcoding, no quality loss.
 #
 # Scope: files imported in the last 48h (both *arrs, via import history), video already
 # h264 8-bit (10-bit/HEVC files are gpuVerifySweep's job — remuxing can't fix video), max 4
 # conversions per run. Skips entirely while Movie Mode is on. Manual per-title version:
-# `make ps3ify q="Title"`.
+# `make ps4ify q="Title"`.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -32,21 +32,20 @@ convert() {  # host-path -> 0 converted / 1 skipped
   info=$($FP -v quiet -show_entries stream=codec_type,codec_name,channels,profile -of json "$cpath" 2>/dev/null) || return 1
   v=$(jq -r '[.streams[]|select(.codec_type=="video")][0].codec_name' <<<"$info")
   vprof=$(jq -r '[.streams[]|select(.codec_type=="video")][0].profile // ""' <<<"$info")
-  a=$(jq -r '[.streams[]|select(.codec_type=="audio")][0].codec_name' <<<"$info")
-  ach=$(jq -r '[.streams[]|select(.codec_type=="audio")][0].channels // 2' <<<"$info")
+  compat=$(jq -r '[.streams[]|select(.codec_type=="audio")|select(.codec_name=="ac3" or (.codec_name=="aac" and (.channels // 6) <= 2))]|length' <<<"$info")
   [[ "$v" == h264 && "$vprof" != *10* ]] || return 1                       # video not remux-fixable
-  [[ "$ext" == mp4 && ( "$a" == ac3 || ( "$a" == aac && "$ach" -le 2 ) ) ]] && return 1   # already native
-  if ! ls "${base}".*srt >/dev/null 2>&1; then                             # rescue embedded subs
-    $FF -y -v error -i "$cpath" -map '0:s:0?' -c:s srt "${cpath%.*}.en.srt" 2>/dev/null || true
-    [[ -s "${base}.en.srt" ]] || rm -f "${base}.en.srt"
-  fi
-  if $FF -y -v error -i "$cpath" -map 0:v:0 -map 0:a:0 -c:v copy -c:a ac3 -b:a 448k -sn -movflags +faststart "${cpath%.*}.ps3tmp.mp4"; then
-    rm -f -- "$path"
-    mv -- "${base}.ps3tmp.mp4" "${base}.mp4"
-    echo "ps3fix: ${path##*/} → mp4 + AC3"
+  [[ "$compat" -gt 0 ]] && return 1                                        # PS4-playable track exists
+  # ADDITIVE: keep every original stream, PREPEND an AC3 5.1 compat track (default-flagged).
+  maps=(-map 0:v:0 -map 0:a:0 -map 0:a)
+  subs=(-sn); [[ "$ext" == mkv ]] && subs=(-map '0:s?' -c:s copy)
+  fast=(); [[ "$ext" == mp4 ]] && fast=(-movflags +faststart)
+  if $FF -y -v error -i "$cpath" "${maps[@]}" "${subs[@]}" -c copy \
+      -c:a:0 ac3 -b:a:0 448k -disposition:a:0 default "${fast[@]}" "${cpath%.*}.ps4tmp.${ext}"; then
+    mv -- "${base}.ps4tmp.${ext}" "$path"
+    echo "ps4fix: ${path##*/} → +AC3 compat track"
     return 0
   fi
-  rm -f -- "${base}.ps3tmp.mp4"
+  rm -f -- "${base}.ps4tmp.${ext}"
   return 1
 }
 
@@ -69,4 +68,4 @@ for APP in radarr sonarr; do
     curl -sf -o /dev/null -X POST -H "X-Api-Key: $KEY" -H 'Content-Type: application/json' "http://localhost:$PORT/api/v3/command" -d "$body" || true
   done
 done
-(( converted > 0 )) && echo "ps3fix: $converted file(s) normalized" || true
+(( converted > 0 )) && echo "ps4fix: $converted file(s) normalized" || true
