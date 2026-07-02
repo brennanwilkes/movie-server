@@ -3,8 +3,11 @@
 provision_arr() {
   local app=$1 port=$2 ver=$3 root=$4 cat=$5
   local base="http://localhost:${port}/api/${ver}"
-  local key; key=$(arr_apikey "/opt/appdata/${app}")
+  # Wait for the app FIRST (any HTTP answer counts), THEN read its API key — on a fresh
+  # install config.xml may not exist until the app has fully started.
   wait_http "http://localhost:${port}/api/${ver}/system/status" 90
+  local key; key=$(arr_apikey "/opt/appdata/${app}")
+  [[ -n "$key" ]] || die "${app}: empty <ApiKey> in /opt/appdata/${app}/config.xml"
 
   local AG=(curl -s -H "X-Api-Key: ${key}")
   local AJ=(curl -s -H "X-Api-Key: ${key}" -H 'Content-Type: application/json')
@@ -86,13 +89,12 @@ provision_arr() {
   fi
 
   # 5. Quality definitions — sizes in MB/min. preferredSize is a soft target (Radarr
-  #    aims for it when a near-size release exists); maxSize is the HARD reject ceiling
-  #    and is the real lever. For 1080p streaming to TVs we target ~25 MB/min and cap
-  #    at 40 (≈6.9 GB for a 3 h film) — a full-bitrate catalog Bluray runs 50–70 MB/min
-  #    (a 9.6 GB Godfather) which is overkill. WEB-1080p ships at 95/100 by default, so
-  #    it must be tightened too or WEB grabs sail through uncapped. Note: with a near-
-  #    empty 8 TB /data, the free-space import guard no longer brakes oversized grabs the
-  #    way the old ~50 GB disk did, so maxSize is now the only thing holding size down.
+  #    aims for it when a near-size release exists); maxSize is the HARD reject ceiling.
+  #    Caps are deliberately loose (80–120 for 1080p, i.e. ~14–21 GB for a 2 h film) so
+  #    the SIZE-BAND custom formats (§8) do the real steering per tier — maxSize only
+  #    rejects the true remux-class outliers. Note: with a near-empty 8 TB /data, the
+  #    free-space import guard no longer brakes oversized grabs the way the old ~50 GB
+  #    disk did, so maxSize is the only hard ceiling left.
   local qd_skip=true
   local qd
   qd=$("${AG[@]}" "${base}/qualitydefinition")
@@ -101,7 +103,10 @@ provision_arr() {
     local cur; cur=$(echo "$qd" | jq --arg n "$qname" '.[] | select(.quality.name==$n)')
     [[ -z "$cur" || "$cur" == "null" ]] && continue
     local cur_pref; cur_pref=$(echo "$cur" | jq '.preferredSize // 0')
-    [[ "$cur_pref" == "$pref" ]] && continue
+    # Compare BOTH knobs — keying the skip on preferredSize alone meant a maxSize-only
+    # change in this script never propagated to a live system (silent IaC drift).
+    local cur_max; cur_max=$(echo "$cur" | jq -r '.maxSize // ""')
+    [[ "$cur_pref" == "$pref" && "$cur_max" == "${max}" ]] && continue
     qd_skip=false
     local body; body=$(echo "$cur" | jq --argjson p "$pref" '.preferredSize=$p')
     if [[ -n "$max" ]]; then
@@ -231,21 +236,45 @@ provision_arr() {
   # so one format works for every title (English, Japanese, French…) with no per-title config.
   lg() { jq -n --argjson v "$1" --argjson ex "${2:-false}" '{name:"s",implementation:"LanguageSpecification",negate:false,required:true,fields:[{name:"value",value:$v},{name:"exceptLanguage",value:$ex}]}'; }
   local existing_cf; existing_cf=$("${AG[@]}" "${base}/customformat")
-  cf_ensure() {  # name spec-array -> custom-format id (creates if missing); ok() to stderr so $() captures only the id
+  # cf_ensure name spec-array -> custom-format id. Creates if missing, and RECONCILES the
+  # specifications when they differ from the declared state — a create-only version meant
+  # every regex improvement in this file silently never reached a live install (the exact
+  # drift that let hidden-10-bit x265 keep its GPU bonus). ok() to stderr so $() gets the id.
+  cf_ensure() {
     local n="$1" spec="$2" id
+    # Normalize both sides to implementation+negate+required+field-values for comparison
+    # (the live API decorates fields with order/label/etc. that we don't declare).
+    local _cfn='map({i:.implementation,n:.negate,r:.required,v:([.fields[]|select(.name=="value" or .name=="min" or .name=="max" or .name=="exceptLanguage").value]|sort)})|sort_by(.i,.v)'
     id=$(jq -r --arg n "$n" '.[]|select(.name==$n).id' <<<"$existing_cf")
     if [[ -z "$id" || "$id" == "null" ]]; then
       id=$("${AJ[@]}" "${base}/customformat" -d "$(jq -n --arg n "$n" --argjson s "$spec" '{name:$n,includeCustomFormatWhenRenaming:false,specifications:$s}')" | jq -r '.id')
       ok "${app}: custom format '$n' created" >&2
+    else
+      local want have cur
+      cur=$(jq -c --arg n "$n" '[.[]|select(.name==$n)][0]' <<<"$existing_cf")
+      want=$(jq -nc --argjson s "$spec" "\$s|${_cfn}")
+      have=$(jq -c ".specifications|${_cfn}" <<<"$cur")
+      if [[ "$want" != "$have" ]]; then
+        jq --argjson s "$spec" '.specifications=$s' <<<"$cur" \
+          | "${AJ[@]}" -X PUT "${base}/customformat/${id}" -d @- >/dev/null \
+          && ok "${app}: custom format '$n' reconciled (spec changed)" >&2 \
+          || warn "${app}: custom format '$n' reconcile failed" >&2
+      fi
     fi
     echo "$id"
   }
   declare -A CFID
   local hdr_re='(?i)(\bhdr\b|hdr10|hdr10\+|dolby.?vision|\bdovi\b|\bdv\b)'
+  # 10-bit markers: "10bit"/"10-bit" plus the shorthand forms ("10b", "Hi10"/"Hi10P").
+  local tenbit_re='(?i)(10.?bit|\bhi10p?\b|\b10b\b)'
   CFID["HDR / Dolby Vision (CPU)"]=$(cf_ensure "HDR / Dolby Vision (CPU)" "[$(rt "$hdr_re")]")
-  CFID["HEVC 8-bit (GPU)"]=$(cf_ensure "HEVC 8-bit (GPU)" "[$(rt '(?i)(x265|h\.?265|hevc)'),$(rt '(?i)10.?bit' true),$(rt "$hdr_re" true)]")
+  CFID["HEVC 8-bit (GPU)"]=$(cf_ensure "HEVC 8-bit (GPU)" "[$(rt '(?i)(x265|h\.?265|hevc)'),$(rt "$tenbit_re" true),$(rt "$hdr_re" true)]")
   CFID["H.264 (GPU)"]=$(cf_ensure "H.264 (GPU)" "[$(rt '(?i)\b(x264|h\.?264|avc)\b')]")
-  CFID["10-bit (CPU)"]=$(cf_ensure "10-bit (CPU)" "[$(rt '(?i)10.?bit')]")
+  CFID["10-bit (CPU)"]=$(cf_ensure "10-bit (CPU)" "[$(rt "$tenbit_re")]")
+  # Groups that encode 10-bit x265 essentially always but rarely say so in the title —
+  # ffprobe of this library confirmed "clean"-named rips from these landing as Main 10.
+  # Title text can't prove bit depth, so this is a probabilistic penalty, not a gate.
+  CFID["Likely 10-bit group (CPU)"]=$(cf_ensure "Likely 10-bit group (CPU)" "[$(rt '(?i)\b(tigole|qxr|t3nzin|afm72|vyndros|psa)\b')]")
   CFID["AV1 (CPU)"]=$(cf_ensure "AV1 (CPU)" "[$(rt '(?i)\bav1\b')]")
   CFID["VP9 (CPU)"]=$(cf_ensure "VP9 (CPU)" "[$(rt '(?i)\bvp9\b')]")
   CFID["Size <1.5 GB"]=$(cf_ensure "Size <1.5 GB" "[$(sz 0 1.5)]")
@@ -292,15 +321,20 @@ provision_arr() {
         elif $name=="Dubbed" then -800
         elif $name=="Extended / Long Cut" then 500
         elif $name=="Theatrical Cut" then -100
-        elif $name=="H.264 (GPU)" then 50
-        elif $name=="HEVC 8-bit (GPU)" then 40
-        elif $name=="HDR / Dolby Vision (CPU)" then -100
-        elif $name=="10-bit (CPU)" then -80
+        # Codec spread is DELIBERATELY asymmetric: H.264 is the only codec whose 8-bit-ness the
+        # title can prove (modern x265 is 10-bit-by-default without saying so — ffprobe-verified
+        # on this library). At +50/+50 they tied and seeders picked the codec, which is how
+        # hidden-10-bit x265 kept winning. HEVC stays positive (beats unknown) but loses to H.264.
+        elif $name=="H.264 (GPU)" then 80
+        elif $name=="HEVC 8-bit (GPU)" then 20
+        elif $name=="Likely 10-bit group (CPU)" then -120
+        elif $name=="HDR / Dolby Vision (CPU)" then -200
+        elif $name=="10-bit (CPU)" then -150
         elif $name=="AV1 (CPU)" or $name=="VP9 (CPU)" then -1000
         elif ($name|startswith("Size")) then
           ((if $app=="sonarr"
             then {"Size <1.5 GB":{low:30,normal:0,beloved:-40},"Size 1.5-3 GB":{low:20,normal:0,beloved:-20},"Size 3-6 GB":{low:0,normal:0,beloved:-10},"Size 6-10 GB":{low:-10,normal:0,beloved:0},"Size 10-15 GB":{low:-20,normal:0,beloved:20},"Size >15 GB":{low:-40,normal:0,beloved:40}}
-            else {"Size <1.5 GB":{low:150,normal:30,beloved:-500},"Size 1.5-3 GB":{low:-100,normal:80,beloved:-250},"Size 3-6 GB":{low:-200,normal:40,beloved:-80},"Size 6-10 GB":{low:-500,normal:-150,beloved:60},"Size 10-15 GB":{low:-1500,normal:-500,beloved:80},"Size >15 GB":{low:-3000,normal:-1500,beloved:-100}}
+            else {"Size <1.5 GB":{low:150,normal:30,beloved:-500},"Size 1.5-3 GB":{low:-100,normal:80,beloved:-150},"Size 3-6 GB":{low:-200,normal:40,beloved:-20},"Size 6-10 GB":{low:-500,normal:-150,beloved:100},"Size 10-15 GB":{low:-1500,normal:-500,beloved:30},"Size >15 GB":{low:-3000,normal:-1500,beloved:-50}}
             end)[$name][$tier])
         else 0 end;
       [$ids|to_entries[]|{format:.value,name:.key,score:(sc(.key) // 0)}]'

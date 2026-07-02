@@ -93,7 +93,7 @@ for r in data:
         'sizeGB': r.get('size', 0) / 1e9,
         'seeders': r.get('seeders', 0),
         'indexer': r.get('indexer', ''),
-        'quality': r.get('quality', {}).get('name', ''),
+        'quality': r.get('quality', {}).get('quality', {}).get('name', ''),
         'age': r.get('ageMinutes', 0) // 60,
         'protocol': r.get('protocol', ''),
         'score': r.get('customFormatScore', 0),

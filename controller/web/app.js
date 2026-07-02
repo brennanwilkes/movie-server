@@ -26,7 +26,12 @@ const CATALOG = [
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const esc = (s) => String(s == null ? '' : s);
+// Real HTML escaping — every esc() call site interpolates into innerHTML or a quoted
+// attribute (data-hash/data-title/aria-label). Torrent/release names are untrusted input:
+// a `"` broke attribute parsing (dead buttons), `<`/`>` mangled rows, and markup executed.
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 function fmtBytes(b) {
   if (!b) return '0 GB';
@@ -190,7 +195,7 @@ function renderDownloads(items) {
       ? `Not found · ${fmtRecovery(d)}`
       : d.state === 'Stalled' && d.stallGiveUpAt
       ? `Stalled · ${fmtGiveUp(d.stallGiveUpAt)}`
-      : [d.state, pctShown, fmtBytes(d.sizeBytes)].filter(Boolean).join(' · ');
+      : [d.state, pctShown, d.sizeBytes > 0 ? fmtBytes(d.sizeBytes) : ''].filter(Boolean).join(' · ');
     const color = COLOR[d.state] || '';
     const seedsShown = typeof d.seeds === 'number' ? `Seeds: ${d.seeds}` : '';
     const barW = (d.state === 'Declined' || d.attention) ? 100 : Math.min(100, d.progress);
@@ -344,8 +349,9 @@ if (mmBtn) mmBtn.addEventListener('click', async () => {
   mmBusy = true; mmBtn.disabled = true;
   renderMovieMode(pausing);                                   // optimistic flip
   try {
-    await postJSON(pausing ? '/api/master-pause' : '/api/master-resume', {});
-    toast(pausing ? 'Movie Mode on · everything paused' : 'Resumed · downloads back on');
+    const out = await postJSON(pausing ? '/api/master-pause' : '/api/master-resume', {});
+    if (out && out.qbit === false) toast(pausing ? 'Sweeps paused — but qBittorrent didn’t confirm, torrents may still run' : 'Sweeps resumed — but qBittorrent didn’t confirm');
+    else toast(pausing ? 'Movie Mode on · everything paused' : 'Resumed · downloads back on');
     pollDownloads();
   } catch { renderMovieMode(!pausing); toast('Could not reach the server'); }
   finally { mmBusy = false; mmBtn.disabled = false; }
@@ -359,7 +365,9 @@ async function pollDownloads() {
   dlInflight = true;
   try {
     const data = await getJSON('/api/downloads');
-    dlLastUpdate = data.ts || Date.now();
+    if (!data.ts) return;   // snapshot not built yet (controller warming up) — keep the spinner,
+                            // don't render a confident "Nothing downloading right now" from ts:0
+    dlLastUpdate = data.ts;
     dlLoaded = true;
     setDlLoading(false);
     renderDownloads(data.items || []);
@@ -373,10 +381,15 @@ async function pollDownloads() {
 // ── Library + delete ──
 let libApp = 'radarr';
 let libItems = [];
+let libSeq = 0;   // request sequence — a slow older response must never clobber a newer one
 $('#lib-toggle').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   $$('#lib-toggle button').forEach((x) => x.classList.toggle('active', x === b));
   libApp = b.dataset.app;
+  // Clear immediately: until the new list arrives, the OLD app's rows were still rendered and
+  // actionable — a movie id could be handed to a sonarr delete/redownload (wrong-title action).
+  libItems = [];
+  renderLibrary();
   loadLibrary();
 });
 $('#lib-search').addEventListener('input', renderLibrary);
@@ -396,12 +409,17 @@ function renderLibrary() {
     const fmt = m.videoLabel || '';
     const compat = m.gpuCompat || '';
     const fmtCls = compat === 'ok' ? 'ok' : compat === 'warn' ? 'warn' : compat === 'bad' ? 'bad' : '';
+    // Missing titles: show the server's live pipeline status ("Downloading (45%)", "Import
+    // blocked", …) instead of a flat "Not downloaded" — the API computed it all along.
+    const status = !m.hasFile && m.downloadDetail
+      ? `<span class="dl-status ds-${esc(m.downloadStatus || 'missing')}">${esc(m.downloadDetail)}</span>`
+      : `<span class="sub-size">${m.hasFile ? fmtBytes(m.sizeBytes) + ' on disk' : 'Not downloaded'}</span>`;
     return `<li class="row">
       <span class="grow">
         <span class="title">${esc(m.title)}${m.year ? ` <span class="muted">(${m.year})</span>` : ''}</span>
-        <div class="sub"><span class="sub-size">${m.hasFile ? fmtBytes(m.sizeBytes) + ' on disk' : 'Not downloaded'}</span>${rate ? `<span class="rate ${rateCls}">${rate}</span>` : ''}${fmt ? `<span class="format ${fmtCls}">${esc(fmt)}</span>` : ''}</div>
+        <div class="sub">${status}${rate ? `<span class="rate ${rateCls}">${rate}</span>` : ''}${fmt ? `<span class="format ${fmtCls}">${esc(fmt)}</span>` : ''}</div>
       </span>
-      ${libApp === 'radarr' ? `<button class="redl" data-id="${m.id}" aria-label="Redownload ${esc(m.title)}">
+      ${m._app === 'radarr' ? `<button class="redl" data-id="${m.id}" aria-label="Redownload ${esc(m.title)}">
         <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 3v5h-5"/></svg>
       </button>` : ''}
       <button class="trash" data-id="${m.id}" aria-label="Remove ${esc(m.title)}">
@@ -409,18 +427,35 @@ function renderLibrary() {
       </button>
     </li>`;
   }).join('');
-  $$('#library .trash').forEach((btn) => btn.addEventListener('click', () => openSheet({ app: libApp, id: +btn.dataset.id })));
-  $$('#library .redl').forEach((btn) => btn.addEventListener('click', () => openRedl(+btn.dataset.id)));
+  // Actions carry the ITEM's own app (stamped at load), never the global toggle — pairing the
+  // current toggle with a stale list's numeric id was a wrong-title delete waiting to happen.
+  $$('#library .trash').forEach((btn) => btn.addEventListener('click', () => {
+    const it = libItems.find((m) => m.id === +btn.dataset.id);
+    if (it) openSheet({ app: it._app, id: it.id });
+  }));
+  $$('#library .redl').forEach((btn) => btn.addEventListener('click', () => {
+    const it = libItems.find((m) => m.id === +btn.dataset.id);
+    if (it && it._app === 'radarr') openRedl(it.id);
+  }));
 }
 async function loadLibrary() {
   if (offline) { $('#library').innerHTML = ''; $('#library-empty').hidden = false; $('#library-empty').textContent = 'Connect to your home network to manage your library.'; return; }
+  const seq = ++libSeq;
   try {
-    libItems = (await getJSON(`/api/library?app=${libApp}`)).items || [];
-    const el = $(`#lib-count-${libApp}`);
+    const data = await getJSON(`/api/library?app=${libApp}`);
+    if (seq !== libSeq) return;                                  // a newer request superseded this one
+    libItems = (data.items || []).map((m) => ({ ...m, _app: data.app }));
+    const el = $(`#lib-count-${data.app}`);
     if (el) el.textContent = libItems.length ? `(${libItems.length})` : '';
     renderLibrary();
   }
-  catch { $('#library').innerHTML = ''; $('#library-empty').hidden = false; }
+  catch {
+    if (seq !== libSeq) return;
+    libItems = [];                                               // stale rows must not stay actionable
+    $('#library').innerHTML = '';
+    $('#library-empty').hidden = false;
+    $('#library-empty').textContent = 'Could not load the library — will retry when you switch tabs.';
+  }
 }
 
 // Delete confirm sheet
@@ -462,9 +497,17 @@ $('#sheet-confirm').addEventListener('click', async () => {
   $('#sheet-confirm').disabled = true;
   $('#sheet-confirm').textContent = 'Removing…';
   try {
-    await postJSON('/api/delete', { ...body, dryRun: false });
-    if (!isDl) { libItems = libItems.filter((m) => m.id !== id); renderLibrary(); }
-    toast(freed ? `Freed ${fmtBytes(freed)}` : 'Removed');
+    const out = await postJSON('/api/delete', { ...body, dryRun: false });
+    // The server returns 200 with per-layer results — a layer can still have failed
+    // (Radarr down, qBittorrent down). Don't toast "Freed X GB" over a failed delete.
+    const errs = (out.results || []).filter((r) => r.status === 'error');
+    if (errs.length) {
+      toast(`Remove incomplete — ${errs.map((r) => r.app).join(', ')} failed`);
+      if (!isDl) loadLibrary();                          // re-fetch the truth instead of guessing
+    } else {
+      if (!isDl) { libItems = libItems.filter((m) => m.id !== id); renderLibrary(); }
+      toast(freed ? `Freed ${fmtBytes(freed)}` : 'Removed');
+    }
     pollHome();
     if (isDl) pollDownloads();
   } catch { toast('Something went wrong'); }

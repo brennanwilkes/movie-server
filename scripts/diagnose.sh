@@ -152,7 +152,10 @@ show_orphans() {
   qdata=$(qbit_fetch "/api/v2/torrents/info") || { echo "  (qBittorrent unreachable)" >&2; return; }
   cdata=$(curl -sf "$BASE/api/downloads" 2>/dev/null) || { echo "  (Controller unreachable)" >&2; return; }
 
-  echo "$qdata" "$cdata" | python3 -c "
+  # ONE blob per line — `echo "$a" "$b"` put both on a single line, so the first readline()
+  # got them concatenated and json.loads crashed ("Extra data"), silently (stderr dropped)
+  # killing the whole diagnose run under set -e. Orphan detection had never actually worked.
+  printf '%s\n%s\n' "$qdata" "$cdata" | python3 -c "
 import json, sys
 
 qdata = json.loads(sys.stdin.readline())

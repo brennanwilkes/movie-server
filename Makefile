@@ -35,8 +35,8 @@ logs:       ## tail logs (make logs s=radarr)
 	docker compose logs -f --tail=100 $(s)
 
 # --- Debug / introspection (read-only; answer "why did the algo pick THAT?") ---
-search:     ## list available releases w/ custom-format SCORE (make search q="Pulp Fiction")
-	./scripts/search-releases.sh --scores $(if $(s),--sonarr) "$(q)"
+search:     ## list available releases w/ custom-format SCORE (make search q="Pulp Fiction" [s=sonarr])
+	./scripts/search-releases.sh --scores $(if $(filter sonarr,$(s)),--sonarr) "$(q)"
 profiles:   ## dump live quality-profile scores per tier (make profiles [s=radarr|sonarr])
 	./scripts/show-quality-profiles.sh $(s)
 history:    ## show recent grab/import history (make history [a=--missing])

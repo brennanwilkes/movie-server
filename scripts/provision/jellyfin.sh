@@ -160,6 +160,24 @@ else
   fi
 fi
 
+# 6e. Custom PS3 DLNA device profile — the plugin's built-in "Sony PlayStation 3" profile
+#     direct-plays AAC 5.1 (PS3 only decodes stereo AAC → video with dead audio) and prefers
+#     an AAC (stereo) transcode target over AC3 (5.1). A profile in the plugin's USER dir with
+#     the same Identification overrides the built-in. See dlna-ps3-profile.xml for details.
+PS3_SRC="$(dirname "${BASH_SOURCE[0]}")/dlna-ps3-profile.xml"
+PS3_DST="${CONFIG:-/opt/appdata}/jellyfin/data/plugins/configurations/dlna/user/Sony PlayStation 3.xml"
+if [[ -f "$PS3_SRC" ]]; then
+  mkdir -p "$(dirname "$PS3_DST")"
+  if cmp -s "$PS3_SRC" "$PS3_DST" 2>/dev/null; then
+    ok "PS3 DLNA profile already installed"
+  else
+    cp "$PS3_SRC" "$PS3_DST"
+    ok "PS3 DLNA profile installed (AAC capped at 2ch direct-play, AC3 5.1 transcode target) — restart below activates it"
+  fi
+else
+  warn "dlna-ps3-profile.xml missing next to jellyfin.sh — PS3 profile not installed"
+fi
+
 # 7. Restart Jellyfin so plugin and CSS changes take effect (Branding API writes
 #     to disk but server caches config in memory until restart).
 log "  restarting Jellyfin to apply changes"

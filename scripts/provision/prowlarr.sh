@@ -2,8 +2,10 @@
 # indexers added here auto-sync to them. (Adding actual indexers = deferred "real indexer
 # strategy" — see plan §8.) Idempotent.
 PROW="http://localhost:9696/api/v1"
-key=$(arr_apikey /opt/appdata/prowlarr)
+# Wait for the app FIRST — on a fresh install config.xml may not exist until it has started.
 wait_http "http://localhost:9696/api/v1/system/status" 90
+key=$(arr_apikey /opt/appdata/prowlarr)
+[[ -n "$key" ]] || die "prowlarr: empty <ApiKey> in /opt/appdata/prowlarr/config.xml"
 PG=(curl -s -H "X-Api-Key: ${key}")
 PJ=(curl -s -H "X-Api-Key: ${key}" -H 'Content-Type: application/json')
 
@@ -25,16 +27,17 @@ fi
 # (e.g. "Bloodline S01" misses "Bloodline 2015 S01 ..."). Sonarr parses
 # season/ep from the title after the fact (same as RSS sync), so sending
 # just the show name works better.
-TPB_DEF=/config/Definitions/thepiratebay.yml
+# AUDIT 2026-07-02: this block referenced the CONTAINER path /config/… from the HOST, so it
+# has NEVER applied (while printing green). The honest fix needs a supervised change — TPB is
+# currently the highest-volume indexer, and the right mechanism is installing
+# scripts/provision/custom_tpb_definition.yml into ${CONFIG}/prowlarr/Definitions/Custom/
+# (the cache dir Prowlarr regenerates is the wrong target). Until that's tested, report
+# the real state instead of a false "already patched".
+TPB_DEF="${CONFIG:-/opt/appdata}/prowlarr/Definitions/thepiratebay.yml"
 if grep -q 'tv-search: \[q, season, ep\]' "$TPB_DEF" 2>/dev/null; then
-  sed -i 's/tv-search: \[q, season, ep\]/tv-search: [q]/' "$TPB_DEF"
-  ok "prowlarr: patched TPB tv-search to [q] — restarting"
-  pkill Prowlarr 2>/dev/null || true
-  sleep 8
-  wait_http "http://localhost:9696/api/v1/system/status" 60
-  ok "prowlarr: back up after TPB definition reload"
+  warn "prowlarr: TPB tv-search still [q, season, ep] — season searches underperform (see custom_tpb_definition.yml; needs supervised install to Definitions/Custom/)"
 else
-  ok "prowlarr: TPB tv-search already patched"
+  ok "prowlarr: TPB definition not present at $TPB_DEF (cached defs live in the container) — tv-search patch NOT verified"
 fi
 
 # Register Radarr + Sonarr as applications (built from live schema).

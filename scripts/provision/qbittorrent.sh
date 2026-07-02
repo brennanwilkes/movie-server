@@ -28,6 +28,9 @@ fi
 #     in parallel (each high-seed one alone hit ~10 MB/s; 18 active reached ~45 MB/s at load ~6).
 #     Higher slots ALSO surface high-seed torrents stuck behind low-seed ones in the queue.
 #   - dont_count_slow_torrents keeps a dead-seeded torrent from squatting an active slot.
+#   - Share limits (ratio 2.0 OR 14 days seeding, then stop): without them every completed
+#     torrent queued for upload FOREVER (373 stuck queuedUP at audit time) — they never met a
+#     goal so never dequeued. Stopping is safe: library files are hardlinks, nothing is deleted.
 #   - The CPU risk is NOT the downloading (qBittorrent ~36%); it's MANY titles importing+being
 #     analysed by Jellyfin ffmpeg at once (the one-time storm that pegged the NUC). That backlog
 #     is transient. Until Quick Sync HW transcode is enabled (see memory), avoid dumping a huge
@@ -49,6 +52,11 @@ prefs=$(jq -n --arg u "$QBIT_USER" --arg p "$QBIT_PASS" '{
   max_active_downloads: 12,
   max_active_torrents: 18,
   max_active_uploads: 3,
+  max_ratio_enabled: true,
+  max_ratio: 2.0,
+  max_seeding_time_enabled: true,
+  max_seeding_time: 20160,
+  max_ratio_act: 0,
   dont_count_slow_torrents: true,
   slow_torrent_dl_rate_threshold: 50,
   slow_torrent_ul_rate_threshold: 50,

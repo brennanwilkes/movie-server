@@ -548,7 +548,7 @@ async function buildDownloads() {
         // *arr parked the import (e.g. importBlocked: "matched by ID — manual import required").
         // Hand it to the recovery sweep so it runs a Manual Import automatically rather than
         // sitting in 'Importing' forever.
-        if (tdStatus === 'warning' && t.content_path) recover = { app, folder: t.content_path, id: app === 'radarr' ? qrec.movieId : qrec.seriesId };
+        if (tdStatus === 'warning' && t.content_path) recover = { app, folder: t.content_path, id: app === 'radarr' ? qrec.movieId : qrec.seriesId, hash: h };
       }
       else if (prog < 100) state = (ts === 'Stalled' || ts === 'Queued' || ts === 'Starting') ? ts : 'Downloading'; // honour a real stall
       else state = 'Importing';                                         // complete in qbit, waiting on *arr to import
@@ -561,7 +561,7 @@ async function buildDownloads() {
         // errors with "no valid media source"). resolveLibraryState kicks the scan and gates green.
         state = await resolveLibraryState(app, hi, t);
       } else {                                      // downloaded but *arr has NOT imported it
-        recover = { app, folder: t.content_path, id: hi && hi.id };
+        recover = { app, folder: t.content_path, id: hi && hi.id, hash: h };
         const reason = (importState.get(t.content_path) || {}).reason;
         if (reason) { state = 'Needs attention'; attention = true; }
         else state = 'Importing';                   // the watchdog will import it shortly
@@ -673,12 +673,22 @@ async function buildDownloads() {
 // slow cycle under load self-throttles instead of stacking).
 let _dl = { served: [], raw: [], summary: null, ts: 0 };
 let _dlRefreshing = false;
+// Titles declined for disk space — the download-stage gate (`declined`, keyed by torrent
+// hash) and the request-stage gate (`blocked`, keyed by app:id:seasons). Rendered as
+// terminal red "Declined" rows. They join the snapshot BEFORE the summary is computed so
+// the legend always counts exactly what the list shows (they used to be injected per-request
+// afterwards, leaving the summary blind to them).
+const asDeclinedRow = (hash, d) => ({ title: d.title, progress: 0, state: 'Declined', etaSeconds: null,
+  sizeBytes: d.neededBytes, neededBytes: d.neededBytes, freeBytes: d.freeBytes, source: d.source || 'request', attention: false, hash });
 async function refreshDownloads() {
   if (_dlRefreshing) return;
   _dlRefreshing = true;
   try {
     const raw = await buildDownloads();
     const served = raw.map(({ _recover, ...r }) => r);
+    const now = Math.floor(Date.now() / 1000), DAY = 86400;
+    for (const [h, d] of declined) if (now - d.ts <= DAY) served.unshift(asDeclinedRow(h, d));
+    for (const [h, b] of blocked) if (now - b.ts <= DAY) served.unshift(asDeclinedRow(h, b));
     const summary = await downloadSummary(served);
     _dl = { served, raw, summary, ts: Date.now() };
   } catch (e) { console.log('refreshDownloads failed (keeping last snapshot):', e.message || e); }
@@ -686,18 +696,18 @@ async function refreshDownloads() {
 }
 setInterval(refreshDownloads, 5000);
 setTimeout(refreshDownloads, 1500);
+// A mutation just changed qBittorrent/*arr state — drop the caches that would keep serving
+// the pre-mutation view and rebuild the snapshot now, so the UI reflects the action on its
+// next poll (~4s) instead of after cache TTL + snapshot loop + poll (~15s worst case).
+function bustDownloadsCache() {
+  delete _cache['qbit:torrents'];
+  delete _cache['queue:radarr'];
+  delete _cache['queue:sonarr'];
+  setTimeout(refreshDownloads, 400);   // give the service a beat to register the change
+}
 
 app.get('/api/downloads', (_req, res) => {
-  const now = Math.floor(Date.now() / 1000), DAY = 86400;
-  const items = _dl.served.slice();
-  // Surface titles we declined for disk space — both the download-stage gate (`declined`,
-  // keyed by torrent hash) and the request-stage gate (`blocked`, *arr-rejected before any
-  // download). Both render as a terminal red "Declined" row at the top. (In-memory maps, instant.)
-  const asRow = (hash, d) => ({ title: d.title, progress: 0, state: 'Declined', etaSeconds: null,
-    sizeBytes: d.neededBytes, neededBytes: d.neededBytes, freeBytes: d.freeBytes, source: d.source || 'request', attention: false, hash });
-  for (const [h, d] of declined) if (now - d.ts <= DAY) items.unshift(asRow(h, d));
-  for (const [h, b] of blocked) if (now - b.ts <= DAY) items.unshift(asRow(h, b));
-  res.json({ items, summary: _dl.summary, ts: _dl.ts, masterPaused });
+  res.json({ items: _dl.served, summary: _dl.summary, ts: _dl.ts, masterPaused });
 });
 
 // Batch ETA — "how long until this whole backlog is done?" Remaining bytes ÷ throughput.
@@ -828,6 +838,23 @@ async function importWatchdog() {
     const st = importState.get(rec.folder) || { lastTry: 0, reason: null };
     if (now - st.lastTry < 120) continue;                           // backoff between attempts
     st.lastTry = now;
+    // Fresh per-hash ground truth before importing: the snapshot's history view is 20s-cached
+    // and raced *arr's own importer, producing duplicate "Upgrade over itself" imports
+    // (Moneyball ×2, Mormon Wives ×3 in the audit). Walk this download's own history newest-
+    // first: an import event BEFORE the latest grab means this cycle already imported — skip.
+    // (Import-after-grab ordering matters because an upgrade re-grab reuses the same hash.)
+    if (rec.hash) {
+      try {
+        const hr = await arrGet(rec.app, `/history?pageSize=30&sortKey=date&sortDirection=descending&downloadId=${rec.hash.toUpperCase()}`, 8000);
+        let alreadyImported = false;
+        for (const r of (hr.records || [])) {
+          const et = (r.eventType || '').toLowerCase();
+          if (et.includes('import')) { alreadyImported = true; break; }
+          if (et === 'grabbed') break;                              // reached the grab first → not imported this cycle
+        }
+        if (alreadyImported) { importState.delete(rec.folder); continue; }
+      } catch { /* history unavailable — fall through to the existing rescue path */ }
+    }
     const res = await importViaManual(rec.app, rec.folder, rec.id);
     st.reason = res.ok ? null : res.reason;                         // cleared on success; retried next sweep
     if (res.ok) triggerJellyfinScan();
@@ -864,7 +891,12 @@ async function grabBestSeeded(app, itemId) {
   if (app !== 'radarr') return null;
   const { base, key } = arrOf(app);
   const rels = await (await tfetch(`${base}/release?movieId=${itemId}`, { headers: { 'X-Api-Key': key } }, 60000)).json();
-  const best = (rels || []).slice().sort((a, b) => (b.seeders || 0) - (a.seeders || 0))[0];
+  // Only releases the profile itself would accept (not rejected), ranked by the SAME
+  // custom-format score the profiles grab on, THEN seeders. The old pure best-seeded pick
+  // bypassed every quality/codec/size rule and could force-grab a 40 GB 10-bit HDR remux.
+  // If everything is rejected there is nothing worth forcing — return null and let it sit.
+  const ok = (Array.isArray(rels) ? rels : []).filter((r) => !r.rejected && (r.seeders || 0) > 0);
+  const best = ok.sort((a, b) => (b.customFormatScore || 0) - (a.customFormatScore || 0) || (b.seeders || 0) - (a.seeders || 0))[0];
   if (!best || !best.guid) return null;
   await tfetch(`${base}/release`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ guid: best.guid, indexerId: best.indexerId }) }, 30000);
   return best.seeders || 0;
@@ -1133,6 +1165,7 @@ app.post('/api/delete', async (req, res) => {
     if (dryRun) return res.json({ dryRun: true, title: p.title, freedBytes: p.sizeBytes, plan: planItems(p) });
     const results = await executeDelete(p);
     triggerJellyfinScan(); // reconciling sweep AFTER files are gone (the explicit item delete already removed it)
+    bustDownloadsCache();
     res.json({ dryRun: false, title: p.title, freedBytes: p.sizeBytes, results });
   } catch (e) {
     const msg = String(e.message || e);
@@ -1147,6 +1180,7 @@ app.post('/api/torrent/delete', async (req, res) => {
   try {
     const body = new URLSearchParams({ hashes: hash, deleteFiles: String(deleteFiles) });
     const r = await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+    bustDownloadsCache();
     res.json({ ok: r.ok });
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
@@ -1165,13 +1199,13 @@ async function qbitPauseResume(hash, resume) {
 app.post('/api/torrent/pause', async (req, res) => {
   const { hash } = req.body || {};
   if (!hash || typeof hash !== 'string') return res.status(400).json({ error: 'hash (string) is required' });
-  try { const r = await qbitPauseResume(hash, false); res.status(r.ok ? 200 : 502).json({ ok: r.ok, paused: true }); }
+  try { const r = await qbitPauseResume(hash, false); bustDownloadsCache(); res.status(r.ok ? 200 : 502).json({ ok: r.ok, paused: true }); }
   catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 app.post('/api/torrent/resume', async (req, res) => {
   const { hash } = req.body || {};
   if (!hash || typeof hash !== 'string') return res.status(400).json({ error: 'hash (string) is required' });
-  try { const r = await qbitPauseResume(hash, true); res.status(r.ok ? 200 : 502).json({ ok: r.ok, paused: false }); }
+  try { const r = await qbitPauseResume(hash, true); bustDownloadsCache(); res.status(r.ok ? 200 : 502).json({ ok: r.ok, paused: false }); }
   catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 
@@ -1188,6 +1222,7 @@ app.post('/api/master-pause', async (_req, res) => {
   let ok = false;
   try { ok = (await qbitPauseResume('all', false)).ok; } catch { /* qbit down — flag still set, sweeps paused */ }
   console.log('master-pause: Movie Mode ON — torrents stopped, all sweeps paused');
+  bustDownloadsCache();
   res.json({ ok: true, paused: true, qbit: ok });
 });
 app.post('/api/master-resume', async (_req, res) => {
@@ -1196,6 +1231,7 @@ app.post('/api/master-resume', async (_req, res) => {
   let ok = false;
   try { ok = (await qbitPauseResume('all', true)).ok; } catch { /* qbit down */ }
   console.log('master-resume: Movie Mode OFF — torrents + sweeps resumed');
+  bustDownloadsCache();
   res.json({ ok: true, paused: false, qbit: ok });
 });
 
@@ -1249,6 +1285,7 @@ app.post('/api/redownload', async (req, res) => {
     searchKeyClear('radarr', mid); persistState();
     await arrPost('radarr', '/command', { name: 'MoviesSearch', movieIds: [mid] }, 8000);
     console.log(`redownload: "${title}" → ${REDL_TIERS[tier]} (${steps.join(', ')}) — search triggered`);
+    bustDownloadsCache();
     res.json({ ok: true, title, tier, tierName: REDL_TIERS[tier], freedBytes });
   } catch (e) { console.log(`redownload: failed for radarr id=${mid} — ${e.message || e}`); res.status(500).json({ error: String(e.message || e) }); }
 });
@@ -1258,8 +1295,13 @@ app.post('/api/redownload', async (req, res) => {
 app.post('/api/declined/dismiss', (req, res) => {
   const { hash } = req.body || {};
   if (!hash) return res.status(400).json({ error: 'hash is required' });
+  // A "Declined" row's hash is its source map's key: torrent hash (declined, download-stage
+  // gate) OR app:id:seasons (blocked, request-stage gate). Clearing only `declined` made
+  // request-stage rows undismissable — the button flashed a checkmark, then the row returned.
   declined.delete(hash);
+  blocked.delete(hash);
   persistState();
+  bustDownloadsCache();
   res.json({ ok: true });
 });
 
@@ -1273,6 +1315,7 @@ app.post('/api/retry', async (req, res) => {
     if (a === 'radarr') await arrPost(a, '/command', { name: 'MoviesSearch', movieIds: [Number(id)] }, 5000);
     else await arrPost(a, '/command', { name: 'SeriesSearch', seriesId: Number(id) }, 5000);
     console.log(`retry: triggered search for ${a} id=${id}`);
+    bustDownloadsCache();
     res.json({ ok: true });
   } catch (e) { console.log(`retry: failed for ${a} id=${id} — ${e.message || e}`); res.status(500).json({ error: String(e.message || e) }); }
 });
@@ -1479,11 +1522,20 @@ async function orphanSweep() {
       } catch { /* queue down */ }
 
       const toRemove = [];
+      const zombies = [];
+      const nowS = Math.floor(Date.now() / 1000);
       for (const t of arrTorrents) {
         const hash = (t.hash || '').toLowerCase();
         const arrId = idByHash.get(hash);
         // If we know the *arr item this torrent belongs to and that item is gone → orphan
-        if (arrId != null && !knownIds.has(arrId)) toRemove.push(t.hash);
+        if (arrId != null && !knownIds.has(arrId)) { toRemove.push(t.hash); continue; }
+        // Zombie ledger entries: a torrent stuck in missingFiles for days is dead weight —
+        // its payload is gone from disk (the 2026-06-29 outage left 44 of these, invisible
+        // to the orphan rule above because the 500-event history window no longer reaches
+        // their grabs). 48h rules out a transient post-crash recheck that self-heals; if the
+        // title is genuinely still wanted, the *arr sweep re-searches it. deleteFiles=false —
+        // there are no files, and we never risk touching a library hardlink.
+        if (t.state === 'missingFiles' && nowS - (t.added_on || 0) > 172800) zombies.push(t.hash);
       }
 
       if (toRemove.length) {
@@ -1492,6 +1544,13 @@ async function orphanSweep() {
           await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
           console.log(`orphanSweep: removed ${toRemove.length} orphaned torrent(s) from ${app}`);
         } catch (e) { console.log(`orphanSweep: teardown failed — ${String(e.message || e)}`); }
+      }
+      if (zombies.length) {
+        try {
+          const body = new URLSearchParams({ hashes: zombies.join('|'), deleteFiles: 'false' });
+          await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+          console.log(`orphanSweep: removed ${zombies.length} zombie missingFiles torrent(s) from ${app} (entries only — no files on disk)`);
+        } catch (e) { console.log(`orphanSweep: zombie cleanup failed — ${String(e.message || e)}`); }
       }
     }
   } finally { orphanBusy = false; }
@@ -1600,6 +1659,18 @@ async function arrSweep() {
           // release next search instead of re-grabbing the same corpse (that loop = the "Not found" churn).
           stuckIds.push({ id, queueId: qe.id, blocklist: true });
           if (qe.downloadId) stalledHashes.push(qe.downloadId);
+        }
+        // Terminal import rejections: a COMPLETED download *arr refuses to import ("Not an
+        // upgrade…", "Sample") will never improve — it sits in the queue wasting disk and a
+        // slot forever (audit found 4 wedged for days). Remove + blocklist so it's never
+        // re-grabbed. Transient states (still downloading, missing-file glitch) don't match.
+        const doneDl = (qe.status || '').toLowerCase() === 'completed'
+          || (qe.trackedDownloadState === 'importPending' || qe.trackedDownloadState === 'importBlocked');
+        if (doneDl && (qe.trackedDownloadStatus || '').toLowerCase() === 'warning') {
+          const msgs = ((qe.statusMessages || []).flatMap((m) => m.messages || []).join(' ') + ' ' + (qe.errorMessage || '')).toLowerCase();
+          if (/not an upgrade|not a custom format upgrade|\bsample\b/.test(msgs)) {
+            stuckIds.push({ id, queueId: qe.id, blocklist: true });
+          }
         }
       }
 

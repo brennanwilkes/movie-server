@@ -30,6 +30,21 @@ if [[ -n "${DATA_IMG:-}" ]]; then
   fi
 fi
 
+# 2b. Docker must WAIT for /data before starting containers. The fstab entry for the USB
+#     data drive is nofail with a 10s device timeout — after a power-loss reboot, slow USB
+#     enumeration means boot proceeds WITHOUT /data mounted, Docker auto-starts the stack
+#     against the bare /data dir on the SSD, and qBittorrent marks every torrent
+#     missingFiles / starts re-downloading onto the root disk (audit 2026-07-02; the
+#     2026-06-29 outage already demonstrated the reboot path). RequiresMountsFor makes
+#     docker.service depend on the /data mount unit — no mount, no containers.
+DOCKER_DROPIN=/etc/systemd/system/docker.service.d/wait-for-data.conf
+if mountpoint -q "$DATA" && ! grep -qs "RequiresMountsFor=$DATA" "$DOCKER_DROPIN" 2>/dev/null; then
+  sudo mkdir -p "$(dirname "$DOCKER_DROPIN")"
+  printf '[Unit]\nRequiresMountsFor=%s\n' "$DATA" | sudo tee "$DOCKER_DROPIN" >/dev/null
+  sudo systemctl daemon-reload
+  echo "Installed docker.service drop-in: containers now wait for $DATA to mount at boot."
+fi
+
 # 3. create the data + config tree (single $DATA root enables hardlinks)
 sudo mkdir -p "$DATA"/torrents/{incomplete,complete} \
               "$DATA"/media/{movies,tv} \
