@@ -241,7 +241,39 @@ with `EnableDecodingColorDepth10Hevc=false` (correct for Skylake Iris 540).
 
 ---
 
-## 7. Live-stack snapshot (2026-07-02, for future reference)
+## 7. Expansion ideas: browsing, discovery, ratings, playlists
+
+Requested 2026-07-02: better ways to pick a movie and discover new ones. Curated for this
+stack (self-hosted, IaC-friendly, 1080p projector). Already installed and worth configuring
+first: **Home Screen Sections**, **Jellyfin Enhanced**, OMDb/TMDb metadata plugins.
+
+1. **Radarr collection monitoring + Jellyfin Box Sets** (zero new software). Radarr already
+   knows every movie's TMDb collection; enabling collection display groups trilogies/sagas in
+   Jellyfin automatically. IaC: one flag per collection via Radarr API. *Effort: S.*
+2. **Home Screen Sections rows** (plugin already installed — just configure): "Top rated you
+   haven't watched", per-genre rows, "Recently added", "Continue watching" reordering. This is
+   the biggest pick-a-movie win for the least work. *Effort: S.*
+3. **Smart Playlists plugin** (third-party repo): rule-based auto-playlists — "unwatched
+   comedies under 2h", "90s rewatchables", "short movies for weeknights". Rules live as JSON →
+   fits IaC. *Effort: M.*
+4. **Playback Reporting plugin + Jellystat container**: watch statistics (what actually gets
+   watched, by whom) — the raw material for taste-aware rows and pruning decisions. Jellystat
+   is a separate container + Postgres, so it's a compose addition. *Effort: M.*
+5. **Recommendarr container**: LLM-driven recommendations from your actual library/watch
+   history, wired to Radarr/Sonarr/Jellyseerr so a recommendation is one click from a request.
+   Pairs perfectly with the wife-proof request flow. *Effort: M.*
+6. **Jellyseerr discovery sliders** (built-in, unconfigured): custom discovery rows by
+   genre/keyword/studio on the request page — shape what she sees when browsing for new
+   titles. *Effort: S.*
+7. **Controller "What to watch" tab** (bespoke, best fit): a dashboard tab that queries
+   Jellyfin for unwatched titles with filters (genre chips, runtime slider, rating sort,
+   "surprise me" random pick) and deep-links straight into playback. The controller already
+   has Jellyfin auth + deep-link plumbing (`/api/jellyfin/resolve`) — this is an app.js/server.js
+   feature, not new infrastructure. *Effort: M–L, highest ceiling.*
+
+Suggested order: 2 → 1 → 6 (pure config), then 7, then 3/5.
+
+## 8. Live-stack snapshot (2026-07-02, for future reference)
 
 - NUC: i5-6260U (Skylake, Iris 540) — QSV: H.264 8-bit ✓, HEVC 8-bit ✓ (hybrid),
   HEVC 10-bit ✗, AV1 ✗. Load avg during probe: **8.4** (2c/4t).

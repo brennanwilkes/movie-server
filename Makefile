@@ -1,5 +1,5 @@
 .PHONY: bootstrap deploy provision up down clean destroy validate ps logs mdns resize-data remount \
-        search profiles history querylogs diagnose
+        search profiles history querylogs diagnose test why
 bootstrap:  ## one-time host prep (dirs, cap, .env, hook)
 	./scripts/bootstrap.sh
 deploy:     ## validate + pull + start (make deploy s=jellyfin for one)
@@ -45,3 +45,7 @@ querylogs:  ## tail/grep a service's logs (make querylogs s=radarr a='--grep gra
 	./scripts/query-logs.sh $(s) $(a)
 diagnose:   ## full stack health check
 	./scripts/diagnose.sh
+test:       ## fast read-only PASS/FAIL assertions for the whole stack (run after any change)
+	./scripts/smoke-test.sh
+why:        ## why isn't this playing (well) on the PS3/projector? (make why q="Pulp Fiction")
+	./scripts/why-playback.sh "$(q)"

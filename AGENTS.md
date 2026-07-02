@@ -2,6 +2,11 @@
 
 This doc helps agents auto-discover the system layout, failure modes, and where to add diagnostics. Read this first before making changes.
 
+**Fast start:** `make test` (30+ PASS/FAIL assertions — run it before AND after changes) ·
+`make search q="Title"` (why the grab algorithm picks what it picks) · `make why q="Title"`
+(why a title won't play on the PS3/projector) · `AUDIT.md` (2026-07-02 deep audit: verified
+findings + what's already fixed + open recommendations).
+
 ## System Overview
 
 Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loopback image cap (disabled). Services run as Docker containers via `docker compose`. The controller (`controller/server.js`) is the brain — it polls every service every 5s, builds a unified download view, and runs 6 background sweeps.
@@ -33,6 +38,10 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `scripts/search-releases.sh` | **Tool**: search available *arr releases sorted by seeders |
 | `scripts/diagnose.sh` | **Tool**: cross-service state comparison (qBit vs *arr vs controller) |
 | `scripts/show-indexers.sh` | **Tool**: Prowlarr indexer health/tags/proxy, live-test, per-indexer search counts |
+| `scripts/smoke-test.sh` | **Tool**: `make test` — 30+ read-only PASS/FAIL assertions over the whole stack. Run FIRST when anything seems off, and after every change |
+| `scripts/why-playback.sh` | **Tool**: `make why q="Title"` — per-title playback diagnosis (PS3 direct-play? transcode feasible? live transcode reasons) |
+| `AUDIT.md` | Deep audit 2026-07-02: verified findings, fix log, live-stack snapshot, open [REC] items |
+| `scripts/provision/dlna-ps3-profile.xml` | Custom PS3 DLNA device profile (installed by jellyfin.sh; overrides the plugin's built-in) |
 | `scripts/provision/_arr_common.sh` | Shared *arr provisioning: quality profiles, custom formats, delay profiles, indexers |
 | `scripts/provision/radarr.sh` | Radarr provisioning wrapper |
 | `scripts/provision/sonarr.sh` | Sonarr provisioning wrapper |
@@ -73,6 +82,13 @@ The controller runs 6 background sweeps. Each is independent and has its own int
 | `arrSweep` | 5min | `1520-1685` | Remove stuck queue items, dedup duplicates, trigger searches for missing items |
 | `requestGate` | 1min | `1786-1779` | Flag Jellyseerr requests stuck on disk space |
 | `jfLibraryRefresh` | event + 2min watchdog | `1787-1816` | Trigger Jellyfin library scan after imports |
+| `gpuVerifySweep` | 10min | search `gpuVerifySweep` | Post-import ground truth: a movie imported <48h ago whose mediaInfo is 10-bit/HDR/AV1/VP9 gets its release blocklisted + re-searched (once per movie EVER — `gpuSwapped` persisted; max 2/cycle). Log prefix `gpuVerify:` |
+
+(Line numbers drift — prefer grepping the sweep name in `controller/server.js`. Other cleanups
+living inside the sweeps above: `arrSweep` also removes+blocklists terminal import rejections
+("not an upgrade"/"sample"); `orphanSweep` also drops zombie `missingFiles` torrents >48h old;
+`stallRecovery` also rescues *arr-orphaned dead downloads (torrent exists, queue record gone) by
+blocklisting via grab history and deleting the torrent — log prefix `recovery:`.)
 
 ### Key Constants (arrSweep — the most important sweep for diagnostics)
 
@@ -137,6 +153,37 @@ QUEUE_TTL           = 8s         # *arr queue + qBit cache TTL
      mirror and lean on **Knaben** (meta-aggregator over 30+ sites, incl. 1337x/RARBG/TGx)
    - Indexer config is IaC in `scripts/provision/prowlarr.sh` (a self-healing reconciler); re-run
      `make provision s=prowlarr` to restore tags/enable/priority after any manual UI change
+
+### "Why was THIS release picked?" (codec/size/quality complaints)
+
+1. `make search q="Title"` — every available release ranked by the SAME customFormatScore
+   *arr grabs on, with matched formats shown. The grab is the top row that is also
+   quality-ALLOWED (2160p/Remux score high but are rejected — qualities cap at Bluray-1080p).
+   Ties break by seeders.
+2. `make history` — what was actually grabbed/imported recently, with scores.
+3. `make profiles` — the live per-tier scores. Compare against `_arr_common.sh`
+   `build_formatitems`; if they differ, someone hand-edited the UI → `make provision s=radarr`.
+4. File landed 10-bit anyway? Title-based detection can't prove bit depth. Check
+   `curl -s localhost:8088/api/library?app=radarr | jq '.items[]|select(.gpuCompat!="ok")|{title,videoLabel}'`
+   — and `gpuVerifySweep` auto-swaps such files if imported <48h ago (log: `gpuVerify:`).
+   Older files: dashboard Library tab → Redownload.
+
+### "Why isn't this playing on the PS3?"
+
+1. `make why q="Title"` — one command: prints the file's codec/bit-depth/audio/container,
+   whether the PS3 can direct-play it, whether this NUC can transcode it in real time, and
+   any live Jellyfin session's transcode reasons.
+2. PS3 hard limits: H.264 8-bit ≤L4.1 video, mp4/ts containers, AC3 or STEREO AAC audio
+   (5.1 AAC = video plays with silent audio), no MKV, no HEVC, no 10-bit — ever.
+3. The custom DLNA profile (`scripts/provision/dlna-ps3-profile.xml`, installed to
+   `/opt/appdata/jellyfin/data/plugins/configurations/dlna/user/`) caps AAC direct-play at
+   2ch and transcodes to MPEG-TS H.264 + AC3 5.1. If the PS3 misbehaves, confirm that file
+   exists (make test checks it), then check Jellyfin logs for the chosen profile.
+4. Discovery problems (server not in PS3 menu): Jellyfin runs HOST networking bound to
+   $NUC_IP; DLNA plugin blasts alive every 180s. `curl -s http://$NUC_IP:8096/System/Info/Public`.
+5. Stutter/buffering during PS3 playback: 10-bit HEVC source = CPU decode on a 2c/4t box —
+   check `curl -s localhost:8088/api/system` (load) and use Movie Mode (dashboard) to pause
+   all downloads/sweeps while streaming.
 
 ### "Why is a TV series stuck with only some seasons?"
 
@@ -269,7 +316,13 @@ All tiers allow full SD→1080p range. They differ only in size-band scores:
 
 **Cutoff**: Bluray-1080p (Low uses Bluray-720p cutoff so small 720p is terminal).
 
-**Codec hierarchy**: H.264 (+50) > HEVC 8bit (+40) > HDR/DV (-200) > 10bit (-150) > AV1/VP9 (-1000).
+**Codec hierarchy**: H.264 (+80) > HEVC 8bit (+20) > Likely-10bit-group (-120) > 10bit (-150) > HDR/DV (-200) > AV1/VP9 (-1000).
+The H.264/HEVC gap is DELIBERATE and load-bearing: at parity (+50/+50) *arr broke ties by
+seeders, x265 out-seeds x264 on popular titles, and modern x265 is 10-bit WITHOUT saying so
+in the title (ffprobe-verified) — so hidden-10-bit kept winning. Never re-tie them. Titles
+that still slip through get caught post-import by `gpuVerifySweep` (mediaInfo ground truth).
+Scores live ONLY in `_arr_common.sh` `build_formatitems` — `cf_ensure` reconciles spec changes
+to live installs on every provision, so edit the script, never the *arr UI.
 
 **Language**: Original-language audio (+200), Dubbed (-800). Never gates — only orders.
 
@@ -296,6 +349,7 @@ The controller persists its state to `/config/state.json` on every sweep mutatio
 - `declined` (disk-gate tombstones)
 - `blocked` (request-gate entries)
 - `searchState` (cooldown/block timers)
+- `gpuSwapped` (movies already GPU-swapped once — the verifier's never-loop guard)
 - `masterPaused` (Movie Mode)
 
 This prevents reboot-triggered re-search storms.
