@@ -1169,38 +1169,61 @@ async function collectionsSweep() {
     const q = new URLSearchParams({ IncludeItemTypes: 'Movie', Recursive: 'true', Fields: 'ProductionYear,Genres,CommunityRating,RunTimeTicks', Limit: '5000' });
     const movies = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 15000)).json()).Items) || [];
     if (movies.length < 20) return;                       // tiny library — don't spam collections
-    const buckets = new Map();                            // collection name -> Set(itemId)
-    const add = (name, id) => { if (!buckets.has(name)) buckets.set(name, new Set()); buckets.get(name).add(id); };
-    // VIBE COMBOS — not plain genres (the Genres tab already covers those). Each rule is a
-    // curated cross-section of decade × genre(s) × runtime × rating. Thin results (<5
-    // titles) are skipped automatically below, so the list can be aspirational: add a new
-    // vibe as one line. test(m, year, minutes, rating) → belongs.
+    const buckets = new Map();                            // collection name -> { ids:Set, desc }
+    const add = (name, desc, id) => { if (!buckets.has(name)) buckets.set(name, { ids: new Set(), desc }); buckets.get(name).ids.add(id); };
+    // VIBE COMBOS — short titles, flowery blurbs (→ the collection's Overview), and per-vibe
+    // GENRE EXCLUSIONS so tones don't bleed (no cartoons in date night, no romance in the
+    // action shelf). Thin results (<5 titles) auto-hide, so the list can be aspirational —
+    // add a vibe as one entry: [name, blurb, test(m, year, minutes, rating)].
     const has = (m, g) => (m.Genres || []).includes(g);
+    const none = (m, gs) => !gs.some((g) => has(m, g));
     const VIBES = [
-      ['Mob & Crime Classics (80s–90s)', (m, y) => has(m, 'Crime') && y >= 1980 && y < 2000],
-      ['90s Action Blockbusters', (m, y) => has(m, 'Action') && y >= 1990 && y < 2000],
-      ['2000s Rom-Coms', (m, y) => has(m, 'Romance') && has(m, 'Comedy') && y >= 2000 && y < 2010],
-      ['Rom-Coms Through the Ages', (m) => has(m, 'Romance') && has(m, 'Comedy')],
-      ['Short Action Fix', (m, y, mins) => has(m, 'Action') && mins > 0 && mins <= 110],
-      ['Feel-Good Comedies', (m, y, mins, r) => has(m, 'Comedy') && r >= 7 && mins > 0 && mins <= 125],
-      ['Edge-of-Seat Thrillers', (m, y, mins, r) => has(m, 'Thriller') && (has(m, 'Crime') || has(m, 'Mystery')) && r >= 6.8],
-      ['Sci-Fi Mindbenders', (m, y, mins, r) => has(m, 'Science Fiction') && (has(m, 'Thriller') || has(m, 'Mystery') || has(m, 'Drama')) && r >= 7],
-      ['Space & Beyond', (m) => has(m, 'Science Fiction') && has(m, 'Adventure')],
-      ['Family Movie Night', (m, y, mins, r) => (has(m, 'Family') || has(m, 'Animation')) && r >= 6.5],
-      ['Horror Nights', (m, y, mins, r) => has(m, 'Horror') && r >= 6],
-      ['War Stories', (m) => has(m, 'War')],
-      ['Old Hollywood (pre-70s)', (m, y, mins, r) => y > 0 && y < 1970 && r >= 7],
-      ['Modern Masterpieces', (m, y, mins, r) => y >= 2010 && r >= 7.8],
-      // Date-night family — split by era/mood so Chaplin and Superbad stop sharing a shelf.
-      ['Old-School Date Night', (m, y, mins, r) => (has(m, 'Romance') || has(m, 'Comedy')) && y > 0 && y < 1980 && r >= 7],
-      ['Fun Date Night', (m, y, mins, r) => has(m, 'Comedy') && (has(m, 'Romance') || has(m, 'Adventure') || has(m, 'Action')) && y >= 1995 && r >= 6.8 && mins > 0 && mins <= 130],
-      ['Romantic Evening', (m, y, mins, r) => has(m, 'Romance') && !has(m, 'Horror') && r >= 7 && mins > 0 && mins <= 145],
-      ['Modern Rom-Coms (2010s+)', (m, y) => has(m, 'Romance') && has(m, 'Comedy') && y >= 2010],
-      ['70s New Hollywood', (m, y, mins, r) => y >= 1970 && y < 1980 && r >= 7.2],
-      ['80s Adventure Classics', (m, y, mins, r) => (has(m, 'Adventure') || has(m, 'Action')) && y >= 1980 && y < 1990 && r >= 6.5],
-      ['90s Comedies', (m, y) => has(m, 'Comedy') && y >= 1990 && y < 2000],
-      ['Animation Greats', (m, y, mins, r) => has(m, 'Animation') && r >= 7.3],
-      ['Documentaries that Wow', (m, y, mins, r) => has(m, 'Documentary') && r >= 7.5],
+      ['Mob Classics', 'Wiseguys, heists, and family business — crime cinema’s golden run through the ’80s and ’90s.',
+        (m, y) => has(m, 'Crime') && y >= 1980 && y < 2000 && none(m, ['Animation', 'Documentary', 'Family', 'Romance'])],
+      ['90s Action', 'Big explosions, bigger one-liners — pure ’90s adrenaline.',
+        (m, y) => has(m, 'Action') && y >= 1990 && y < 2000 && none(m, ['Animation', 'Documentary', 'Romance', 'Family'])],
+      ['80s Adventure', 'Whip-cracking, treasure-hunting, world-saving ’80s spirit.',
+        (m, y, mins, r) => (has(m, 'Adventure') || has(m, 'Action')) && y >= 1980 && y < 1990 && r >= 6.5 && none(m, ['Animation', 'Documentary', 'Horror', 'Romance'])],
+      ['Quick Action', 'All killer, no filler — action that wraps inside two hours.',
+        (m, y, mins) => has(m, 'Action') && mins > 0 && mins <= 110 && none(m, ['Animation', 'Documentary', 'Romance', 'Family'])],
+      ['Date Night: Classic', 'Old-school charm — romance and wit from Hollywood’s earlier eras.',
+        (m, y, mins, r) => (has(m, 'Romance') || has(m, 'Comedy')) && y > 0 && y < 1980 && r >= 7 && none(m, ['Horror', 'Animation', 'Documentary', 'War'])],
+      ['Date Night: Fun', 'Low-stakes laughs to share — nothing heavy, everything fun.',
+        (m, y, mins, r) => has(m, 'Comedy') && (has(m, 'Romance') || has(m, 'Adventure') || has(m, 'Action')) && y >= 1995 && r >= 6.8 && mins > 0 && mins <= 130 && none(m, ['Horror', 'Animation', 'Documentary'])],
+      ['Date Night: Romance', 'Love stories that earn the couch cuddle.',
+        (m, y, mins, r) => has(m, 'Romance') && r >= 7 && mins > 0 && mins <= 145 && none(m, ['Horror', 'Animation', 'Documentary', 'Action', 'War'])],
+      ['New Rom-Coms', 'Modern meet-cutes — 2010 and later.',
+        (m, y) => has(m, 'Romance') && has(m, 'Comedy') && y >= 2010 && none(m, ['Horror', 'Animation', 'Documentary'])],
+      ['2000s Rom-Coms', 'Frosted tips, flip phones, and falling in love — the 2000s way.',
+        (m, y) => has(m, 'Romance') && has(m, 'Comedy') && y >= 2000 && y < 2010 && none(m, ['Horror', 'Animation', 'Documentary'])],
+      ['Rom-Coms', 'Meet-cutes across the decades.',
+        (m) => has(m, 'Romance') && has(m, 'Comedy') && none(m, ['Horror', 'Animation', 'Documentary'])],
+      ['90s Comedies', 'Slackers, road trips, and endlessly quotable one-liners.',
+        (m, y) => has(m, 'Comedy') && y >= 1990 && y < 2000 && none(m, ['Horror', 'Animation', 'Documentary'])],
+      ['Feel-Good', 'Guaranteed mood-lifters — funny, warm, and easy to watch.',
+        (m, y, mins, r) => has(m, 'Comedy') && r >= 7 && mins > 0 && mins <= 125 && none(m, ['Horror', 'Documentary', 'War'])],
+      ['Nail-Biters', 'Tense, twisty, edge-of-the-seat.',
+        (m, y, mins, r) => has(m, 'Thriller') && (has(m, 'Crime') || has(m, 'Mystery')) && r >= 6.8 && none(m, ['Animation', 'Documentary', 'Romance', 'Family'])],
+      ['Mindbenders', 'Science fiction that rewires your brain on the way out.',
+        (m, y, mins, r) => has(m, 'Science Fiction') && (has(m, 'Thriller') || has(m, 'Mystery') || has(m, 'Drama')) && r >= 7 && none(m, ['Animation', 'Documentary', 'Family'])],
+      ['Space & Beyond', 'Strap in — voyages past the atmosphere.',
+        (m) => has(m, 'Science Fiction') && has(m, 'Adventure') && none(m, ['Documentary'])],
+      ['Family Night', 'Safe for the whole crew — animated favourites and family classics.',
+        (m, y, mins, r) => (has(m, 'Family') || has(m, 'Animation')) && r >= 6.5 && none(m, ['Horror', 'Thriller'])],
+      ['Horror Nights', 'Lights off. Volume up. Good luck.',
+        (m, y, mins, r) => has(m, 'Horror') && r >= 6 && none(m, ['Documentary', 'Family'])],
+      ['War Stories', 'From the trenches to the home front.',
+        (m) => has(m, 'War') && none(m, ['Animation', 'Documentary'])],
+      ['70s New Hollywood', 'The auteurs’ decade — gritty, personal, revolutionary.',
+        (m, y, mins, r) => y >= 1970 && y < 1980 && r >= 7.2 && none(m, ['Animation', 'Documentary', 'Family'])],
+      ['Old Hollywood', 'Black-and-white brilliance and technicolor dreams — pre-1970.',
+        (m, y, mins, r) => y > 0 && y < 1970 && r >= 7 && none(m, ['Documentary'])],
+      ['Masterpieces', 'Modern all-timers — the best-reviewed films since 2010.',
+        (m, y, mins, r) => y >= 2010 && r >= 7.8 && none(m, ['Documentary'])],
+      ['Animation Greats', 'Animated films that stand with the best of anything.',
+        (m, y, mins, r) => has(m, 'Animation') && r >= 7.3],
+      ['Top Docs', 'True stories, brilliantly told.',
+        (m, y, mins, r) => has(m, 'Documentary') && r >= 7.5],
     ];
     for (const m of movies) {
       const y = m.ProductionYear || 0;
@@ -1208,19 +1231,37 @@ async function collectionsSweep() {
       const r = m.CommunityRating || 0;
       if (y >= 1950) {
         const d = Math.floor(y / 10) * 10;
-        add(`${d >= 2000 ? d : String(d).slice(2)}s Movies`, m.Id);
+        const label = d >= 2000 ? `${d}s` : `${String(d).slice(2)}s`;
+        add(`${label} Movies`, `The library’s ${label} time capsule — everything we have from the decade.`, m.Id);
       }
-      if (r >= 7.5) add('Critically Loved', m.Id);
-      if (mins > 0 && mins <= 100) add('Short & Sweet', m.Id);        // weeknight-sized
-      if (mins >= 150) add('Epic Runtimes', m.Id);                    // settle-in-for-it
-      for (const [name, test] of VIBES) if (test(m, y, mins, r)) add(name, m.Id);
+      if (r >= 7.5) add('Critically Loved', 'The highest-rated films on the shelf. No duds allowed.', m.Id);
+      if (mins > 0 && mins <= 100) add('Short & Sweet', 'Ninety-odd minutes, zero commitment.', m.Id);
+      if (mins >= 150) add('Epics', 'Settle in — sagas that take their time and earn it.', m.Id);
+      for (const [name, desc, test] of VIBES) if (test(m, y, mins, r)) add(name, desc, m.Id);
     }
-    for (const [name, ids] of [...buckets]) if (ids.size < 5) buckets.delete(name);
-    // Poster source per collection: its highest-rated member's poster (set below when a
-    // collection has no Primary image, so they don't sit as generic blue folders).
+    for (const [name, b] of [...buckets]) if (b.ids.size < 5) buckets.delete(name);
+    // Poster per collection: a RANDOM pick from its five best-rated members, re-rolled every
+    // sweep — shelves get fresh faces twice a day instead of a frozen thumbnail.
     const byId = new Map(movies.map((m) => [m.Id, m]));
-    const posterPick = (want) => [...want].map((x) => byId.get(x)).filter(Boolean)
-      .sort((a, b) => (b.CommunityRating || 0) - (a.CommunityRating || 0))[0];
+    const posterPick = (want) => {
+      const top = [...want].map((x) => byId.get(x)).filter(Boolean)
+        .sort((a, b) => (b.CommunityRating || 0) - (a.CommunityRating || 0)).slice(0, 5);
+      return top[Math.floor(Math.random() * top.length)];
+    };
+    const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    // DisplayOrder=Default makes Jellyfin honor STORED membership order (verified 2026-07-02)
+    // — so re-writing membership shuffled = genuinely random browse order, refreshed each
+    // sweep. Same dto update carries the flowery Overview.
+    const ensureMeta = async (setId, desc) => {
+      try {
+        const dto = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${setId}`, { headers: h }, 10000)).json();
+        if (dto.DisplayOrder !== 'Default' || (desc && dto.Overview !== desc)) {
+          dto.DisplayOrder = 'Default';
+          if (desc) dto.Overview = desc;
+          await tfetch(`${HOST.jellyfin}/Items/${setId}`, { method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(dto) }, 15000);
+        }
+      } catch { /* metadata best-effort */ }
+    };
     const setPoster = async (setId, memberId) => {
       const ir = await tfetch(`${HOST.jellyfin}/Items/${memberId}/Images/Primary?maxWidth=600&quality=90`, {}, 15000);
       if (!ir.ok) return false;
@@ -1235,7 +1276,12 @@ async function collectionsSweep() {
     // name list so a TMDb franchise box set can never be caught by accident.
     const RETIRED = new Set([
       ...['Action', 'Adventure', 'Comedy', 'Crime', 'Drama', 'Romance', 'Science Fiction', 'Thriller', 'Horror', 'Animation', 'Family', 'Documentary', 'Fantasy', 'Mystery', 'War', 'Western', 'Music'].map((g) => `${g} Movies`),
-      'Date Night',                              // split into Old-School/Fun/Romantic variants
+      // superseded by the short-titled / era-dialed vibes
+      'Date Night', 'Mob & Crime Classics (80s–90s)', '90s Action Blockbusters', 'Short Action Fix',
+      'Old-School Date Night', 'Fun Date Night', 'Romantic Evening', 'Modern Rom-Coms (2010s+)',
+      'Rom-Coms Through the Ages', 'Feel-Good Comedies', 'Edge-of-Seat Thrillers', 'Sci-Fi Mindbenders',
+      'Family Movie Night', 'Old Hollywood (pre-70s)', 'Modern Masterpieces', '80s Adventure Classics',
+      'Documentaries that Wow', 'Epic Runtimes',
     ]);
     let removed = 0;
     for (const s of sets) {
@@ -1243,33 +1289,31 @@ async function collectionsSweep() {
         try { const r = await tfetch(`${HOST.jellyfin}/Items/${s.Id}`, { method: 'DELETE', headers: h }, 15000); if (r.ok || r.status === 204) removed++; } catch { /* */ }
       }
     }
-    const noPoster = new Set(sets.filter((s) => !(s.ImageTags && s.ImageTags.Primary)).map((s) => s.Id));
     let created = 0, updated = 0, postered = 0;
-    for (const [name, want] of buckets) {
+    for (const [name, { ids: want, desc }] of buckets) {
       let setId = byName.get(name);
       if (!setId) {
-        const r = await tfetch(`${HOST.jellyfin}/Collections?${new URLSearchParams({ Name: name, Ids: [...want].join(',') })}`, { method: 'POST', headers: h }, 20000);
-        if (r.ok) {
-          created++;
-          try { setId = (await r.json()).Id; } catch { setId = null; }
-          const pick = posterPick(want);
-          if (setId && pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
-        }
-        continue;
-      }
-      if (noPoster.has(setId)) {
+        const r = await tfetch(`${HOST.jellyfin}/Collections?${new URLSearchParams({ Name: name, Ids: shuffle([...want]).join(',') })}`, { method: 'POST', headers: h }, 20000);
+        if (!r.ok) continue;
+        created++;
+        try { setId = (await r.json()).Id; } catch { setId = null; }
+        if (!setId) continue;
+        await ensureMeta(setId, desc);
         const pick = posterPick(want);
         if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
+        continue;
       }
+      await ensureMeta(setId, desc);
+      // Full rewrite in shuffled order: reconciles membership AND re-rolls the browse order.
       const cq = new URLSearchParams({ ParentId: setId, Limit: '5000' });
-      const have = new Set((((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 15000)).json()).Items) || []).map((i) => i.Id));
-      const toAdd = [...want].filter((x) => !have.has(x));
-      const toDel = [...have].filter((x) => !want.has(x));
-      if (toAdd.length) await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${toAdd.join(',')}`, { method: 'POST', headers: h }, 20000);
-      if (toDel.length) await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${toDel.join(',')}`, { method: 'DELETE', headers: h }, 20000);
-      if (toAdd.length || toDel.length) updated++;
+      const have = (((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 15000)).json()).Items) || []).map((i) => i.Id);
+      if (have.length) await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${have.join(',')}`, { method: 'DELETE', headers: h }, 30000);
+      await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${shuffle([...want]).join(',')}`, { method: 'POST', headers: h }, 30000);
+      updated++;
+      const pick = posterPick(want);
+      if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
     }
-    if (created || updated || postered || removed) console.log(`collectionsSweep: ${created} created, ${updated} refreshed, ${postered} poster(s) set, ${removed} retired (${buckets.size} auto-collections maintained)`);
+    if (created || updated || postered || removed) console.log(`collectionsSweep: ${created} created, ${updated} reshuffled, ${postered} poster(s) rotated, ${removed} retired (${buckets.size} auto-collections maintained)`);
   } catch (e) { console.log(`collectionsSweep: failed — ${e.message || e}`); }
   finally { collSweepBusy = false; }
 }

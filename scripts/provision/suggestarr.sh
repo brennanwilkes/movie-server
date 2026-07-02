@@ -42,12 +42,18 @@ cfg.update({
     'MAX_SIMILAR_MOVIE': 3,
     'MAX_SIMILAR_TV': 1,
     'CRON_TIMES': '0 3 * * *',
+    # Quality bar (audit: default threshold 60 let mediocre titles through): TMDb >= 6.8
+    # with >= 500 votes, and never suggest unrated obscurities. Scale is 0-100 (/10).
+    'FILTER_TMDB_THRESHOLD': 68,
+    'FILTER_TMDB_MIN_VOTES': 500,
+    'FILTER_INCLUDE_NO_RATING': False,
     'SETUP_COMPLETED': True,
 })
 # The stock config quotes numerics as strings ('10'), and the automation compares them to
 # ints (TypeError: '>' not supported int/str). Coerce every known numeric knob.
 for k in ('MAX_SIMILAR_MOVIE','MAX_SIMILAR_TV','MAX_CONTENT_CHECKS','SEARCH_SIZE',
-          'API_RETRIES','API_TIMEOUT','CACHE_TTL','MAX_CACHE_SIZE','SEER_REQUEST_DELAY'):
+          'API_RETRIES','API_TIMEOUT','CACHE_TTL','MAX_CACHE_SIZE','SEER_REQUEST_DELAY',
+          'FILTER_TMDB_THRESHOLD','FILTER_TMDB_MIN_VOTES'):
     try: cfg[k] = int(cfg[k])
     except (KeyError, TypeError, ValueError): pass
 yaml.safe_dump(cfg, open(p, 'w'), default_flow_style=False, sort_keys=True)

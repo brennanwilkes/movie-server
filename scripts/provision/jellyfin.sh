@@ -258,8 +258,10 @@ else
   hss_cur=$(curl -fsS "$JF/Plugins/${hss_id}/Configuration" -H "X-Emby-Token: $token")
   # Layout: everyday rows first (media, resume, fresh arrivals), then taste (because-you-
   # watched, genre rows, top ten, watch-again), then outward discovery (Jellyseerr discover +
-  # requests, *arr upcoming). Overlapping/irrelevant rows explicitly disabled. Users can
-  # override anything (AllowUserOverride on every row).
+  # requests, *arr upcoming). Sections SHARING an OrderIndex render in random order among
+  # themselves on every load (plugin behavior) — the taste group (5) and discovery group (9)
+  # deliberately share numbers so the home page shuffles a little each visit. Overlapping/
+  # irrelevant rows explicitly disabled; users can override anything.
   hss_desired=$(jq --arg ip "$NUC_IP" --arg sk "$seerr_key" --arg rk "$radarr_key" --arg nk "$sonarr_key" '
     def row($id; $ord; $en; $hide; $max; $vm):
       {SectionId:$id, Enabled:$en, AllowUserOverride:true, LowerLimit:1, UpperLimit:$max,
@@ -274,13 +276,13 @@ else
         row("RecentlyAddedMovies";    3; true;  true;  1; "Landscape"),
         row("RecentlyAddedShows";     4; true;  true;  1; "Landscape"),
         row("BecauseYouWatched";      5; true;  true;  3; "Landscape"),
-        row("Genre";                  6; true;  true;  3; "Landscape"),
-        row("TopTen";                 7; true;  false; 1; "Landscape"),
-        row("WatchAgain";             8; true;  false; 1; "Landscape"),
+        row("Genre";                  5; true;  true;  3; "Landscape"),
+        row("TopTen";                 5; true;  false; 1; "Landscape"),
+        row("WatchAgain";             5; true;  false; 1; "Landscape"),
         row("DiscoverMovies";         9; true;  false; 1; "Portrait"),
-        row("DiscoverTv";            10; true;  false; 1; "Portrait"),
-        row("UpcomingMovies";        11; true;  false; 1; "Portrait"),
-        row("UpcomingShows";         12; true;  false; 1; "Portrait"),
+        row("DiscoverTv";             9; true;  false; 1; "Portrait"),
+        row("UpcomingMovies";         9; true;  false; 1; "Portrait"),
+        row("UpcomingShows";          9; true;  false; 1; "Portrait"),
         row("MyRequests";            13; true;  false; 1; "Landscape"),
         row("ContinueWatching";     999; false; false; 1; "Landscape"),
         row("LatestMovies";         999; false; false; 1; "Landscape"),
