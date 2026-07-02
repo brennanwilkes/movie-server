@@ -273,7 +273,8 @@ else
     | .SectionSettings=[
         row("MyMedia";                1; true;  false; 1; "Landscape"),
         row("ContinueWatchingNextUp"; 2; true;  false; 1; "Landscape"),
-        row("RecentlyAddedMovies";    3; true;  true;  1; "Landscape"),
+        row("OffTheShelf";            3; true;  false; 1; "Landscape"),
+        row("RecentlyAddedMovies";    4; true;  true;  1; "Landscape"),
         row("RecentlyAddedShows";     4; true;  true;  1; "Landscape"),
         row("BecauseYouWatched";      5; true;  true;  3; "Landscape"),
         row("Genre";                  5; true;  true;  3; "Landscape"),
@@ -295,6 +296,6 @@ else
   else
     curl -fsS -X POST "$JF/Plugins/${hss_id}/Configuration" -H "X-Emby-Token: $token" \
       -H 'Content-Type: application/json' -d "$hss_desired" >/dev/null
-    ok "Home Screen Sections layout applied (13 rows enabled, integrations wired to $NUC_IP)"
+    ok "Home Screen Sections layout applied (14 rows enabled incl. Off the Shelf, integrations wired to $NUC_IP)"
   fi
 fi

@@ -105,6 +105,26 @@ slider_ensure() {  # title  tmdb-genre-id
 for tid in $(jq -r '.[]|select(.title=="__iac_test").id' <<<"$sliders"); do
   js -o /dev/null -X DELETE "$JS/settings/discover/$tid" && ok "jellyseerr: removed test slider (id=$tid)"
 done
+# Jellyfin connection: getHostname() builds http://{ip}:{port}{urlBase} from .jellyfin.
+# Old installs carried ip="jellyfin" (container name — host-networked Jellyfin doesn't
+# resolve by DNS) → every fresh-session "Sign in with Jellyfin" 404'd INVALID_URL.
+# TWO GOTCHAS (learned the hard way): (1) edit with the container STOPPED — Jellyseerr
+# flushes in-memory settings on shutdown, clobbering live edits; (2) NEVER add a
+# `hostname` key — the boot migration parses it and, portless, resets port to 80
+# (which is our controller → every Jellyfin call 404s).
+if [[ "$(jq -r '.jellyfin | "\(.ip):\(.port)"' "$js_cfg")" == "${NUC_IP}:8096" ]]; then
+  ok "jellyseerr: Jellyfin connection fields already correct"
+else
+  docker stop jellyseerr >/dev/null
+  jf_fix=$(jq --arg ip "$NUC_IP" \
+    '.jellyfin.ip=$ip | .jellyfin.port=8096 | .jellyfin.useSsl=false | .jellyfin.urlBase="" | del(.jellyfin.hostname)' \
+    "$js_cfg")
+  printf '%s' "$jf_fix" > "$js_cfg"
+  docker start jellyseerr >/dev/null
+  wait_http "http://localhost:5055/api/v1/status" 90
+  ok "jellyseerr: Jellyfin connection fixed (${NUC_IP}:8096) — sign-in works again"
+fi
+
 # Dedicated request-only user for SuggestArr (NO auto-approve): defaultPermissions above
 # grants plain REQUEST, so anything SuggestArr requests as this user sits in "Pending
 # approval" until Brennan approves/declines in Jellyseerr — suggestions become an inbox,

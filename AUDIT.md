@@ -243,11 +243,9 @@ with `EnableDecodingColorDepth10Hevc=false` (correct for Skylake Iris 540).
 
 ## 7. Browsing, discovery, ratings, playlists — implemented 2026-07-02 (all IaC)
 
-- **[DONE] "Pick" tab in the dashboard** — new controller feature: unwatched-library picker
-  with genre chips, runtime filter, top-rated/newest/shuffle sort, poster rows, and a
-  🎲 "Surprise me" button; every row deep-links into Jellyfin playback. Server:
-  `/api/whattowatch` (60s-cached Jellyfin unwatched query). This is the wife-proof
-  "what do we watch tonight" answer.
+- **[REMOVED 2026-07-02] "Pick" tab** — built, then removed at Brennan's request ("good
+  idea but not something I need" — browsing should live inside Jellyfin/Jellyseerr).
+  The auto-collections + Home Screen Sections below are the in-Jellyfin replacement.
 - **[DONE] Jellyfin auto-collections** (`jellyfin.sh` §3b): Movies library now auto-groups
   into TMDb box sets (trilogies/sagas) — zero new software.
 - **[DONE] Playback Reporting plugin** (`jellyfin.sh` §6d2, official repo): records watch

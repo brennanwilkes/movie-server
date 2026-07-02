@@ -97,14 +97,13 @@ function setOffline(v) {
 }
 
 // ── Tabs ──
-const TITLES = { home: 'Home', pick: 'What to watch', downloads: 'Downloads', library: 'Library' };
+const TITLES = { home: 'Home', downloads: 'Downloads', library: 'Library' };
 function showTab(name) {
   $$('.tab').forEach((t) => { t.hidden = t.id !== `tab-${name}`; });
   $$('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
   $('#page-title').textContent = TITLES[name];
   try { localStorage.setItem('tab', name); } catch { /* ignore */ } // survive refresh
   if (name === 'library') loadLibrary();
-  if (name === 'pick') loadPick();
 }
 $$('.tabbar button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
@@ -378,77 +377,6 @@ async function pollDownloads() {
   } catch { if (dlLoaded) setDlLoading(false); /* else keep spinner; it retries next tick */ }
   finally { dlInflight = false; }
 }
-
-// ── Pick: what to watch tonight (unwatched library, filtered client-side) ──
-let pickItems = [], pickServerId = null, pickGenre = '', pickMax = '', pickSort = 'rating', pickLoaded = false;
-const pickFiltered = () => {
-  let items = pickItems.filter((m) =>
-    (!pickGenre || (m.genres || []).includes(pickGenre)) &&
-    (!pickMax || (m.runtimeMinutes && m.runtimeMinutes <= +pickMax)));
-  if (pickSort === 'rating') items.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-  else if (pickSort === 'year') items.sort((a, b) => (b.year || 0) - (a.year || 0));
-  else items = items.map((m) => [Math.sin(m.id.split('').reduce((s, c) => s + c.charCodeAt(0), pickShuffleSeed)), m])
-    .sort((a, b) => a[0] - b[0]).map(([, m]) => m);
-  return items;
-};
-let pickShuffleSeed = 1;
-function openInJellyfin(id) {
-  window.open(`${WATCH_URL}/web/#/details?id=${id}${pickServerId ? `&serverId=${pickServerId}` : ''}`, '_blank');
-}
-function renderPick() {
-  const items = pickFiltered();
-  $('#pick-empty').hidden = items.length > 0 || !pickLoaded;
-  $('#pick-list').innerHTML = items.slice(0, 60).map((m) => `
-    <li class="row pick-row" data-id="${esc(m.id)}">
-      <img class="pick-poster" src="${esc(m.poster)}" loading="lazy" alt="">
-      <span class="grow">
-        <span class="title">${esc(m.title)}${m.year ? ` <span class="muted">(${m.year})</span>` : ''}</span>
-        <div class="sub">${[m.rating ? `★ ${m.rating}` : '', m.runtimeMinutes ? `${Math.floor(m.runtimeMinutes / 60)}h ${m.runtimeMinutes % 60}m` : '', (m.genres || []).slice(0, 2).join(' · ')].filter(Boolean).join(' · ')}</div>
-      </span>
-      <span class="chev">›</span>
-    </li>`).join('');
-}
-function renderPickGenres() {
-  const counts = {};
-  for (const m of pickItems) for (const g of (m.genres || [])) counts[g] = (counts[g] || 0) + 1;
-  const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([g]) => g);
-  $('#pick-genres').innerHTML = ['', ...top].map((g) =>
-    `<button class="chip${g === pickGenre ? ' active' : ''}" data-genre="${esc(g)}">${g ? esc(g) : 'All'}</button>`).join('');
-}
-async function loadPick() {
-  if (pickLoaded || offline) { renderPick(); return; }
-  $('#pick-loading').hidden = false;
-  try {
-    const data = await getJSON('/api/whattowatch', 15000);
-    pickItems = data.items || []; pickServerId = data.serverId; pickLoaded = true;
-    renderPickGenres(); renderPick();
-  } catch { $('#pick-empty').hidden = false; $('#pick-empty').textContent = 'Could not load — try again from your home network.'; }
-  finally { $('#pick-loading').hidden = true; }
-}
-$('#pick-genres').addEventListener('click', (e) => {
-  const b = e.target.closest('.chip'); if (!b) return;
-  pickGenre = b.dataset.genre || '';
-  renderPickGenres(); renderPick();
-});
-$('#pick-runtime').addEventListener('click', (e) => {
-  const b = e.target.closest('button'); if (!b) return;
-  pickMax = b.dataset.max; $$('#pick-runtime button').forEach((x) => x.classList.toggle('active', x === b)); renderPick();
-});
-$('#pick-sort').addEventListener('click', (e) => {
-  const b = e.target.closest('button'); if (!b) return;
-  pickSort = b.dataset.sort; pickShuffleSeed = Math.random() * 1000;
-  $$('#pick-sort button').forEach((x) => x.classList.toggle('active', x === b)); renderPick();
-});
-$('#pick-list').addEventListener('click', (e) => {
-  const li = e.target.closest('li.pick-row'); if (li) openInJellyfin(li.dataset.id);
-});
-$('#pick-surprise').addEventListener('click', () => {
-  const items = pickFiltered();
-  if (!items.length) { toast('Nothing matches — loosen the filters'); return; }
-  const m = items[Math.floor(Math.random() * items.length)];
-  toast(`🎲 ${m.title}`);
-  openInJellyfin(m.id);
-});
 
 // ── Library + delete ──
 let libApp = 'radarr';

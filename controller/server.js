@@ -802,38 +802,42 @@ app.get('/api/jellyfin/resolve', async (req, res) => {
   } catch { res.json({ id: null, serverId: null }); }
 });
 
-// ── What to watch: unwatched-library picker ──
-// Full unwatched-movie list straight from Jellyfin (play state is per-user; the household
-// shares the admin user), with the fields the picker filters on. 60s cache; filtering/sort
-// happens client-side (the library is a few hundred titles — one small payload). Poster URLs
-// are Jellyfin's anonymous image endpoints, loaded by the browser directly.
-app.get('/api/whattowatch', async (_req, res) => {
+// ── HSS custom section: "Off the Shelf" — a rotating auto-collection as a HOME ROW ──────────
+// Registered with the Home Screen Sections plugin (POST /HomeScreen/RegisterSection with a
+// resultsEndpoint): the plugin calls this endpoint when building the home page and renders
+// whatever items come back. We rotate through the vibe/decade collections hourly, serving
+// their (already-shuffled) contents as native Jellyfin dtos — the library's own shelves,
+// right on the home screen.
+app.all('/api/hss/shelf', async (req, res) => {
   try {
-    const data = await cachedFetch('jf:unwatched', 60000, async () => {
-      const uid = await jellyfinUserId();
-      const q = new URLSearchParams({
-        IncludeItemTypes: 'Movie', Recursive: 'true', Filters: 'IsUnplayed',
-        Fields: 'Genres,CommunityRating,ProductionYear,RunTimeTicks', Limit: '2000',
-      });
-      const r = await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 10000);
-      if (!r.ok) throw new Error(`jellyfin ${r.status}`);
-      const items = ((await r.json()).Items) || [];
-      const serverId = await jellyfinServerId();
-      return {
-        serverId,
-        items: items.map((i) => ({
-          id: i.Id, title: i.Name, year: i.ProductionYear || null,
-          rating: i.CommunityRating ? Math.round(i.CommunityRating * 10) / 10 : null,
-          runtimeMinutes: i.RunTimeTicks ? Math.round(i.RunTimeTicks / 600000000) : null,
-          genres: i.Genres || [],
-          poster: `http://${NUC_IP}:8096/Items/${i.Id}/Images/Primary?maxWidth=160&quality=90`,
-        })),
-      };
-    }, null);
-    if (!data) return res.status(502).json({ error: 'jellyfin unavailable' });
-    res.json(data);
-  } catch (e) { res.status(502).json({ error: String(e.message || e) }); }
+    // The plugin POSTs its HomeScreenSectionPayload (UserId et al.) to the endpoint; accept
+    // GET too for manual poking. A GET-only route made Express answer POSTs with an HTML 404
+    // that the plugin's JSON deserializer choked on.
+    const uid = (req.body && (req.body.UserId || req.body.userId)) || req.query.userId || await jellyfinUserId();
+    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
+    const bq = new URLSearchParams({ IncludeItemTypes: 'BoxSet', Recursive: 'true', Limit: '300' });
+    const sets = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${bq}`, { headers: h }, 10000)).json()).Items) || [];
+    const autos = sets.filter((s) => !/Collection$/.test(s.Name));   // ours, not TMDb franchise sets
+    if (!autos.length) return res.json({ Items: [], TotalRecordCount: 0 });
+    const pick = autos[Math.floor(Date.now() / 3600000) % autos.length];   // rotate hourly
+    const cq = new URLSearchParams({ ParentId: pick.Id, Limit: '16' });
+    const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 10000)).json()).Items) || [];
+    res.json({ Items: items, TotalRecordCount: items.length, DisplayText: `Off the Shelf · ${pick.Name}` });
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
+async function registerHssShelf() {
+  if (!cfg.JELLYFIN_KEY) return;
+  try {
+    const r = await tfetch(`${HOST.jellyfin}/HomeScreen/RegisterSection`, {
+      method: 'POST',
+      headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'OffTheShelf', displayText: 'Off the Shelf', limit: 1, resultsEndpoint: `http://${NUC_IP}:8088/api/hss/shelf` }),
+    }, 10000);
+    if (r.ok && !registerHssShelf._done) { registerHssShelf._done = true; console.log('hssShelf: "Off the Shelf" section registered with Home Screen Sections'); }
+  } catch { /* HSS not installed / Jellyfin down — retried next tick */ }
+}
+setInterval(registerHssShelf, 600000);   // re-register every 10 min (registrations don't survive Jellyfin restarts)
+setTimeout(registerHssShelf, 20000);
 
 // ---- Auto-import watchdog (backend, container-to-container; NOT driven by the UI) ----
 // The happy path is event-driven: qBittorrent finishes → *arr imports → *arr pushes a

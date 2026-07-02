@@ -30,7 +30,6 @@ chk "/api/status: all services up" jqt "http://localhost:8088/api/status" 'all(.
 chk "/api/downloads snapshot built (ts>0)" jqt "http://localhost:8088/api/downloads" '.ts > 0'
 chk "/api/disk sane" jqt "http://localhost:8088/api/disk" '.total_bytes > 1e12'
 chk "/api/library (radarr) answers" jqt "http://localhost:8088/api/library?app=radarr" '.items | length > 0'
-chk "/api/whattowatch answers (Pick tab)" jqt "http://localhost:8088/api/whattowatch" '.items | length > 0'
 
 echo "=== *arr config (the grab algorithm) ==="
 RKEY=$(sed -n 's:.*<ApiKey>\(.*\)</ApiKey>.*:\1:p' /opt/appdata/radarr/config.xml | head -1)
