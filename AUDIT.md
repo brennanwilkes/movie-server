@@ -261,11 +261,14 @@ with `EnableDecodingColorDepth10Hevc=false` (correct for Skylake Iris 540).
   `http://<nuc>:5000`, supply a free TMDb API key + Jellyfin/Jellyseerr URLs+keys; config
   persists in `/opt/appdata/suggestarr`. Suggest conservative limits (a few requests/run) and
   the Low/Normal tier as its default profile.
-- **[DONE] Auto-collections sweep** (controller, `collectionsSweep`): decades (50s→2020s),
-  top-8 + curated genres (Horror/Animation/Family/Documentary/… when ≥5 titles), Critically
-  Loved (≥7.5), Short & Sweet (≤100 min), Epic Runtimes (≥150 min) — 26 collections
-  maintained natively every 12h. **Posters set automatically** from each collection's
-  highest-rated member (no more generic blue folders).
+- **[DONE] Auto-collections sweep** (controller, `collectionsSweep`): decades (50s→2020s)
+  plus **15 vibe/theme combos** (decade × genre × runtime × rating cross-sections: Mob &
+  Crime Classics 80s–90s, 2000s Rom-Coms, 90s Action Blockbusters, Short Action Fix,
+  Date Night, Sci-Fi Mindbenders, Horror Nights, Old Hollywood, Modern Masterpieces, …),
+  Critically Loved, Short & Sweet, Epic Runtimes — 26 collections maintained every 12h.
+  Plain-genre collections retired (redundant with the Genres tab). **Posters set
+  automatically** from each collection's highest-rated member. New vibes are one-line
+  rules in the `VIBES` table in `controller/server.js`.
 - **[DONE] Home Screen Sections + File Transformation plugins** (iamparadox.dev repo, IaC in
   `jellyfin.sh`) — AND the **section layout itself is IaC** (schema recovered from the
   plugin's OpenAPI; written via `/Plugins/{id}/Configuration`): 13 rows enabled in order —

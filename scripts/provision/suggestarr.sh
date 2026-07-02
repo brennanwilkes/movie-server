@@ -23,9 +23,11 @@ sa_jf_token=$(jellyfin_apikey suggestarr)
 sa_seer_key=$(jq -r '.main.apiKey // empty' "${CONFIG:-/opt/appdata}/jellyseerr/settings.json")
 [[ -n "$sa_jf_token" && "$sa_jf_token" != "null" && -n "$sa_seer_key" ]] || die "suggestarr: could not obtain Jellyfin/Jellyseerr API keys"
 
-python3 - "$SA_CFG" <<PY
-import sys, yaml
-p = sys.argv[1]
+# config.yaml is owned by the container's root user — write it from INSIDE the container
+# (docker group ≫ no sudo needed on the host). PyYAML ships with the app.
+docker exec -i suggestarr python3 - <<PY
+import yaml
+p = '/app/config/config_files/config.yaml'
 cfg = yaml.safe_load(open(p)) or {}
 cfg.update({
     'SELECTED_SERVICE': 'jellyfin',

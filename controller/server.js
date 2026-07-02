@@ -1171,25 +1171,41 @@ async function collectionsSweep() {
     if (movies.length < 20) return;                       // tiny library — don't spam collections
     const buckets = new Map();                            // collection name -> Set(itemId)
     const add = (name, id) => { if (!buckets.has(name)) buckets.set(name, new Set()); buckets.get(name).add(id); };
-    const genreCount = {};
+    // VIBE COMBOS — not plain genres (the Genres tab already covers those). Each rule is a
+    // curated cross-section of decade × genre(s) × runtime × rating. Thin results (<5
+    // titles) are skipped automatically below, so the list can be aspirational: add a new
+    // vibe as one line. test(m, year, minutes, rating) → belongs.
+    const has = (m, g) => (m.Genres || []).includes(g);
+    const VIBES = [
+      ['Mob & Crime Classics (80s–90s)', (m, y) => has(m, 'Crime') && y >= 1980 && y < 2000],
+      ['90s Action Blockbusters', (m, y) => has(m, 'Action') && y >= 1990 && y < 2000],
+      ['2000s Rom-Coms', (m, y) => has(m, 'Romance') && has(m, 'Comedy') && y >= 2000 && y < 2010],
+      ['Rom-Coms Through the Ages', (m) => has(m, 'Romance') && has(m, 'Comedy')],
+      ['Short Action Fix', (m, y, mins) => has(m, 'Action') && mins > 0 && mins <= 110],
+      ['Feel-Good Comedies', (m, y, mins, r) => has(m, 'Comedy') && r >= 7 && mins > 0 && mins <= 125],
+      ['Edge-of-Seat Thrillers', (m, y, mins, r) => has(m, 'Thriller') && (has(m, 'Crime') || has(m, 'Mystery')) && r >= 6.8],
+      ['Sci-Fi Mindbenders', (m, y, mins, r) => has(m, 'Science Fiction') && (has(m, 'Thriller') || has(m, 'Mystery') || has(m, 'Drama')) && r >= 7],
+      ['Space & Beyond', (m) => has(m, 'Science Fiction') && has(m, 'Adventure')],
+      ['Family Movie Night', (m, y, mins, r) => (has(m, 'Family') || has(m, 'Animation')) && r >= 6.5],
+      ['Horror Nights', (m, y, mins, r) => has(m, 'Horror') && r >= 6],
+      ['War Stories', (m) => has(m, 'War')],
+      ['Old Hollywood (pre-70s)', (m, y, mins, r) => y > 0 && y < 1970 && r >= 7],
+      ['Modern Masterpieces', (m, y, mins, r) => y >= 2010 && r >= 7.8],
+      ['Date Night', (m, y, mins, r) => (has(m, 'Romance') || has(m, 'Comedy')) && r >= 7.2 && mins > 0 && mins <= 135],
+    ];
     for (const m of movies) {
       const y = m.ProductionYear || 0;
+      const mins = m.RunTimeTicks ? Math.round(m.RunTimeTicks / 600000000) : 0;
+      const r = m.CommunityRating || 0;
       if (y >= 1950) {
         const d = Math.floor(y / 10) * 10;
         add(`${d >= 2000 ? d : String(d).slice(2)}s Movies`, m.Id);
       }
-      for (const g of (m.Genres || [])) genreCount[g] = (genreCount[g] || 0) + 1;
-      if ((m.CommunityRating || 0) >= 7.5) add('Critically Loved', m.Id);
-      const mins = m.RunTimeTicks ? Math.round(m.RunTimeTicks / 600000000) : 0;
+      if (r >= 7.5) add('Critically Loved', m.Id);
       if (mins > 0 && mins <= 100) add('Short & Sweet', m.Id);        // weeknight-sized
       if (mins >= 150) add('Epic Runtimes', m.Id);                    // settle-in-for-it
+      for (const [name, test] of VIBES) if (test(m, y, mins, r)) add(name, m.Id);
     }
-    // Genres: the top-8 by volume PLUS a curated set that's browse-worthy even when small
-    // (Horror for October, Family for kids' nights, …) — anything with ≥5 titles makes it.
-    const CURATED = ['Horror', 'Animation', 'Family', 'Documentary', 'Fantasy', 'Mystery', 'War', 'Western', 'Music'];
-    const topGenres = new Set(Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 8).filter(([, c]) => c >= 10).map(([g]) => g));
-    for (const g of CURATED) if ((genreCount[g] || 0) >= 5) topGenres.add(g);
-    for (const m of movies) for (const g of (m.Genres || [])) if (topGenres.has(g)) add(`${g} Movies`, m.Id);
     for (const [name, ids] of [...buckets]) if (ids.size < 5) buckets.delete(name);
     // Poster source per collection: its highest-rated member's poster (set below when a
     // collection has no Primary image, so they don't sit as generic blue folders).
@@ -1206,6 +1222,15 @@ async function collectionsSweep() {
     const bq = new URLSearchParams({ IncludeItemTypes: 'BoxSet', Recursive: 'true', Limit: '1000' });
     const sets = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${bq}`, { headers: h }, 15000)).json()).Items) || [];
     const byName = new Map(sets.map((s) => [s.Name, s.Id]));
+    // Retire the earlier plain-genre collections (redundant with the Genres tab). Explicit
+    // name list so a TMDb franchise box set can never be caught by accident.
+    const RETIRED = new Set(['Action', 'Adventure', 'Comedy', 'Crime', 'Drama', 'Romance', 'Science Fiction', 'Thriller', 'Horror', 'Animation', 'Family', 'Documentary', 'Fantasy', 'Mystery', 'War', 'Western', 'Music'].map((g) => `${g} Movies`));
+    let removed = 0;
+    for (const s of sets) {
+      if (RETIRED.has(s.Name) && !buckets.has(s.Name)) {
+        try { const r = await tfetch(`${HOST.jellyfin}/Items/${s.Id}`, { method: 'DELETE', headers: h }, 15000); if (r.ok || r.status === 204) removed++; } catch { /* */ }
+      }
+    }
     const noPoster = new Set(sets.filter((s) => !(s.ImageTags && s.ImageTags.Primary)).map((s) => s.Id));
     let created = 0, updated = 0, postered = 0;
     for (const [name, want] of buckets) {
@@ -1232,7 +1257,7 @@ async function collectionsSweep() {
       if (toDel.length) await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${toDel.join(',')}`, { method: 'DELETE', headers: h }, 20000);
       if (toAdd.length || toDel.length) updated++;
     }
-    if (created || updated || postered) console.log(`collectionsSweep: ${created} created, ${updated} refreshed, ${postered} poster(s) set (${buckets.size} auto-collections maintained)`);
+    if (created || updated || postered || removed) console.log(`collectionsSweep: ${created} created, ${updated} refreshed, ${postered} poster(s) set, ${removed} retired (${buckets.size} auto-collections maintained)`);
   } catch (e) { console.log(`collectionsSweep: failed — ${e.message || e}`); }
   finally { collSweepBusy = false; }
 }
