@@ -163,6 +163,12 @@ search:
     # replace simplified Chinese as this confuses TPB search engine #7291
     - name: re_replace
       args: ["([\\p{IsCJKUnifiedIdeographs}\\W]+)", "."]
+    # strip trailing year (±1 to handle Radarr/Sonarr metadata mismatch, e.g.
+    # "African Queen 1952" → "African Queen" so TPB finds "1951" releases too).
+    # Only strips a 4-digit year at the END of the query preceded by whitespace,
+    # so movie titles with embedded numbers (1917, 2001, 1984) are safe.
+    - name: re_replace
+      args: ["\\s+\\d{4}\\s*$", ""]
     - name: tolower
 
   rows:

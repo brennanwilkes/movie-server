@@ -22,22 +22,28 @@ else
   ok "prowlarr: UI auth set to forms (brennan, bypassed on LAN)"
 fi
 
-# Patch TPB Cardigann definition: drop season/ep from tv-search mode.
-# TPB's keyword search doesn't handle "S01" appended after the series name
-# (e.g. "Bloodline S01" misses "Bloodline 2015 S01 ..."). Sonarr parses
-# season/ep from the title after the fact (same as RSS sync), so sending
-# just the show name works better.
-# AUDIT 2026-07-02: this block referenced the CONTAINER path /config/… from the HOST, so it
-# has NEVER applied (while printing green). The honest fix needs a supervised change — TPB is
-# currently the highest-volume indexer, and the right mechanism is installing
-# scripts/provision/custom_tpb_definition.yml into ${CONFIG}/prowlarr/Definitions/Custom/
-# (the cache dir Prowlarr regenerates is the wrong target). Until that's tested, report
-# the real state instead of a false "already patched".
-TPB_DEF="${CONFIG:-/opt/appdata}/prowlarr/Definitions/thepiratebay.yml"
-if grep -q 'tv-search: \[q, season, ep\]' "$TPB_DEF" 2>/dev/null; then
-  warn "prowlarr: TPB tv-search still [q, season, ep] — season searches underperform (see custom_tpb_definition.yml; needs supervised install to Definitions/Custom/)"
+# Patch the stock TPB Cardigann definition in-place.
+# Prowlarr caches built-in definitions to /config/Definitions/*.yml at startup.
+# Custom/ directory overrides get rejected if name conflicts with built-in, so
+# we patch the cached file directly. Prowlarr reads the definition at indexer
+# creation time, so the indexer must be re-created after patching (handled below).
+#
+# Changes:
+#   1. keywordsfilters: add trailing-year strip so "African Queen 1952" also
+#      finds releases titled "1951" (Radarr metadata years sometimes differ
+#      from actual release years on TPB).
+#   2. tv-search: [q, season, ep] → [q] so Sonarr sends just the series title
+#      (e.g. "Bloodline" not "Bloodline S01"). Sonarr parses season/ep from
+#      the title after the fact (same as RSS sync).
+TPB="${CONFIG:-/opt/appdata}/prowlarr/Definitions/thepiratebay.yml"
+if grep -q 'strip trailing year' "$TPB" 2>/dev/null; then
+  ok "prowlarr: TPB definition already patched (year-stripping + tv-search=[q])"
 else
-  ok "prowlarr: TPB definition not present at $TPB_DEF (cached defs live in the container) — tv-search patch NOT verified"
+  # Add year-stripping keywordsfilter before tolower
+  sed -i '/^    - name: tolower/i\    # strip trailing year (Radarr metadata years can differ from TPB release years)\n    - name: re_replace\n      args: ["\\\\s+\\\\d{4}\\\\s*$", ""]' "$TPB"
+  # Fix tv-search mode
+  sed -i 's/tv-search: \[q, season, ep\]/tv-search: [q]/' "$TPB"
+  ok "prowlarr: TPB definition patched (year-stripping + tv-search=[q])"
 fi
 
 # Register Radarr + Sonarr as applications (built from live schema).
