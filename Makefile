@@ -1,4 +1,4 @@
-.PHONY: bootstrap deploy provision up down clean destroy validate ps logs mdns resize-data remount \
+.PHONY: bootstrap deploy provision up down eject clean destroy validate ps logs mdns resize-data remount \
         search profiles history querylogs diagnose test why
 bootstrap:  ## one-time host prep (dirs, cap, .env, hook)
 	./scripts/bootstrap.sh
@@ -10,8 +10,10 @@ provision:  ## apply config-as-code via each app's API (make provision s=radarr 
 	./scripts/provision.sh $(s)
 up:         ## deploy + provision the whole stack (idempotent)
 	./scripts/deploy.sh && ./scripts/provision.sh
-down:       ## stop & remove containers (keeps data + config)
+down:       ## stop & remove containers (keeps data + config; drive stays mounted)
 	./scripts/teardown.sh stop
+eject:      ## stop the stack + safely unmount the media drive (before a physical disconnect)
+	./scripts/eject-data.sh
 clean:      ## down + wipe app config (KEEPS media)
 	./scripts/teardown.sh clean
 destroy:    ## down + delete config, media AND images (guarded)

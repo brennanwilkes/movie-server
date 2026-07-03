@@ -885,7 +885,10 @@ async function registerHssShelf() {
   } catch (e) { console.log(`hssShelf: registration failed — ${e?.message || e}`); }
 }
 setInterval(registerHssShelf, 600000);   // every 10 min: survives Jellyfin restarts, tracks hourly rotation
-setTimeout(registerHssShelf, 20000);
+// Boot self-heal: on a cold start the box sets don't exist yet, so a bare shelf registration has
+// nothing to show. Wait for Jellyfin to answer, build the collections FIRST, then register shelves
+// off the fresh sets — no 3-min gap where the home page is empty. bootSequence() is defined below
+// (after collectionsSweep) and scheduled there so both functions are in scope.
 
 // ---- Auto-import watchdog (backend, container-to-container; NOT driven by the UI) ----
 // The happy path is event-driven: qBittorrent finishes → *arr imports → *arr pushes a
@@ -1590,7 +1593,34 @@ async function collectionsSweep() {
   finally { collSweepBusy = false; }
 }
 setInterval(collectionsSweep, 6 * 3600000);   // twice a day keeps them fresh
-setTimeout(collectionsSweep, 180000);
+
+// Cold-boot ordering: build collections, THEN register the shelves that read them, so the home
+// page is populated on first load instead of after the old 3-min gap. Polls Jellyfin (up to ~5
+// min) until it answers before the first sweep — the container often starts before Jellyfin is
+// ready. The two setInterval schedules above keep both fresh afterward.
+async function bootSequence() {
+  if (!cfg.JELLYFIN_KEY) { console.log('bootSequence: no Jellyfin key yet — skipping (provision + restart)'); return; }
+  for (let i = 0; i < 30; i++) {   // ~5 min: 30 × 10s
+    try { await tfetch(`${HOST.jellyfin}/System/Info`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY } }, 8000); break; }
+    catch (_) { await new Promise((r) => setTimeout(r, 10000)); }
+  }
+  console.log('bootSequence: Jellyfin reachable — building collections then registering shelves');
+  await collectionsSweep();
+  await registerHssShelf();
+}
+setTimeout(bootSequence, 15000);   // let the container settle, then self-heal the home page
+
+// Manual kick: build/refresh collections, then re-register the home shelves that read them.
+// Handy right after a boot — the scheduled sweep is 3 min out and shelves need the box sets to
+// exist first. POST (no body) → runs synchronously and reports; 409 if a sweep is already running.
+app.post('/api/collections/build', async (_req, res) => {
+  if (collSweepBusy) return res.status(409).json({ ok: false, error: 'sweep already running' });
+  try {
+    await collectionsSweep();
+    await registerHssShelf();
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ ok: false, error: String(e.message || e) }); }
+});
 
 // Video format labelling and GPU-compatibility tier.
 function videoLabel(mi) {

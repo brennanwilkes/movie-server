@@ -89,7 +89,7 @@ The controller runs 6 background sweeps. Each is independent and has its own int
 | `requestGate` | 1min | `1786-1779` | Flag Jellyseerr requests stuck on disk space |
 | `jfLibraryRefresh` | event + 2min watchdog | `1787-1816` | Trigger Jellyfin library scan after imports |
 | `gpuVerifySweep` | 10min | search `gpuVerifySweep` | Post-import ground truth, ZERO-GAP: a movie imported <48h ago whose mediaInfo is 10-bit/HDR/AV1/VP9 gets a strictly-better H.264 release grabbed (search-first, playstate-guarded); the OLD FILE STAYS until the replacement completes (`gpuPending` persisted), then swap+import. Once per movie ever (`gpuSwapped`); UI labels the download "Auto-upgrade". Log prefix `gpuVerify:` |
-| `collectionsSweep` | 12h | search `collectionsSweep` | Maintains native auto-collections from library metadata: decades, top-8 + curated genres, Critically Loved, Short & Sweet, Epic Runtimes, and 8 Oscar-winner categories (Best Picture/Director/Acting/Editing/Cinematography, drawn from `data/oscars/build.sh` via `controller/oscar-winners.json`). Vibes shuffle at random; Oscar collections sort year-descending (newest first). Auto-sets each collection's poster from its best-rated member. Pure Jellyfin Collections API. Log prefix `collectionsSweep:` |
+| `collectionsSweep` | 12h + boot | search `collectionsSweep` | Maintains native auto-collections from library metadata: decades, top-8 + curated genres, Critically Loved, Short & Sweet, Epic Runtimes, and 8 Oscar-winner categories (Best Picture/Director/Acting/Editing/Cinematography, drawn from `data/oscars/build.sh` via `controller/oscar-winners.json`). Vibes shuffle at random; Oscar collections sort year-descending (newest first). Auto-sets each collection's poster from its best-rated member. Pure Jellyfin Collections API. Log prefix `collectionsSweep:`. **Boot:** `bootSequence()` (search it) waits for Jellyfin to answer, then runs the sweep BEFORE the first `registerHssShelf` so the home shelves have box sets to show on first load — no cold-start empty-home gap. **Manual:** `POST /api/collections/build` runs the sweep + shelf re-register on demand (409 if already running). |
 
 (Line numbers drift — prefer grepping the sweep name in `controller/server.js`. Other cleanups
 living inside the sweeps above: `arrSweep` also removes+blocklists terminal import rejections
@@ -276,6 +276,10 @@ curl -s http://localhost:8088/api/downloads | python3 -m json.tool | head -100
 
 # NUC load
 curl -s http://localhost:8088/api/system | python3 -m json.tool
+
+# Rebuild collections + re-register home shelves NOW (don't wait for the schedule).
+# Handy right after a boot, or after bulk imports. 409 if a sweep is already running.
+curl -X POST http://localhost:8088/api/collections/build
 
 # Cross-service diagnosis
 ./scripts/diagnose.sh
