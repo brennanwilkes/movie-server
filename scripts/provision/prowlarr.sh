@@ -22,28 +22,39 @@ else
   ok "prowlarr: UI auth set to forms (brennan, bypassed on LAN)"
 fi
 
-# Patch the stock TPB Cardigann definition in-place.
-# Prowlarr caches built-in definitions to /config/Definitions/*.yml at startup.
-# Custom/ directory overrides get rejected if name conflicts with built-in, so
-# we patch the cached file directly. Prowlarr reads the definition at indexer
-# creation time, so the indexer must be re-created after patching (handled below).
+# Install the year-strip TPB definition (a Custom/ clone, not an in-place patch).
+# WHY a Custom def: Prowlarr regenerates the cached built-in defs
+# (/config/Definitions/*.yml) from its canonical copies whenever they differ,
+# silently reverting any in-place edit on the next restart (verified 2026-07-02 —
+# the earlier in-place patch here NEVER survived). Files under Definitions/Custom/
+# are the only ones Prowlarr leaves untouched. A Custom def can't reuse the
+# built-in's id/name (Prowlarr rejects the collision), so this lands as a SECOND
+# TPB indexer, "The Pirate Bay (year-strip)", alongside the stock one.
 #
-# Changes:
-#   1. keywordsfilters: add trailing-year strip so "African Queen 1952" also
-#      finds releases titled "1951" (Radarr metadata years sometimes differ
-#      from actual release years on TPB).
-#   2. tv-search: [q, season, ep] → [q] so Sonarr sends just the series title
-#      (e.g. "Bloodline" not "Bloodline S01"). Sonarr parses season/ep from
-#      the title after the fact (same as RSS sync).
-TPB="${CONFIG:-/opt/appdata}/prowlarr/Definitions/thepiratebay.yml"
-if grep -q 'strip trailing year' "$TPB" 2>/dev/null; then
-  ok "prowlarr: TPB definition already patched (year-stripping + tv-search=[q])"
+# What it does: adds a keywordsfilter — placed FIRST, before the built-in filter
+# that collapses spaces to '.' — that strips a trailing 19xx/20xx release year.
+# Radarr/Sonarr always append their metadata year to the query, and that year
+# sometimes differs from the year in the actual release title on TPB (e.g. Radarr
+# has The African Queen at 1952, but TPB titles it 1951, its true UK release year).
+# Dropping the trailing year lets the title match. Radarr still parses every result
+# and rejects wrong-movie/wrong-year releases, so correctness is unaffected. Only a
+# year at the very END is removed, so embedded title years (1917, 2001, 2049) are
+# safe — the appended metadata year is always the trailing token. See YEAR_BUG.md.
+CUSTOM_SRC="$(dirname "${BASH_SOURCE[0]}")/custom_tpb_definition.yml"
+CUSTOM_DST="${CONFIG:-/opt/appdata}/prowlarr/Definitions/Custom/thepiratebayys.yml"
+mkdir -p "$(dirname "$CUSTOM_DST")"
+if [[ -f "$CUSTOM_DST" ]] && cmp -s "$CUSTOM_SRC" "$CUSTOM_DST"; then
+  ok "prowlarr: year-strip TPB definition already installed"
 else
-  # Add year-stripping keywordsfilter before tolower
-  sed -i '/^    - name: tolower/i\    # strip trailing year (Radarr metadata years can differ from TPB release years)\n    - name: re_replace\n      args: ["\\\\s+\\\\d{4}\\\\s*$", ""]' "$TPB"
-  # Fix tv-search mode
-  sed -i 's/tv-search: \[q, season, ep\]/tv-search: [q]/' "$TPB"
-  ok "prowlarr: TPB definition patched (year-stripping + tv-search=[q])"
+  cp "$CUSTOM_SRC" "$CUSTOM_DST"
+  ok "prowlarr: installed year-strip TPB definition → Custom/thepiratebayys.yml"
+fi
+# Prowlarr scans Custom/ only at startup; if the def isn't in the indexer schema
+# yet, restart so it loads before we register it as an indexer below.
+if ! "${PG[@]}" "${PROW}/indexer/schema" | jq -e 'any(.[]; .definitionName=="thepiratebayys")' >/dev/null 2>&1; then
+  docker restart prowlarr >/dev/null 2>&1 || true
+  wait_http "http://localhost:9696/api/v1/system/status" 90
+  ok "prowlarr: restarted to load year-strip definition into schema"
 fi
 
 # Register Radarr + Sonarr as applications (built from live schema).
@@ -128,8 +139,9 @@ prow_add_indexer() {  # definitionName  priority  needs_flare(yes|no)  [enabled(
 # reachable directly. Knaben is a meta-aggregator that searches 30+ torrent sites at once (incl.
 # 1337x, RARBG, TGx) — the single highest-coverage add and our replacement for the direct 1337x
 # indexer, whose default mirror IP-bans this host (Cloudflare error 1006, unfixable via FlareSolverr).
-prow_add_indexer yts          10 no      # movies, small direct-play-friendly encodes
-prow_add_indexer thepiratebay 25 no      # broad catalog, no Cloudflare
+prow_add_indexer yts            10 no    # movies, small direct-play-friendly encodes
+prow_add_indexer thepiratebay   25 no    # broad catalog, no Cloudflare
+prow_add_indexer thepiratebayys 25 no    # year-strip TPB clone: matches releases whose title year ≠ Radarr/Sonarr metadata year (see YEAR_BUG.md)
 prow_add_indexer eztv         25 yes     # TV-focused, Cloudflare-protected → needs FlareSolverr
 prow_add_indexer Knaben       20 no      # meta-aggregator (30+ sites) — broadest coverage
 prow_add_indexer limetorrents 25 no      # broad catalog, no Cloudflare

@@ -25,6 +25,7 @@ function loadCfg() {
 const cfg = loadCfg();
 
 const oscarWinners = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'oscar-winners.json'), 'utf8')); } catch { return {}; } })();
+const intlLanguages = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'intl-languages.json'), 'utf8')); } catch { return {}; } })();
 
 const PORT = Number(cfg.CONTROLLER_PORT || 8088);
 const NUC_IP = cfg.NUC_IP || '192.168.1.74';
@@ -1255,7 +1256,16 @@ async function collectionsSweep() {
       ['robert de niro','Robert De Niro'],['al pacino','Al Pacino'],['marlon brando','Marlon Brando'],['jack nicholson','Jack Nicholson'],['daniel day-lewis','Daniel Day-Lewis'],['denzel washington','Denzel Washington'],['tom hanks','Tom Hanks'],['samuel l. jackson','Samuel L. Jackson'],['leonardo dicaprio','Leonardo DiCaprio'],['clint eastwood','Clint Eastwood'],['paul newman','Paul Newman'],['robert duvall','Robert Duvall'],['dustin hoffman','Dustin Hoffman'],['meryl streep','Meryl Streep'],['katharine hepburn','Katharine Hepburn'],['audrey hepburn','Audrey Hepburn'],['cary grant','Cary Grant'],['james stewart','James Stewart'],['humphrey bogart','Humphrey Bogart'],['judi dench','Judi Dench'],['helen mirren','Helen Mirren'],['ingrid bergman','Ingrid Bergman'],['joaquin phoenix','Joaquin Phoenix'],['brad pitt','Brad Pitt'],['julia roberts','Julia Roberts'],['spencer tracy','Spencer Tracy'],['sean penn','Sean Penn'],['robert redford','Robert Redford'],['jack lemmon','Jack Lemmon'],['peter o\'toole','Peter O\'Toole'],['john wayne','John Wayne'],['sean connery','Sean Connery'],['christopher walken','Christopher Walken'],['joe pesci','Joe Pesci'],['ralph fiennes','Ralph Fiennes'],['matthew mcconaughey','Matthew McConaughey'],['christian bale','Christian Bale'],['tom cruise','Tom Cruise'],['matt damon','Matt Damon'],['harrison ford','Harrison Ford'],['adam sandler','Adam Sandler'],['ben stiller','Ben Stiller'],['simon pegg','Simon Pegg'],['vince vaughn','Vince Vaughn'],['jennifer aniston','Jennifer Aniston'],['sacha baron cohen','Sacha Baron Cohen'],['laurence fishburne','Laurence Fishburne'],['jason sudeikis','Jason Sudeikis'],['jason bateman','Jason Bateman'],['bill hader','Bill Hader'],['mark wahlberg','Mark Wahlberg'],['ryan gosling','Ryan Gosling'],['ryan reynolds','Ryan Reynolds'],
     ]);
     const DIRECTOR_MAP = new Map([
-      ['martin scorsese','Martin Scorsese'],['steven spielberg','Steven Spielberg'],['francis ford coppola','Francis Ford Coppola'],['billy wilder','Billy Wilder'],['quentin tarantino','Quentin Tarantino'],['stanley kubrick','Stanley Kubrick'],['alfred hitchcock','Alfred Hitchcock'],['akira kurosawa','Akira Kurosawa'],['david lean','David Lean'],['john ford','John Ford'],['orson welles','Orson Welles'],['christopher nolan','Christopher Nolan'],['ridley scott','Ridley Scott'],['sergio leone','Sergio Leone'],['charlie chaplin','Charlie Chaplin'],['frank capra','Frank Capra'],['ingmar bergman','Ingmar Bergman'],['joel coen','Joel Coen'],['ethan coen','Ethan Coen'],['bong joon ho','Bong Joon Ho'],
+      ['martin scorsese','Martin Scorsese'],['steven spielberg','Steven Spielberg'],['francis ford coppola','Francis Ford Coppola'],['billy wilder','Billy Wilder'],['quentin tarantino','Quentin Tarantino'],['stanley kubrick','Stanley Kubrick'],['alfred hitchcock','Alfred Hitchcock'],['akira kurosawa','Akira Kurosawa'],['david lean','David Lean'],['john ford','John Ford'],['orson welles','Orson Welles'],['christopher nolan','Christopher Nolan'],['ridley scott','Ridley Scott'],      ['sergio leone','Sergio Leone'],['charlie chaplin','Charlie Chaplin'],['frank capra','Frank Capra'],['ingmar bergman','Ingmar Bergman'],['bong joon ho','Bong Joon Ho'],
+    ]);
+    const COMPOSER_MAP = new Map([
+      ['john williams','John Williams'],['hans zimmer','Hans Zimmer'],['ennio morricone','Ennio Morricone'],['howard shore','Howard Shore'],['bernard herrmann','Bernard Herrmann'],
+    ]);
+    const DIRECTOR_GROUPS = new Map([
+      ['Coen Brothers', ['joel coen', 'ethan coen']],
+    ]);
+    const WRITER_MAP = new Map([
+      ['aaron sorkin','Aaron Sorkin'],['david koepp','David Koepp'],['eric roth','Eric Roth'],['john logan','John Logan'],['william goldman','William Goldman'],
     ]);
     const STUDIO_ALIASES = new Map([['a24','A24'],['studio ghibli','Ghibli'],['ghibli','Ghibli'],['pixar','Pixar']]);
     const CINEMATOGRAPHERS = ['Roger Deakins','Vittorio Storaro','Emmanuel Lubezki','Robert Richardson','Gregg Toland'];
@@ -1290,7 +1300,7 @@ async function collectionsSweep() {
       ['90s Comedies', 'Slackers, road trips, and endlessly quotable one-liners.',
         (m, y) => has(m, 'Comedy') && y >= 1990 && y < 2000 && none(m, ['Horror', 'Animation', 'Documentary'])],
       ['Feel-Good', 'Guaranteed mood-lifters — funny, warm, and easy to watch.',
-        (m, y, mins, r) => has(m, 'Comedy') && r >= 7 && mins > 0 && mins <= 125 && none(m, ['Horror', 'Documentary', 'War'])],
+        (m, y, mins, r) => has(m, 'Comedy') && r >= 7 && mins > 0 && mins <= 110 && none(m, ['Horror', 'Documentary', 'War'])],
       ['Nail-Biters', 'Tense, twisty, edge-of-the-seat.',
         (m, y, mins, r) => has(m, 'Thriller') && (has(m, 'Crime') || has(m, 'Mystery')) && r >= 6.8 && none(m, ['Animation', 'Documentary', 'Romance', 'Family'])],
       ['Mindbenders', 'Science fiction that rewires your brain on the way out.',
@@ -1308,9 +1318,43 @@ async function collectionsSweep() {
       ['Old Hollywood', 'Black-and-white brilliance and technicolor dreams — pre-1970.',
         (m, y, mins, r) => y > 0 && y < 1970 && r >= 7 && none(m, ['Documentary'])],
       ['Masterpieces', 'Modern all-timers — the best-reviewed films since 2010.',
-        (m, y, mins, r) => y >= 2010 && r >= 7.8 && none(m, ['Documentary'])],
+        (m, y, mins, r) => y >= 2010 && r >= 8.0 && none(m, ['Documentary'])],
       ['Animation Greats', 'Animated films that stand with the best of anything.',
         (m, y, mins, r) => has(m, 'Animation') && r >= 7.3],
+      ['Fantasy Adventures', 'Dragons, quests, and enchanted lands — where imagination runs wild.',
+        (m) => has(m, 'Fantasy') && has(m, 'Adventure') && none(m, ['Animation', 'Documentary', 'Family'])],
+      ['True Stories', 'Based on real events — history brought to life through film.',
+        (m, y, mins, r) => has(m, 'History') && has(m, 'Drama') && none(m, ['Fantasy', 'Animation', 'Documentary', 'Science Fiction'])],
+      ['Western Roundup', 'Six-shooters, saloons, and vast landscapes — the American frontier on film.',
+        (m, y, mins, r) => has(m, 'Western') && none(m, ['Documentary', 'Animation'])],
+      ['Music & Musicals', 'Where music takes center stage — biopics, showstoppers, and rhythm-driven stories.',
+        (m) => has(m, 'Music') && none(m, ['Documentary'])],
+      ['Heists & Capers', 'The perfect plan, the big score, and the getaway — crime that thrills.',
+        (m) => has(m, 'Crime') && has(m, 'Thriller') && none(m, ['Romance', 'Documentary', 'Animation', 'Fantasy'])],
+      ['Mafia Epics', 'The families, the power, and the price — organized crime on the grandest scale.',
+        (m, y, mins) => has(m, 'Crime') && has(m, 'Drama') && mins >= 140 && none(m, ['Comedy', 'War', 'Documentary'])],
+      ['Cool Crime', 'Snappy dialogue, unforgettable characters, and style to burn — crime with a wink.',
+        (m, y, mins) => has(m, 'Crime') && has(m, 'Comedy') && has(m, 'Drama') && mins <= 140 && none(m, ['Animation', 'Documentary', 'Horror'])],
+      ['Caper Comedy', 'Witty cons, elaborate schemes, and the perfect payoff — crime that makes you laugh.',
+        (m) => has(m, 'Comedy') && has(m, 'Crime') && none(m, ['Horror', 'Documentary', 'Animation', 'War'])],
+      ['Noir Nights', 'Shadows, femmes fatales, and moral ambiguity — crime cinema at its darkest.',
+        (m) => has(m, 'Crime') && has(m, 'Drama') && has(m, 'Mystery') && none(m, ['Animation', 'Documentary', 'Family'])],
+      ['Buddy Action', 'Partners in crime-fighting — banter, explosions, and unlikely alliances.',
+        (m) => has(m, 'Action') && has(m, 'Comedy') && none(m, ['Animation', 'Documentary', 'Family'])],
+      ['Action Thrillers', 'Heart-pounding stakes and high-octane set-pieces — action that keeps you gripping the armrest.',
+        (m) => has(m, 'Action') && has(m, 'Thriller') && none(m, ['Fantasy', 'Animation', 'Documentary'])],
+      ['Spycraft', 'Secret agents, double-crosses, and global intrigue — the art of espionage.',
+        (m) => has(m, 'Thriller') && has(m, 'Adventure') && none(m, ['Science Fiction', 'Fantasy', 'Animation', 'Documentary', 'Horror'])],
+      ['Dystopian', 'Dark visions of what comes next — sci-fi that stares into the abyss.',
+        (m) => has(m, 'Science Fiction') && (has(m, 'Thriller') || has(m, 'Drama')) && none(m, ['Animation', 'Documentary', 'Family'])],
+      ['Slashers & Stalkers', 'Masked killers, body counts, and survival horror at its most visceral.',
+        (m) => has(m, 'Horror') && has(m, 'Thriller') && none(m, ['Science Fiction', 'Fantasy', 'Documentary', 'Family', 'Animation', 'Adventure'])],
+      ['Rip-Roaring Adventures', 'Thrills, chills, and non-stop entertainment — pure fun from start to finish.',
+        (m) => has(m, 'Adventure') && has(m, 'Action') && none(m, ['Drama', 'Horror', 'Documentary', 'Animation', 'War'])],
+      ['Fun Sci-Fi', 'Warp drives, time machines, and wisecracking robots — sci-fi that\'s pure fun.',
+        (m, y, mins) => has(m, 'Science Fiction') && has(m, 'Adventure') && mins > 0 && mins <= 145 && none(m, ['Horror', 'Documentary', 'Family'])],
+      ['Sweeping Romance', 'Grand love stories across turbulent times — epic romance at its most passionate.',
+        (m, y, mins, r) => has(m, 'Romance') && has(m, 'Drama') && mins >= 120 && none(m, ['Comedy', 'Action', 'Horror', 'Animation'])],
       ['Top Docs', 'True stories, brilliantly told.',
         (m, y, mins, r) => has(m, 'Documentary') && r >= 7.5],
     ];
@@ -1336,6 +1380,9 @@ async function collectionsSweep() {
           }
         }
       }
+      if (tmdb && intlLanguages && intlLanguages[tmdb] && !has(m, 'Animation')) {
+        add('International Films', 'Stories from around the world — cinema beyond English.', m.Id);
+      }
       // Individual person/studio collections
       for (const p of m.People || []) {
         const pn = (p.Name || '').toLowerCase();
@@ -1343,6 +1390,15 @@ async function collectionsSweep() {
         if (p.Type === 'Actor' && an) pbAdd(an, `${an} — one of cinema’s most celebrated actors.`, m.Id, y);
         const dn = DIRECTOR_MAP.get(pn);
         if (p.Type === 'Director' && dn) pbAdd(dn, `Directed by ${dn} — visionary filmmaking.`, m.Id, y);
+        if (p.Type === 'Director') {
+          for (const [groupName, members] of DIRECTOR_GROUPS) {
+            if (members.includes(pn)) pbAdd(groupName, `${groupName} — the sum is greater than the parts.`, m.Id, y);
+          }
+        }
+        const cn = COMPOSER_MAP.get(pn);
+        if (p.Type === 'Composer' && cn) pbAdd(cn, `Music by ${cn} — unforgettable scores.`, m.Id, y);
+        const wn = WRITER_MAP.get(pn);
+        if (p.Type === 'Writer' && wn) pbAdd(wn, `Written by ${wn} — masterful storytelling.`, m.Id, y);
       }
       for (const s of m.Studios || []) {
         const sn = (s.Name || '').toLowerCase();
@@ -1419,6 +1475,8 @@ async function collectionsSweep() {
       'Great Actors', 'Great Directors', 'Great Cinematographers', 'Great Editors',
       // Old aliased studio names → replaced by direct names
       'Studio: A24', 'Studio: Ghibli', 'Studio: Pixar',
+      // Only 1 doc in the library, not worth its own shelf
+      'Top Docs',
     ]);
     // Fix DisplayOrder for all existing collections first, regardless of load.
     for (const s of sets) {
