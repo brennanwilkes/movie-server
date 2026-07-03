@@ -1,5 +1,5 @@
 .PHONY: bootstrap deploy provision up down eject clean destroy validate ps logs mdns resize-data remount \
-        search profiles history querylogs diagnose test why
+        search profiles history querylogs diagnose test why vpn-up vpn-off vpn-status
 bootstrap:  ## one-time host prep (dirs, cap, .env, hook)
 	./scripts/bootstrap.sh
 deploy:     ## validate + pull + start (make deploy s=jellyfin for one)
@@ -51,5 +51,20 @@ test:       ## fast read-only PASS/FAIL assertions for the whole stack (run afte
 	./scripts/smoke-test.sh
 why:        ## why isn't this playing (well) on the PS4/projector? (make why q="Pulp Fiction")
 	./scripts/why-playback.sh "$(q)"
+
+# --- VPN (ProtonVPN via gluetun; routes ONLY qBittorrent) — see VPN.md ---
+# vpn-up/off FORCE the topology for this run via env, so they work regardless of whether
+# the COMPOSE_FILE/QBIT_HOST lines in .env are uncommented. Uncomment those to also make
+# the VPN the default for plain `make up`/`deploy`.
+vpn-up:     ## route qBittorrent through the ProtonVPN tunnel (deploy overlay + re-point *arr)
+	@grep -qE '^VPN_WIREGUARD_PRIVATE_KEY=.+' .env || { echo "✗ set VPN_WIREGUARD_PRIVATE_KEY in .env first (see VPN.md)"; exit 1; }
+	COMPOSE_FILE="docker-compose.yml:docker-compose.vpn.yml" QBIT_HOST=gluetun ./scripts/deploy.sh
+	COMPOSE_FILE="docker-compose.yml:docker-compose.vpn.yml" QBIT_HOST=gluetun ./scripts/provision.sh qbittorrent radarr sonarr controller
+vpn-off:    ## DEBUG ONLY: run qBittorrent direct (no VPN — real IP exposed); removes gluetun
+	COMPOSE_FILE="docker-compose.yml" QBIT_HOST=qbittorrent ./scripts/deploy.sh
+	COMPOSE_FILE="docker-compose.yml" QBIT_HOST=qbittorrent ./scripts/provision.sh qbittorrent radarr sonarr controller
+vpn-status: ## show tunnel state: exit IP, location, forwarded port (via the controller API)
+	@curl -s --max-time 8 "http://localhost:$${CONTROLLER_PORT:-8088}/api/vpn" | jq . 2>/dev/null \
+	  || echo "controller or gluetun not reachable — is the VPN stack up? (make vpn-up)"
 ps4ify:     ## convert a title's files to add AC3 compat track for PS4, quality untouched (make ps4ify q="Mormon Wives" [app=radarr])
 	./scripts/ps4ify.sh $(if $(filter radarr,$(app)),--radarr) "$(q)"

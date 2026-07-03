@@ -50,19 +50,24 @@ prefs=$(jq -n --arg u "$QBIT_USER" --arg p "$QBIT_PASS" '{
   queueing_enabled: true,
   add_stopped_enabled: false,
   max_active_downloads: 12,
-  max_active_torrents: 18,
-  max_active_uploads: 3,
+  max_active_torrents: 25,
+  max_active_uploads: 8,
+  max_uploads_per_torrent: 6,
   max_ratio_enabled: true,
-  max_ratio: 0.01,
+  max_ratio: 2.0,
   max_seeding_time_enabled: true,
-  max_seeding_time: 60,
+  max_seeding_time: 10080,
   max_ratio_act: 0,
   dont_count_slow_torrents: true,
   slow_torrent_dl_rate_threshold: 50,
   slow_torrent_ul_rate_threshold: 50,
   slow_torrent_inactive_timer: 60,
-  upnp: true
+  random_port: false,
+  upnp: (env.QBIT_HOST != "gluetun")
 }')
+# When qBittorrent rides the VPN (QBIT_HOST=gluetun) the listening port is the one
+# ProtonVPN forwards, kept in sync by the gluetun-qb-portsync sidecar — so UPnP/NAT-PMP
+# must be OFF here (they would fight the forwarded port). In direct mode UPnP stays on.
 curl -s -b "$jar" --data-urlencode "json=$prefs" "$QB/api/v2/app/setPreferences" >/dev/null
 ok "WebUI creds + save paths set ($QBIT_USER / save=/data/torrents/complete)"
 

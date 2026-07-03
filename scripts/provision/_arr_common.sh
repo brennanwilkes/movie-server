@@ -21,15 +21,29 @@ provision_arr() {
   fi
 
   # 2. qBittorrent download client (build from the live schema; fill fields by name).
-  if "${AG[@]}" "${base}/downloadclient" | jq -e 'any(.[]; .implementation=="QBittorrent")' >/dev/null; then
-    ok "${app}: qBittorrent download client present"
+  #    QBIT_HOST is 'qbittorrent' normally, or 'gluetun' when qBittorrent is routed
+  #    through the VPN overlay (make vpn-up) — where it shares gluetun's namespace and
+  #    is reachable at gluetun:8080. RECONCILE the host on an existing client (not just
+  #    create), so flipping the VPN on/off actually re-points the arr instead of leaving
+  #    it aimed at a host that no longer resolves.
+  local qbit_host="${QBIT_HOST:-qbittorrent}"
+  local existing_dc; existing_dc=$("${AG[@]}" "${base}/downloadclient" | jq '[.[]|select(.implementation=="QBittorrent")][0]')
+  if [[ -n "$existing_dc" && "$existing_dc" != "null" ]]; then
+    local cur_host; cur_host=$(echo "$existing_dc" | jq -r '.fields[]|select(.name=="host").value // ""')
+    if [[ "$cur_host" == "$qbit_host" ]]; then
+      ok "${app}: qBittorrent download client present (host=${qbit_host})"
+    else
+      echo "$existing_dc" | jq --arg h "$qbit_host" '.fields=(.fields|map(if .name=="host" then .value=$h else . end))' \
+        | "${AJ[@]}" -X PUT "${base}/downloadclient/$(echo "$existing_dc" | jq '.id')?forceSave=true" -d @- >/dev/null
+      ok "${app}: qBittorrent download client host reconciled ${cur_host:-?} → ${qbit_host}"
+    fi
   else
     local dc
     dc=$("${AG[@]}" "${base}/downloadclient/schema" \
-      | jq --arg cat "$cat" '[.[]|select(.implementation=="QBittorrent")][0]
+      | jq --arg cat "$cat" --arg h "$qbit_host" '[.[]|select(.implementation=="QBittorrent")][0]
           | .enable=true | .name="qBittorrent"
           | .fields = (.fields | map(
-              if   .name=="host"     then .value="qbittorrent"
+              if   .name=="host"     then .value=$h
               elif .name=="port"     then .value=8080
               elif .name=="username" then .value=env.QBIT_USER
               elif .name=="password" then .value=env.QBIT_PASS
@@ -41,7 +55,7 @@ provision_arr() {
     test_out=$("${AJ[@]}" -X POST "${base}/downloadclient/test" -d "$dc")
     [[ -z "$test_out" || "$test_out" == "[]" || "$test_out" == "{}" ]] || warn "${app}: download client test warned: $test_out"
     "${AJ[@]}" -X POST "${base}/downloadclient" -d "$dc" >/dev/null
-    ok "${app}: qBittorrent download client added (category=${cat})"
+    ok "${app}: qBittorrent download client added (host=${qbit_host}, category=${cat})"
   fi
 
   # 3. UI auth = brennan/brennan, bypassed on the LAN. Done last (may restart the app).

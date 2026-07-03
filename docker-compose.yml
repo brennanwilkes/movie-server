@@ -107,7 +107,7 @@ services:
   controller:
     build: ./controller
     container_name: controller
-    environment: ["TZ=${TZ}", "CONTROLLER_PORT=${CONTROLLER_PORT:-8088}", "NUC_IP=${NUC_IP}"]
+    environment: ["TZ=${TZ}", "CONTROLLER_PORT=${CONTROLLER_PORT:-8088}", "NUC_IP=${NUC_IP}", "QBIT_HOST=${QBIT_HOST:-qbittorrent}"]
     volumes:
       - ${CONFIG}/controller:/config
       - ${DATA}:/data:ro

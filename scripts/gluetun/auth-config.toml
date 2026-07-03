@@ -1,0 +1,16 @@
+# gluetun control-server authentication (IaC — mounted read-only at /gluetun/auth/config.toml).
+#
+# Recent gluetun makes ALL control-server routes private by default. The movie-server
+# controller reads three read-only routes to render the VPN status card, so we mark
+# exactly those (and nothing else) as public. This box is LAN-only with no inbound
+# exposure — the same trust model as the brennan/brennan service creds — so an API
+# token here would add friction without adding real protection. If this host ever
+# becomes internet-reachable, switch these to an apikey role instead.
+[[roles]]
+name = "controller-status"
+routes = [
+  "GET /v1/vpn/status",
+  "GET /v1/publicip/ip",
+  "GET /v1/portforward",
+]
+auth = "none"

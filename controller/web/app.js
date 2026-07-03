@@ -109,13 +109,45 @@ $$('.tabbar button').forEach((b) => b.addEventListener('click', () => showTab(b.
 
 // ── Home: status + disk ──
 function renderServices(list, { showStatus = true } = {}) {
-  $('#services').innerHTML = list.map((s) => `
-    <a class="row" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">
-      ${showStatus ? `<span class="dot ${s.up ? 'up' : ''}"></span>` : ''}
-      <span class="grow"><span class="title">${esc(s.name)}</span>${showStatus && !s.up ? '<div class="sub">Not responding</div>' : ''}</span>
+  $('#services').innerHTML = list.map((s) => {
+    const dotCls = s.dotClass || (s.up ? 'up' : '');
+    const sub = s.sub ? `<div class="sub ${s.subClass || ''}">${esc(s.sub)}</div>`
+      : (showStatus && !s.up ? '<div class="sub">Not responding</div>' : '');
+    const inner = `
+      ${showStatus ? `<span class="dot ${dotCls}"></span>` : ''}
+      <span class="grow"><span class="title">${esc(s.name)}</span>${sub}</span>
       <span class="brand">${esc(s.brand || '')}</span>
-      <span class="chev">›</span>
-    </a>`).join('');
+      ${s.url ? '<span class="chev">›</span>' : ''}`;
+    return s.url
+      ? `<a class="row" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`
+      : `<div class="row">${inner}</div>`;
+  }).join('');
+}
+// Fold VPN state into the Services list: annotate the qBittorrent (Torrents) row and
+// insert a dedicated VPN/tunnel row right after it. Red = torrents are NOT protected.
+function withVPN(status, vpn) {
+  const rows = status.map((s) => ({ ...s }));
+  if (!vpn) return rows;
+  const qb = rows.find((r) => r.id === 'qbittorrent');
+  const vpnRow = { id: 'vpn', name: 'VPN', brand: 'ProtonVPN' };
+  if (!vpn.enabled) {
+    if (qb && qb.up) { qb.sub = 'VPN off, using your real IP'; qb.subClass = 'danger'; }
+    vpnRow.up = false; vpnRow.dotClass = 'down';
+    vpnRow.sub = 'Not connected, torrents are not protected'; vpnRow.subClass = 'danger';
+  } else if (vpn.connected) {
+    const loc = [vpn.city, vpn.country].filter(Boolean).join(', ');
+    if (qb && qb.up) { qb.sub = 'Protected via ProtonVPN' + (loc ? ', ' + loc : ''); qb.subClass = ''; }
+    vpnRow.up = true; vpnRow.dotClass = 'up';
+    vpnRow.sub = [loc, vpn.public_ip, vpn.port ? 'port ' + vpn.port : 'no forwarded port'].filter(Boolean).join(', ');
+    vpnRow.subClass = vpn.port ? '' : 'warn';
+  } else {
+    if (qb && qb.up) { qb.sub = 'VPN tunnel down, downloads paused'; qb.subClass = 'warn'; }
+    vpnRow.up = false; vpnRow.dotClass = 'warn';
+    vpnRow.sub = 'Tunnel down, reconnecting'; vpnRow.subClass = 'warn';
+  }
+  const idx = rows.findIndex((r) => r.id === 'qbittorrent');
+  rows.splice(idx >= 0 ? idx + 1 : rows.length, 0, vpnRow);
+  return rows;
 }
 // Deep-link launcher shown when the backend is unreachable (off the home network).
 function renderLauncher() {
@@ -165,10 +197,10 @@ function renderSystem(s) {
 }
 async function pollHome() {
   try {
-    const [status, disk, sys] = await Promise.all([getJSON('/api/status'), getJSON('/api/disk'), getJSON('/api/system').catch(() => null)]);
+    const [status, disk, sys, vpn] = await Promise.all([getJSON('/api/status'), getJSON('/api/disk'), getJSON('/api/system').catch(() => null), getJSON('/api/vpn').catch(() => null)]);
     setOffline(false);
     $('#live-btn').hidden = true;
-    renderServices(status);
+    renderServices(withVPN(status, vpn));
     lastDisk = disk;
     renderDisk(disk);
     renderSystem(sys);

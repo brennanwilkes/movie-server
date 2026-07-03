@@ -36,7 +36,10 @@ const NUC_IP = cfg.NUC_IP || '192.168.1.74';
 const HOST = {
   jellyfin: `http://${NUC_IP}:8096`,   // Jellyfin runs on host networking (for PS4 DLNA), so reach it
                                         // via the NUC's IP, not the container DNS name 'jellyfin'.
-  qbittorrent: 'http://qbittorrent:8080',
+  // QBIT_HOST is 'qbittorrent' normally, or 'gluetun' when qBittorrent is routed
+  // through the VPN overlay (make vpn-up) — where it shares gluetun's namespace and
+  // has no DNS name of its own. Browser deep-links still use NUC_IP:8080 (below).
+  qbittorrent: `http://${cfg.QBIT_HOST || 'qbittorrent'}:8080`,
   prowlarr: 'http://prowlarr:9696',
   radarr: 'http://radarr:7878',
   sonarr: 'http://sonarr:8989',
@@ -218,6 +221,33 @@ app.get('/api/status', async (_req, res) => {
     } catch { up = false; }
     return { id: s.id, name: s.name, brand: s.brand, up, version, url: linkFor(s.id) };
   }));
+  res.json(out);
+});
+
+// VPN status — read gluetun's control server (http://gluetun:8000). Three states the
+// UI renders distinctly (see web/app.js renderVPN):
+//   • enabled + connected → PROTECTED (qBittorrent exits via the VPN; shows exit IP/geo/port)
+//   • enabled + !connected → TUNNEL DOWN (gluetun crashed/reconnecting; killswitch means
+//                             qBittorrent is BLOCKED, not leaking — downloads paused, safe)
+//   • !enabled            → VPN OFF (running direct via `make vpn-off` → real IP exposed!)
+// 'enabled' = qBittorrent is wired through gluetun (QBIT_HOST=gluetun), the always-on default.
+const GLUETUN = 'http://gluetun:8000';
+app.get('/api/vpn', async (_req, res) => {
+  const enabled = (cfg.QBIT_HOST === 'gluetun');
+  const out = { enabled, connected: false, status: null, public_ip: null, country: null, city: null, region: null, org: null, port: null };
+  if (enabled) {
+    // Newer gluetun routes; all made public (auth=none) via scripts/gluetun/auth-config.toml.
+    const [st, ip, pf] = await Promise.all([
+      tfetchJson(`${GLUETUN}/v1/vpn/status`, {}, 4000).catch(() => null),
+      tfetchJson(`${GLUETUN}/v1/publicip/ip`, {}, 4000).catch(() => null),
+      tfetchJson(`${GLUETUN}/v1/portforward`, {}, 4000).catch(() => null),
+    ]);
+    if (st) out.status = st.status || null;
+    if (ip) { out.public_ip = ip.public_ip || null; out.country = ip.country || null; out.city = ip.city || null; out.region = ip.region || null; out.org = ip.organization || null; }
+    if (pf) out.port = pf.port || null;
+    // Connected = gluetun answered with an exit IP and (if it reports status) it's running.
+    out.connected = !!(out.public_ip && (out.status ? out.status === 'running' : true));
+  }
   res.json(out);
 });
 

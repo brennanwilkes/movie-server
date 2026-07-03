@@ -1,0 +1,105 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# VPN overlay — routes ONLY qBittorrent through a ProtonVPN WireGuard tunnel.
+#
+# This is an OPT-IN overlay, never loaded by the base stack. Activate it with:
+#     make vpn-up          (or: COMPOSE_FILE="docker-compose.yml:docker-compose.vpn.yml" make deploy)
+# and revert with `make vpn-down`. When it's not loaded, qBittorrent runs exactly
+# as before (its own bridge identity + published ports) — so a plain `make deploy`
+# can never take the download stack offline for lack of VPN credentials.
+#
+# How it works:
+#   • gluetun holds the WireGuard tunnel + a killswitch firewall. If the tunnel
+#     drops, gluetun blocks all egress — qBittorrent physically cannot leak the
+#     real IP (fail-closed, not fail-open).
+#   • qBittorrent joins gluetun's network namespace (network_mode: service:gluetun),
+#     so 100% of its traffic — and ONLY its traffic — exits via the VPN. Every other
+#     service (Jellyfin, *arr, Prowlarr, controller…) is untouched and keeps its
+#     normal LAN connection.
+#   • Because qBittorrent no longer has its own network identity, its ports move to
+#     gluetun (below) and other containers reach its WebUI at `gluetun:8080`
+#     (wired by QBIT_HOST=gluetun, set automatically by `make vpn-up`).
+#   • gluetun-qb-portsync pushes ProtonVPN's forwarded port into qBittorrent's
+#     listening port so inbound peer connections (seeding) actually work.
+#
+# Requires Docker Compose ≥ 2.24 for the `!reset` tag (host has 2.25).
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  # WireGuard tunnel + killswitch. All of qBittorrent's traffic rides this.
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN                       # required to create the tun device + firewall rules
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      # ── ProtonVPN over WireGuard (see VPN.md for how to get the key) ──
+      VPN_SERVICE_PROVIDER: protonvpn
+      VPN_TYPE: wireguard
+      # Generated at https://account.proton.me/u/0/vpn/WireGuard with "Moderate NAT"
+      # enabled (Moderate NAT is what unlocks NAT-PMP port forwarding). Kept in .env.
+      # Blank on purpose here: an empty key just makes gluetun unhealthy (so qBittorrent
+      # stays down = fail-closed, no leak) rather than erroring every `docker compose`
+      # command. The controller's VPN card shows the down state loudly. See VPN.md.
+      WIREGUARD_PRIVATE_KEY: ${VPN_WIREGUARD_PRIVATE_KEY:-}
+      # Pin exit servers by country. PORT_FORWARD_ONLY below already restricts us to
+      # ProtonVPN's P2P/NAT-PMP servers; this just keeps them geographically close.
+      # Default "Canada" (nearest to Vancouver); override via VPN_SERVER_COUNTRIES.
+      SERVER_COUNTRIES: ${VPN_SERVER_COUNTRIES:-Canada}
+      # Pin to a specific city within the selected country. Supports any ProtonVPN
+      # city with port_forward servers (Vancouver, Toronto, Montreal).
+      SERVER_CITIES: ${VPN_SERVER_CITIES:-Vancouver}
+      # ── Port forwarding (NAT-PMP) — required for seeding / good ratios ──
+      VPN_PORT_FORWARDING: "on"
+      VPN_PORT_FORWARDING_PROVIDER: protonvpn
+      PORT_FORWARD_ONLY: "on"           # only connect to P2P servers that CAN forward a port
+      # gluetun writes the currently-forwarded port here; the portsync sidecar reads it.
+      VPN_PORT_FORWARDING_STATUS_FILE: /gluetun/forwarded_port
+      # ── Firewall: let the LAN + other containers reach the WebUI + control server ──
+      # 8080 = qBittorrent WebUI; 8000 = gluetun control server (the controller's VPN
+      # status card reads exit IP / geo / forwarded port from it).
+      FIREWALL_INPUT_PORTS: "8080,8000"
+      # Whitelist local subnets so service-to-service traffic isn't killed by the VPN
+      # firewall. Default covers the 192.168.x LAN; override for a different range.
+      FIREWALL_OUTBOUND_SUBNETS: ${VPN_LAN_SUBNET:-192.168.0.0/16}
+      TZ: ${TZ}
+    volumes:
+      - ${CONFIG}/gluetun:/gluetun      # persists the forwarded-port file + server list
+      # Control-server auth as code: make the read-only status routes public so the
+      # controller can poll them (LAN-only box, same posture as brennan/brennan).
+      - ./scripts/gluetun/auth-config.toml:/gluetun/auth/config.toml:ro
+    # qBittorrent's WebUI is published HERE (gluetun owns the namespace's ports).
+    # The torrent port is NOT published: inbound peers arrive via the forwarded
+    # port inside the tunnel, which gluetun opens in its firewall automatically.
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  # Reconfigure the existing qBittorrent to ride inside gluetun's namespace.
+  qbittorrent:
+    ports: !reset []                    # drop the base-file host port maps (moved to gluetun)
+    network_mode: "service:gluetun"     # share gluetun's network stack → all traffic via VPN
+    depends_on:
+      gluetun:
+        condition: service_healthy      # don't start until the tunnel is up (fail-closed)
+
+  # Keep qBittorrent's listen port equal to ProtonVPN's forwarded port. Runs inside
+  # gluetun's namespace so it reaches qBittorrent at 127.0.0.1:8080 and reads the
+  # forwarded-port file gluetun writes to the shared /gluetun volume.
+  gluetun-qb-portsync:
+    image: alpine:latest
+    container_name: gluetun-qb-portsync
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+    environment:
+      QBIT_USER: ${QBIT_USER}
+      QBIT_PASS: ${QBIT_PASS}
+    volumes:
+      - ${CONFIG}/gluetun:/gluetun:ro
+      - ./scripts/gluetun-qb-portsync.sh:/portsync.sh:ro
+    command: sh -c "apk add --no-cache curl >/dev/null 2>&1 && exec sh /portsync.sh"
+    restart: unless-stopped
