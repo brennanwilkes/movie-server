@@ -4,8 +4,7 @@ A ~57-line, 2-file fork of **jellyfin-androidtv v0.19.9** that adds one home-scr
 collection (BoxSet), mirroring the web Home Screen Sections shelves. Everything else the user wants
 (Continue Watching, Recently Added, poster cards, fanart backdrops, watch-state sync) is stock.
 
-See `JELLYFIN_CLIENT_FORK_PLAN.md` (repo root) for the full design rationale. This file documents
-the **as-built** state on `haleiwa` and how to rebuild / test / deploy.
+This file documents the **as-built** state on `haleiwa` and how to rebuild / test / deploy.
 
 ## What the patch does (5 files; see `collection-rows.patch`)
 
@@ -64,8 +63,9 @@ star-rating and centered "year · runtime" approaches.
 `CardPresenter(THUMB)` with `setPreferBackdrop(true)`; CardPresenter uses `itemBackdropImages`, falling
 back to poster if no backdrop). Adds visual variety.
 
-**Skip intro/credits/recap** — client fully supports it already; needs a server media-segment plugin.
-See **`SERVER_MEDIA_SEGMENTS_PLAN.md`** (task for a server-side agent).
+**Skip intro/credits/recap** — client fully supports it; the server side is live too (Intro Skipper
+plugin provisioned in `scripts/provision/jellyfin.sh`, producing INTRO/OUTRO segments). RECAP has no
+data (Intro Skipper emits intro/outro only).
 
 Reusable diff: **`collection-rows.patch`** (applies cleanly on the pristine `v0.19.9` tag; note it
 includes the new file `HomeSpotlight.kt` as an add).
