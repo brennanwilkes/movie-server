@@ -330,7 +330,7 @@ index 7a9815194..9ee09d752 100644
  	}
  }
 diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeRowsFragment.kt b/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeRowsFragment.kt
-index 8a597a680..fdcc0c8ca 100644
+index 8a597a680..be6b01afa 100644
 --- a/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeRowsFragment.kt
 +++ b/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeRowsFragment.kt
 @@ -4,6 +4,7 @@ import android.os.Bundle
@@ -483,21 +483,27 @@ index 8a597a680..fdcc0c8ca 100644
  				notificationsRow.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
  				nowPlaying.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
  				for (row in rows) row.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
-@@ -178,6 +234,13 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
+@@ -178,6 +234,19 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
  		mediaManager.addAudioEventListener(this)
  	}
  
 +	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 +		super.onViewCreated(view, savedInstanceState)
-+		// Custom: lift the focused row higher on screen so the row above it peeks less awkwardly
-+		// when scrolling (tunable — lower % = focused row closer to the top).
-+		verticalGridView?.windowAlignmentOffsetPercent = 25f
++		// Custom: declutter the home so the fanart backdrop reads through (see notes below).
++		//  - windowAlignmentOffsetPercent: vertical anchor of the focused row (lower % = higher up);
++		//    ~38% keeps the row title visible while the row above scrolls off.
++		//  - itemSpacing: more air between rows -> fewer rows on screen + previous row pushed fully
++		//    off (no peek), so the big movie-specific backdrop shows more.
++		verticalGridView?.apply {
++			windowAlignmentOffsetPercent = 38f
++			setItemSpacing((28 * resources.displayMetrics.density).toInt())
++		}
 +	}
 +
  	override fun onKey(v: View?, keyCode: Int, event: KeyEvent?): Boolean {
  		if (event?.action != KeyEvent.ACTION_UP) return false
  		return keyProcessor.handleKey(keyCode, currentItem, activity)
-@@ -275,4 +338,18 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
+@@ -275,4 +344,18 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
  			}
  		}
  	}
