@@ -122,10 +122,18 @@ index d892774c6..5178baabb 100644
  			}
  
 diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/card/LegacyImageCardView.java b/app/src/main/java/org/jellyfin/androidtv/ui/card/LegacyImageCardView.java
-index 2db9fa047..9d4a1bd10 100644
+index 2db9fa047..5b7892c41 100644
 --- a/app/src/main/java/org/jellyfin/androidtv/ui/card/LegacyImageCardView.java
 +++ b/app/src/main/java/org/jellyfin/androidtv/ui/card/LegacyImageCardView.java
-@@ -108,6 +108,19 @@ public class LegacyImageCardView extends BaseCardView {
+@@ -4,6 +4,7 @@ import android.app.Activity;
+ import android.content.Context;
+ import android.graphics.drawable.Drawable;
+ import android.text.TextUtils;
++import android.view.Gravity;
+ import android.view.KeyEvent;
+ import android.view.LayoutInflater;
+ import android.view.View;
+@@ -108,6 +109,45 @@ public class LegacyImageCardView extends BaseCardView {
          setTextMaxLines();
      }
  
@@ -139,6 +147,32 @@ index 2db9fa047..9d4a1bd10 100644
 +        } else {
 +            binding.titleLogo.setVisibility(GONE);
 +            binding.title.setVisibility(VISIBLE);
++        }
++    }
++
++    // Custom: wide/backdrop cards — overlay the title clearlogo (or fallback text) on the image bottom.
++    public void setWideOverlay(@Nullable String logoUrl, @Nullable String title) {
++        if (binding.wideOverlay == null) return;
++        binding.wideOverlay.setVisibility(VISIBLE);
++        if (logoUrl != null) {
++            binding.wideLogo.load(logoUrl, null, null, 1.0, 32);
++            binding.wideLogo.setVisibility(VISIBLE);
++            binding.wideTitle.setVisibility(GONE);
++        } else {
++            binding.wideLogo.setVisibility(GONE);
++            binding.wideTitle.setText(title);
++            binding.wideTitle.setVisibility(VISIBLE);
++        }
++    }
++
++    public void clearWideOverlay() {
++        if (binding.wideOverlay != null) binding.wideOverlay.setVisibility(GONE);
++    }
++
++    // Custom: center the content text (used for "year · runtime" on wide cards).
++    public void setContentTextCentered(boolean centered) {
++        if (binding.contentText != null) {
++            binding.contentText.setGravity(centered ? Gravity.CENTER_HORIZONTAL : Gravity.START);
 +        }
 +    }
 +
@@ -196,7 +230,7 @@ index 000000000..cd336902d
 +	override fun isUsingDefaultSelectEffect() = false
 +}
 diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeFragmentBrowseRowDefRow.kt b/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeFragmentBrowseRowDefRow.kt
-index c05e8b7b6..f113624cf 100644
+index c05e8b7b6..41d3e8fce 100644
 --- a/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeFragmentBrowseRowDefRow.kt
 +++ b/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeFragmentBrowseRowDefRow.kt
 @@ -4,6 +4,7 @@ import android.content.Context
@@ -207,7 +241,7 @@ index c05e8b7b6..f113624cf 100644
  import org.jellyfin.androidtv.constant.QueryType
  import org.jellyfin.androidtv.data.querying.GetUserViewsRequest
  import org.jellyfin.androidtv.preference.UserPreferences
-@@ -15,11 +16,20 @@ import org.koin.core.component.KoinComponent
+@@ -15,11 +16,21 @@ import org.koin.core.component.KoinComponent
  import org.koin.core.component.inject
  
  class HomeFragmentBrowseRowDefRow(
@@ -221,8 +255,9 @@ index c05e8b7b6..f113624cf 100644
 +		// Custom: wide rows use landscape backdrop cards instead of the shared poster presenter.
 +		@Suppress("NAME_SHADOWING")
 +		val cardPresenter = if (wideCards) {
-+			// MAIN_ONLY (showInfo=false) so the title overlays the image instead of clipping below it.
-+			CardPresenter(false, ImageType.THUMB, 150).apply { setPreferBackdrop(true) }
++			// Wide backdrop cards: normal card (keeps the below-info area) — CardPresenter overlays the
++			// clearlogo on the image and shows "year · runtime" centered below.
++			CardPresenter(true, ImageType.THUMB, 150).apply { setPreferBackdrop(true) }
 +		} else {
 +			cardPresenter
 +		}
@@ -717,8 +752,80 @@ index b2029516a..1e702d5d0 100644
  		else -> baseItem?.getSubName(context)
  	}
  
+diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/playback/PlaybackController.java b/app/src/main/java/org/jellyfin/androidtv/ui/playback/PlaybackController.java
+index c35534975..f8d56c393 100644
+--- a/app/src/main/java/org/jellyfin/androidtv/ui/playback/PlaybackController.java
++++ b/app/src/main/java/org/jellyfin/androidtv/ui/playback/PlaybackController.java
+@@ -629,8 +629,13 @@ public class PlaybackController implements PlaybackControllerNotifiable {
+             return;
+         }
+ 
+-        // get subtitle info
+-        mCurrentOptions.setSubtitleStreamIndex(response.getMediaSource().getDefaultSubtitleStreamIndex() != null ? response.getMediaSource().getDefaultSubtitleStreamIndex() : null);
++        // get subtitle info — prefer English subtitles, fall back to server default
++        Integer englishSubIndex = englishSubtitleTrack(response.getMediaSource());
++        if (englishSubIndex != null) {
++            mCurrentOptions.setSubtitleStreamIndex(englishSubIndex);
++        } else {
++            mCurrentOptions.setSubtitleStreamIndex(response.getMediaSource().getDefaultSubtitleStreamIndex() != null ? response.getMediaSource().getDefaultSubtitleStreamIndex() : null);
++        }
+         setDefaultAudioIndex(response);
+         Timber.i("default audio index set to %s remote default %s", mDefaultAudioIndex, response.getMediaSource().getDefaultAudioStreamIndex());
+         Timber.i("default sub index set to %s remote default %s", mCurrentOptions.getSubtitleStreamIndex(), response.getMediaSource().getDefaultSubtitleStreamIndex());
+@@ -737,6 +742,38 @@ public class PlaybackController implements PlaybackControllerNotifiable {
+         return null;
+     }
+ 
++    private Integer englishAudioTrack(MediaSourceInfo info) {
++        if (info == null)
++            return null;
++
++        boolean videoFound = false;
++        for (MediaStream track : info.getMediaStreams()) {
++            if (track.getType() == MediaStreamType.VIDEO) {
++                videoFound = true;
++            } else {
++                if (videoFound
++                    && track.getType() == MediaStreamType.AUDIO
++                    && ("en".equals(track.getLanguage()) || "eng".equals(track.getLanguage()))
++                )
++                    return track.getIndex();
++            }
++        }
++        return null;
++    }
++
++    private Integer englishSubtitleTrack(MediaSourceInfo info) {
++        if (info == null)
++            return null;
++
++        for (MediaStream track : info.getMediaStreams()) {
++            if (track.getType() == MediaStreamType.SUBTITLE
++                && ("en".equals(track.getLanguage()) || "eng".equals(track.getLanguage()))
++            )
++                return track.getIndex();
++        }
++        return null;
++    }
++
+     private void setDefaultAudioIndex(StreamInfo info) {
+         if (mDefaultAudioIndex != -1)
+             return;
+@@ -744,9 +781,12 @@ public class PlaybackController implements PlaybackControllerNotifiable {
+         Integer lastChosenLanguage = lastChosenLanguageAudioTrack(info.getMediaSource());
+         Integer remoteDefault = info.getMediaSource().getDefaultAudioStreamIndex();
+         Integer bestGuess = bestGuessAudioTrack(info.getMediaSource());
++        Integer english = englishAudioTrack(info.getMediaSource());
+ 
+         if (lastChosenLanguage != null)
+             mDefaultAudioIndex = lastChosenLanguage;
++        else if (english != null)
++            mDefaultAudioIndex = english;
+         else if (remoteDefault != null)
+             mDefaultAudioIndex = remoteDefault;
+         else if (bestGuess != null)
 diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/presentation/CardPresenter.java b/app/src/main/java/org/jellyfin/androidtv/ui/presentation/CardPresenter.java
-index 89a088fb5..1fb81fdd4 100644
+index 89a088fb5..bdf2c36e3 100644
 --- a/app/src/main/java/org/jellyfin/androidtv/ui/presentation/CardPresenter.java
 +++ b/app/src/main/java/org/jellyfin/androidtv/ui/presentation/CardPresenter.java
 @@ -43,6 +43,12 @@ public class CardPresenter extends Presenter {
@@ -745,34 +852,70 @@ index 89a088fb5..1fb81fdd4 100644
          }
  
          protected void resetCardView() {
-@@ -314,6 +320,7 @@ public class CardPresenter extends Presenter {
+@@ -314,6 +320,9 @@ public class CardPresenter extends Presenter {
              mCardView.setProgress(0);
              mCardView.setRating(null);
              mCardView.setBadgeImage(null);
 +            mCardView.setTitleLogo(null);
++            mCardView.clearWideOverlay();
++            mCardView.setContentTextCentered(false);
  
              mCardView.getMainImageView().setImageDrawable(null);
          }
-@@ -346,6 +353,18 @@ public class CardPresenter extends Presenter {
+@@ -334,6 +343,20 @@ public class CardPresenter extends Presenter {
+         return new ViewHolder(cardView);
+     }
  
-         holder.mCardView.setTitleText(rowItem.getCardName(holder.mCardView.getContext()));
-         holder.mCardView.setContentText(rowItem.getSubText(holder.mCardView.getContext()));
-+        // Custom: title logo (disabled via SHOW_TITLE_LOGOS) — shows the clearlogo on poster cards
-+        // when enabled, otherwise the plain text title set above is used.
-+        if (SHOW_TITLE_LOGOS && ImageType.POSTER.equals(mImageType) && rowItem.getBaseItem() != null) {
-+            holder.mCardView.setTitleLogo(imageHelper.getValue().getLogoImageUrl(rowItem.getBaseItem(), 400));
-+        } else {
-+            holder.mCardView.setTitleLogo(null);
++    // Custom: "year · runtime" for wide-card subtitles (runtime only when it's a real duration).
++    private static String buildYearRuntime(BaseItemDto item) {
++        StringBuilder sb = new StringBuilder();
++        if (item.getProductionYear() != null) sb.append(item.getProductionYear());
++        Long ticks = item.getRunTimeTicks();
++        if (ticks != null && ticks > 0) {
++            long minutes = ticks / 600_000_000L;
++            String runtime = minutes >= 60 ? (minutes / 60) + "h " + (minutes % 60) + "m" : minutes + "m";
++            if (sb.length() > 0) sb.append(" · ");
++            sb.append(runtime);
 +        }
-+        // Custom: wide/backdrop cards are MAIN_ONLY — show the title as an overlay on the image so the
-+        // below-card text can't clip with neighbouring cards when a card is focused/zoomed.
-+        if (preferBackdrop) {
-+            holder.mCardView.setOverlayText(rowItem.getCardName(holder.mCardView.getContext()));
++        return sb.toString();
++    }
++
+     @Override
+     public void onBindViewHolder(Presenter.ViewHolder viewHolder, Object item) {
+         if (!(item instanceof BaseRowItem)) {
+@@ -344,8 +367,29 @@ public class CardPresenter extends Presenter {
+         ViewHolder holder = (ViewHolder) viewHolder;
+         holder.setItem(rowItem, mImageType, 130, 150, mStaticHeight);
+ 
+-        holder.mCardView.setTitleText(rowItem.getCardName(holder.mCardView.getContext()));
+-        holder.mCardView.setContentText(rowItem.getSubText(holder.mCardView.getContext()));
++        BaseItemDto cardItem = rowItem.getBaseItem();
++        if (preferBackdrop && cardItem != null) {
++            // Wide/backdrop card: branded clearlogo (fallback text) overlaid on the image; year · runtime
++            // centered below (dot-separated, so it can't collide with neighbours on focus/scroll).
++            holder.mCardView.setTitleLogo(null);
++            holder.mCardView.setTitleText(null);
++            holder.mCardView.setWideOverlay(
++                    imageHelper.getValue().getLogoImageUrl(cardItem, 400),
++                    rowItem.getCardName(holder.mCardView.getContext()));
++            holder.mCardView.setContentTextCentered(true);
++            holder.mCardView.setContentText(buildYearRuntime(cardItem));
++        } else {
++            holder.mCardView.clearWideOverlay();
++            holder.mCardView.setContentTextCentered(false);
++            holder.mCardView.setTitleText(rowItem.getCardName(holder.mCardView.getContext()));
++            holder.mCardView.setContentText(rowItem.getSubText(holder.mCardView.getContext()));
++            // Title logos disabled (SHOW_TITLE_LOGOS) — plain text title on poster cards.
++            if (SHOW_TITLE_LOGOS && ImageType.POSTER.equals(mImageType) && cardItem != null) {
++                holder.mCardView.setTitleLogo(imageHelper.getValue().getLogoImageUrl(cardItem, 400));
++            } else {
++                holder.mCardView.setTitleLogo(null);
++            }
 +        }
          if (ImageType.POSTER.equals(mImageType)) {
              holder.mCardView.setOverlayInfo(rowItem);
          }
-@@ -355,24 +374,28 @@ public class CardPresenter extends Presenter {
+@@ -355,24 +399,28 @@ public class CardPresenter extends Presenter {
          } else {
              holder.mCardView.setPlayingIndicator(false);
  
@@ -794,7 +937,7 @@ index 89a088fb5..1fb81fdd4 100644
 +            holder.mCardView.setBadgeImage(null);
 +            BaseItemDto badgeItem = rowItem.getBaseItem();
 +            // Runtime only for movies with a real duration (series have runTimeTicks 0/null -> no "0m").
-+            if (badgeItem != null && badgeItem.getType() == BaseItemKind.MOVIE
++            if (!preferBackdrop && badgeItem != null && badgeItem.getType() == BaseItemKind.MOVIE
 +                    && badgeItem.getRunTimeTicks() != null && badgeItem.getRunTimeTicks() > 0) {
 +                long minutes = badgeItem.getRunTimeTicks() / 600_000_000L;
 +                String runtime = minutes >= 60 ? (minutes / 60) + "h " + (minutes % 60) + "m" : minutes + "m";
@@ -815,7 +958,7 @@ index 89a088fb5..1fb81fdd4 100644
              if (aspect == ImageHelper.ASPECT_RATIO_BANNER) {
                  image = JellyfinImageKt.getItemImages(rowItem.getBaseItem()).get(org.jellyfin.sdk.model.api.ImageType.BANNER);
              } else if (aspect == ImageHelper.ASPECT_RATIO_2_3 && rowItem.getBaseItem().getType() == BaseItemKind.EPISODE && rowItem instanceof BaseItemDtoBaseRowItem && ((BaseItemDtoBaseRowItem) rowItem).getPreferSeriesPoster()) {
-@@ -401,7 +424,11 @@ public class CardPresenter extends Presenter {
+@@ -401,7 +449,11 @@ public class CardPresenter extends Presenter {
              blurHash = image.getBlurHash();
          }
  
@@ -828,7 +971,7 @@ index 89a088fb5..1fb81fdd4 100644
      }
  
      @Override
-@@ -416,4 +443,8 @@ public class CardPresenter extends Presenter {
+@@ -416,4 +468,8 @@ public class CardPresenter extends Presenter {
      public void setUniformAspect(boolean uniformAspect) {
          isUniformAspect = uniformAspect;
      }
@@ -837,11 +980,74 @@ index 89a088fb5..1fb81fdd4 100644
 +        this.preferBackdrop = preferBackdrop;
 +    }
  }
+diff --git a/app/src/main/res/drawable/card_bottom_scrim.xml b/app/src/main/res/drawable/card_bottom_scrim.xml
+new file mode 100644
+index 000000000..9b5b5a24d
+--- /dev/null
++++ b/app/src/main/res/drawable/card_bottom_scrim.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Custom: bottom-up dark gradient for legibility of a logo/title overlaid on a wide card image. -->
++<shape xmlns:android="http://schemas.android.com/apk/res/android">
++    <gradient
++        android:angle="90"
++        android:startColor="#D9000000"
++        android:endColor="#00000000" />
++</shape>
 diff --git a/app/src/main/res/layout/view_card_legacy_image.xml b/app/src/main/res/layout/view_card_legacy_image.xml
-index 9e68fc7b3..2505a1d1a 100644
+index 9e68fc7b3..a685b3c49 100644
 --- a/app/src/main/res/layout/view_card_legacy_image.xml
 +++ b/app/src/main/res/layout/view_card_legacy_image.xml
-@@ -211,6 +211,20 @@
+@@ -178,6 +178,48 @@
+ 
+         </RelativeLayout>
+ 
++        <!-- Custom: wide/backdrop cards overlay the title clearlogo (or fallback text) on the image bottom -->
++        <FrameLayout
++            android:id="@+id/wide_overlay"
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:layout_alignStart="@id/main_image"
++            android:layout_alignEnd="@id/main_image"
++            android:layout_alignBottom="@id/main_image"
++            android:background="@drawable/card_bottom_scrim"
++            android:minHeight="52dp"
++            android:paddingStart="8dp"
++            android:paddingEnd="8dp"
++            android:paddingTop="16dp"
++            android:paddingBottom="8dp"
++            android:visibility="gone"
++            tools:visibility="visible">
++
++            <org.jellyfin.androidtv.ui.AsyncImageView
++                android:id="@+id/wide_logo"
++                android:layout_width="wrap_content"
++                android:layout_height="30dp"
++                android:layout_gravity="bottom|start"
++                android:adjustViewBounds="true"
++                android:contentDescription="@null"
++                android:scaleType="fitStart"
++                android:visibility="gone" />
++
++            <TextView
++                android:id="@+id/wide_title"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_gravity="bottom|start"
++                android:ellipsize="end"
++                android:fontFamily="sans-serif-condensed"
++                android:maxLines="1"
++                android:shadowColor="@color/black"
++                android:shadowRadius="4"
++                android:textColor="@color/white"
++                android:textSize="16sp"
++                android:visibility="gone" />
++        </FrameLayout>
++
+     </RelativeLayout>
+ 
+     <androidx.leanback.widget.NonOverlappingFrameLayout
+@@ -211,6 +253,20 @@
                  android:textSize="@dimen/lb_basic_card_title_text_size"
                  tools:text="Title text" />
  
@@ -862,7 +1068,7 @@ index 9e68fc7b3..2505a1d1a 100644
              <TextView
                  android:id="@+id/content_text"
                  android:layout_width="match_parent"
-@@ -234,9 +248,8 @@
+@@ -234,9 +290,8 @@
                  android:id="@+id/badge_layout"
                  android:layout_width="wrap_content"
                  android:layout_height="wrap_content"
@@ -887,3 +1093,43 @@ index 117ea54f6..74fdfcaa4 100644
      <string name="video_error_unknown_error">Failed to load video</string>
      <string name="loading">Loading…</string>
      <string name="btn_cancel">Cancel</string>
+diff --git a/playback/jellyfin/src/main/kotlin/mediastream/JellyfinMediaStreamResolver.kt b/playback/jellyfin/src/main/kotlin/mediastream/JellyfinMediaStreamResolver.kt
+index d98124c59..fb92c2a16 100644
+--- a/playback/jellyfin/src/main/kotlin/mediastream/JellyfinMediaStreamResolver.kt
++++ b/playback/jellyfin/src/main/kotlin/mediastream/JellyfinMediaStreamResolver.kt
+@@ -13,6 +13,7 @@ import org.jellyfin.sdk.api.client.extensions.videosApi
+ import org.jellyfin.sdk.model.api.BaseItemDto
+ import org.jellyfin.sdk.model.api.DeviceProfile
+ import org.jellyfin.sdk.model.api.MediaProtocol
++import org.jellyfin.sdk.model.api.MediaStreamType
+ import org.jellyfin.sdk.model.api.MediaType
+ import org.jellyfin.sdk.model.api.PlaybackInfoDto
+ 
+@@ -83,6 +84,18 @@ class JellyfinMediaStreamResolver(
+ 		mediaSourceId: String? = null,
+ 	): MediaInfo {
+ 		val profile = deviceProfileBuilder()
++
++		// Prefer English audio and subtitle tracks when available
++		val trackSource = item.mediaSources?.firstOrNull { ms ->
++			mediaSourceId == null || ms.id == mediaSourceId
++		} ?: item.mediaSources?.firstOrNull()
++		val audioStreamIndex = trackSource?.mediaStreams
++			?.firstOrNull { it.type == MediaStreamType.AUDIO && (it.language == "en" || it.language == "eng") }
++			?.index
++		val subtitleStreamIndex = trackSource?.mediaStreams
++			?.firstOrNull { it.type == MediaStreamType.SUBTITLE && (it.language == "en" || it.language == "eng") }
++			?.index
++
+ 		val response by api.mediaInfoApi.getPostedPlaybackInfo(
+ 			itemId = item.id,
+ 			data = PlaybackInfoDto(
+@@ -94,6 +107,8 @@ class JellyfinMediaStreamResolver(
+ 				allowVideoStreamCopy = true,
+ 				allowAudioStreamCopy = true,
+ 				autoOpenLiveStream = false,
++				audioStreamIndex = audioStreamIndex,
++				subtitleStreamIndex = subtitleStreamIndex,
+ 			)
+ 		)
+ 
