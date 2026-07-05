@@ -2,7 +2,10 @@
 // Served from the NUC (controller container) over HTTP, so the API is same-origin
 // (relative). If the backend is ever unreachable, the UI degrades to a deep-link
 // launcher + a "not on your home network" banner.
-const NUC_BASE = 'http://192.168.1.74';
+// Base for deep-links to the other services (Jellyfin, *arr, …). Derived from however the user
+// reached THIS dashboard — LAN IP, mesh 100.x, or movies.local — so links always point at a host
+// they can actually reach, instead of a hardcoded LAN IP that breaks over Tailscale/cellular.
+const NUC_BASE = `${location.protocol}//${location.hostname}`;
 const API = '';
 
 // The two everyday actions are the big buttons on Home (set once — deep-links work
@@ -32,6 +35,9 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+// Rewrite a URL's host to the one the dashboard was opened with (keeps scheme/port/path), so the
+// server-built service links (which use the LAN IP) resolve over whatever path the user is on.
+const sameHost = (u) => String(u || '').replace(/^(https?:\/\/)[^/:]+/i, `$1${location.hostname}`);
 
 function fmtBytes(b) {
   if (!b) return '0 GB';
@@ -119,7 +125,7 @@ function renderServices(list, { showStatus = true } = {}) {
       <span class="brand">${esc(s.brand || '')}</span>
       ${s.url ? '<span class="chev">›</span>' : ''}`;
     return s.url
-      ? `<a class="row" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`
+      ? `<a class="row" href="${esc(sameHost(s.url))}" target="_blank" rel="noopener noreferrer">${inner}</a>`
       : `<div class="row">${inner}</div>`;
   }).join('');
 }
@@ -136,9 +142,9 @@ function withVPN(status, vpn) {
     vpnRow.sub = 'Not connected, torrents are not protected'; vpnRow.subClass = 'danger';
   } else if (vpn.connected) {
     const loc = [vpn.city, vpn.country].filter(Boolean).join(', ');
-    if (qb && qb.up) { qb.sub = 'Protected via ProtonVPN' + (loc ? ', ' + loc : ''); qb.subClass = ''; }
+    if (qb && qb.up) { qb.sub = 'Protected' + (loc ? ' via ' + loc : ''); qb.subClass = ''; }
     vpnRow.up = true; vpnRow.dotClass = 'up';
-    vpnRow.sub = [loc, vpn.public_ip, vpn.port ? 'port ' + vpn.port : 'no forwarded port'].filter(Boolean).join(', ');
+    vpnRow.sub = 'Connected ' + vpn.public_ip + (vpn.port ? ':' + vpn.port : '');
     vpnRow.subClass = vpn.port ? '' : 'warn';
   } else {
     if (qb && qb.up) { qb.sub = 'VPN tunnel down, downloads paused'; qb.subClass = 'warn'; }
@@ -148,6 +154,21 @@ function withVPN(status, vpn) {
   const idx = rows.findIndex((r) => r.id === 'qbittorrent');
   rows.splice(idx >= 0 ? idx + 1 : rows.length, 0, vpnRow);
   return rows;
+}
+// Append a "Mesh" row for the Tailscale link to the family network. Green = on the mesh (shows this
+// box's 100.x IP so you can hand it to family); amber = daemon up but not connected yet; red = off.
+// Kept terse (IP / "Connecting…" / "Offline") so it never wraps on a phone.
+function withTailscale(rows, ts) {
+  if (!ts) return rows;
+  const r = { id: 'tailscale', name: 'Mesh', brand: 'Tailscale' };
+  if (ts.connected) {
+    r.up = true; r.dotClass = 'up'; r.sub = ts.ip || 'Connected';
+  } else if (ts.up) {
+    r.up = false; r.dotClass = 'warn'; r.sub = 'Connecting…'; r.subClass = 'warn';
+  } else {
+    r.up = false; r.dotClass = 'down'; r.sub = 'Offline'; r.subClass = 'danger';
+  }
+  return [...rows, r];
 }
 // Deep-link launcher shown when the backend is unreachable (off the home network).
 function renderLauncher() {
@@ -197,10 +218,10 @@ function renderSystem(s) {
 }
 async function pollHome() {
   try {
-    const [status, disk, sys, vpn] = await Promise.all([getJSON('/api/status'), getJSON('/api/disk'), getJSON('/api/system').catch(() => null), getJSON('/api/vpn').catch(() => null)]);
+    const [status, disk, sys, vpn, ts] = await Promise.all([getJSON('/api/status'), getJSON('/api/disk'), getJSON('/api/system').catch(() => null), getJSON('/api/vpn').catch(() => null), getJSON('/api/tailscale').catch(() => null)]);
     setOffline(false);
     $('#live-btn').hidden = true;
-    renderServices(withVPN(status, vpn));
+    renderServices(withTailscale(withVPN(status, vpn), ts));
     lastDisk = disk;
     renderDisk(disk);
     renderSystem(sys);

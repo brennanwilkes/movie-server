@@ -19,6 +19,10 @@ services:
     group_add:
       - "133"
       - "44"
+    # CPU: no hard cap — playback + (software) transcode must be free to grab all 4 cores. The
+    # high cpu_shares weight means that WHEN the box is contended, Jellyfin wins over the *arr
+    # background work below. See the capped background apps for the rationale.
+    cpu_shares: 1024
     restart: unless-stopped
 
   qbittorrent:
@@ -28,7 +32,8 @@ services:
     volumes:
       - ${CONFIG}/qbittorrent:/config
       - ${DATA}:/data
-    ports: ["8080:8080", "6881:6881", "6881:6881/udp"]
+    ports: ["0.0.0.0:8080:8080", "0.0.0.0:6881:6881", "0.0.0.0:6881:6881/udp"]
+    cpu_shares: 512
     restart: unless-stopped
 
   prowlarr:
@@ -36,7 +41,8 @@ services:
     container_name: prowlarr
     environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}"]
     volumes: ["${CONFIG}/prowlarr:/config"]
-    ports: ["9696:9696"]
+    ports: ["0.0.0.0:9696:9696"]
+    cpu_shares: 128
     restart: unless-stopped
 
   radarr:
@@ -46,7 +52,12 @@ services:
     volumes:
       - ${CONFIG}/radarr:/config
       - ${DATA}:/data
-    ports: ["7878:7878"]
+    ports: ["0.0.0.0:7878:7878"]
+    # CPU cap: bound the worst case so a library refresh / import ffprobe can't peg all 4 cores
+    # and stutter Jellyfin. 1.5 cores is plenty for normal import throughput; the low cpu_shares
+    # means it yields to Jellyfin/qBittorrent under contention. Tune `cpus` up if imports feel slow.
+    cpus: 1.5
+    cpu_shares: 256
     restart: unless-stopped
 
   sonarr:
@@ -56,7 +67,11 @@ services:
     volumes:
       - ${CONFIG}/sonarr:/config
       - ${DATA}:/data
-    ports: ["8989:8989"]
+    ports: ["0.0.0.0:8989:8989"]
+    # CPU cap — see radarr above. Sonarr's per-series refresh/analysis is the heavier of the two,
+    # so the same 1.5-core bound keeps a background scan from crushing playback.
+    cpus: 1.5
+    cpu_shares: 256
     restart: unless-stopped
 
   bazarr:
@@ -66,14 +81,21 @@ services:
     volumes:
       - ${CONFIG}/bazarr:/config
       - ${DATA}:/data
-    ports: ["6767:6767"]
+    ports: ["0.0.0.0:6767:6767"]
+    # CPU cap: subtitle scoring/scans are bursty and non-urgent — 1 core is ample.
+    cpus: 1.0
+    cpu_shares: 128
     restart: unless-stopped
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
     environment: ["LOG_LEVEL=info", "TZ=${TZ}"]
-    ports: ["8191:8191"]
+    ports: ["0.0.0.0:8191:8191"]
+    # CPU cap: FlareSolverr spins up a headless Chrome per challenge — cap it so a Cloudflare
+    # solve can't spike playback.
+    cpus: 1.0
+    cpu_shares: 128
     restart: unless-stopped
 
   jellyseerr:
@@ -82,7 +104,8 @@ services:
     init: true
     environment: ["TZ=${TZ}", "LOG_LEVEL=info"]
     volumes: ["${CONFIG}/jellyseerr:/app/config"]
-    ports: ["5055:5055"]
+    ports: ["0.0.0.0:5055:5055"]
+    cpu_shares: 128
     restart: unless-stopped
 
   # SuggestArr — recommendation engine: reads Jellyfin watch history, finds similar titles
@@ -96,7 +119,78 @@ services:
     container_name: suggestarr
     environment: ["TZ=${TZ}", "LOG_LEVEL=info", "SUGGESTARR_PORT=5000"]
     volumes: ["${CONFIG}/suggestarr:/app/config/config_files"]
-    ports: ["5000:5000"]
+    ports: ["0.0.0.0:5000:5000"]
+    cpu_shares: 128
+    restart: unless-stopped
+
+  # Tailscale — joins this NUC to the family MESH network (a self-hosted Headscale
+  # coordination server run by Brennan's father at ${TS_LOGIN_SERVER}). Purpose: let
+  # family members reach THIS box's services (Jellyfin :8096, controller :80, …) from
+  # anywhere over the private mesh, exactly as the family SETUP-GUIDE describes
+  # (http://<NUC_MESH_IP>:8096). Nothing is exposed to the public internet — the mesh
+  # is a private, key-gated overlay.
+  #
+  # Why host networking + KERNEL mode (not a gluetun-style sidecar namespace):
+  #   • Jellyfin already runs network_mode: host (for DLNA/SSDP), so it can't join a
+  #     container's netns. Instead we put Tailscale itself on the host network and run
+  #     it in kernel mode (TS_USERSPACE=false + /dev/net/tun + NET_ADMIN/NET_RAW). That
+  #     creates a real `tailscale0` interface IN THE HOST namespace, so the NUC gets one
+  #     100.x.x.x mesh IP and EVERY host-published port answers on it automatically —
+  #     no per-service proxying, no subnet-router route approval needed.
+  #   • State (node key/identity) persists in ${CONFIG}/tailscale so a restart re-uses
+  #     the same machine instead of re-registering. The pre-auth key is only consumed
+  #     on first login.
+  # Fail-safe: if TS_AUTHKEY is blank/expired the container just fails to authenticate
+  # and retries — it never touches the other services or the host's normal LAN routing.
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    hostname: ${TS_HOSTNAME:-haleiwa-movies}
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY:-}
+      # --login-server points at the family Headscale server (NOT Tailscale's SaaS).
+      # --accept-routes lets this node use any subnet routes the father advertises.
+      - TS_EXTRA_ARGS=--login-server=${TS_LOGIN_SERVER} --accept-routes
+      - TS_HOSTNAME=${TS_HOSTNAME:-haleiwa-movies}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+      # Put the control socket on a shared volume (default lives in /tmp, un-shareable) so the
+      # tailscale-status sidecar can query the daemon. NOTE: relocating the socket means any
+      # `docker exec tailscale tailscale …` CLI call must pass --socket=/run/tailscale/tailscaled.sock.
+      - TS_SOCKET=/run/tailscale/tailscaled.sock
+    volumes:
+      - ${CONFIG}/tailscale:/var/lib/tailscale
+      - ts-sock:/run/tailscale
+    restart: unless-stopped
+
+  # tailscale-status — publishes the mesh's live state to the dashboard. It's a plain CLIENT of the
+  # daemon the `tailscale` service runs (talks over the shared socket volume; runs as root so it can
+  # read the root-owned socket) — it NEVER starts a second daemon (entrypoint overridden to a shell
+  # loop). Writes `tailscale status --json` to the controller's config dir every 20s; the controller
+  # serves it at /api/tailscale and the Home screen renders it as the "Mesh" tile. Purely cosmetic:
+  # if this sidecar is down the mesh itself is unaffected — only the dashboard tile goes stale.
+  tailscale-status:
+    image: tailscale/tailscale:latest
+    container_name: tailscale-status
+    depends_on: [tailscale]
+    volumes:
+      - ts-sock:/run/tailscale
+      - ${CONFIG}/controller:/status
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          tailscale --socket=/run/tailscale/tailscaled.sock status --json > /status/tailscale-status.json.tmp 2>/dev/null \
+            && mv /status/tailscale-status.json.tmp /status/tailscale-status.json \
+            || echo '{}' > /status/tailscale-status.json
+          sleep 20
+        done
     restart: unless-stopped
 
   # Web controller — mobile dashboard + same-origin API that aggregates the stack
@@ -113,6 +207,10 @@ services:
       - ${DATA}:/data:ro
     # Published on :80 so the dashboard has a clean, no-port URL (http://<hostname>),
     # plus :8088 kept for compatibility / direct access.
-    ports: ["80:${CONTROLLER_PORT:-8088}", "${CONTROLLER_PORT:-8088}:${CONTROLLER_PORT:-8088}"]
+    ports: ["0.0.0.0:80:${CONTROLLER_PORT:-8088}", "0.0.0.0:${CONTROLLER_PORT:-8088}:${CONTROLLER_PORT:-8088}"]
     restart: unless-stopped
     depends_on: [jellyfin, qbittorrent, radarr, sonarr, jellyseerr]
+
+# Shared control socket between the tailscale daemon and its status sidecar (see above).
+volumes:
+  ts-sock:

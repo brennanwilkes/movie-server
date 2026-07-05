@@ -26,6 +26,7 @@ ss.update({'use_subsync': True, 'use_subsync_movie_threshold': False,
 # Keep improving subs over time: re-search on a schedule and replace weak ones.
 c['general']['upgrade_subs'] = True
 c['general']['upgrade_manual'] = True   # also upgrade/replace manually-added & bundled subs
+c['general']['upgrade_frequency'] = 48  # every 48h (default 12) — saves CPU from ffsubsync churn
 en = c.setdefault('general', {}).get('enabled_providers') or []
 # Free, no-account fallback providers — give Bazarr more release matches so it isn't
 # dead-ended by OpenSubtitles.com's free-tier limit (~5 downloads/day + search throttle).

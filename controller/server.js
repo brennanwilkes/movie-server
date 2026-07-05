@@ -251,6 +251,33 @@ app.get('/api/vpn', async (_req, res) => {
   res.json(out);
 });
 
+// Tailscale mesh status — the tailscale-status sidecar writes `tailscale status --json` here every
+// ~20s (see docker-compose.yml). We just read + summarise the file; no daemon access from here.
+// States the UI renders (see web/app.js withTailscale):
+//   • up + connected → on the family mesh (BackendState=Running); shows this node's 100.x IP
+//   • up + !connected → daemon is running but not authed/connected yet (starting / key expired)
+//   • !up            → sidecar file missing or stale (>90s) → treat the tile as offline
+const TS_STATUS_FILE = '/config/tailscale-status.json';
+app.get('/api/tailscale', async (_req, res) => {
+  const out = { up: false, connected: false, ip: null, peers: null, peers_online: null };
+  try {
+    const st = await fs.promises.stat(TS_STATUS_FILE);
+    // Stale file = the writer died; don't report a frozen "connected" state.
+    if (Date.now() - st.mtimeMs > 90000) { res.json(out); return; }
+    const j = JSON.parse(await fs.promises.readFile(TS_STATUS_FILE, 'utf8'));
+    if (j && j.BackendState) {
+      out.up = true;
+      out.connected = j.BackendState === 'Running';
+      const ips = (j.Self && j.Self.TailscaleIPs) || [];
+      out.ip = ips.find((a) => a.includes('.')) || ips[0] || null;   // prefer the IPv4 100.x
+      const peers = j.Peer ? Object.values(j.Peer) : [];
+      out.peers = peers.length;
+      out.peers_online = peers.filter((p) => p && p.Online).length;
+    }
+  } catch { /* missing/unparseable → down */ }
+  res.json(out);
+});
+
 app.get('/api/disk', async (_req, res) => {
   try {
     const s = await fs.promises.statfs('/data');
@@ -322,9 +349,13 @@ function parseTimeleft(s) {
 }
 function friendlyTorrentState(t) {
   const s = t.state || '';
-  if (s.startsWith('paused') || s.startsWith('stopped')) return 'Paused';   // qBittorrent v5 renamed paused* → stopped*
   if (s === 'error' || s === 'missingFiles') return 'Error';
+  // Completion is checked BEFORE paused/stopped: our share limits (ratio 2.0 / 7 days, act=stop)
+  // auto-STOP a torrent the moment it's done seeding, landing it in stoppedUP/pausedUP. That's a
+  // finished download, not a user pause — treat it as complete so it doesn't masquerade as "Paused"
+  // at 100%. A genuine user pause is on an INCOMPLETE torrent, handled below.
   if ((t.progress || 0) >= 1) return 'Seeding';
+  if (s.startsWith('paused') || s.startsWith('stopped')) return 'Paused';   // qBittorrent v5 renamed paused* → stopped*
   if (s === 'metaDL' || s.startsWith('checking')) return 'Starting';
   if (s.startsWith('queued')) return 'Queued';
   if (s.startsWith('stalled')) return 'Stalled';
@@ -542,7 +573,7 @@ async function buildDownloads() {
     const imported = !!(hi && (hi.imported || (app === 'radarr' && hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
     const _arrId = (qrec && (qrec.movieId || qrec.seriesId)) ?? (hi && hi.id);
     if (app && _arrId != null) shownIds[app].add(_arrId);   // this title has a live download → don't also list it as missing
-    let state, attention = false, recover = null;
+    let state, attention = false, recover = null, attnNote = null;
     if (app && imported) {
       // Already imported into the library = the download is DONE, no matter what the torrent is
       // doing now (errored after a crash, paused, or a zombie pointing at files *arr already
@@ -579,14 +610,22 @@ async function buildDownloads() {
       const tds = (qrec.trackedDownloadState || '').toLowerCase();      // downloading|importPending|importing|imported|failedPending|failed
       const tdStatus = (qrec.trackedDownloadStatus || '').toLowerCase(); // ok|warning|error
       const ts = friendlyTorrentState(t);                               // Paused|Error|Seeding|Starting|Queued|Stalled|Downloading
-      if ((qrec.status || '').toLowerCase() === 'paused' || ts === 'Paused') state = 'Paused';
+      if (prog < 100 && ((qrec.status || '').toLowerCase() === 'paused' || ts === 'Paused')) state = 'Paused';
       else if (tds === 'failed' || tds === 'failedpending' || tdStatus === 'error') { state = 'Needs attention'; attention = true; } // download/import failed in *arr
       else if (tds.includes('import')) {
-        state = 'Importing';
-        // *arr parked the import (e.g. importBlocked: "matched by ID — manual import required").
-        // Hand it to the recovery sweep so it runs a Manual Import automatically rather than
-        // sitting in 'Importing' forever.
+        // *arr parked the import (e.g. importBlocked: "matched by ID — manual import required",
+        // or a release for an unaired/nonexistent episode it can't match). Hand it to the recovery
+        // sweep so it runs a Manual Import automatically. But DON'T let a genuinely-blocked import
+        // masquerade as active "Importing" forever: a plain importPending resolves in seconds, so
+        // only the first IMPORT_GRACE after completion is really "importing" — past that, a
+        // still-warning item is stuck and gets surfaced for attention (amber, honest) rather than
+        // looking like progress. tdStatus 'ok' importPending stays "Importing" regardless (*arr
+        // just hasn't gotten to it yet).
         if (tdStatus === 'warning' && t.content_path) recover = { app, folder: t.content_path, id: app === 'radarr' ? qrec.movieId : qrec.seriesId, hash: h };
+        const IMPORT_GRACE = 15 * 60;   // seconds a warning import may sit before we call it blocked
+        const stuck = tdStatus === 'warning' && (t.completion_on || 0) > 0 && (now - t.completion_on) > IMPORT_GRACE;
+        if (stuck) { state = 'Needs attention'; attention = true; attnNote = 'Download finished but the app won’t import it — usually a bad/mismatched release (e.g. an episode that hasn’t aired). Delete it and let the search find a real copy.'; }
+        else state = 'Importing';
       }
       else if (prog < 100) state = (ts === 'Stalled' || ts === 'Queued' || ts === 'Starting') ? ts : 'Downloading'; // honour a real stall
       else state = 'Importing';                                         // complete in qbit, waiting on *arr to import
@@ -625,6 +664,7 @@ async function buildDownloads() {
       if (app === 'radarr' && qrec && qrec.movieId != null && gpuPending.has(qrec.movieId)) {
         item.note = 'Auto-upgrade: fetching a GPU-friendly copy — your current file stays watchable until this finishes';
       }
+      if (attnNote) item.note = attnNote;
       if (finished && app === 'radarr' && _arrId != null) {
         const key = `radarr:${_arrId}`, comp = t.completion_on || 0, prev = completedByMovie.get(key);
         if (prev && comp <= prev.completion) continue;                 // older/equal duplicate of a movie we already show — drop it
@@ -951,6 +991,60 @@ async function importViaManual(app, folder, expectedId) {
   return { ok: cmd.ok, count: files.length, reason: cmd.ok ? null : `command HTTP ${cmd.status}` };
 }
 
+// A download can fail to import forever when the "release" is a fake — e.g. a .scr Windows
+// executable padded to episode size. *arr rejects it every sweep ("Unable to determine if file
+// is a sample") and, with no retry cap, the watchdog retries it every 120s indefinitely while the
+// item sits in "Needs attention" until a human deletes it by hand. IMPORT_MAX_FAILS bounds the
+// retries; hasVideoContent() then confirms there is genuinely no video before we discard, so a
+// real file that fails to import for other reasons is never thrown away.
+const IMPORT_MAX_FAILS = 5;                                         // consecutive failed imports (~10 min at 120s backoff) before garbage check
+const VIDEO_EXT = new Set(['.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv', '.flv', '.ts', '.m2ts', '.mpg', '.mpeg', '.webm', '.vob', '.divx', '.3gp', '.ogv', '.mts', '.iso']);
+async function hasVideoContent(p) {
+  try {
+    const st = await fs.promises.stat(p);
+    if (st.isFile()) return VIDEO_EXT.has(path.extname(p).toLowerCase());
+    const stack = [p];                                             // directory: any video file anywhere inside counts
+    while (stack.length) {
+      const dir = stack.pop();
+      for (const ent of await fs.promises.readdir(dir, { withFileTypes: true })) {
+        if (ent.isDirectory()) stack.push(path.join(dir, ent.name));
+        else if (VIDEO_EXT.has(path.extname(ent.name).toLowerCase())) return true;
+      }
+    }
+    return false;
+  } catch { return true; }                                         // can't tell → assume video (fail-safe: never delete on uncertainty)
+}
+// Discard a confirmed-garbage download: blocklist the release so *arr won't re-grab this exact
+// fake, remove the torrent + its file from qBittorrent, and re-search for a real copy. Mirrors
+// stallRecovery's dual path — prefer the queue record (removeFromClient+blocklist in one call),
+// fall back to history/failed when *arr no longer tracks the download.
+async function discardGarbage(rec) {
+  const { base, key } = arrOf(rec.app);
+  let blocklisted = false;
+  try {
+    const qrec = rec.hash && (await getQueueMap(rec.app)).get(rec.hash.toLowerCase());
+    if (qrec && qrec.id != null) {
+      await tfetch(`${base}/queue/${qrec.id}?removeFromClient=true&blocklist=true`, { method: 'DELETE', headers: { 'X-Api-Key': key } }, 20000);
+      blocklisted = true;
+    }
+  } catch { /* fall through to history-based blocklist */ }
+  if (!blocklisted && rec.hash) {
+    try {
+      const hr = await arrGet(rec.app, `/history?pageSize=20&sortKey=date&sortDirection=descending&downloadId=${rec.hash.toUpperCase()}`);
+      const grab = (hr.records || []).find((r) => (r.eventType || '').toLowerCase() === 'grabbed');
+      if (grab) { await tfetch(`${base}/history/failed/${grab.id}`, { method: 'POST', headers: { 'X-Api-Key': key } }, 15000); blocklisted = true; }
+    } catch { /* best-effort */ }
+  }
+  if (rec.hash) {                                                  // ensure the fake file is gone even if there was no queue record
+    try { await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: rec.hash, deleteFiles: 'true' }) }); } catch { /* qbit hiccup — retried */ }
+  }
+  if (rec.id != null) {                                            // re-search for a real copy of the missing item
+    const cmd = rec.app === 'radarr' ? { name: 'MoviesSearch', movieIds: [rec.id] } : { name: 'SeriesSearch', seriesId: rec.id };
+    try { await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) }, 20000); } catch { /* search kick best-effort */ }
+  }
+  return blocklisted;
+}
+
 async function importWatchdog() {
   if (masterPaused) return;                                         // Movie Mode — no imports/analysis
   const snap = _dl.raw;                                             // reuse the background snapshot — no extra buildDownloads
@@ -961,7 +1055,7 @@ async function importWatchdog() {
     try { await fs.promises.stat(rec.folder); } catch { continue; } // content gone → nothing to import
     // (manualimport accepts a single file path OR a folder, so we no longer skip single-file torrents —
     //  import-blocked single files like "matched by ID, manual import required" must be rescued too.)
-    const st = importState.get(rec.folder) || { lastTry: 0, reason: null };
+    const st = importState.get(rec.folder) || { lastTry: 0, reason: null, fails: 0 };
     if (now - st.lastTry < 120) continue;                           // backoff between attempts
     st.lastTry = now;
     // Fresh per-hash ground truth before importing: the snapshot's history view is 20s-cached
@@ -982,10 +1076,28 @@ async function importWatchdog() {
       } catch { /* history unavailable — fall through to the existing rescue path */ }
     }
     const res = await importViaManual(rec.app, rec.folder, rec.id);
-    st.reason = res.ok ? null : res.reason;                         // cleared on success; retried next sweep
-    if (res.ok) triggerJellyfinScan();
+    if (res.ok) {
+      st.reason = null; st.fails = 0;                               // cleared on success
+      importState.set(rec.folder, st);
+      triggerJellyfinScan();
+      console.log(`watchdog: imported ${res.count} file(s) from "${rec.folder}"`);
+      continue;
+    }
+    st.reason = res.reason;
+    st.fails = (st.fails || 0) + 1;
     importState.set(rec.folder, st);
-    console.log(res.ok ? `watchdog: imported ${res.count} file(s) from "${rec.folder}"` : `watchdog: "${rec.folder}" not importable yet — ${res.reason}`);
+    // Bounded retries + a video check: a download that fails to import N times AND has no real
+    // video file is a fake release (e.g. a .scr executable padded to episode size). Discard it —
+    // blocklist, delete from qBittorrent, re-search — instead of retrying forever.
+    if (st.fails >= IMPORT_MAX_FAILS && !(await hasVideoContent(rec.folder))) {
+      try {
+        const blk = await discardGarbage(rec);
+        importState.delete(rec.folder);
+        console.log(`watchdog: garbage file, deleted and re-searching (${st.fails} failed imports, no video, blocklisted=${blk}): "${rec.folder}" — ${res.reason}`);
+      } catch (e) { console.log(`watchdog: garbage discard failed for "${rec.folder}": ${e.message || e}`); }
+      continue;
+    }
+    console.log(`watchdog: "${rec.folder}" not importable yet — ${res.reason} (fail ${st.fails}/${IMPORT_MAX_FAILS})`);
   }
 }
 setInterval(importWatchdog, 30000); // sweep often; per-folder 120s backoff caps real attempts
@@ -2313,6 +2425,7 @@ const SEARCH_COOLDOWN_MS = 6 * 3600000;        // 6h between recovery re-searche
 const SEARCH_FAIL_LIMIT = 4;                   // after this many fruitless searches → negative-cache it
 const SEARCH_BLOCK_MS = 7 * 24 * 3600 * 1000;  // ...for a week (a manual /api/retry clears it sooner)
 const SWEEP_MAX_ACTIVE_DL = 10;                // capacity guard: no new searches while this many download
+const BLOCKLIST_TTL_MS = 12 * 3600 * 1000;    // 12h — blocklisted releases auto-cleared so a temporarily-dead swarm doesn't permanently poison the well
 // The sweep is RECOVERY, not the first responder: Radarr/Sonarr already auto-search on request
 // (Jellyseerr sets searchForMovie). The sweep must NOT re-search a freshly-requested item while
 // that initial search is still resolving — that's what caused duplicate grabs AND the "Not found →
@@ -2346,10 +2459,23 @@ async function missingEpisodeIds(seriesId) {
     .filter((e) => !e.hasFile && e.monitored && (!e.airDateUtc || new Date(e.airDateUtc).getTime() <= now))
     .map((e) => e.id);
 }
+async function sweepBlocklist() {
+  for (const app of ['radarr', 'sonarr']) {
+    try {
+      const bl = await arrGet(app, '/blocklist?pageSize=200', 10000);
+      const cutoff = Date.now() - BLOCKLIST_TTL_MS;
+      const expired = (bl.records || []).filter((r) => new Date(r.date).getTime() < cutoff).map((r) => r.id);
+      if (!expired.length) continue;
+      await tfetch(`${arrOf(app).base}/blocklist/bulk`, { method: 'DELETE', headers: { 'X-Api-Key': arrOf(app).key, 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: expired }) }, 15000);
+      console.log(`sweepBlocklist: cleared ${expired.length} expired ${app} blocklist entry/entries (≥${Math.round(BLOCKLIST_TTL_MS / 3600000)}h old)`);
+    } catch { /* best-effort */ }
+  }
+}
 async function arrSweep() {
   if (masterPaused || arrSweepBusy) return;               // Movie Mode — no searches/grabs/recovery
   arrSweepBusy = true;
   try {
+    await sweepBlocklist();                                // clear expired blocklist entries before processing queue
     for (const app of ['radarr', 'sonarr']) {
       let queue = [];
       try { const qr = await arrGet(app, '/queue?pageSize=200&includeUnknownMovieItems=true', 8000); queue = qr.records || []; }
@@ -2672,12 +2798,44 @@ async function triggerJellyfinScan() {
   }
   finally { _scanning = false; }
 }
+// ---- Trickplay-aware scan gate ----
+// If Jellyfin's "Generate Trickplay Images" task is running, skip the safety-net
+// scan.  Each scan-completion triggers the next trickplay item, so feeding scans
+// while trickplay is active creates a vicious cycle: trickplay takes >10 min per
+// episode → watchdog fires → scan → next trickplay item → repeat for hours/days.
+// When trickplay finishes, the next watchdog tick (≤2 min) will catch any real
+// imports.  New imports still trigger scans directly via their own code paths.
+let _lastTrickBusyCheck = 0;
+async function isTrickplayBusy() {
+  try {
+    // Cache: don't hit the API more than once per 60s
+    if (Date.now() - _lastTrickBusyCheck < 60000) return _trickBusyCache;
+    const r = await tfetch(`${HOST.jellyfin}/ScheduledTasks`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY } }, 8000);
+    if (!r.ok) return (_trickBusyCache = false);
+    const tasks = await r.json();
+    _lastTrickBusyCheck = Date.now();
+    _trickBusyCache = tasks.some(t => /trickplay/i.test(t.Name) && t.State === 'Running');
+    return _trickBusyCache;
+  } catch {
+    _lastTrickBusyCheck = Date.now();
+    return (_trickBusyCache = false);
+  }
+}
+let _trickBusyCache = false;
+
 // Periodic safety-net scan + startup catch-up.
-// If no scan has succeeded in 10 minutes, fire one. This catches media that
-// *arr imported while the controller was down or the notification missed.
+// If no scan has succeeded in 10 minutes AND trickplay isn't running, fire one.
+// This catches media that *arr imported while the controller was down or the
+// notification missed.
 setInterval(() => {
   if (!cfg.JELLYFIN_KEY) return;
-  if (Date.now() - _lastScan > 600000) { console.log('jfScan: 10 min overdue — triggering refresh'); triggerJellyfinScan(); }
+  if (Date.now() - _lastScan > 600000) {
+    isTrickplayBusy().then(busy => {
+      if (busy) { console.log('jfScan: trickplay running — deferring scan'); return; }
+      console.log('jfScan: 10 min overdue — triggering refresh');
+      triggerJellyfinScan();
+    });
+  }
 }, 120000);
 // On controller start, wait for Jellyfin to be ready then do a catch-up scan
 // so media imported during downtime gets discovered.

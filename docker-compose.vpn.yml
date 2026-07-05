@@ -72,7 +72,10 @@ services:
     # The torrent port is NOT published: inbound peers arrive via the forwarded
     # port inside the tunnel, which gluetun opens in its firewall automatically.
     ports:
-      - "8080:8080"
+      - "0.0.0.0:8080:8080"
+    # Same download-tier weight as qBittorrent (whose traffic it carries): yields to Jellyfin
+    # under contention. WireGuard is light, so no hard cap.
+    cpu_shares: 512
     restart: unless-stopped
 
   # Reconfigure the existing qBittorrent to ride inside gluetun's namespace.
