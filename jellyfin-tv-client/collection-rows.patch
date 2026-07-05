@@ -1,0 +1,758 @@
+diff --git a/app/src/main/java/org/jellyfin/androidtv/data/service/BackgroundService.kt b/app/src/main/java/org/jellyfin/androidtv/data/service/BackgroundService.kt
+index e243fdf5c..1b7cbb745 100644
+--- a/app/src/main/java/org/jellyfin/androidtv/data/service/BackgroundService.kt
++++ b/app/src/main/java/org/jellyfin/androidtv/data/service/BackgroundService.kt
+@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.ImageBitmap
+ import androidx.compose.ui.graphics.asImageBitmap
+ import coil3.ImageLoader
+ import coil3.request.ImageRequest
++import coil3.size.Size
+ import coil3.toBitmap
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.Job
+@@ -35,6 +36,8 @@ class BackgroundService(
+ 	private val imageLoader: ImageLoader,
+ ) {
+ 	companion object {
++		// Max backdrops decoded/held at once (memory guard for the 1 GB stick).
++		private const val BACKGROUND_LIMIT = 5
+ 		val SLIDESHOW_DURATION = 30.seconds
+ 		val TRANSITION_DURATION = 800.milliseconds
+ 	}
+@@ -102,12 +105,18 @@ class BackgroundService(
+ 		// Re-enable backgrounds if disabled
+ 		_enabled.value = true
+ 
++		// Downscale backdrops to ~half screen size. They're blurred anyway, so decoding them at full
++		// source resolution (a ~8 MB bitmap each) just wastes memory on the 1 GB stick. Also cap how
++		// many we hold at once.
++		val dm = context.resources.displayMetrics
++		val targetSize = Size(maxOf(1, dm.widthPixels / 2), maxOf(1, dm.heightPixels / 2))
++
+ 		// Cancel current loading job
+ 		loadBackgroundsJob?.cancel()
+ 		loadBackgroundsJob = scope.launch(Dispatchers.IO) {
+-			_backgrounds = backdropUrls.mapNotNull { url ->
++			_backgrounds = backdropUrls.take(BACKGROUND_LIMIT).mapNotNull { url ->
+ 				imageLoader.execute(
+-					request = ImageRequest.Builder(context).data(url).build()
++					request = ImageRequest.Builder(context).data(url).size(targetSize).build()
+ 				).image?.toBitmap()?.asImageBitmap()
+ 			}
+ 
+diff --git a/app/src/main/java/org/jellyfin/androidtv/di/AppModule.kt b/app/src/main/java/org/jellyfin/androidtv/di/AppModule.kt
+index 04a84e1d8..d8f6a7c0e 100644
+--- a/app/src/main/java/org/jellyfin/androidtv/di/AppModule.kt
++++ b/app/src/main/java/org/jellyfin/androidtv/di/AppModule.kt
+@@ -7,6 +7,7 @@ import coil3.ImageLoader
+ import coil3.annotation.ExperimentalCoilApi
+ import coil3.gif.AnimatedImageDecoder
+ import coil3.gif.GifDecoder
++import coil3.memory.MemoryCache
+ import coil3.network.NetworkFetcher
+ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+ import coil3.serviceLoaderEnabled
+@@ -116,6 +117,12 @@ val appModule = module {
+ 			serviceLoaderEnabled(false)
+ 			logger(CoilTimberLogger(if (BuildConfig.DEBUG) Logger.Level.Warn else Logger.Level.Error))
+ 
++			// Bound the in-memory image cache. With largeHeap on, Coil's default (~20% of a large
++			// heap) can push the 1 GB stick into GC pressure; 15% is plenty for poster rows.
++			memoryCache {
++				MemoryCache.Builder().maxSizePercent(androidContext(), 0.15).build()
++			}
++
+ 			components {
+ 				add(get<NetworkFetcher.Factory>())
+ 
+diff --git a/app/src/main/java/org/jellyfin/androidtv/preference/UserPreferences.kt b/app/src/main/java/org/jellyfin/androidtv/preference/UserPreferences.kt
+index 3224f0cc1..d7c8135f3 100644
+--- a/app/src/main/java/org/jellyfin/androidtv/preference/UserPreferences.kt
++++ b/app/src/main/java/org/jellyfin/androidtv/preference/UserPreferences.kt
+@@ -160,7 +160,7 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
+ 		/**
+ 		 * Set which ratings provider should show on MyImageCardViews
+ 		 */
+-		var defaultRatingType = enumPreference("pref_rating_type", RatingType.RATING_TOMATOES)
++		var defaultRatingType = enumPreference("pref_rating_type", RatingType.RATING_STARS)
+ 
+ 		/**
+ 		 * Set when watched indicators should show on MyImageCardViews
+diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/AsyncImageView.kt b/app/src/main/java/org/jellyfin/androidtv/ui/AsyncImageView.kt
+index d892774c6..a8d41763b 100644
+--- a/app/src/main/java/org/jellyfin/androidtv/ui/AsyncImageView.kt
++++ b/app/src/main/java/org/jellyfin/androidtv/ui/AsyncImageView.kt
+@@ -94,7 +94,8 @@ class AsyncImageView @JvmOverloads constructor(
+ 				}.build()
+ 			} else {
+ 				ImageRequest.Builder(context).apply {
+-					val crossFadeDurationMs = crossFadeDuration.inWholeMilliseconds.toInt()
++					// Skip the crossfade on low-RAM devices — cheaper, smoother scrolling on the stick.
++					val crossFadeDurationMs = if (isLowRamDevice) 0 else crossFadeDuration.inWholeMilliseconds.toInt()
+ 					if (crossFadeDurationMs > 0) crossfade(crossFadeDurationMs)
+ 					else crossfade(false)
+ 
+diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/card/LegacyImageCardView.java b/app/src/main/java/org/jellyfin/androidtv/ui/card/LegacyImageCardView.java
+index 2db9fa047..9d4a1bd10 100644
+--- a/app/src/main/java/org/jellyfin/androidtv/ui/card/LegacyImageCardView.java
++++ b/app/src/main/java/org/jellyfin/androidtv/ui/card/LegacyImageCardView.java
+@@ -108,6 +108,19 @@ public class LegacyImageCardView extends BaseCardView {
+         setTextMaxLines();
+     }
+ 
++    // Custom: show a title logo image instead of the text title when a logo URL is available.
++    public void setTitleLogo(@Nullable String url) {
++        if (binding.titleLogo == null || binding.title == null) return;
++        if (url != null) {
++            binding.titleLogo.load(url, null, null, 1.0, 32);
++            binding.titleLogo.setVisibility(VISIBLE);
++            binding.title.setVisibility(GONE);
++        } else {
++            binding.titleLogo.setVisibility(GONE);
++            binding.title.setVisibility(VISIBLE);
++        }
++    }
++
+     public void setOverlayText(String text) {
+         if (getCardType() == BaseCardView.CARD_TYPE_MAIN_ONLY) {
+             binding.overlayText.setText(text);
+diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeFragmentBrowseRowDefRow.kt b/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeFragmentBrowseRowDefRow.kt
+index c05e8b7b6..ab407b77c 100644
+--- a/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeFragmentBrowseRowDefRow.kt
++++ b/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeFragmentBrowseRowDefRow.kt
+@@ -4,6 +4,7 @@ import android.content.Context
+ import androidx.leanback.widget.HeaderItem
+ import androidx.leanback.widget.ListRow
+ import androidx.leanback.widget.Row
++import org.jellyfin.androidtv.constant.ImageType
+ import org.jellyfin.androidtv.constant.QueryType
+ import org.jellyfin.androidtv.data.querying.GetUserViewsRequest
+ import org.jellyfin.androidtv.preference.UserPreferences
+@@ -15,11 +16,19 @@ import org.koin.core.component.KoinComponent
+ import org.koin.core.component.inject
+ 
+ class HomeFragmentBrowseRowDefRow(
+-	private val browseRowDef: BrowseRowDef
++	private val browseRowDef: BrowseRowDef,
++	private val wideCards: Boolean = false,
+ ) : HomeFragmentRow, KoinComponent {
+ 	private val userPreferences by inject<UserPreferences>()
+ 
+ 	override fun addToRowsAdapter(context: Context, cardPresenter: CardPresenter, rowsAdapter: MutableObjectAdapter<Row>) {
++		// Custom: wide rows use landscape backdrop cards instead of the shared poster presenter.
++		@Suppress("NAME_SHADOWING")
++		val cardPresenter = if (wideCards) {
++			CardPresenter(true, ImageType.THUMB, 150).apply { setPreferBackdrop(true) }
++		} else {
++			cardPresenter
++		}
+ 		val header = HeaderItem(browseRowDef.headerText)
+ 		val preferParentThumb = userPreferences[UserPreferences.seriesThumbnailsEnabled]
+ 
+diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeFragmentHelper.kt b/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeFragmentHelper.kt
+index 7a9815194..9ee09d752 100644
+--- a/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeFragmentHelper.kt
++++ b/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeFragmentHelper.kt
+@@ -4,11 +4,16 @@ import android.content.Context
+ import org.jellyfin.androidtv.R
+ import org.jellyfin.androidtv.auth.repository.UserRepository
+ import org.jellyfin.androidtv.constant.ChangeTriggerType
++import org.jellyfin.androidtv.constant.QueryType
+ import org.jellyfin.androidtv.data.repository.ItemRepository
+ import org.jellyfin.androidtv.ui.browsing.BrowseRowDef
+ import org.jellyfin.sdk.model.api.BaseItemDto
+ import org.jellyfin.sdk.model.api.BaseItemKind
++import org.jellyfin.sdk.model.api.ItemSortBy
+ import org.jellyfin.sdk.model.api.MediaType
++import org.jellyfin.sdk.model.api.SortOrder
++import org.jellyfin.sdk.model.api.request.GetItemsRequest
++import org.jellyfin.sdk.model.api.request.GetSimilarItemsRequest
+ import org.jellyfin.sdk.model.api.request.GetNextUpRequest
+ import org.jellyfin.sdk.model.api.request.GetRecommendedProgramsRequest
+ import org.jellyfin.sdk.model.api.request.GetRecordingsRequest
+@@ -76,11 +81,78 @@ class HomeFragmentHelper(
+ 		return HomeFragmentBrowseRowDefRow(BrowseRowDef(context.getString(R.string.lbl_on_now), query))
+ 	}
+ 
++	// Custom: one home row per curated collection (BoxSet), mirroring the web HSS shelves
++	// (see controller/server.js /api/hss/shelf). Oscar categories sort newest-first by premiere
++	// date; every other collection is randomized server-side and reshuffles on each retrieve.
++	fun loadCollectionRow(collection: BaseItemDto, wide: Boolean = false): HomeFragmentRow {
++		val isOscar = collection.name?.startsWith("Oscar:", ignoreCase = true) == true
++		val query = GetItemsRequest(
++			parentId = collection.id,
++			fields = ItemRepository.browseFields,
++			imageTypeLimit = 1,
++			sortBy = if (isOscar) setOf(ItemSortBy.PREMIERE_DATE) else setOf(ItemSortBy.RANDOM),
++			sortOrder = if (isOscar) setOf(SortOrder.DESCENDING) else null,
++		)
++
++		return HomeFragmentBrowseRowDefRow(
++			BrowseRowDef(
++				collection.name.orEmpty(),
++				query,
++				ROW_CHUNK_SIZE,
++				arrayOf(ChangeTriggerType.LibraryUpdated),
++			),
++			wideCards = wide,
++		)
++	}
++
++	// Custom: a "TV Shows" discovery row — a random selection of series across the library.
++	// Random sort re-shuffles on each retrieve, so it's fresh for the occasional TV browse.
++	fun loadTvShowsRow(): HomeFragmentRow {
++		val query = GetItemsRequest(
++			includeItemTypes = setOf(BaseItemKind.SERIES),
++			recursive = true,
++			fields = ItemRepository.browseFields,
++			imageTypeLimit = 1,
++			sortBy = setOf(ItemSortBy.RANDOM),
++		)
++
++		return HomeFragmentBrowseRowDefRow(
++			BrowseRowDef(
++				"TV Shows",
++				query,
++				ROW_CHUNK_SIZE,
++				arrayOf(ChangeTriggerType.LibraryUpdated),
++			)
++		)
++	}
++
++	// Custom: a "Because you watched X" row — items similar to a recently-watched movie.
++	fun loadSimilarRow(movie: BaseItemDto): HomeFragmentRow {
++		val query = GetSimilarItemsRequest(
++			itemId = movie.id,
++			fields = ItemRepository.browseFields,
++			limit = ITEM_LIMIT_SIMILAR,
++		)
++		return HomeFragmentBrowseRowDefRow(
++			BrowseRowDef(
++				context.getString(R.string.because_you_watched, movie.name.orEmpty()),
++				query,
++				QueryType.SimilarMovies,
++			)
++		)
++	}
++
+ 	companion object {
+ 		// Maximum amount of items loaded for a row
+ 		private const val ITEM_LIMIT_RESUME = 50
+ 		private const val ITEM_LIMIT_RECORDINGS = 40
+ 		private const val ITEM_LIMIT_NEXT_UP = 50
+ 		private const val ITEM_LIMIT_ON_NOW = 20
++		// Items loaded per collection / TV row at a time; the row lazily pages more as it's
++		// scrolled horizontally. A small chunk keeps the home screen light on the 1 GB stick,
++		// which is what makes showing many rows viable.
++		private const val ROW_CHUNK_SIZE = 15
++		// Items fetched for a "Because you watched" similar-items row.
++		private const val ITEM_LIMIT_SIMILAR = 20
+ 	}
+ }
+diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeRowsFragment.kt b/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeRowsFragment.kt
+index 8a597a680..cc8e72939 100644
+--- a/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeRowsFragment.kt
++++ b/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeRowsFragment.kt
+@@ -4,6 +4,7 @@ import android.os.Bundle
+ import android.view.KeyEvent
+ import android.view.View
+ import androidx.leanback.app.RowsSupportFragment
++import androidx.leanback.widget.ClassPresenterSelector
+ import androidx.leanback.widget.ListRow
+ import androidx.leanback.widget.OnItemViewClickedListener
+ import androidx.leanback.widget.OnItemViewSelectedListener
+@@ -26,7 +27,6 @@ import kotlinx.coroutines.withContext
+ import kotlinx.coroutines.withTimeout
+ import org.jellyfin.androidtv.auth.repository.UserRepository
+ import org.jellyfin.androidtv.constant.CustomMessage
+-import org.jellyfin.androidtv.constant.HomeSectionType
+ import org.jellyfin.androidtv.constant.QueryType
+ import org.jellyfin.androidtv.data.model.DataRefreshService
+ import org.jellyfin.androidtv.data.repository.CustomMessageRepository
+@@ -49,11 +49,17 @@ import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter
+ import org.jellyfin.androidtv.util.KeyProcessor
+ import org.jellyfin.playback.core.PlaybackManager
+ import org.jellyfin.sdk.api.client.ApiClient
++import org.jellyfin.sdk.api.client.extensions.itemsApi
+ import org.jellyfin.sdk.api.sockets.subscribe
++import org.jellyfin.sdk.model.api.BaseItemKind
++import org.jellyfin.sdk.model.api.ItemFields
++import org.jellyfin.sdk.model.api.ItemSortBy
+ import org.jellyfin.sdk.model.api.LibraryChangedMessage
++import org.jellyfin.sdk.model.api.SortOrder
+ import org.jellyfin.sdk.model.api.UserDataChangedMessage
+ import org.koin.android.ext.android.inject
+ import timber.log.Timber
++import kotlin.random.Random
+ import kotlin.time.Duration.Companion.seconds
+ 
+ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyListener {
+@@ -86,45 +92,95 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
+ 	override fun onCreate(savedInstanceState: Bundle?) {
+ 		super.onCreate(savedInstanceState)
+ 
+-		adapter = MutableObjectAdapter<Row>(PositionableListRowPresenter())
++		adapter = MutableObjectAdapter<Row>(
++			ClassPresenterSelector().apply {
++				addClassPresenter(HeroRow::class.java, HeroRowPresenter())
++				addClassPresenter(ListRow::class.java, PositionableListRowPresenter())
++			}
++		)
+ 
+ 		lifecycleScope.launch(Dispatchers.IO) {
+-			val currentUser = withTimeout(30.seconds) {
++			// Ensure we're authenticated before issuing user-scoped queries.
++			withTimeout(30.seconds) {
+ 				userRepository.currentUser.filterNotNull().first()
+ 			}
+ 
+-			// Start out with default sections
+-			val homesections = userSettingPreferences.activeHomesections
+-
+ 			// Make sure the rows are empty
+ 			val rows = mutableListOf<HomeFragmentRow>()
+ 
+ 			// Check for coroutine cancellation
+ 			if (!isActive) return@launch
+ 
+-			// Actually add the sections
+-			for (section in homesections) when (section) {
+-				HomeSectionType.LATEST_MEDIA -> rows.add(helper.loadRecentlyAdded(userViewsRepository.views.first()))
+-				HomeSectionType.LIBRARY_TILES_SMALL -> rows.add(HomeFragmentViewsRow(small = false))
+-				HomeSectionType.LIBRARY_BUTTONS -> rows.add(HomeFragmentViewsRow(small = true))
+-				HomeSectionType.RESUME -> rows.add(helper.loadResumeVideo())
+-				HomeSectionType.RESUME_AUDIO -> rows.add(helper.loadResumeAudio())
+-				HomeSectionType.RESUME_BOOK -> Unit // Books are not (yet) supported
+-				HomeSectionType.ACTIVE_RECORDINGS -> rows.add(helper.loadLatestLiveTvRecordings())
+-				HomeSectionType.NEXT_UP -> rows.add(helper.loadNextUp())
+-				HomeSectionType.LIVE_TV -> if (currentUser.policy?.enableLiveTvAccess == true) {
+-					rows.add(liveTVRow)
+-					rows.add(helper.loadOnNow())
+-				}
++			// Custom home layout (see JELLYFIN_CLIENT_FORK_PLAN.md):
++			//   1. Continue Watching   2. first N curated collections
++			//   3. TV Shows (random)   4. remaining collections
++			// The stock My Media / Recently Added / Next Up sections are intentionally omitted —
++			// curated collections cover movie discovery, the TV Shows row covers series.
++
++			// 1. Continue Watching + Next Up (both auto-hide when empty). Resume covers in-progress
++			//    movies and partially-watched episodes; Next Up surfaces the next episode of a series
++			//    you're working through (finished ep N -> ep N+1). Together = full TV continuation.
++			rows.add(helper.loadResumeVideo())
++			rows.add(helper.loadNextUp())
++
++			// Collection rows: a fresh random set + order every home build. Includes our curated
++			// collections (mirroring the web HSS shelves, controller/server.js) plus TMDb franchise
++			// box sets (names ending "Collection") when they hold >= 5 items, so franchises like
++			// "Alien Collection" become discovery rows too. childCount drives the size gate.
++			val collectionRows = runCatching {
++				api.itemsApi.getItems(
++					includeItemTypes = listOf(BaseItemKind.BOX_SET),
++					recursive = true,
++					limit = 100,
++					imageTypeLimit = 1,
++					fields = listOf(ItemFields.CHILD_COUNT),
++				).content.items.orEmpty()
++					.filter { it.name?.endsWith("Collection") != true || (it.childCount ?: 0) >= MIN_FRANCHISE_ITEMS }
++					.shuffled()
++					.take(MAX_COLLECTION_ROWS)
++					// ~25% of rows use wide landscape (backdrop) cards for visual variety.
++					.map { helper.loadCollectionRow(it, wide = Random.nextInt(4) == 0) }
++			}.getOrElse {
++				Timber.e(it, "Failed to load collection rows")
++				emptyList()
++			}
+ 
+-				HomeSectionType.NONE -> Unit
++			// "Because you watched X" rows, seeded from recently-watched movies (played only).
++			val similarRows = runCatching {
++				api.itemsApi.getItems(
++					includeItemTypes = listOf(BaseItemKind.MOVIE),
++					recursive = true,
++					sortBy = listOf(ItemSortBy.DATE_PLAYED),
++					sortOrder = listOf(SortOrder.DESCENDING),
++					limit = SIMILAR_SEED_LIMIT,
++					imageTypeLimit = 1,
++				).content.items.orEmpty()
++					.filter { it.userData?.played == true }
++					.take(SIMILAR_ROW_COUNT)
++					.map { helper.loadSimilarRow(it) }
++			}.getOrElse {
++				Timber.e(it, "Failed to load 'because you watched' rows")
++				emptyList()
+ 			}
+ 
++			// 2. First N featured collections
++			rows.addAll(collectionRows.take(FEATURED_COLLECTION_ROWS))
++			// 3. TV Shows discovery row (random)
++			rows.add(helper.loadTvShowsRow())
++			// 4. Remaining collections, with the "Because you watched" rows sprinkled in (slot ~8+)
++			val remaining = collectionRows.drop(FEATURED_COLLECTION_ROWS).toMutableList()
++			similarRows.forEachIndexed { i, row ->
++				remaining.add(minOf(remaining.size, 2 + i * 8), row)
++			}
++			rows.addAll(remaining)
++
+ 			// Add sections to layout
+ 			withContext(Dispatchers.Main) {
+ 				val cardPresenter = CardPresenter()
+ 
+ 				// Add rows in order
++				// Custom: scroll-away spotlight hero as the first row.
++				(adapter as MutableObjectAdapter<Row>).add(HeroRow())
+ 				notificationsRow.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
+ 				nowPlaying.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
+ 				for (row in rows) row.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
+@@ -275,4 +331,18 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
+ 			}
+ 		}
+ 	}
++
++	companion object {
++		// How many collection rows to show. Lazy per-row loading (small chunkSize in
++		// HomeFragmentHelper) keeps the home screen cheap, so this can be fairly high.
++		private const val MAX_COLLECTION_ROWS = 40
++		// Featured collections shown before the TV Shows row; the rest come after it.
++		private const val FEATURED_COLLECTION_ROWS = 5
++		// TMDb franchise box sets (names ending "Collection") need at least this many items
++		// to qualify as a discovery row (curated collections are always eligible).
++		private const val MIN_FRANCHISE_ITEMS = 5
++		// "Because you watched" rows: how many to show, and how many recent movies to scan for seeds.
++		private const val SIMILAR_ROW_COUNT = 2
++		private const val SIMILAR_SEED_LIMIT = 8
++	}
+ }
+diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/itemhandling/BaseItemDtoBaseRowItem.kt b/app/src/main/java/org/jellyfin/androidtv/ui/itemhandling/BaseItemDtoBaseRowItem.kt
+index b2029516a..1e702d5d0 100644
+--- a/app/src/main/java/org/jellyfin/androidtv/ui/itemhandling/BaseItemDtoBaseRowItem.kt
++++ b/app/src/main/java/org/jellyfin/androidtv/ui/itemhandling/BaseItemDtoBaseRowItem.kt
+@@ -117,6 +117,10 @@ open class BaseItemDtoBaseRowItem @JvmOverloads constructor(
+ 			"$title $timestamp"
+ 		}
+ 
++		// Custom: year on the left (runtime is shown right-aligned via the card badge in CardPresenter).
++		BaseItemKind.MOVIE,
++		BaseItemKind.SERIES -> baseItem.productionYear?.toString()
++
+ 		else -> baseItem?.getSubName(context)
+ 	}
+ 
+diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/presentation/CardPresenter.java b/app/src/main/java/org/jellyfin/androidtv/ui/presentation/CardPresenter.java
+index 89a088fb5..b52c33e6c 100644
+--- a/app/src/main/java/org/jellyfin/androidtv/ui/presentation/CardPresenter.java
++++ b/app/src/main/java/org/jellyfin/androidtv/ui/presentation/CardPresenter.java
+@@ -43,6 +43,8 @@ public class CardPresenter extends Presenter {
+     private boolean mShowInfo = true;
+     private boolean isUserView = false;
+     private boolean isUniformAspect = false;
++    // Custom: when true, wide (16:9) cards use the item's backdrop artwork instead of a poster/thumb.
++    private boolean preferBackdrop = false;
+     private final Lazy<ImageHelper> imageHelper = KoinJavaComponent.<ImageHelper>inject(ImageHelper.class);
+ 
+     public CardPresenter() {
+@@ -314,6 +316,7 @@ public class CardPresenter extends Presenter {
+             mCardView.setProgress(0);
+             mCardView.setRating(null);
+             mCardView.setBadgeImage(null);
++            mCardView.setTitleLogo(null);
+ 
+             mCardView.getMainImageView().setImageDrawable(null);
+         }
+@@ -346,6 +349,12 @@ public class CardPresenter extends Presenter {
+ 
+         holder.mCardView.setTitleText(rowItem.getCardName(holder.mCardView.getContext()));
+         holder.mCardView.setContentText(rowItem.getSubText(holder.mCardView.getContext()));
++        // Custom: show the title's logo image on poster cards when available (text title is the fallback).
++        if (ImageType.POSTER.equals(mImageType) && rowItem.getBaseItem() != null) {
++            holder.mCardView.setTitleLogo(imageHelper.getValue().getLogoImageUrl(rowItem.getBaseItem(), 400));
++        } else {
++            holder.mCardView.setTitleLogo(null);
++        }
+         if (ImageType.POSTER.equals(mImageType)) {
+             holder.mCardView.setOverlayInfo(rowItem);
+         }
+@@ -355,24 +364,28 @@ public class CardPresenter extends Presenter {
+         } else {
+             holder.mCardView.setPlayingIndicator(false);
+ 
+-            if (rowItem.getBaseItem() != null && rowItem.getBaseItem().getType() != BaseItemKind.USER_VIEW) {
+-                RatingType ratingType = KoinJavaComponent.<UserPreferences>get(UserPreferences.class).get(UserPreferences.Companion.getDefaultRatingType());
+-                if (ratingType == RatingType.RATING_TOMATOES) {
+-                    Drawable badge = rowItem.getBadgeImage(holder.view.getContext(), imageHelper.getValue());
+-                    holder.mCardView.setRating(null);
+-                    if (badge != null) {
+-                        holder.mCardView.setBadgeImage(badge);
+-                    }
+-                } else if (ratingType == RatingType.RATING_STARS &&
+-                        rowItem.getBaseItem().getCommunityRating() != null) {
+-                    holder.mCardView.setBadgeImage(ContextCompat.getDrawable(viewHolder.view.getContext(), R.drawable.ic_star));
+-                    holder.mCardView.setRating(String.format(Locale.US, "%.1f", rowItem.getBaseItem().getCommunityRating()));
+-                }
++            // Custom: no rating badge. Show the runtime right-aligned for movies/series (the year is
++            // shown left-aligned via the content text); nothing for other item types.
++            holder.mCardView.setBadgeImage(null);
++            BaseItemDto badgeItem = rowItem.getBaseItem();
++            // Runtime only for movies with a real duration (series have runTimeTicks 0/null -> no "0m").
++            if (badgeItem != null && badgeItem.getType() == BaseItemKind.MOVIE
++                    && badgeItem.getRunTimeTicks() != null && badgeItem.getRunTimeTicks() > 0) {
++                long minutes = badgeItem.getRunTimeTicks() / 600_000_000L;
++                String runtime = minutes >= 60 ? (minutes / 60) + "h " + (minutes % 60) + "m" : minutes + "m";
++                holder.mCardView.setRating(runtime);
++            } else {
++                holder.mCardView.setRating(null);
+             }
+         }
+ 
+         JellyfinImage image = null;
+-        if (rowItem.getBaseItem() != null) {
++        // Custom: wide/landscape cards use the backdrop artwork when available.
++        if (preferBackdrop && rowItem.getBaseItem() != null) {
++            java.util.List<JellyfinImage> backdrops = JellyfinImageKt.getItemBackdropImages(rowItem.getBaseItem());
++            if (!backdrops.isEmpty()) image = backdrops.get(0);
++        }
++        if (image == null && rowItem.getBaseItem() != null) {
+             if (aspect == ImageHelper.ASPECT_RATIO_BANNER) {
+                 image = JellyfinImageKt.getItemImages(rowItem.getBaseItem()).get(org.jellyfin.sdk.model.api.ImageType.BANNER);
+             } else if (aspect == ImageHelper.ASPECT_RATIO_2_3 && rowItem.getBaseItem().getType() == BaseItemKind.EPISODE && rowItem instanceof BaseItemDtoBaseRowItem && ((BaseItemDtoBaseRowItem) rowItem).getPreferSeriesPoster()) {
+@@ -416,4 +429,8 @@ public class CardPresenter extends Presenter {
+     public void setUniformAspect(boolean uniformAspect) {
+         isUniformAspect = uniformAspect;
+     }
++
++    public void setPreferBackdrop(boolean preferBackdrop) {
++        this.preferBackdrop = preferBackdrop;
++    }
+ }
+diff --git a/app/src/main/res/layout/view_card_legacy_image.xml b/app/src/main/res/layout/view_card_legacy_image.xml
+index 9e68fc7b3..2505a1d1a 100644
+--- a/app/src/main/res/layout/view_card_legacy_image.xml
++++ b/app/src/main/res/layout/view_card_legacy_image.xml
+@@ -211,6 +211,20 @@
+                 android:textSize="@dimen/lb_basic_card_title_text_size"
+                 tools:text="Title text" />
+ 
++            <!-- Custom: title logo image, shown instead of the text title when available -->
++            <org.jellyfin.androidtv.ui.AsyncImageView
++                android:id="@+id/title_logo"
++                android:layout_width="match_parent"
++                android:layout_height="24dp"
++                android:layout_alignParentStart="true"
++                android:layout_alignParentTop="true"
++                android:layout_marginStart="@dimen/lb_basic_card_info_text_margin"
++                android:adjustViewBounds="true"
++                android:contentDescription="@null"
++                android:scaleType="fitStart"
++                android:visibility="gone"
++                tools:visibility="visible" />
++
+             <TextView
+                 android:id="@+id/content_text"
+                 android:layout_width="match_parent"
+@@ -234,9 +248,8 @@
+                 android:id="@+id/badge_layout"
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+-                android:layout_below="@id/title"
++                android:layout_alignParentBottom="true"
+                 android:layout_alignParentEnd="true"
+-                android:layout_centerVertical="true"
+                 android:orientation="horizontal">
+ 
+                 <ImageView
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+index 117ea54f6..74fdfcaa4 100644
+--- a/app/src/main/res/values/strings.xml
++++ b/app/src/main/res/values/strings.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+-    <string name="app_name_release" translatable="false" tools:ignore="UnusedResources">Jellyfin</string>
+-    <string name="app_name_debug" translatable="false" tools:ignore="UnusedResources">Jellyfin Debug</string>
++    <string name="app_name_release" translatable="false" tools:ignore="UnusedResources">Movie Night</string>
++    <string name="app_name_debug" translatable="false" tools:ignore="UnusedResources">Movie Night</string>
+     <string name="video_error_unknown_error">Failed to load video</string>
+     <string name="loading">Loading…</string>
+     <string name="btn_cancel">Cancel</string>
+diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeSpotlight.kt b/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeSpotlight.kt
+new file mode 100644
+index 000000000..096910053
+--- /dev/null
++++ b/app/src/main/java/org/jellyfin/androidtv/ui/home/HomeSpotlight.kt
+@@ -0,0 +1,127 @@
++package org.jellyfin.androidtv.ui.home
++
++import androidx.compose.foundation.background
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.widthIn
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.graphics.Brush
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.layout.ContentScale
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++import coil3.compose.AsyncImage
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.withContext
++import org.jellyfin.androidtv.data.repository.ItemRepository
++import org.jellyfin.androidtv.ui.base.Text
++import org.jellyfin.androidtv.ui.base.button.Button
++import org.jellyfin.androidtv.ui.playback.PlaybackLauncher
++import org.jellyfin.androidtv.util.ImageHelper
++import org.jellyfin.androidtv.util.apiclient.getUrl
++import org.jellyfin.androidtv.util.apiclient.itemBackdropImages
++import org.jellyfin.sdk.api.client.ApiClient
++import org.jellyfin.sdk.api.client.extensions.itemsApi
++import org.jellyfin.sdk.model.api.BaseItemDto
++import org.jellyfin.sdk.model.api.BaseItemKind
++import org.jellyfin.sdk.model.api.ItemSortBy
++import org.koin.compose.koinInject
++
++/**
++ * Custom: a "spotlight" hero banner shown as the first (scroll-away) home row. Picks a random
++ * highly-rated movie (community rating >= 9.0, falling back to >= 8.0 since TMDb ratings rarely reach
++ * 9) on first composition and shows its backdrop + logo/title and a Play button. Hosted inside a
++ * Leanback row via HeroRowPresenter so it scrolls away with the rest of the content.
++ */
++@Composable
++fun HomeSpotlight(modifier: Modifier = Modifier) {
++	val api = koinInject<ApiClient>()
++	val imageHelper = koinInject<ImageHelper>()
++	val playbackLauncher = koinInject<PlaybackLauncher>()
++	val context = LocalContext.current
++
++	var movie by remember { mutableStateOf<BaseItemDto?>(null) }
++
++	LaunchedEffect(Unit) {
++		movie = runCatching {
++			withContext(Dispatchers.IO) {
++				listOf(9.0, 8.0).firstNotNullOfOrNull { minRating ->
++					api.itemsApi.getItems(
++						includeItemTypes = listOf(BaseItemKind.MOVIE),
++						recursive = true,
++						minCommunityRating = minRating,
++						sortBy = listOf(ItemSortBy.RANDOM),
++						limit = 1,
++						imageTypeLimit = 1,
++						fields = ItemRepository.browseFields,
++					).content.items.firstOrNull()
++				}
++			}
++		}.getOrNull()
++	}
++
++	val item = movie ?: return
++	val backdropUrl = remember(item) { item.itemBackdropImages.firstOrNull()?.getUrl(api) }
++	val logoUrl = remember(item) { imageHelper.getLogoImageUrl(item, 600) }
++
++	Box(
++		modifier = modifier
++			.fillMaxWidth()
++			.height(SPOTLIGHT_HEIGHT)
++	) {
++		if (backdropUrl != null) {
++			AsyncImage(
++				model = backdropUrl,
++				contentDescription = null,
++				contentScale = ContentScale.Crop,
++				modifier = Modifier.fillMaxWidth().height(SPOTLIGHT_HEIGHT),
++			)
++		}
++		Box(
++			modifier = Modifier
++				.fillMaxWidth()
++				.height(SPOTLIGHT_HEIGHT)
++				.background(Brush.verticalGradient(listOf(Color(0x55000000), Color(0xE6000000)))),
++		)
++		Column(
++			modifier = Modifier
++				.align(Alignment.BottomStart)
++				.padding(start = 48.dp, end = 48.dp, bottom = 20.dp),
++		) {
++			if (logoUrl != null) {
++				AsyncImage(
++					model = logoUrl,
++					contentDescription = item.name,
++					contentScale = ContentScale.Fit,
++					modifier = Modifier.height(64.dp).widthIn(max = 420.dp),
++				)
++			} else {
++				Text(
++					text = item.name.orEmpty(),
++					color = Color.White,
++					fontSize = 34.sp,
++					fontWeight = FontWeight.Bold,
++				)
++			}
++			Button(
++				onClick = { playbackLauncher.launch(context, listOf(item)) },
++				modifier = Modifier.padding(top = 14.dp),
++				content = { Text("▶  Play") },
++			)
++		}
++	}
++}
++
++private val SPOTLIGHT_HEIGHT = 320.dp
+diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/home/HeroRow.kt b/app/src/main/java/org/jellyfin/androidtv/ui/home/HeroRow.kt
+new file mode 100644
+index 000000000..5755f7d30
+--- /dev/null
++++ b/app/src/main/java/org/jellyfin/androidtv/ui/home/HeroRow.kt
+@@ -0,0 +1,6 @@
++package org.jellyfin.androidtv.ui.home
++
++import androidx.leanback.widget.Row
++
++/** Custom: marker row type for the scroll-away spotlight hero (rendered by [HeroRowPresenter]). */
++class HeroRow : Row()
+diff --git a/app/src/main/java/org/jellyfin/androidtv/ui/home/HeroRowPresenter.kt b/app/src/main/java/org/jellyfin/androidtv/ui/home/HeroRowPresenter.kt
+new file mode 100644
+index 000000000..cd336902d
+--- /dev/null
++++ b/app/src/main/java/org/jellyfin/androidtv/ui/home/HeroRowPresenter.kt
+@@ -0,0 +1,32 @@
++package org.jellyfin.androidtv.ui.home
++
++import android.view.ViewGroup
++import androidx.compose.ui.platform.ComposeView
++import androidx.compose.ui.platform.ViewCompositionStrategy
++import androidx.leanback.widget.RowPresenter
++import org.jellyfin.androidtv.ui.base.JellyfinTheme
++
++/**
++ * Custom: renders the [HeroRow] as a full-width Compose spotlight ([HomeSpotlight]) inside the
++ * Leanback rows list, so it scrolls away with the rest of the home content. No header, no select dim.
++ */
++class HeroRowPresenter : RowPresenter() {
++	init {
++		headerPresenter = null
++		selectEffectEnabled = false
++	}
++
++	override fun createRowViewHolder(parent: ViewGroup): ViewHolder {
++		val composeView = ComposeView(parent.context).apply {
++			layoutParams = ViewGroup.LayoutParams(
++				ViewGroup.LayoutParams.MATCH_PARENT,
++				ViewGroup.LayoutParams.WRAP_CONTENT,
++			)
++			setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
++			setContent { JellyfinTheme { HomeSpotlight() } }
++		}
++		return ViewHolder(composeView)
++	}
++
++	override fun isUsingDefaultSelectEffect() = false
++}
