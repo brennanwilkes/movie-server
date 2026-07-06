@@ -74,7 +74,19 @@ provision_arr() {
     ok "${app}: UI auth set to forms (brennan, bypassed on LAN)"
   fi
 
-  # 4. Jellyfin connection — auto-scan Jellyfin on import/upgrade/rename/delete, so new
+  # 4. Log level = info (reduces CPU on 2c/4t Skylake; keep API-accessible diagnostics).
+  local ll; ll=$("${AG[@]}" "${base}/config/host" | jq -r '.logLevel // ""')
+  if [[ "$ll" == "info" ]]; then
+    ok "${app}: log level already info"
+  else
+    echo "$("${AG[@]}" "${base}/config/host")" | jq '.logLevel="info"' \
+      | "${AJ[@]}" -X PUT "${base}/config/host" -d @- >/dev/null
+    [[ "$("${AG[@]}" "${base}/config/host" | jq -r '.logLevel')" == "info" ]] \
+      || die "${app}: log level change did not persist"
+    ok "${app}: log level set to info (was ${ll})"
+  fi
+
+  # 5. Jellyfin connection — auto-scan Jellyfin on import/upgrade/rename/delete, so new
   #    media (and removals) show up without waiting for Jellyfin's periodic scan.
   if "${AG[@]}" "${base}/notification" | jq -e 'any(.[]; .implementation=="MediaBrowser")' >/dev/null; then
     ok "${app}: Jellyfin auto-scan connection present"
@@ -102,7 +114,7 @@ provision_arr() {
     else warn "${app}: Jellyfin connection issue: $(echo "$resp" | jq -c '(.[0].errorMessage // .message // .)' 2>/dev/null)"; fi
   fi
 
-  # 5. Quality definitions — sizes in MB/min. preferredSize is a soft target (Radarr
+  # 6. Quality definitions — sizes in MB/min. preferredSize is a soft target (Radarr
   #    aims for it when a near-size release exists); maxSize is the HARD reject ceiling.
   #    Caps are deliberately loose (80–120 for 1080p, i.e. ~14–21 GB for a 2 h film) so
   #    the SIZE-BAND custom formats (§8) do the real steering per tier — maxSize only
@@ -174,7 +186,7 @@ provision_arr() {
   )"
   $qd_skip && ok "${app}: quality definition preferred sizes already set"
 
-  # 6. Propers/Repacks = "Do Not Prefer". The default (preferAndUpgrade) ranks a PROPER/REPACK
+  # 7. Propers/Repacks = "Do Not Prefer". The default (preferAndUpgrade) ranks a PROPER/REPACK
   #    above EVERY non-repack by quality revision BEFORE custom-format score is even considered —
   #    so a 17 GB "REPACK" HDR rip beats a 1.6 GB x264 with a far higher score (this is exactly
   #    why Gladiator/Godfather/Sinners kept grabbing bloated REPACKs). "doNotPrefer" hands that
@@ -192,7 +204,7 @@ provision_arr() {
     fi
   fi
 
-  # 7. Delay profile — collect RSS arrivals in a 30 min window, then grab the best.
+  # 8. Delay profile — collect RSS arrivals in a 30 min window, then grab the best.
   #    bypassIfAboveCustomFormatScore=true + minimumCustomFormatScore=0 means releases
   #    scoring >= 0 (decent-size H.264 or better) skip the delay and grab immediately.
   #    Scores below 0 wait 30 min — during that window a better release may appear (fixes
@@ -216,7 +228,7 @@ provision_arr() {
       || warn "${app}: failed to create delay profile"
   fi
 
-  # 7b. Minimum seeders = 5 on every torrent indexer. Custom-format score alone would grab a +330
+  # 8b. Minimum seeders = 5 on every torrent indexer. Custom-format score alone would grab a +330
   #     2-seeder over a +310 85-seeder — the dead one stalls, gets removed, is re-grabbed = the
   #     "Not found" churn. Rejecting <5-seed releases makes selection pick a copy that actually
   #     downloads; a genuinely seedless title simply waits (re-searched each sweep) until seeds
@@ -231,7 +243,7 @@ provision_arr() {
   $ms_changed && ok "${app}: minimum seeders set to 5 on torrent indexers (skip dead releases)" \
               || ok "${app}: minimum seeders already 5 on torrent indexers"
 
-  # 8. Custom formats + the THREE fuzzy quality tiers shown in Jellyseerr's request dropdown:
+  # 9. Custom formats + the THREE fuzzy quality tiers shown in Jellyseerr's request dropdown:
   #      "Low (save space)"  ·  "Normal"  ·  "Beloved (best quality)"
   #    The requester picks one in plain language ("is this beloved, normal, or low-importance?") and
   #    the tier decides the quality↔disk tradeoff — no resolution jargon. The projector is 1080p-max,
@@ -361,7 +373,7 @@ provision_arr() {
         else 0 end;
       [$ids|to_entries[]|{format:.value,name:.key,score:(sc(.key) // 0)}]'
   }
-  # 9. Build the three tier profiles
+  # 10. Build the three tier profiles
   # Shared policy (applied to each): FULL SD→1080p allow-list so
   #    resolution is never a hard gate; junk (CAM/TS/SCR/workprint), Remux (20–40 GB) and 2160p/4K
   #    (projector tops out at 1080p) stay OFF; cutoff = Bluray-1080p (the upgrade target — 1080p

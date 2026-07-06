@@ -22,6 +22,18 @@ else
   ok "prowlarr: UI auth set to forms (brennan, bypassed on LAN)"
 fi
 
+# Log level = info (reduces CPU on 2c/4t Skylake; keep API-accessible diagnostics).
+ll=$("${PG[@]}" "${PROW}/config/host" | jq -r '.logLevel // ""')
+if [[ "$ll" == "info" ]]; then
+  ok "prowlarr: log level already info"
+else
+  echo "$("${PG[@]}" "${PROW}/config/host")" | jq '.logLevel="info"' \
+    | "${PJ[@]}" -X PUT "${PROW}/config/host" -d @- >/dev/null
+  [[ "$("${PG[@]}" "${PROW}/config/host" | jq -r '.logLevel')" == "info" ]] \
+    || die "prowlarr: log level change did not persist"
+  ok "prowlarr: log level set to info (was ${ll})"
+fi
+
 # Install the year-strip TPB definition (a Custom/ clone, not an in-place patch).
 # WHY a Custom def: Prowlarr regenerates the cached built-in defs
 # (/config/Definitions/*.yml) from its canonical copies whenever they differ,
