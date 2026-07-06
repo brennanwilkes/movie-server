@@ -73,8 +73,7 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .dls-legend .blocked::before { background: var(--warn); }
 .dls-head .dls-eta { font-weight: 600; }
 .dl-summary.stale { border-color: var(--warn); }
-.dl-summary.stale .dls-head::after {
-  content: 'stale';
+.dl-summary.stale .dls-head .dls-stale {
   font-size: .7em;
   font-weight: 700;
   text-transform: uppercase;

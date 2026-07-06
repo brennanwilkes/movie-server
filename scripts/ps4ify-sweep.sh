@@ -17,7 +17,7 @@ cd "$(dirname "$0")/.."
 # Movie Mode = someone is watching; don't compete for the disk.
 [[ "$(curl -sf --max-time 5 http://localhost:8088/api/downloads 2>/dev/null | jq -r '.masterPaused' 2>/dev/null)" == "true" ]] && exit 0
 
-FF="docker exec jellyfin /usr/lib/jellyfin-ffmpeg/ffmpeg"
+FF="nice -n 19 docker exec jellyfin /usr/lib/jellyfin-ffmpeg/ffmpeg"
 FP="docker exec jellyfin /usr/lib/jellyfin-ffmpeg/ffprobe"
 LIMIT=4
 converted=0
@@ -53,19 +53,13 @@ for APP in radarr sonarr; do
   PORT=7878; [[ $APP == sonarr ]] && PORT=8989
   KEY=$(sed -n 's:.*<ApiKey>\(.*\)</ApiKey>.*:\1:p' "/opt/appdata/$APP/config.xml" | head -1)
   [[ -n "$KEY" ]] || continue
-  rescan_ids=""
   while IFS=$'\t' read -r date path id; do
     [[ -n "$path" && "$date" > "$CUTOFF" ]] || continue
     (( converted >= LIMIT )) && break
-    if convert "$path"; then converted=$((converted+1)); rescan_ids="$rescan_ids $id"; fi
+    if convert "$path"; then converted=$((converted+1)); fi
   done < <(curl -sf -H "X-Api-Key: $KEY" \
       "http://localhost:$PORT/api/v3/history?pageSize=150&sortKey=date&sortDirection=descending" \
     | jq -r '.records[] | select((.eventType|ascii_downcase)|contains("import"))
         | [.date, (.data.importedPath // ""), (.movieId // .seriesId // 0)] | @tsv')
-  for id in $(echo "$rescan_ids" | tr ' ' '\n' | sort -u); do
-    [[ -n "$id" && "$id" != 0 ]] || continue
-    if [[ $APP == radarr ]]; then body="{\"name\":\"RescanMovie\",\"movieId\":$id}"; else body="{\"name\":\"RescanSeries\",\"seriesId\":$id}"; fi
-    curl -sf -o /dev/null -X POST -H "X-Api-Key: $KEY" -H 'Content-Type: application/json' "http://localhost:$PORT/api/v3/command" -d "$body" || true
-  done
 done
 (( converted > 0 )) && echo "ps4fix: $converted file(s) normalized" || true

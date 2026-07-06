@@ -63,7 +63,16 @@ prefs=$(jq -n --arg u "$QBIT_USER" --arg p "$QBIT_PASS" '{
   slow_torrent_ul_rate_threshold: 50,
   slow_torrent_inactive_timer: 60,
   random_port: false,
-  upnp: (env.QBIT_HOST != "gluetun")
+  upnp: (env.QBIT_HOST != "gluetun"),
+  # CPU throttle: on 2c/4t Skylake behind WireGuard VPN, every peer connection
+  # = kernel crypto overhead. 150 global connections is plenty for throughput
+  # and cuts WireGuard CPU by ~70% vs the default 500.
+  max_connec: 150,
+  # DHT: behind gluetun/WireGuard, 340 constant DHT nodes = measurable crypto CPU
+  # for minimal benefit (trackers + PEX suffice). Kill it.
+  dht: (if env.QBIT_HOST == "gluetun" then false else true end),
+  pex: false,
+  lsd: false
 }')
 # When qBittorrent rides the VPN (QBIT_HOST=gluetun) the listening port is the one
 # ProtonVPN forwards, kept in sync by the gluetun-qb-portsync sidecar — so UPnP/NAT-PMP

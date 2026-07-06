@@ -99,6 +99,40 @@ else
   ok "Intro Skipper plugin installed — restart Jellyfin to activate"
 fi
 
+# 4b. Intro Skipper config: cap parallelism at 1 so background analysis doesn't pin the
+#     CPU on 2c/4t Skylake (each x265 chromaprint decode costs ~50% of a core). Idempotent.
+IS_XML="${CONFIG:-/opt/appdata}/jellyfin/data/plugins/configurations/IntroSkipper.xml"
+if [[ -f "$IS_XML" ]]; then
+  python3 -c "
+import xml.etree.ElementTree as ET
+tree = ET.parse('$IS_XML')
+root = tree.getroot()
+for tag, val in [('MaxParallelism','1'), ('PreferChromaprint','false')]:
+    el = root.find(tag)
+    if el is not None and el.text != val:
+        el.text = val; print(f'  set {tag}={val}')
+tree.write('$IS_XML', xml_declaration=True, encoding='utf-8')
+" 2>&1 | while IFS= read -r line; do ok "$line"; done
+else
+  cat > "$IS_XML" << 'ISEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<PluginConfiguration>
+  <MaxParallelism>1</MaxParallelism>
+  <PreferChromaprint>false</PreferChromaprint>
+  <AnalysisLengthLimit>10</AnalysisLengthLimit>
+  <AnalysisPercent>25</AnalysisPercent>
+  <ProcessPriority>BelowNormal</ProcessPriority>
+  <AutoDetectIntros>true</AutoDetectIntros>
+  <ScanIntroduction>true</ScanIntroduction>
+  <ScanCredits>true</ScanCredits>
+  <ScanRecap>true</ScanRecap>
+  <ScanPreview>true</ScanPreview>
+  <ScanCommercial>true</ScanCommercial>
+</PluginConfiguration>
+ISEOF
+  ok "Intro Skipper config created (parallelism=1)"
+fi
+
 # 5. Enable native trickplay (scrubbing thumbnails on seek bar).
 #     Built into Jellyfin 10.9+ — no plugin needed.
 #     Desired state: extraction ON, but NOT during library scans. Generating trickplay is a

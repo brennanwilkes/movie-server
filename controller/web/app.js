@@ -348,17 +348,21 @@ function renderDlSummary(s) {
   if (!c || (c.inProgress + c.queued + c.attention + c.blocked) < 1) { el.hidden = true; return; }
   const b = s.bytes, total = (b.completed + b.inProgress + b.queued + b.attention + b.blocked) || 1;
   const pct = (x) => (x / total * 100).toFixed(2);
-  const speed = s.speedBytes ? `${fmtBytes(s.speedBytes)}/s` : null;
-  // Hero line is JUST the time estimate — no status commentary, no filler when there isn't one yet.
-  const head = s.etaSeconds ? `${fmtDur(s.etaSeconds)} left` : s.remainingBytes ? `${fmtBytes(s.remainingBytes)} to go` : '';
-  const sub = [
-    s.etaSeconds && s.remainingBytes ? fmtBytes(s.remainingBytes) : '',
-    speed,
+  const eta = s.etaSeconds ? `${fmtDur(s.etaSeconds)} left` : null;
+  // Sub-info only makes sense alongside a time estimate — speed without context
+  // is just noise (e.g. a bare "34 MB/s" tells you nothing useful).
+  const subParts = eta ? [
+    s.remainingBytes ? fmtBytes(s.remainingBytes) : '',
+    s.speedBytes ? `${fmtBytes(s.speedBytes)}/s` : '',
     s.sizing ? `${s.sizing} sizing` : '',
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean) : [];
+  // Only render the eta span when there's a time estimate — an empty one creates
+  // awkward flex gap in the badge.
+  const displayHead = eta || (s.remainingBytes ? `${fmtBytes(s.remainingBytes)} to go` : 'Idle');
+  const displaySub = subParts.join(' · ');
   el.hidden = false;
   el.innerHTML = `
-    <div class="dls-head"><span class="dls-eta">${esc(head)}</span>${sub ? `<span class="dls-rate">${esc(sub)}</span>` : ''}</div>
+    <div class="dls-head">${displayHead ? `<span class="dls-eta">${esc(displayHead)}</span>` : ''}${displaySub ? `<span class="dls-rate">${esc(displaySub)}</span>` : ''}</div>
     <div class="dls-bar">
       <span class="seg done" style="width:${pct(b.completed)}%"></span>
       <span class="seg prog" style="width:${pct(b.inProgress)}%"></span>
@@ -379,10 +383,28 @@ function renderDlSummary(s) {
 // fetch slow); the 4s background refreshes then update in place with no flicker.
 let dlLoaded = false, dlInflight = false, dlLastUpdate = 0;
 function setDlLoading(v) { const el = $('#downloads-loading'); if (el) el.hidden = !v; }
+function fmtDuration(ms) {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}m`;
+  return `${Math.floor(h / 24)}d ${h % 24}h`;
+}
 function updateDlStale() {
   const el = $('#dl-summary');
   if (!el) return;
-  el.classList.toggle('stale', dlLastUpdate > 0 && Date.now() - dlLastUpdate > 10000);
+  const stale = dlLastUpdate > 0 && Date.now() - dlLastUpdate > 10000;
+  el.classList.toggle('stale', stale);
+  const head = el.querySelector('.dls-head');
+  if (head) {
+    let span = head.querySelector('.dls-stale');
+    if (stale) {
+      if (!span) { span = document.createElement('span'); span.className = 'dls-stale'; head.appendChild(span); }
+      span.textContent = `stale (${fmtDuration(Date.now() - dlLastUpdate)})`;
+    } else if (span) span.remove();
+  }
 }
 // Movie Mode (master pause) — one tap frees the NUC's CPU + disk for smooth Jellyfin playback.
 const mmBtn = $('#movie-mode-btn');

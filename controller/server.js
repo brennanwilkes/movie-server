@@ -429,22 +429,80 @@ const getHistoryIndex = (app) => cachedFetch(`hist:${app}`, HIST_TTL, async () =
   return idx;
 }, new Map());
 
+// Normalize a title/release name for string matching. Apostrophes are DELETED (not spaced) so
+// "Bob's Burgers" → "bobs burgers" matches the release "Bobs.Burgers.S01…" → "bobs burgers s01…";
+// every other separator collapses to a single space.
+const normName = (s) => String(s || '').toLowerCase().replace(/['’]/g, '').replace(/[._:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
+
 // id -> hasFile, the authoritative "in the library" flag (cached + stale-on-error, like history).
 const getHasFileMap = (app) => cachedFetch(`hasFile:${app}`, HIST_TTL, async () => {
   const hasFile = new Map(), nameIds = new Map();
-  const norm = (s) => String(s || '').toLowerCase().replace(/[._'’:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
   if (app === 'radarr') for (const mv of await arrGet('radarr', '/movie')) {
     hasFile.set(mv.id, !!mv.hasFile);
-    nameIds.set(norm(mv.title), mv.id);
-    if (mv.year) nameIds.set(norm(`${mv.title} ${mv.year}`), mv.id);
+    nameIds.set(normName(mv.title), mv.id);
+    if (mv.year) nameIds.set(normName(`${mv.title} ${mv.year}`), mv.id);
   } else for (const s of await arrGet('sonarr', '/series')) {
     hasFile.set(s.id, ((s.statistics && s.statistics.episodeFileCount) || 0) > 0);
-    nameIds.set(norm(s.title), s.id);
-    if (s.year) nameIds.set(norm(`${s.title} ${s.year}`), s.id);
+    nameIds.set(normName(s.title), s.id);
+    if (s.year) nameIds.set(normName(`${s.title} ${s.year}`), s.id);
   }
   return { hasFile, nameIds };
 }, { hasFile: new Map(), nameIds: new Map() });
 const torrentApp = (t) => { const c = (t.category || '').toLowerCase(); return (c === 'radarr' || c === 'sonarr' || c === 'tv-sonarr') ? (c === 'tv-sonarr' ? 'sonarr' : c) : null; };
+
+// Per-series episodeId -> hasFile, so we can ask "does the library already hold the exact episodes
+// this torrent contains" (series-level hasFile is too coarse — true if ANY episode is present).
+const getEpisodeHasFile = (seriesId) => cachedFetch(`eps:${seriesId}`, HIST_TTL, async () => {
+  const m = new Map();
+  for (const e of await arrGet('sonarr', `/episode?seriesId=${seriesId}`, 10000)) m.set(e.id, !!e.hasFile);
+  return m;
+}, new Map());
+
+// AUTHORITATIVE "is this torrent's content already in the library", independent of the volatile
+// history window and of fragile filename matching. Two tiers: (1) a cheap in-memory match of the
+// release name against library titles; (2) *arr's own release parser as a fallback for group-
+// prefixed / oddly-named releases (e.g. "Star.Wars.Andor.Season.2…" whose series is just "Andor").
+// Radarr's hasFile is 1:1 with a movie; Sonarr is verified per-episode via the parsed episode ids.
+// Parse results are cached by release name (a name always parses to the same entity + episodes);
+// hasFile is re-read live so a later import flips the row to Ready with no cache bust.
+const parseCache = new Map(); // `${app}:${name}` -> { id, episodeIds } (only successful parses cached)
+// Cold /parse calls are network round-trips to a possibly-loaded *arr. buildDownloads runs every
+// 5s over every torrent, so an unbounded parse burst (e.g. ~80 completed Sonarr torrents after a
+// restart) would stall the whole snapshot for minutes. We bound cold parses PER buildDownloads
+// pass: deferred items simply render "Importing" for a beat and resolve over the next few passes
+// (parseCache is permanent, so the backlog drains in seconds). Cache hits are unaffected.
+let _parseBudget = 0;
+async function arrOwns(app, name, hasFileMap, nameIds) {
+  const tn = normName(name);
+  const yr = (name || '').match(/\b(19\d\d|20\d\d)\b/)?.[1];
+  // Radarr: an in-memory title match is enough (movie hasFile is authoritative & 1:1) — no parse.
+  if (app === 'radarr' && nameIds) {
+    for (const [nt, id] of nameIds) {
+      if (tn === nt || (tn.startsWith(nt + ' ') && (!yr || tn.includes(yr)))) {
+        return hasFileMap && hasFileMap.get(id) === true ? { id } : null;
+      }
+    }
+  }
+  // Parse fallback (always, for Sonarr — we need the exact episode ids; and for unmatched Radarr).
+  const ck = `${app}:${name}`;
+  let ent = parseCache.get(ck);
+  if (ent === undefined) {
+    if (_parseBudget <= 0) return null;        // defer cold parse to a later pass — keeps the 5s refresh fast
+    _parseBudget--;
+    ent = null;
+    try {
+      const p = await arrGet(app, `/parse?title=${encodeURIComponent(name)}`, 10000);
+      if (app === 'radarr' && p && p.movie && p.movie.id != null) ent = { id: p.movie.id, episodeIds: [] };
+      else if (app === 'sonarr' && p && p.series && p.series.id != null) ent = { id: p.series.id, episodeIds: (p.episodes || []).map((e) => e.id) };
+      if (ent) parseCache.set(ck, ent); // cache only definitive resolutions; unknown releases re-parse (series may be added later)
+    } catch { /* parser unreachable — leave unresolved, retry next poll */ }
+  }
+  if (!ent) return null;
+  if (app === 'radarr') return hasFileMap && hasFileMap.get(ent.id) === true ? { id: ent.id } : null;
+  if (!ent.episodeIds.length) return null;                 // couldn't pin episodes → don't claim ownership
+  const eps = await getEpisodeHasFile(ent.id);
+  return ent.episodeIds.every((id) => eps.get(id) === true) ? { id: ent.id } : null;
+}
 
 // ── Bazarr: subtitle-acquisition gate ──
 // A freshly-imported title is in the library, but Bazarr is still off fetching subs for it.
@@ -533,6 +591,7 @@ async function resolveLibraryState(app, hi, t) {
 
 async function buildDownloads() {
   const now = Math.floor(Date.now() / 1000), DAY = 86400;
+  _parseBudget = 12;                          // cap cold /parse round-trips this pass (backlog warms over the next few)
   const torrents = await getQbitTorrents();
   const queues = { radarr: await getQueueMap('radarr'), sonarr: await getQueueMap('sonarr') };
   // History (imported flag + indexer-reported size) and library hasFile, for whichever apps own a
@@ -586,23 +645,9 @@ async function buildDownloads() {
       // is often still on disk and already imported by *arr (qBittorrent just lost its resume
       // data after a crash/recheck). Only if the *arr library also has no file for this title
       // do we flag for human attention.
-      let resolved = false;
-      if (!hi && nameIds[app]) {
-        const tn = (t.name || '').toLowerCase().replace(/[._'’:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
-        const yr = (t.name || '').match(/\b(19\d\d|20\d\d)\b/)?.[1];
-        for (const [nt, id] of nameIds[app]) {
-          if (tn === nt || (tn.startsWith(nt + ' ') && (!yr || tn.includes(yr)))) {
-            if (hasFile[app] && hasFile[app].get(id) === true) {
-              state = await resolveLibraryState(app, { id, imported: true, size: 0 }, t);
-              resolved = true;
-            }
-            break;
-          }
-        }
-      }
-      if (!resolved) {
-        state = 'Needs attention'; attention = true;
-      }
+      const owned = !hi ? await arrOwns(app, t.name, hasFile[app], nameIds[app]) : null;
+      if (owned) state = await resolveLibraryState(app, { id: owned.id, imported: true, size: 0 }, t);
+      else { state = 'Needs attention'; attention = true; }
     } else if (qrec) {                              // *arr is actively tracking it
       // *arr's queue exposes BOTH its own view (trackedDownloadState/Status) and the underlying
       // torrent (t.state). Surface real trouble from EITHER source — a stalled or errored
@@ -638,10 +683,16 @@ async function buildDownloads() {
         // errors with "no valid media source"). resolveLibraryState kicks the scan and gates green.
         state = await resolveLibraryState(app, hi, t);
       } else {                                      // downloaded but *arr has NOT imported it
-        recover = { app, folder: t.content_path, id: hi && hi.id, hash: h };
-        const reason = (importState.get(t.content_path) || {}).reason;
-        if (reason) { state = 'Needs attention'; attention = true; }
-        else state = 'Importing';                   // the watchdog will import it shortly
+        // Authoritative check first: is the library already holding this release's content? (cold
+        // history cache after restart / aged-out window would otherwise flag imported titles.)
+        const owned = !hi ? await arrOwns(app, t.name, hasFile[app], nameIds[app]) : null;
+        if (owned) state = await resolveLibraryState(app, { id: owned.id, imported: true, size: 0 }, t);
+        else {
+          recover = { app, folder: t.content_path, id: hi && hi.id, hash: h };
+          const reason = (importState.get(t.content_path) || {}).reason;
+          if (reason) { state = 'Needs attention'; attention = true; }
+          else state = 'Importing';               // the watchdog will import it shortly
+        }
       }
     } else {
       state = 'Done';                               // a non-*arr torrent, just complete
@@ -755,6 +806,13 @@ async function buildDownloads() {
 // slow cycle under load self-throttles instead of stacking).
 let _dl = { served: [], raw: [], summary: null, ts: 0 };
 let _dlRefreshing = false;
+// Smoothed max individual ETA from qBit — exponential moving average to dampen the
+// short-window noise in per-torrent ETAs (a 2-seed torrent might momentarily blip from
+// 30 min to 4h after a tracker timeout, then recover). 0.25 weight = 4-cycle (20s) half-life.
+const _MAX_EMA_ALPHA = 0.25;
+let _smoothedMaxDlEta = 0;
+// The same for the per-poll speed — qBit's dl_info_speed is instantaneous and noisy.
+let _smoothedSpeedEta = 0;
 // Titles declined for disk space — the download-stage gate (`declined`, keyed by torrent
 // hash) and the request-stage gate (`blocked`, keyed by app:id:seasons). Rendered as
 // terminal red "Declined" rows. They join the snapshot BEFORE the summary is computed so
@@ -846,6 +904,51 @@ async function downloadSummary(items) {
   const remainingBytes = Math.round([...inProg, ...queued].reduce((a, i) => a + sizeOf(i) * (1 - Math.min(100, i.progress || 0) / 100), 0));
   const sizing = [...queued, ...inProg].filter((i) => !(i.sizeBytes > 0)).length;   // still fetching metadata
 
+  // Per-torrent ETAs from qBittorrent for actively downloading items.
+  // These run in PARALLEL, so wall-clock time to finish the current batch is the MAX
+  // of their individual ETAs — not total_remaining / total_speed (which assumes a
+  // serial pipeline). Use the max as a floor so the summary never says "18 min left"
+  // when a 1-seed torrent still has 4h to go.
+  const dlEtas = inProg
+    .filter((i) => i.state === 'Downloading' && i.etaSeconds != null && i.etaSeconds > 0)
+    .map((i) => i.etaSeconds);
+  // qBit's per-torrent ETA uses a short averaging window and can spike momentarily after
+  // a tracker blip. EMA-smooth it so real trends still track but noise doesn't jitter the
+  // summary. Let drops through instantly (torrent finished) but smooth upward spikes.
+  const rawMaxDlEta = dlEtas.length > 0 ? Math.max(...dlEtas) : 0;
+  if (rawMaxDlEta <= 0) _smoothedMaxDlEta = 0;
+  else if (_smoothedMaxDlEta <= 0) _smoothedMaxDlEta = rawMaxDlEta;
+  else if (rawMaxDlEta >= _smoothedMaxDlEta) _smoothedMaxDlEta = Math.round(rawMaxDlEta * _MAX_EMA_ALPHA + _smoothedMaxDlEta * (1 - _MAX_EMA_ALPHA));
+  else _smoothedMaxDlEta = rawMaxDlEta; // drops pass through immediately (a torrent finished)
+  const maxDlEta = _smoothedMaxDlEta;
+
+  // Queue items can't fully overlap with the current batch — they wait for a free slot
+  // and may have different (likely worse) peer characteristics. Add their estimated
+  // serial time on top rather than absorbing them into the maxDlEta window, since
+  // throughput after fast torrents finish and slow queued ones replace them is uncertain.
+  const queuedRemaining = queued.reduce((a, i) => a + sizeOf(i) * (1 - Math.min(100, i.progress || 0) / 100), 0);
+  const queueEta = speedBytes > 0 ? queuedRemaining / speedBytes : 0;
+  const fastEta = speedBytes > 0 ? remainingBytes / speedBytes : 0;
+  const slowEta = maxDlEta + queueEta;
+
+  // Blend between them based on the gap. When the slowest torrent's ETA ≈ pipeline
+  // (gap ≤ 1.5×), speeds are uniform and the pipeline is right (common — most torrents
+  // in the same quality tier have similar peer counts). When the slowest is ≥ 5× the
+  // pipeline, it's a clear parallel bottleneck and slowEta dominates. In between,
+  // interpolate — the truth is somewhere on the continuum.
+  let etaSeconds = null;
+  if (speedBytes > 0 && remainingBytes > 0) {
+    const gap = slowEta / Math.max(1, fastEta);
+    if (gap <= 1.5) {
+      etaSeconds = Math.round(fastEta);
+    } else if (gap >= 5) {
+      etaSeconds = Math.round(slowEta);
+    } else {
+      const t = (gap - 1.5) / (5 - 1.5);
+      etaSeconds = Math.round(fastEta * (1 - t) + slowEta * t);
+    }
+  }
+
   return {
     counts: { completed: done.length, inProgress: inProg.length, queued: queued.length, attention: attention.length, blocked: blocked.length },
     bytes,
@@ -853,7 +956,7 @@ async function downloadSummary(items) {
     speedBytes,
     liveSpeedBytes: liveSpeed,
     histSpeedBytes: histSpeed ? Math.round(histSpeed) : null,
-    etaSeconds: speedBytes > 0 && remainingBytes > 0 ? Math.round(remainingBytes / speedBytes) : null,
+    etaSeconds,
     sizing,
     avgItemBytes: Math.round(avgItemBytes),
   };
@@ -968,7 +1071,7 @@ setInterval(registerHssShelf, 600000);   // every 10 min: survives Jellyfin rest
 // Manual Import the *arr UI offers, and retries with backoff until the file lands.
 async function importViaManual(app, folder, expectedId) {
   const { base, key } = arrOf(app);
-  const r = await tfetch(`${base}/manualimport?folder=${encodeURIComponent(folder)}&filterExistingFiles=true`, { headers: { 'X-Api-Key': key } }, 20000);
+  const r = await tfetch(`${base}/manualimport?folder=${encodeURIComponent(folder)}&filterExistingFiles=true`, { headers: { 'X-Api-Key': key } }, 90000);
   if (!r.ok) return { ok: false, reason: `manualimport HTTP ${r.status}` };
   const files = []; let reason = 'no importable file found yet';
   for (const c of await r.json()) {
@@ -987,7 +1090,7 @@ async function importViaManual(app, folder, expectedId) {
     files.push(f);
   }
   if (!files.length) return { ok: false, reason };
-  const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'ManualImport', importMode: 'auto', files }) }, 20000);
+  const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'ManualImport', importMode: 'auto', files }) }, 90000);
   return { ok: cmd.ok, count: files.length, reason: cmd.ok ? null : `command HTTP ${cmd.status}` };
 }
 
@@ -1045,62 +1148,95 @@ async function discardGarbage(rec) {
   return blocklisted;
 }
 
+// A manualimport that throws (AbortController timeout, socket reset, HTTP 5xx) is *arr being slow
+// or briefly down — NOT the release being unimportable. Timeouts must never paint a row red or
+// count toward the garbage cap: on a loaded NUC that turned every genuinely-importable download
+// into a permanent, self-reinforcing "Needs attention" (each retry fired another heavy 90s probe
+// that pushed the box slower). Transient errors only extend the per-folder backoff.
+const isTransientErr = (e) => { const m = (e && e.message || String(e || '')).toLowerCase(); return m.includes('abort') || m.includes('timeout') || m.includes('timed out') || m.includes('network') || m.includes('fetch failed') || m.includes('econn') || /http 5\d\d/.test(m); };
+const IMPORT_BACKOFF_MIN = 120, IMPORT_BACKOFF_MAX = 1800; // s — grows 120→240→…→1800 on repeated failure
+const WATCHDOG_BATCH = 3;                                  // heavy manualimport calls per sweep — cap the added load
+let watchdogBusy = false;                                  // reentrancy guard: a slow sweep must not overlap the next tick
 async function importWatchdog() {
-  if (masterPaused) return;                                         // Movie Mode — no imports/analysis
+  if (masterPaused || watchdogBusy) return;                         // Movie Mode / already running
   const snap = _dl.raw;                                             // reuse the background snapshot — no extra buildDownloads
   if (!snap || !snap.length) return;
-  const now = Math.floor(Date.now() / 1000);
-  for (const it of snap) {
-    const rec = it._recover; if (!rec) continue;                    // only completed-but-not-imported / import-blocked
-    try { await fs.promises.stat(rec.folder); } catch { continue; } // content gone → nothing to import
-    // (manualimport accepts a single file path OR a folder, so we no longer skip single-file torrents —
-    //  import-blocked single files like "matched by ID, manual import required" must be rescued too.)
-    const st = importState.get(rec.folder) || { lastTry: 0, reason: null, fails: 0 };
-    if (now - st.lastTry < 120) continue;                           // backoff between attempts
-    st.lastTry = now;
-    // Fresh per-hash ground truth before importing: the snapshot's history view is 20s-cached
-    // and raced *arr's own importer, producing duplicate "Upgrade over itself" imports
-    // (Moneyball ×2, Mormon Wives ×3 in the audit). Walk this download's own history newest-
-    // first: an import event BEFORE the latest grab means this cycle already imported — skip.
-    // (Import-after-grab ordering matters because an upgrade re-grab reuses the same hash.)
-    if (rec.hash) {
-      try {
-        const hr = await arrGet(rec.app, `/history?pageSize=30&sortKey=date&sortDirection=descending&downloadId=${rec.hash.toUpperCase()}`, 8000);
-        let alreadyImported = false;
-        for (const r of (hr.records || [])) {
-          const et = (r.eventType || '').toLowerCase();
-          if (et.includes('import')) { alreadyImported = true; break; }
-          if (et === 'grabbed') break;                              // reached the grab first → not imported this cycle
+  watchdogBusy = true;
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    let handled = 0;
+    for (const it of snap) {
+      if (handled >= WATCHDOG_BATCH) break;                         // spread the backlog across sweeps, don't pile onto the CPU
+      const rec = it._recover; if (!rec) continue;                  // only completed-but-not-imported / import-blocked
+      const st = importState.get(rec.folder) || { lastTry: 0, reason: null, fails: 0, backoff: IMPORT_BACKOFF_MIN };
+      if (now - st.lastTry < (st.backoff || IMPORT_BACKOFF_MIN)) continue; // per-folder (exponential) backoff
+      try { await fs.promises.stat(rec.folder); } catch { importState.delete(rec.folder); continue; } // content gone → nothing to import
+      // (manualimport accepts a single file path OR a folder, so we no longer skip single-file torrents —
+      //  import-blocked single files like "matched by ID, manual import required" must be rescued too.)
+      st.lastTry = now; handled++;
+      // Fresh per-hash ground truth before importing: the snapshot's history view is 20s-cached
+      // and raced *arr's own importer, producing duplicate "Upgrade over itself" imports
+      // (Moneyball ×2, Mormon Wives ×3 in the audit). Walk this download's own history newest-
+      // first: an import event BEFORE the latest grab means this cycle already imported — skip.
+      // (Import-after-grab ordering matters because an upgrade re-grab reuses the same hash.)
+      if (rec.hash) {
+        try {
+          const hr = await arrGet(rec.app, `/history?pageSize=30&sortKey=date&sortDirection=descending&downloadId=${rec.hash.toUpperCase()}`, 8000);
+          let alreadyImported = false;
+          for (const r of (hr.records || [])) {
+            const et = (r.eventType || '').toLowerCase();
+            if (et.includes('import')) { alreadyImported = true; break; }
+            if (et === 'grabbed') break;                            // reached the grab first → not imported this cycle
+          }
+          if (alreadyImported) { importState.delete(rec.folder); continue; }
+        } catch { /* history unavailable — fall through to the existing rescue path */ }
+      }
+      let res;
+      try { res = await importViaManual(rec.app, rec.folder, rec.id); }
+      catch (e) {
+        if (isTransientErr(e)) {                                    // *arr slow/down — retry later, never flag or count
+          st.backoff = Math.min((st.backoff || IMPORT_BACKOFF_MIN) * 2, IMPORT_BACKOFF_MAX);
+          importState.set(rec.folder, st);                          // note: st.reason left untouched → row stays "Importing", not red
+          console.log(`watchdog: transient import error for "${rec.folder}" — ${e.message || e}; retry in ${st.backoff}s`);
+          continue;
         }
-        if (alreadyImported) { importState.delete(rec.folder); continue; }
-      } catch { /* history unavailable — fall through to the existing rescue path */ }
-    }
-    const res = await importViaManual(rec.app, rec.folder, rec.id);
-    if (res.ok) {
-      st.reason = null; st.fails = 0;                               // cleared on success
-      importState.set(rec.folder, st);
-      triggerJellyfinScan();
-      console.log(`watchdog: imported ${res.count} file(s) from "${rec.folder}"`);
-      continue;
-    }
-    st.reason = res.reason;
-    st.fails = (st.fails || 0) + 1;
-    importState.set(rec.folder, st);
-    // Bounded retries + a video check: a download that fails to import N times AND has no real
-    // video file is a fake release (e.g. a .scr executable padded to episode size). Discard it —
-    // blocklist, delete from qBittorrent, re-search — instead of retrying forever.
-    if (st.fails >= IMPORT_MAX_FAILS && !(await hasVideoContent(rec.folder))) {
-      try {
-        const blk = await discardGarbage(rec);
+        res = { ok: false, reason: e.message || 'error' };          // a real, non-transient throw is treated as a rejection below
+      }
+      if (res.ok) {
+        importState.set(rec.folder, { lastTry: now, reason: null, fails: 0, backoff: IMPORT_BACKOFF_MIN }); // cleared on success
+        triggerJellyfinScan();
+        console.log(`watchdog: imported ${res.count} file(s) from "${rec.folder}"`);
+        continue;
+      }
+      // ORPHAN: *arr no longer tracks this series/movie (removed from the library, or a release for
+      // content that isn't in *arr). It can NEVER import — remove the torrent so it stops recurring
+      // and quits consuming disk/seed slots. Not garbage, so don't blocklist (the content may be re-added).
+      if (/no matching (series|movie)|unknown (series|movie)/i.test(res.reason || '')) {
+        try { if (rec.hash) await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: rec.hash, deleteFiles: 'true' }) }); } catch { /* qbit hiccup — retried next sweep */ }
         importState.delete(rec.folder);
-        console.log(`watchdog: garbage file, deleted and re-searching (${st.fails} failed imports, no video, blocklisted=${blk}): "${rec.folder}" — ${res.reason}`);
-      } catch (e) { console.log(`watchdog: garbage discard failed for "${rec.folder}": ${e.message || e}`); }
-      continue;
+        console.log(`watchdog: orphan removed (not tracked by ${rec.app}): "${rec.folder}" — ${res.reason}`);
+        continue;
+      }
+      st.reason = res.reason;
+      st.fails = (st.fails || 0) + 1;
+      st.backoff = Math.min((st.backoff || IMPORT_BACKOFF_MIN) * 2, IMPORT_BACKOFF_MAX); // back off real rejections too, don't thrash
+      importState.set(rec.folder, st);
+      // Bounded retries + a video check: a download that fails to import N times AND has no real
+      // video file is a fake release (e.g. a .scr executable padded to episode size). Discard it —
+      // blocklist, delete from qBittorrent, re-search — instead of retrying forever.
+      if (st.fails >= IMPORT_MAX_FAILS && !(await hasVideoContent(rec.folder))) {
+        try {
+          const blk = await discardGarbage(rec);
+          importState.delete(rec.folder);
+          console.log(`watchdog: garbage file, deleted and re-searching (${st.fails} failed imports, no video, blocklisted=${blk}): "${rec.folder}" — ${res.reason}`);
+        } catch (e) { console.log(`watchdog: garbage discard failed for "${rec.folder}": ${e.message || e}`); }
+        continue;
+      }
+      console.log(`watchdog: "${rec.folder}" not importable yet — ${res.reason} (fail ${st.fails}/${IMPORT_MAX_FAILS}, retry ${st.backoff}s)`);
     }
-    console.log(`watchdog: "${rec.folder}" not importable yet — ${res.reason} (fail ${st.fails}/${IMPORT_MAX_FAILS})`);
-  }
+  } finally { watchdogBusy = false; }
 }
-setInterval(importWatchdog, 30000); // sweep often; per-folder 120s backoff caps real attempts
+setInterval(importWatchdog, 30000); // sweep often; per-folder exponential backoff + batch cap bound real attempts
 setTimeout(importWatchdog, 8000);
 
 // ── Stalled-download recovery (backend, container-to-container) ──────────────────────────────

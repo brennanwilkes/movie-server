@@ -35,7 +35,7 @@ else
   RESCAN='{"name":"RescanMovie","movieId":'"$ID"'}'
 fi
 
-FF="docker exec jellyfin /usr/lib/jellyfin-ffmpeg/ffmpeg"
+FF="nice -n 19 docker exec jellyfin /usr/lib/jellyfin-ffmpeg/ffmpeg"
 FP="docker exec jellyfin /usr/lib/jellyfin-ffmpeg/ffprobe"
 converted=0 skipped=0 failed=0
 while IFS= read -r path; do
