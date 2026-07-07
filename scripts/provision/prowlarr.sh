@@ -151,10 +151,12 @@ prow_add_indexer() {  # definitionName  priority  needs_flare(yes|no)  [enabled(
 # reachable directly. Knaben is a meta-aggregator that searches 30+ torrent sites at once (incl.
 # 1337x, RARBG, TGx) — the single highest-coverage add and our replacement for the direct 1337x
 # indexer, whose default mirror IP-bans this host (Cloudflare error 1006, unfixable via FlareSolverr).
-prow_add_indexer yts            10 no    # movies, small direct-play-friendly encodes
+prow_add_indexer yts            25 no    # movies, small direct-play-friendly encodes
 prow_add_indexer thepiratebay   25 no    # broad catalog, no Cloudflare
 prow_add_indexer thepiratebayys 25 no    # year-strip TPB clone: matches releases whose title year ≠ Radarr/Sonarr metadata year (see YEAR_BUG.md)
 prow_add_indexer eztv         25 yes     # TV-focused, Cloudflare-protected → needs FlareSolverr
 prow_add_indexer Knaben       20 no      # meta-aggregator (30+ sites) — broadest coverage
-prow_add_indexer limetorrents 25 no      # broad catalog, no Cloudflare
-prow_add_indexer 1337x        25 yes no  # IP-banned (CF 1006) — kept on record but DISABLED; Knaben covers it
+prow_add_indexer limetorrents       25 no    # broad catalog, no Cloudflare
+prow_add_indexer torrentdownloads   25 no    # general tracker, alternative to TPB/KAT
+prow_add_indexer kickasstorrents-ws 25 no    # KAT clone, broad movie/TV coverage
+prow_add_indexer 1337x              25 yes no  # IP-banned (CF 1006) — kept on record but DISABLED; Knaben covers it

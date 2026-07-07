@@ -6,7 +6,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFile } = require('child_process');
 const express = require('express');
+const metrics = require('./metrics');
 
 // ── Config: /config/keys.env (written by scripts/provision/controller.sh) over env ──
 function loadCfg() {
@@ -339,6 +341,72 @@ app.get('/api/system', (_req, res) => {
   res.json({ cpuPct: _cpuPct, memPct: readMemPct(), tempC: readTempC() });
 });
 
+// ── Indexer health (from Prowlarr) ──
+// Historical query-volume weights per indexer (from Prowlarr stats on 2026-07-06).
+// These are near-static — total queries change slowly — so we hardcode to avoid a
+// 15+ second Prowlarr aggregation query on every dashboard poll.
+const INDEXER_WEIGHTS = {
+  'YTS': 10189, 'EZTV': 1671, '1337x': 509, 'Knaben': 1641,
+  'LimeTorrents': 1676, 'The Pirate Bay': 1669,
+  'The Pirate Bay (year-strip)': 1614,
+};
+async function getIndexerSnapshot() {
+  const key = cfg.PROWLARR_KEY;
+  if (!key) return { total: 0, enabled: 0, degraded: 0, degradedPct: 0, indexers: [], totalQueries: 0, degradedNames: [] };
+  const [indexers, health, history] = await Promise.all([
+    tfetchJson(`${HOST.prowlarr}/api/v1/indexer`, { headers: { 'X-Api-Key': key } }, 10000).catch(() => null),
+    tfetchJson(`${HOST.prowlarr}/api/v1/health`, { headers: { 'X-Api-Key': key } }, 5000).catch(() => null),
+    tfetchJson(`${HOST.prowlarr}/api/v1/history?pageSize=200&sortKey=date&sortDirection=descending`, { headers: { 'X-Api-Key': key } }, 8000).catch(() => null),
+  ]);
+  if (!indexers) throw new Error('Prowlarr unreachable');
+  // Count recent query failures (last 10 min) per indexer from history.
+  // Any failure flags the indexer as degraded (transient 503s = effectively down for search).
+  const recentFails = {}; const failCutoff = Date.now() - 600000;
+  if (history && history.records) {
+    for (const r of history.records) {
+      if (r.successful !== false || !r.indexerId) continue;
+      if (new Date(r.date).getTime() < failCutoff) continue;
+      recentFails[r.indexerId] = (recentFails[r.indexerId] || 0) + 1;
+    }
+  }
+  const healthNames = new Set((health || []).map((h) => h.source || h.type || ''));
+  const out = []; let totalQueries = 0;
+  for (const ix of indexers) {
+    if (ix.protocol !== 'torrent') continue;
+    const hw = healthNames.has(ix.name) || healthNames.has(ix.implementation || '');
+    const rf = (recentFails[ix.id] || 0) >= 1;
+    const q = INDEXER_WEIGHTS[ix.name] || 100;
+    totalQueries += q;
+    out.push({
+      id: ix.id, name: ix.name, queries: q,
+      enabled: !!ix.enable, priority: ix.priority || 25,
+      healthy: ix.enable ? !(hw || rf) : true,
+      healthReason: hw ? 'health-warning' : rf ? 'recent-failures' : null,
+    });
+  }
+  // Weight degradation by query volume share.
+  let lostWeight = 0;
+  for (const ix of out) {
+    if (ix.enabled && !ix.healthy && totalQueries > 0) {
+      lostWeight += ix.queries / totalQueries;
+    }
+  }
+  const total = out.length;
+  const enabled = out.filter((x) => x.enabled).length;
+  const degraded = out.filter((x) => x.enabled && !x.healthy).length;
+  const degradedPct = totalQueries > 0 ? Math.round(lostWeight * 100) : (enabled > 0 ? Math.round((degraded / enabled) * 100) : 0);
+  const degradedNames = out.filter((x) => x.enabled && !x.healthy).map((x) => x.name);
+  return { total, enabled, degraded, degradedPct, indexers: out, totalQueries, degradedNames };
+}
+// Reports each indexer's enable/disable state, recent failures, and an approximate
+// degradation percentage weighted by query volume, so a high-value indexer down (TPB,
+// Knaben) shows more degradation than a niche one (YTS). Degradation detected via
+// Prowlarr's recent query history (failed queries in the last 10 min).
+app.get('/api/indexers', async (_req, res) => {
+  try { res.json(await getIndexerSnapshot()); }
+  catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
 // Downloads — qBittorrent torrents (live progress) merged with *arr queue extras.
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 function parseTimeleft(s) {
@@ -572,6 +640,8 @@ async function jellyfinReady(app, arrId, completionOn) {
 // a title flips to "Ready" the moment *arr reports hasFile — regardless of this.
 const importState = new Map(); // folder -> { lastTry, reason }
 const knownInLibrary = new Set(); // torrent hash -> tracked for event-driven scan
+const _knownDownloads = new Map(); // hash -> { title, app, prog, imported, ts } — download transition tracking for metrics
+const _emittedEvents = new Set();  // `${event}:${hash}` dedup for metrics events
 
 // A torrent qBittorrent has flagged as broken — typically after an unclean shutdown (power
 // loss), when on recheck its files don't line up with its resume data. It reports progress 0
@@ -589,11 +659,37 @@ async function resolveLibraryState(app, hi, t) {
   return 'Ready';
 }
 
+// Is this queue item for an episode/movie whose release/air date hasn't arrived yet?
+// When true, a stuck/failed import isn't a real error — it's a premature grab of a
+// future release. The UI shows it as "Unreleased" (grey, queued-like) instead of red.
+function isFutureRelease(app, qrec) {
+  if (!qrec) return false;
+  const now = Date.now();
+  if (app === 'sonarr') {
+    const airDate = qrec.episode && (qrec.episode.airDateUtc || qrec.episode.airDate);
+    if (airDate) return new Date(airDate).getTime() > now;
+  }
+  if (app === 'radarr') {
+    const movie = qrec.movie;
+    if (movie) {
+      const dates = [movie.inCinemas, movie.physicalRelease, movie.digitalRelease].filter(Boolean);
+      for (const d of dates) {
+        if (new Date(d).getTime() > now + 86400000) return true;
+      }
+    }
+  }
+  return false;
+}
+
 async function buildDownloads() {
   const now = Math.floor(Date.now() / 1000), DAY = 86400;
   _parseBudget = 12;                          // cap cold /parse round-trips this pass (backlog warms over the next few)
   const torrents = await getQbitTorrents();
   const queues = { radarr: await getQueueMap('radarr'), sonarr: await getQueueMap('sonarr') };
+  let indexerSnapshot = { degradedNames: [] };
+  try {
+    indexerSnapshot = await cachedFetch('indexers:snapshot', 60000, getIndexerSnapshot, { degradedNames: [] });
+  } catch { /* best-effort */ }
   // History (imported flag + indexer-reported size) and library hasFile, for whichever apps own a
   // torrent. Both are 20s-cached, so fetching unconditionally is cheap — we need them to size queued
   // torrents (real progress bar) and to classify idle/errored ones against the library.
@@ -631,7 +727,6 @@ async function buildDownloads() {
     // live download from the UI. For Sonarr we trust the per-hash import event alone.
     const imported = !!(hi && (hi.imported || (app === 'radarr' && hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
     const _arrId = (qrec && (qrec.movieId || qrec.seriesId)) ?? (hi && hi.id);
-    if (app && _arrId != null) shownIds[app].add(_arrId);   // this title has a live download → don't also list it as missing
     let state, attention = false, recover = null, attnNote = null;
     if (app && imported) {
       // Already imported into the library = the download is DONE, no matter what the torrent is
@@ -647,6 +742,7 @@ async function buildDownloads() {
       // do we flag for human attention.
       const owned = !hi ? await arrOwns(app, t.name, hasFile[app], nameIds[app]) : null;
       if (owned) state = await resolveLibraryState(app, { id: owned.id, imported: true, size: 0 }, t);
+      else if (app && isFutureRelease(app, qrec)) { state = 'Unreleased'; }
       else { state = 'Needs attention'; attention = true; }
     } else if (qrec) {                              // *arr is actively tracking it
       // *arr's queue exposes BOTH its own view (trackedDownloadState/Status) and the underlying
@@ -656,7 +752,7 @@ async function buildDownloads() {
       const tdStatus = (qrec.trackedDownloadStatus || '').toLowerCase(); // ok|warning|error
       const ts = friendlyTorrentState(t);                               // Paused|Error|Seeding|Starting|Queued|Stalled|Downloading
       if (prog < 100 && ((qrec.status || '').toLowerCase() === 'paused' || ts === 'Paused')) state = 'Paused';
-      else if (tds === 'failed' || tds === 'failedpending' || tdStatus === 'error') { state = 'Needs attention'; attention = true; } // download/import failed in *arr
+      else if (tds === 'failed' || tds === 'failedpending' || tdStatus === 'error') { if (isFutureRelease(app, qrec)) { state = 'Unreleased'; } else { state = 'Needs attention'; attention = true; } } // download/import failed in *arr
       else if (tds.includes('import')) {
         // *arr parked the import (e.g. importBlocked: "matched by ID — manual import required",
         // or a release for an unaired/nonexistent episode it can't match). Hand it to the recovery
@@ -669,7 +765,10 @@ async function buildDownloads() {
         if (tdStatus === 'warning' && t.content_path) recover = { app, folder: t.content_path, id: app === 'radarr' ? qrec.movieId : qrec.seriesId, hash: h };
         const IMPORT_GRACE = 15 * 60;   // seconds a warning import may sit before we call it blocked
         const stuck = tdStatus === 'warning' && (t.completion_on || 0) > 0 && (now - t.completion_on) > IMPORT_GRACE;
-        if (stuck) { state = 'Needs attention'; attention = true; attnNote = 'Download finished but the app won’t import it — usually a bad/mismatched release (e.g. an episode that hasn’t aired). Delete it and let the search find a real copy.'; }
+        if (stuck) {
+          if (isFutureRelease(app, qrec)) { state = 'Unreleased'; recover = null; }
+          else { state = 'Needs attention'; attention = true; }
+        }
         else state = 'Importing';
       }
       else if (prog < 100) state = (ts === 'Stalled' || ts === 'Queued' || ts === 'Starting') ? ts : 'Downloading'; // honour a real stall
@@ -722,31 +821,34 @@ async function buildDownloads() {
         if (prev) { const i = items.indexOf(prev.item); if (i >= 0) items.splice(i, 1); }  // newer copy wins — remove the stale row
         completedByMovie.set(key, { completion: comp, item });
       }
+      if (app && _arrId != null) shownIds[app].add(_arrId);   // this title has a live download → don't also list it as missing
       items.push(item);
     }
   }
   // Surface missing items: monitored, no file, no queue, no torrent — as warnings.
-  try {
-    const appIdsInQueue = { radarr: new Set(), sonarr: new Set() };
-    for (const app of ['radarr', 'sonarr']) {
-      if (!queues[app]) continue;
-      for (const [, qrec] of queues[app]) {
-        const id = qrec.movieId || qrec.seriesId;
-        if (id != null) appIdsInQueue[app].add(id);
-      }
+  // appIdsInQueue, norm, catTorNames, and beingFetched are defined at this scope so the
+  // unreleased-episode surfacing below can reuse them without recomputing.
+  const appIdsInQueue = { radarr: new Set(), sonarr: new Set() };
+  for (const app of ['radarr', 'sonarr']) {
+    if (!queues[app]) continue;
+    for (const [, qrec] of queues[app]) {
+      const id = qrec.movieId || qrec.seriesId;
+      if (id != null) appIdsInQueue[app].add(id);
     }
-    // A JUST-grabbed torrent (redownload / fresh request) is in qBittorrent seconds before the
-    // 20s-cached *arr queue/history links it to its item — so shownIds/queue miss it and the title
-    // would show BOTH its download row AND a phantom "Searching…" row. Bridge that window by matching
-    // the item's title+year against the raw torrent names of the same category.
-    const norm = (s) => String(s || '').toLowerCase().replace(/[._'’:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
-    const catTorNames = { radarr: [], sonarr: [] };
-    for (const t of torrents) { const a = torrentApp(t); if (a) catTorNames[a].push(norm(t.name)); }
-    const beingFetched = (app, it) => {
-      const tn = norm(it.title); if (!tn) return false;
-      const yr = it.year ? String(it.year) : '';
-      return catTorNames[app].some((n) => (n === tn || n.startsWith(tn + ' ')) && (!yr || n.includes(yr)));
-    };
+  }
+  // A JUST-grabbed torrent (redownload / fresh request) is in qBittorrent seconds before the
+  // 20s-cached *arr queue/history links it to its item — so shownIds/queue miss it and the title
+  // would show BOTH its download row AND a phantom "Searching…" row. Bridge that window by matching
+  // the item's title+year against the raw torrent names of the same category.
+  const norm = (s) => String(s || '').toLowerCase().replace(/[._'’:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
+  const catTorNames = { radarr: [], sonarr: [] };
+  for (const t of torrents) { const a = torrentApp(t); if (a) catTorNames[a].push(norm(t.name)); }
+  const beingFetched = (app, it) => {
+    const tn = norm(it.title); if (!tn) return false;
+    const yr = it.year ? String(it.year) : '';
+    return catTorNames[app].some((n) => (n === tn || n.startsWith(tn + ' ')) && (!yr || n.includes(yr)));
+  };
+  try {
     for (const app of ['radarr', 'sonarr']) {
       let list = [];
       try { list = await arrGet(app, app === 'radarr' ? '/movie' : '/series', 8000); } catch { continue; }
@@ -755,19 +857,62 @@ async function buildDownloads() {
         const hasF = app === 'radarr' ? !!it.hasFile : (it.statistics && it.statistics.episodeFileCount) > 0;
         if (hasF || it.monitored === false) { noteResolved(app, id); continue; }
         if (appIdsInQueue[app].has(id) || shownIds[app].has(id) || beingFetched(app, it)) { noteResolved(app, id); continue; }   // in queue / linked / freshly-grabbed torrent → not missing
+        // Future release: movie hasn't been released yet → show Unreleased, don't mark missing.
+        if (app === 'radarr') {
+          const dates = [it.inCinemas, it.physicalRelease, it.digitalRelease].filter(Boolean);
+          if (dates.length && dates.some(d => new Date(d).getTime() > Date.now() + 86400000)) {
+            items.push({ title: it.title + (it.year ? ` (${it.year})` : ''), progress: 0, state: 'Unreleased', etaSeconds: null, sizeBytes: 0, source: app, attention: false, hash: `missing:${app}:${id}`, _id: id, recoveryNext: 0, recoveryFails: 0, recoveryBlocked: false });
+            continue;
+          }
+        }
         // A freshly-requested item briefly has no file/queue while *arr's own search resolves. Show
         // "Searching…" (not the alarming "Not found") until NOTFOUND_GRACE — this is what stops the
         // "Not found → found seconds later" flip-flop. Only after the grace do we call it "Not found".
         const firstMissing = noteMissing(app, id);
         const now2 = Date.now();
-        const searching = now2 - firstMissing < NOTFOUND_GRACE_MS;
+        const st = searchState.get(`${app}:${id}`) || {};
+        const manualRetryAt = st.manualRetryAt || 0;
+        const manualRetryRecent = manualRetryAt && now2 - manualRetryAt < 10 * 60 * 1000;
+        const outcomeKind = st.lastOutcomeKind || '';
+        const outcomeVisible = ['found', 'partial', 'pending'].includes(outcomeKind);
+        const manualRetryVisible = manualRetryRecent && !['empty', 'error'].includes(outcomeKind);
+        const searching = manualRetryVisible || outcomeVisible || (!outcomeKind && now2 - firstMissing < NOTFOUND_GRACE_MS);
         const title = it.title + (it.year ? ` (${it.year})` : '');
         // Mirror arrSweep's own scheduling logic so the UI can say when the NEXT recovery search
         // will actually fire, instead of leaving "Not found" with no indication of what happens next.
-        const st = searchState.get(`${app}:${id}`) || {};
+        const searchHint = [];
+        const dec = st.lastOutcomeDecision;
+        if (st.lastSearchGap && st.lastSearchGap.best) {
+          // Most actionable: a healthy release exists but structured search can't reach it.
+          searchHint.push(`${st.lastSearchGap.best.seeders}-seed release found, not season-searchable`);
+        } else if (dec && dec.rejectedCount && !dec.acceptedCount) {
+          const reasons = String(dec.reasons || '').split(';').map(shortReason)
+            .filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 2).join(', ');
+          searchHint.push(`all ${dec.rejectedCount} rejected${reasons ? `: ${reasons}` : ''}`);
+        } else if (st.lastOutcomeSummary) {
+          searchHint.push(clampHint(st.lastOutcomeSummary));
+        }
+        if (st.lastOutcomeDetails && Array.isArray(st.lastOutcomeDetails.indexerErrors) && st.lastOutcomeDetails.indexerErrors.length) {
+          const errs = st.lastOutcomeDetails.indexerErrors.slice(0, 2).map((e) => e.indexer).join(', ');
+          if (errs) searchHint.push(`indexer error: ${errs}`);
+        }
+        if (!st.lastOutcomeSummary || outcomeKind === 'pending') {
+          if (manualRetryRecent && !st.lastOutcomeSummary) searchHint.push('manual retry in progress');
+          if (st.lastReason === 'blocked' && st.lastError) searchHint.push(`last search blocked: ${st.lastError}`);
+          else if (st.lastReason === 'blocked') searchHint.push('last search blocked');
+          else if (st.lastReason === 'grace') searchHint.push('waiting on the original search to settle');
+          else if (st.lastReason === 'cooldown') searchHint.push('waiting for cooldown');
+          else if (st.lastReason === 'manual_retry' && !st.lastOutcomeSummary) searchHint.push('manual retry in progress');
+          else if (st.lastReason === 'no_searchable_episodes') searchHint.push('no aired episodes were searchable yet');
+          else if (st.lastReason === 'trigger_failed' && st.lastError) searchHint.push(`search trigger failed: ${st.lastError}`);
+        }
+        if (!searchHint.length && indexerSnapshot.degradedNames && indexerSnapshot.degradedNames.length) {
+          searchHint.push(`sources degraded: ${indexerSnapshot.degradedNames.slice(0, 2).join(', ')}`);
+        }
         const recoveryBlocked = !!(st.blockedUntil && st.blockedUntil > now2);
         let recoveryNext;
-        if (recoveryBlocked) recoveryNext = st.blockedUntil;
+        if (manualRetryRecent) recoveryNext = now2;
+        else if (recoveryBlocked) recoveryNext = st.blockedUntil;
         else if (now2 - firstMissing < RECOVERY_GRACE_MS) recoveryNext = firstMissing + RECOVERY_GRACE_MS;
         else if (st.ts) recoveryNext = st.ts + SEARCH_COOLDOWN_MS;
         else recoveryNext = now2; // sweep hasn't tried yet — due on its next 5-min tick
@@ -777,10 +922,48 @@ async function buildDownloads() {
         items.push({ title, progress: 0, state: searching ? 'Searching…' : 'Not found',
           etaSeconds: null, sizeBytes: 0, source: app, attention: recoveryBlocked,
           hash: `missing:${app}:${id}`, _id: id,
-          recoveryNext, recoveryFails: st.fails || 0, recoveryBlocked });
+          recoveryNext, recoveryFails: st.fails || 0, recoveryBlocked,
+          searchHint: searchHint.join(' · '), searchReason: outcomeKind || st.lastReason || null });
       }
     }
   } catch { /* missing scan best-effort */ }
+
+  // Surface unreleased Sonarr episodes: monitored, no file, future air date, no torrent/queue.
+  // Unlike the missing-items scan above (which checks series-level episodeFileCount), this checks
+  // episode-level air dates so a series with past-season files still surfaces future episodes.
+  // Uses Sonarr's /calendar endpoint (single call, upcoming-only) instead of per-series episode
+  // fetches, cached for 5 min since air dates are slow-moving.
+  try {
+    const unreleased = await cachedFetch('sonarr:unreleased', 300000, async () => {
+      const now = new Date();
+      const start = now.toISOString().slice(0, 10);
+      const end90 = new Date(now.getTime() + 90 * 86400000).toISOString().slice(0, 10);
+      let eps;
+      try { eps = await arrGet('sonarr', `/calendar?start=${start}&end=${end90}&includeSeries=true`, 8000); } catch { return []; }
+      if (!Array.isArray(eps)) return [];
+      // Build a series-id→title map from the calendar entries (no separate series list needed)
+      const sidTitle = {};
+      for (const e of eps) { if (e.series) sidTitle[e.seriesId] = e.series.title; }
+      const seen = new Set(); // one row per series
+      const out = [];
+      for (const e of eps) {
+        if (e.hasFile || !e.monitored) continue;
+        if (!e.airDateUtc) continue;
+        if (new Date(e.airDateUtc).getTime() <= now.getTime()) continue;
+        const title = sidTitle[e.seriesId] || '';
+        if (!title || seen.has(e.seriesId)) continue;
+        seen.add(e.seriesId);
+        out.push({ seriesId: e.seriesId, episodeId: e.id, title, seasonNumber: e.seasonNumber, episodeNumber: e.episodeNumber, airDateUtc: e.airDateUtc });
+      }
+      return out;
+    }, []);
+    for (const u of unreleased) {
+      if (appIdsInQueue.sonarr.has(u.seriesId) || shownIds.sonarr.has(u.seriesId)) continue;
+
+      const label = `${u.title} S${String(u.seasonNumber).padStart(2, '0')}E${String(u.episodeNumber).padStart(2, '0')}`;
+      items.push({ title: label, progress: 0, state: 'Unreleased', etaSeconds: null, sizeBytes: 0, source: 'sonarr', attention: false, hash: `unreleased:sonarr:${u.seriesId}:${u.episodeId}` });
+    }
+  } catch (eu) { console.log('unreleased scan:', eu.message || eu); }
 
   // Sort tiers: any problem to the very top, then anything actively transferring (partial
   // progress, whatever its label), then the rest in progress, then recently-finished (Ready/Done
@@ -790,7 +973,7 @@ async function buildDownloads() {
     const s = it.state, p = it.progress || 0;
     if (s === 'Needs attention' || s === 'Error' || s === 'Not found') return 0;    // errors of any kind first
     if (p > 0 && p < 100) return 1;                            // mid-transfer → near the top regardless of status
-    if (s === 'Queued') return 4;                              // the big backlog at the bottom
+    if (s === 'Queued' || s === 'Unreleased') return 4;        // backlog or waiting to air → bottom
     if (s === 'Ready' || s === 'Done') return 3;               // recently finished (≤ 24h)
     return 2;                                                  // everything else in progress (100% but not done: Importing/Processing/…)
   };
@@ -831,6 +1014,29 @@ async function refreshDownloads() {
     for (const [h, b] of blocked) if (now - b.ts <= DAY) served.unshift(asDeclinedRow(h, b));
     const summary = await downloadSummary(served);
     _dl = { served, raw, summary, ts: Date.now() };
+
+    // Download transition events (grab / dl_done / import_ok)
+    const nowSec = Date.now() / 1000;
+    for (const it of raw) {
+      if (!it.hash || !it.source) continue;
+      const h = it.hash;
+      const prev = _knownDownloads.get(h);
+      const ek = (ev) => `${ev}:${h}`;
+      if (prev) {
+        if (it.progress >= 100 && (prev.prog == null || prev.prog < 100) && !_emittedEvents.has(ek('dl_done'))) {
+          _emittedEvents.add(ek('dl_done'));
+          metrics.emitEvent('dl_done', { ti: it.title, ap: it.source, dur: Math.round(nowSec - prev.ts) });
+        }
+        if ((it.state === 'Ready' || it.state === 'Done') && prev.state !== 'Ready' && prev.state !== 'Done' && !_emittedEvents.has(ek('import_ok'))) {
+          _emittedEvents.add(ek('import_ok'));
+          metrics.emitEvent('import_ok', { ti: it.title, ap: it.source });
+        }
+      } else if (it.state === 'Downloading' && !_emittedEvents.has(ek('grab'))) {
+        _emittedEvents.add(ek('grab'));
+        metrics.emitEvent('grab', { ti: it.title, ap: it.source, sB: it.sizeBytes || 0 });
+      }
+      _knownDownloads.set(h, { prog: it.progress, state: it.state, ts: prev ? prev.ts : nowSec, title: it.title, app: it.source });
+    }
   } catch (e) { console.log('refreshDownloads failed (keeping last snapshot):', e.message || e); }
   finally { _dlRefreshing = false; }
 }
@@ -1102,16 +1308,45 @@ async function importViaManual(app, folder, expectedId) {
 // real file that fails to import for other reasons is never thrown away.
 const IMPORT_MAX_FAILS = 5;                                         // consecutive failed imports (~10 min at 120s backoff) before garbage check
 const VIDEO_EXT = new Set(['.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv', '.flv', '.ts', '.m2ts', '.mpg', '.mpeg', '.webm', '.vob', '.divx', '.3gp', '.ogv', '.mts', '.iso']);
+// Check if a file actually has a video stream, not just a matching extension.
+// Runs ffprobe with a tight probesize so even multi-GB files return fast.
+// On error/failure returns false (not video) UNLESS ffprobe itself isn't found,
+// in which case we trust the extension check (fail-safe: never delete on uncertainty).
+function hasVideoStream(fp) {
+  return new Promise((resolve) => {
+    execFile('ffprobe', [
+      '-v', 'error',
+      '-select_streams', 'v:0',
+      '-show_entries', 'stream=codec_type',
+      '-of', 'csv=p=0',
+      '-analyzeduration', '100k',
+      '-probesize', '100k',
+      fp
+    ], { timeout: 5000 }, (err, stdout) => {
+      if (err) {
+        if (err.code === 'ENOENT') resolve(true);                 // ffprobe not found → trust extension
+        else resolve(false);                                        // ffprobe says not a video
+        return;
+      }
+      resolve(stdout.trim() === 'video');
+    });
+  });
+}
 async function hasVideoContent(p) {
   try {
     const st = await fs.promises.stat(p);
-    if (st.isFile()) return VIDEO_EXT.has(path.extname(p).toLowerCase());
+    if (st.isFile()) {
+      if (!VIDEO_EXT.has(path.extname(p).toLowerCase())) return false;
+      return await hasVideoStream(p);
+    }
     const stack = [p];                                             // directory: any video file anywhere inside counts
     while (stack.length) {
       const dir = stack.pop();
       for (const ent of await fs.promises.readdir(dir, { withFileTypes: true })) {
         if (ent.isDirectory()) stack.push(path.join(dir, ent.name));
-        else if (VIDEO_EXT.has(path.extname(ent.name).toLowerCase())) return true;
+        else if (VIDEO_EXT.has(path.extname(ent.name).toLowerCase())) {
+          if (await hasVideoStream(path.join(dir, ent.name))) return true;
+        }
       }
     }
     return false;
@@ -1198,6 +1433,7 @@ async function importWatchdog() {
           st.backoff = Math.min((st.backoff || IMPORT_BACKOFF_MIN) * 2, IMPORT_BACKOFF_MAX);
           importState.set(rec.folder, st);                          // note: st.reason left untouched → row stays "Importing", not red
           console.log(`watchdog: transient import error for "${rec.folder}" — ${e.message || e}; retry in ${st.backoff}s`);
+          metrics.emitEvent('import_err', { ti: rec.folder, ap: rec.app, reason: 'transient', backoff: st.backoff });
           continue;
         }
         res = { ok: false, reason: e.message || 'error' };          // a real, non-transient throw is treated as a rejection below
@@ -1206,6 +1442,7 @@ async function importWatchdog() {
         importState.set(rec.folder, { lastTry: now, reason: null, fails: 0, backoff: IMPORT_BACKOFF_MIN }); // cleared on success
         triggerJellyfinScan();
         console.log(`watchdog: imported ${res.count} file(s) from "${rec.folder}"`);
+        metrics.emitEvent('import_ok', { ti: rec.folder, ap: rec.app, count: res.count });
         continue;
       }
       // ORPHAN: *arr no longer tracks this series/movie (removed from the library, or a release for
@@ -1215,6 +1452,7 @@ async function importWatchdog() {
         try { if (rec.hash) await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: rec.hash, deleteFiles: 'true' }) }); } catch { /* qbit hiccup — retried next sweep */ }
         importState.delete(rec.folder);
         console.log(`watchdog: orphan removed (not tracked by ${rec.app}): "${rec.folder}" — ${res.reason}`);
+        metrics.emitEvent('orphan', { ti: rec.folder, ap: rec.app, reason: res.reason, source: 'watchdog' });
         continue;
       }
       st.reason = res.reason;
@@ -1229,6 +1467,7 @@ async function importWatchdog() {
           const blk = await discardGarbage(rec);
           importState.delete(rec.folder);
           console.log(`watchdog: garbage file, deleted and re-searching (${st.fails} failed imports, no video, blocklisted=${blk}): "${rec.folder}" — ${res.reason}`);
+          metrics.emitEvent('garbage', { ti: rec.folder, ap: rec.app, fails: st.fails, blocklisted: blk });
         } catch (e) { console.log(`watchdog: garbage discard failed for "${rec.folder}": ${e.message || e}`); }
         continue;
       }
@@ -1318,6 +1557,7 @@ async function stallRecovery() {
       try {
         await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: t.hash, deleteFiles: 'true' }) });
         console.log(`recovery: removed *arr-orphaned dead download "${t.name}" (no queue record — blocklisted via history)`);
+        metrics.emitEvent('abandon', { ti: t.name, ap: app, reason: 'orphan_no_queue' });
       } catch { /* qbit hiccup — retried next sweep */ }
       _stallSince.delete(h);
       continue;
@@ -1335,6 +1575,7 @@ async function stallRecovery() {
         await arrBlocklistAndResearch(app, qrec.id, itemId);
         _researchCount.set(key, cnt + 1);
         console.log(`recovery: dead release blocklisted + re-searched (try ${cnt + 1}/${MAX_RESEARCH}): ${t.name}`);
+        metrics.emitEvent('re_search', { ti: t.name, ap: app, attempt: cnt + 1 });
       } else {
         // Tried enough — this title is genuinely rare. Drop the dead copy, grab the single
         // best-seeded release available, and ACCEPT it: never abandon again, let it sit until a
@@ -1343,6 +1584,7 @@ async function stallRecovery() {
         const seeders = await grabBestSeeded(app, itemId);
         _accepted.add(key);
         console.log(`recovery: "${t.name}" is rare after ${MAX_RESEARCH} tries — grabbed best available (${seeders == null ? 'left as-is' : seeders + ' seeds'}) and letting it sit`);
+        metrics.emitEvent('accepted_rare', { ti: t.name, ap: app });
       }
       _stallSince.delete(h);
     } catch (e) { console.log(`recovery action failed for ${t.name}: ${e.message || e}`); }
@@ -1391,6 +1633,7 @@ async function gpuVerifySweep() {
         if (now - p.ts > 48 * 3600000) {              // replacement never completed — stand down, keep the old copy
           gpuPending.delete(mid); gpuSwapped.set(mid, { ts: now, done: true }); persistState();
           console.log(`gpuVerify: upgrade of "${p.title}" abandoned after 48h — old copy kept`);
+          metrics.emitEvent('swap_abandon', { ti: p.title, reason: '48h_timeout' });
           continue;
         }
         const old = new Set((p.oldHashes || []).map((x) => x.toLowerCase()));
@@ -1406,6 +1649,7 @@ async function gpuVerifySweep() {
             const it = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${jfId}`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 6000)).json();
             if (((it.UserData || {}).PlaybackPositionTicks || 0) > 0) {
               console.log(`gpuVerify: "${p.title}" replacement ready but someone is mid-watch — waiting`);
+              metrics.emitEvent('swap_defer', { ti: p.title, reason: 'mid_watch' });
               continue;
             }
           }
@@ -1418,6 +1662,7 @@ async function gpuVerifySweep() {
         if (done.content_path) { try { await importViaManual('radarr', done.content_path, mid); } catch { /* watchdog retries */ } }
         gpuPending.delete(mid); gpuSwapped.set(mid, { ts: now, done: true }); persistState();
         console.log(`gpuVerify: "${p.title}" upgraded — replacement complete, old copy removed, new file importing`);
+        metrics.emitEvent('swap_done', { ti: p.title });
       }
     }
 
@@ -1464,6 +1709,7 @@ async function gpuVerifySweep() {
           gpuSwapped.set(m.id, { ts: now, done: false });          // nothing better out there — retry in 6h within the window
           persistState();
           console.log(`gpuVerify: "${m.title}" is ${label} but no better H.264 release available (file score ${fileScore}) — keeping it, retry in 6h`);
+          metrics.emitEvent('swap_none', { ti: m.title, label, score: fileScore });
           continue;
         }
         // Snapshot the OLD copy's torrent hashes BEFORE grabbing, so the replacement's own
@@ -1476,13 +1722,14 @@ async function gpuVerifySweep() {
         } catch { /* */ }
         // Grab the replacement FIRST — if this fails, the current file is untouched.
         const gr = await tfetch(`${base}/release`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ guid: best.guid, indexerId: best.indexerId }) }, 30000);
-        if (!gr.ok) { console.log(`gpuVerify: "${m.title}" replacement grab failed (HTTP ${gr.status}) — leaving file in place`); continue; }
+        if (!gr.ok) { console.log(`gpuVerify: "${m.title}" replacement grab failed (HTTP ${gr.status}) — leaving file in place`); metrics.emitEvent('swap_fail', { ti: m.title, status: gr.status }); continue; }
         // ZERO-GAP: the old file is NOT touched now. Register the pending swap — Phase 1
         // removes the old copy only after the replacement finishes downloading (and nobody
         // is watching). The Downloads UI labels this download as an auto-upgrade.
         gpuPending.set(m.id, { oldHashes, ts: now, title: m.title, tmdbId: m.tmdbId });
         persistState();
         console.log(`gpuVerify: "${m.title}" is ${label} (file score ${fileScore}) — grabbed better H.264 "${(best.title || '').slice(0, 60)}" (score ${best.customFormatScore}, ${best.seeders} seeds); old copy stays until it completes`);
+        metrics.emitEvent('swap_start', { ti: m.title, label, oldScore: fileScore, newScore: best.customFormatScore, seeds: best.seeders });
       } catch (e) { console.log(`gpuVerify: failed for "${m.title}" — ${e.message || e}`); }
     }
   } finally { gpuVerifyBusy = false; }
@@ -1888,6 +2135,63 @@ async function bootSequence() {
 }
 setTimeout(bootSequence, 15000);   // let the container settle, then self-heal the home page
 
+// ── Metrics: system + disk + dl summary (no HTTP — lightweight) ──
+// Sampled independently from service probes so CPU/temp readings aren't
+// contaminated by the sweep's own HTTP load. First stab at 2s, offset
+// from service probes by 5s.
+function recordSystemMetrics() {
+  metrics.recordSystem(_cpuPct, readMemPct(), readTempC());
+  try {
+    const s = fs.statfsSync('/data');
+    const total = s.blocks * s.bsize;
+    const free = s.bavail * s.bsize;
+    const used = total - free;
+    const pct = total > 0 ? Math.round((used / total) * 100) : 0;
+    metrics.recordDisk(Math.round(total / (1024*1024*1024)), Math.round(used / (1024*1024*1024)), Math.round(free / (1024*1024*1024)), pct);
+  } catch { /* disk check failed */ }
+  if (_dl.summary) metrics.recordDlSummary(_dl.summary);
+}
+// Fire at 2s, then every 10s via a chained setInterval so the first
+// callback and all subsequent repeats keep a consistent offset.
+setTimeout(() => { recordSystemMetrics(); setInterval(recordSystemMetrics, 10000); }, 2000);
+
+// ── Metrics: service uptime (HTTP probes, 5s STAGGERED from system) ──
+// CPU readings are taken 5s apart from HTTP probes, so the metrics
+// reflect real system load, not the cost of collecting them.
+let _lastServiceStates = {};
+async function recordServiceMetrics() {
+  const curStates = {};
+  for (const s of STATUS_SERVICES) {
+    let up = false;
+    try { const r = await tfetch(s.url, { headers: s.headers ? s.headers() : {} }, 4000); up = true; } catch { /* down */ }
+    curStates[s.id] = up;
+  }
+  try { await tfetch(`${HOST.jellyfin}/System/Info`, {}, 4000); curStates.jellyfin = true; } catch { curStates.jellyfin = false; }
+  try { await tfetch(`${HOST.jellyseerr}/api/v1/status`, {}, 4000); curStates.jellyseerr = true; } catch { curStates.jellyseerr = false; }
+  metrics.recordServices(curStates);
+  for (const [id, up] of Object.entries(curStates)) {
+    const prev = _lastServiceStates[id];
+    if (prev !== undefined && prev !== up) {
+      metrics.emitEvent(up ? 'svc_up' : 'svc_down', { svc: id });
+    }
+  }
+  _lastServiceStates = curStates;
+}
+// Fire at 7s (5s after system first fire), then every 10s.
+setTimeout(() => { recordServiceMetrics(); setInterval(recordServiceMetrics, 10000); }, 7000);
+
+// Metrics query endpoint
+app.get('/api/metrics', (req, res) => {
+  const stream = req.query.stream;
+  if (!stream) return res.json({ streams: metrics.listStreams() });
+  const from = Number(req.query.from) || 0;
+  const to = Number(req.query.to) || Infinity;
+  const limit = Math.min(Number(req.query.limit) || 10000, 50000);
+  const data = metrics.queryMetrics(stream, { from, to, limit });
+  const info = metrics.listStreams()[stream] || {};
+  res.json({ stream, data, info, count: data.length });
+});
+
 // Manual kick: build/refresh collections, then re-register the home shelves that read them.
 // Handy right after a boot — the scheduled sweep is 3 min out and shelves need the box sets to
 // exist first. POST (no body) → runs synchronously and reports; 409 if a sweep is already running.
@@ -2230,6 +2534,7 @@ app.post('/api/redownload', async (req, res) => {
     searchKeyClear('radarr', mid); persistState();
     await arrPost('radarr', '/command', { name: 'MoviesSearch', movieIds: [mid] }, 8000);
     console.log(`redownload: "${title}" → ${REDL_TIERS[tier]} (${steps.join(', ')}) — search triggered`);
+    metrics.emitEvent('redownload', { ti: title, tier, steps: steps.length });
     bustDownloadsCache();
     res.json({ ok: true, title, tier, tierName: REDL_TIERS[tier], freedBytes });
   } catch (e) { console.log(`redownload: failed for radarr id=${mid} — ${e.message || e}`); res.status(500).json({ error: String(e.message || e) }); }
@@ -2255,14 +2560,118 @@ app.post('/api/retry', async (req, res) => {
   const { app: a, id } = req.body || {};
   if (!['radarr', 'sonarr'].includes(a) || id == null) return res.status(400).json({ error: 'body must be {app,id}' });
   try {
-    searchKeyClear(a, Number(id));  // a manual retry overrides the sweep cooldown + negative cache
+    searchKeyClear(a, Number(id));  // clear cooldown / block before stamping the manual retry state
+    const key = `${a}:${Number(id)}`;
+    const st = searchState.get(key) || {};
+    Object.assign(st, {
+      firstMissing: Date.now(),
+      manualRetryAt: Date.now(),
+      lastReason: 'manual_retry',
+      lastAt: Date.now(),
+      lastError: null,
+    });
+    searchState.set(key, st);
     persistState();
-    if (a === 'radarr') await arrPost(a, '/command', { name: 'MoviesSearch', movieIds: [Number(id)] }, 5000);
-    else await arrPost(a, '/command', { name: 'SeriesSearch', seriesId: Number(id) }, 5000);
+    const refs = a === 'sonarr' ? await missingEpisodes(Number(id)) : [];
+    const title = a === 'radarr'
+      ? await arrTitle(a, Number(id), [])
+      : await arrTitle(a, Number(id), refs.map((e) => e.seasonNumber));
+    if (a === 'radarr') {
+      await arrPost(a, '/command', { name: 'MoviesSearch', movieIds: [Number(id)] }, 5000);
+      st.ts = Date.now();
+      searchState.set(key, st);
+      trackSearchDispatch(a, { id: Number(id), title }, { searchAt: st.ts, mode: 'MoviesSearch', manual: true });
+      metrics.emitEvent('search', { ti: title, ap: a, id: Number(id), mode: 'MoviesSearch', manual: true });
+    }
+    else {
+      if (refs.length) {
+        metrics.emitEvent('retry', {
+          ap: a,
+          id: Number(id),
+          mode: 'EpisodeSearch',
+          manual: true,
+          eps: refs.map((e) => `S${String(e.seasonNumber).padStart(2, '0')}E${String(e.episodeNumber).padStart(2, '0')}`),
+        });
+        await arrPost(a, '/command', { name: 'EpisodeSearch', episodeIds: refs.map((e) => e.id) }, 8000);
+        st.ts = Date.now();
+        searchState.set(key, st);
+        trackSearchDispatch(a, { id: Number(id), title }, {
+          searchAt: st.ts,
+          mode: 'EpisodeSearch',
+          manual: true,
+          episodeCodes: refs.map((e) => `S${String(e.seasonNumber).padStart(2, '0')}E${String(e.episodeNumber).padStart(2, '0')}`),
+        });
+        metrics.emitEvent('search', { ti: title, ap: a, id: Number(id), mode: 'EpisodeSearch', manual: true, eps: refs.map((e) => `S${String(e.seasonNumber).padStart(2, '0')}E${String(e.episodeNumber).padStart(2, '0')}`) });
+      } else {
+        metrics.emitEvent('retry', { ap: a, id: Number(id), mode: 'SeriesSearch', manual: true });
+        await arrPost(a, '/command', { name: 'SeriesSearch', seriesId: Number(id) }, 5000);
+        st.ts = Date.now();
+        searchState.set(key, st);
+        trackSearchDispatch(a, { id: Number(id), title }, { searchAt: st.ts, mode: 'SeriesSearch', manual: true });
+        metrics.emitEvent('search', { ti: title, ap: a, id: Number(id), mode: 'SeriesSearch', manual: true });
+      }
+    }
+    persistState();
     console.log(`retry: triggered search for ${a} id=${id}`);
     bustDownloadsCache();
     res.json({ ok: true });
-  } catch (e) { console.log(`retry: failed for ${a} id=${id} — ${e.message || e}`); res.status(500).json({ error: String(e.message || e) }); }
+  } catch (e) {
+    const key = `${a}:${Number(id)}`;
+    const msg = String(e.message || e);
+    const st = searchState.get(key) || {};
+    Object.assign(st, {
+      lastReason: 'trigger_failed',
+      lastError: msg,
+      lastAt: Date.now(),
+      lastOutcomeKind: 'error',
+      lastOutcomeSummary: `search trigger failed: ${msg}`,
+      lastOutcomeAt: Date.now(),
+    });
+    searchState.set(key, st);
+    persistState();
+    metrics.emitEvent('search_skip', { ap: a, id: Number(id), reason: 'trigger_failed', error: msg, manual: true });
+    console.log(`retry: failed for ${a} id=${id} — ${msg}`);
+    res.status(500).json({ error: msg });
+  }
+});
+
+// Force-grab the best "search gap" release — one that's healthy upstream (raw text search) but that
+// Sonarr's structured season-search never surfaced (e.g. a year-named full-series pack with no S01
+// marker). Pushes the release straight to Sonarr's grab API, bypassing the tvsearch that hid it.
+// This is the "and select it" path: the user has decided to accept the release (incl. its codec).
+app.post('/api/force-grab', async (req, res) => {
+  const { app: a, id } = req.body || {};
+  if (a !== 'sonarr' || id == null) return res.status(400).json({ error: 'body must be {app:"sonarr",id}' });
+  try {
+    const key = `${a}:${Number(id)}`;
+    const st = searchState.get(key) || {};
+    // Prefer a fresh raw search so we grab a currently-seeded release; fall back to the cached gap.
+    const title = st.lastSearchTitle || (st.searchProbe && st.searchProbe.title) || await arrTitle(a, Number(id), []);
+    let gap = await probeSearchGap(title, []);
+    if ((!gap || !gap.best || !gap.best.guid) && st.lastSearchGap) gap = st.lastSearchGap;
+    if (!gap || !gap.best || !gap.best.guid) return res.status(404).json({ error: 'no grabbable gap release found' });
+    const { guid, indexerId, title: relTitle, seeders } = gap.best;
+    // Grab via PROWLARR, not Sonarr: Sonarr's POST /release only grabs releases from its OWN search
+    // cache, and these year-named packs never appear there (that's the whole gap). Prowlarr's grab
+    // pushes the torrent straight to the configured download client. (Sonarr won't auto-import an
+    // unmatched pack — it lands in qBittorrent for a manual import.)
+    const gr = await tfetch(`${HOST.prowlarr}/api/v1/search`,
+      { method: 'POST', headers: { 'X-Api-Key': cfg.PROWLARR_KEY || '', 'Content-Type': 'application/json' }, body: JSON.stringify({ guid, indexerId }) }, 20000);
+    if (!gr.ok) throw new Error(`prowlarr grab → HTTP ${gr.status}`);
+    searchKeyClear(a, Number(id));
+    Object.assign(st, { lastReason: 'force_grab', lastAt: Date.now(), lastOutcomeKind: 'grabbing', lastOutcomeSummary: `force-grabbed "${relTitle}"`, lastOutcomeAt: Date.now(), lastError: null });
+    searchState.set(key, st);
+    persistState();
+    metrics.emitEvent('force_grab', { ap: a, id: Number(id), ti: title, rel: relTitle, seeders, indexer: gap.best.indexer });
+    console.log(`force-grab: sonarr id=${id} → "${relTitle}" (${seeders} seeders)`);
+    bustDownloadsCache();
+    res.json({ ok: true, grabbed: relTitle, seeders });
+  } catch (e) {
+    const msg = String(e.message || e);
+    metrics.emitEvent('force_grab', { ap: a, id: Number(id), error: msg });
+    console.log(`force-grab: failed for sonarr id=${id} — ${msg}`);
+    res.status(500).json({ error: msg });
+  }
 });
 
 // ---- Disk gate: decline a download that can't fit under the 20 GB cap ----
@@ -2408,6 +2817,7 @@ async function diskGate() {
       } catch (e) { console.log(`diskGate: teardown failed for "${t.name}" — ${String(e.message || e)}`); }
       declined.set(hash, { title: t.name, neededBytes: size, freeBytes: freeForIt, ts: now, source: app, arrId });
       console.log(`diskGate: declined "${t.name}" — needs ${size} B but only ${freeForIt} B free under cap`);
+      metrics.emitEvent('decline', { ti: t.name, ap: app, sB: size, free: freeForIt });
     }
 
     // Second pass: when we've declined a torrent for a specific *arr item, tear down
@@ -2499,6 +2909,7 @@ async function orphanSweep() {
           const body = new URLSearchParams({ hashes: toRemove.join('|'), deleteFiles: 'true' });
           await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
           console.log(`orphanSweep: removed ${toRemove.length} orphaned torrent(s) from ${app}`);
+          metrics.emitEvent('orphan', { count: toRemove.length, ap: app, type: 'orphan' });
         } catch (e) { console.log(`orphanSweep: teardown failed — ${String(e.message || e)}`); }
       }
       if (zombies.length) {
@@ -2506,6 +2917,7 @@ async function orphanSweep() {
           const body = new URLSearchParams({ hashes: zombies.join('|'), deleteFiles: 'false' });
           await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
           console.log(`orphanSweep: removed ${zombies.length} zombie missingFiles torrent(s) from ${app} (entries only — no files on disk)`);
+          metrics.emitEvent('zombie', { count: zombies.length, ap: app });
         } catch (e) { console.log(`orphanSweep: zombie cleanup failed — ${String(e.message || e)}`); }
       }
     }
@@ -2574,27 +2986,505 @@ const NOTFOUND_GRACE_MS = 20 * 60000;          // 20min: show "Searching…" bef
 // the first time an item is seen missing; cleared once it has a file / queue / torrent again.
 function noteMissing(app, id) {
   const k = `${app}:${id}`; const st = searchState.get(k) || {};
-  if (!st.firstMissing) { st.firstMissing = Date.now(); searchState.set(k, st); }
+  if (!st.firstMissing) {
+    st.firstMissing = Date.now();
+    searchState.set(k, st);
+    metrics.emitEvent('missing_start', { ap: app, id });
+  }
   return st.firstMissing;
 }
 function noteResolved(app, id) {  // item now has file/queue/torrent → reset the missing clock
   const k = `${app}:${id}`; const st = searchState.get(k);
-  if (st && st.firstMissing) { st.firstMissing = 0; searchState.set(k, st); }
+  if (st && st.firstMissing) {
+    st.firstMissing = 0;
+    searchState.set(k, st);
+    metrics.emitEvent('missing_clear', { ap: app, id });
+  }
+}
+function touchSearchState(app, id, patch) {
+  const k = `${app}:${id}`;
+  const st = searchState.get(k) || {};
+  Object.assign(st, patch);
+  searchState.set(k, st);
+  return st;
 }
 const DL_STATES = new Set(['downloading', 'stalledDL', 'metaDL', 'forcedDL', 'queuedDL', 'checkingDL', 'allocating']);
 const searchKeyClear = (app, id) => searchState.delete(`${app}:${id}`); // manual retry overrides cooldown+block
 // The specific episodes of a Sonarr series that still need a file: monitored, aired (or with no
 // known air date), and not already on disk. This is what we hand to EpisodeSearch so a season with
 // no pack fills in episode-by-episode. Returns [] on any error (skip this series this pass).
-async function missingEpisodeIds(seriesId) {
+async function missingEpisodes(seriesId) {
   let eps;
   try { eps = await arrGet('sonarr', `/episode?seriesId=${seriesId}`, 8000); }
   catch { return []; }
   const now = Date.now();
   return (Array.isArray(eps) ? eps : [])
     .filter((e) => !e.hasFile && e.monitored && (!e.airDateUtc || new Date(e.airDateUtc).getTime() <= now))
-    .map((e) => e.id);
+    .map((e) => ({
+      id: e.id,
+      seasonNumber: e.seasonNumber,
+      episodeNumber: e.episodeNumber,
+      title: e.title || '',
+    }));
 }
+const SEARCH_PROBE_INITIAL_MS = 12000;
+const SEARCH_PROBE_RETRY_MS = 15000;
+const SEARCH_PROBE_MAX_AGE_MS = 120000;
+const SEARCH_PROBE_MAX_ATTEMPTS = 5;
+const searchProbeTimers = new Map();
+
+const normSearchText = (s) => String(s || '').toLowerCase().replace(/['’]/g, '').replace(/[._:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
+const searchTokens = (s) => normSearchText(s).split(' ').filter((t) => t.length > 1);
+
+function searchProbeMatchesTarget(probe, rec) {
+  if (!probe || !rec || !rec.data) return false;
+  const source = probe.app === 'radarr' ? 'Radarr' : 'Sonarr';
+  if (String(rec.data.source || '') !== source) return false;
+  const query = normSearchText(rec.data.query || '');
+  if (!query) return false;
+  const probeText = normSearchText(probe.query || probe.title || '');
+  const tokens = probe.tokens || [];
+  if (probe.mode === 'EpisodeSearch' && String(rec.data.queryType || '').toLowerCase() !== 'tvsearch') return false;
+  if (probe.mode === 'MoviesSearch' && String(rec.data.queryType || '').toLowerCase() === 'tvsearch') return false;
+  if (probeText && (query === probeText || query.includes(probeText) || probeText.includes(query))) return true;
+  if (tokens.length && tokens.every((t) => query.includes(t))) return true;
+  return false;
+}
+
+function summarizeSearchOutcome(probe, stats) {
+  const { hits, queries, errors, hitIndexers, failedIndexers, zeroHitIndexers, topHitIndexers } = stats;
+  const hitCount = topHitIndexers.length;
+  const zeroCount = zeroHitIndexers.length;
+  if (errors > 0 && hits > 0) {
+    const good = hitIndexers.slice(0, 3).join(', ');
+    const bad = failedIndexers.slice(0, 3).join(', ');
+    return {
+      kind: 'partial',
+      summary: `upstream found ${hits} hit${hits === 1 ? '' : 's'} but ${errors} indexer${errors === 1 ? '' : 's'} errored${good ? ` (${good})` : ''}${bad ? `; errors: ${bad}` : ''}`,
+    };
+  }
+  if (errors > 0) {
+    const names = failedIndexers.slice(0, 3).join(', ');
+    return {
+      kind: 'error',
+      summary: names ? `upstream error from ${names}` : 'upstream indexer error',
+    };
+  }
+  if (hits > 0) {
+    const names = hitIndexers.slice(0, 3).join(', ');
+    return {
+      kind: 'found',
+      summary: `upstream found ${hits} hit${hits === 1 ? '' : 's'} across ${hitCount} indexer${hitCount === 1 ? '' : 's'}${names ? ` (${names})` : ''}`,
+    };
+  }
+  if (queries > 0) {
+    const names = zeroCount ? zeroHitIndexers.slice(0, 3).join(', ') : '';
+    return {
+      kind: 'empty',
+      summary: `upstream returned 0 hits from ${queries} query${queries === 1 ? '' : 'ies'}${names ? ` (${names})` : ''}`,
+    };
+  }
+  return { kind: 'pending', summary: 'search dispatched; waiting for Prowlarr history' };
+}
+
+function probeSearchSeasons(probe, st) {
+  const seasons = new Set();
+  const fromProbe = Array.isArray(probe && probe.seasons) ? probe.seasons : [];
+  for (const s of fromProbe) {
+    const n = Number(s);
+    if (Number.isFinite(n) && n > 0) seasons.add(n);
+  }
+  const episodeCodes = (st && st.lastSearchEpisodes) || [];
+  for (const code of episodeCodes) {
+    const m = String(code || '').match(/S(\d{2})E(\d{2})/i);
+    if (m) seasons.add(Number(m[1]));
+  }
+  return [...seasons].sort((a, b) => a - b);
+}
+
+function summarizeReleaseDecision(rows) {
+  const rels = Array.isArray(rows) ? rows : [];
+  const rejected = [];
+  const accepted = [];
+  const reasonCounts = new Map();
+  for (const r of rels) {
+    const reasons = Array.isArray(r && r.rejections) && r.rejections.length
+      ? r.rejections.map((x) => String(x || '').trim()).filter(Boolean)
+      : (r && r.rejected ? ['rejected'] : []);
+    if (r && r.rejected) {
+      rejected.push(r);
+      for (const reason of reasons) reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
+    } else if (r) {
+      accepted.push(r);
+    }
+  }
+  const sortByScore = (a, b) => (Number(b.customFormatScore) || 0) - (Number(a.customFormatScore) || 0)
+    || (Number(b.seeders) || 0) - (Number(a.seeders) || 0)
+    || String(a.title || a.sourceTitle || '').localeCompare(String(b.title || b.sourceTitle || ''));
+  accepted.sort(sortByScore);
+  rejected.sort(sortByScore);
+  const reasonSummary = [...reasonCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 4)
+    .map(([reason, count]) => `${reason} (${count})`)
+    .join('; ');
+  const bestAccepted = accepted[0] || null;
+  const bestRejected = rejected[0] || null;
+  if (accepted.length) {
+    return {
+      kind: 'accepted',
+      summary: `Sonarr has ${accepted.length} acceptable release${accepted.length === 1 ? '' : 's'}${bestAccepted ? `; best is "${bestAccepted.title || bestAccepted.sourceTitle || 'candidate'}"` : ''}`,
+      acceptedCount: accepted.length,
+      rejectedCount: rejected.length,
+      bestAccepted,
+      bestRejected,
+      reasons: reasonSummary,
+    };
+  }
+  if (rejected.length) {
+    const bestLabel = bestRejected ? (bestRejected.title || bestRejected.sourceTitle || 'candidate') : 'candidate';
+    return {
+      kind: 'rejected',
+      summary: `Sonarr rejected all ${rejected.length} candidate${rejected.length === 1 ? '' : 's'}${reasonSummary ? `; top reasons: ${reasonSummary}` : ''}${bestRejected ? `; best rejected was "${bestLabel}"` : ''}`,
+      acceptedCount: 0,
+      rejectedCount: rejected.length,
+      bestAccepted: null,
+      bestRejected,
+      reasons: reasonSummary,
+    };
+  }
+  return {
+    kind: 'none',
+    summary: 'Sonarr returned no release candidates to evaluate',
+    acceptedCount: 0,
+    rejectedCount: 0,
+    bestAccepted: null,
+    bestRejected: null,
+    reasons: '',
+  };
+}
+
+// Clean a probe title ("Planet Earth (2006) — Seasons 1, 1, …") into a plain raw-search query
+// ("planet earth 2006") and pull out the year for match-scoring.
+function cleanSearchQuery(rawTitle) {
+  const base = String(rawTitle || '').split(' — ')[0].trim();       // drop the " — Seasons …" suffix
+  const ym = base.match(/(19|20)\d{2}/);
+  const query = base.replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim();
+  return { query, year: ym ? ym[0] : null };
+}
+const hasSeasonMarker = (t) => /s\d{1,2}e\d{1,3}|s\d{1,2}\b|season\s*\d+|\d+x\d+/i.test(String(t || ''));
+
+// Mobile-first hint formatting: phones are the primary device, so row hints must be SHORT. Full
+// detail stays in the event log / state for scripts. Collapse a verbose *arr rejection phrase to a
+// couple of words.
+function shortReason(r) {
+  const s = String(r || '');
+  if (/wrong series|unknown series|unable to identify/i.test(s)) return 'wrong/unknown series';
+  if (/not enough seeders|no seeders/i.test(s)) return 'dead swarm';
+  if (/meets cutoff|equal or higher preference/i.test(s)) return 'already have as good';
+  if (/not wanted in profile/i.test(s)) return 'quality not allowed';
+  if (/wasn.t requested|wrong season/i.test(s)) return 'season/episode mismatch';
+  return s.replace(/\s*\(\d+\)\s*$/, '').replace(/:.*$/, '').trim().slice(0, 24);
+}
+// Truncate any free-text hint to a phone-friendly length.
+const clampHint = (s, n = 68) => { const t = String(s || '').trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
+
+// THE SEARCH GAP: releases that are healthy upstream (raw Prowlarr text search) but never became
+// Sonarr candidates — e.g. year-named full-series packs with no S01 marker, which structured
+// tvsearch drops before the rejection list. `candidates` is Sonarr's /release set (to diff against).
+async function probeSearchGap(rawTitle, candidates) {
+  const { query, year } = cleanSearchQuery(rawTitle);
+  if (!query) return null;
+  const titleTokens = searchTokens(query.replace(/(19|20)\d{2}/, '')); // series-name tokens, sans year
+  let results = null;
+  try {
+    results = await tfetchJson(`${HOST.prowlarr}/api/v1/search?query=${encodeURIComponent(query)}&type=search&limit=200`,
+      { headers: { 'X-Api-Key': cfg.PROWLARR_KEY || '' } }, 12000).catch(() => null);
+  } catch { /* best-effort */ }
+  if (!Array.isArray(results)) return null;
+  const candTitles = new Set((Array.isArray(candidates) ? candidates : [])
+    .map((c) => normSearchText(c.title || c.sourceTitle || '')));
+  const isTv = (r) => (r.categories || []).some((c) => { const n = Number(c && (c.id != null ? c.id : c)); return n >= 5000 && n < 6000; });
+  const matchesSeries = (t) => { const nt = normSearchText(t); return titleTokens.every((tok) => nt.includes(tok)) && (!year || nt.includes(year)); };
+  const misses = results.filter((r) => Number(r.seeders) >= 1 && isTv(r) && matchesSeries(r.title)
+    && !candTitles.has(normSearchText(r.title)));
+  if (!misses.length) return null;
+  misses.sort((a, b) => (Number(b.seeders) || 0) - (Number(a.seeders) || 0));
+  const best = misses[0];
+  const reasonClass = !hasSeasonMarker(best.title) ? 'no-season-marker' : 'not-a-candidate';
+  return {
+    query,
+    upstreamHealthy: misses.length,
+    reasonClass,
+    best: { title: best.title, seeders: Number(best.seeders) || 0, indexer: best.indexer || null, guid: best.guid || null, indexerId: best.indexerId != null ? best.indexerId : null },
+    summary: `${misses.length} healthy release${misses.length === 1 ? '' : 's'} exist in raw search but were not season-search candidates (${reasonClass}); best: "${best.title}" (${Number(best.seeders) || 0} seeders)`,
+  };
+}
+
+function clearSearchProbe(key) {
+  const t = searchProbeTimers.get(key);
+  if (t) clearTimeout(t);
+  searchProbeTimers.delete(key);
+}
+
+function trackSearchDispatch(app, item, meta = {}) {
+  const key = `${app}:${item.id}`;
+  clearSearchProbe(key);
+  const now = meta.searchAt || Date.now();
+  const st = searchState.get(key) || {};
+  const probe = {
+    id: (st.searchProbe && st.searchProbe.id || 0) + 1,
+    at: now,
+    title: item.title,
+    query: meta.query || item.title || '',
+    mode: meta.mode || (app === 'radarr' ? 'MoviesSearch' : 'EpisodeSearch'),
+    manual: !!meta.manual,
+    attempts: 0,
+    tokens: searchTokens(meta.query || item.title || ''),
+  };
+  Object.assign(st, {
+    lastReason: meta.manual ? 'manual_retry' : 'search',
+    lastAt: now,
+    lastMode: probe.mode,
+    lastSearchTitle: item.title,
+    lastSearchQuery: probe.query,
+    lastOutcomeKind: meta.manual ? 'pending' : 'pending',
+    lastOutcomeSummary: meta.manual ? 'manual retry in progress' : 'search in progress',
+    lastOutcomeAt: now,
+    searchProbe: probe,
+  });
+  if (meta.episodeCodes && meta.episodeCodes.length) st.lastSearchEpisodes = meta.episodeCodes;
+  searchState.set(key, st);
+  searchProbeTimers.set(key, setTimeout(() => probeSearchOutcome(app, item.id, probe.id), SEARCH_PROBE_INITIAL_MS));
+  return st;
+}
+
+async function probeSearchOutcome(app, id, probeId) {
+  const key = `${app}:${id}`;
+  const st = searchState.get(key);
+  if (!st || !st.searchProbe || st.searchProbe.id !== probeId) return;
+  const probe = st.searchProbe;
+  const age = Date.now() - probe.at;
+  if (age > SEARCH_PROBE_MAX_AGE_MS) {
+    // The probe never confirmed within its window (Prowlarr history never matched, or the
+    // controller was restarted mid-probe and by the time we rehydrated it had aged out). Finalize
+    // with an explicit terminal outcome so the row doesn't hang on "search in progress" forever.
+    if (st.lastOutcomeKind === 'pending') {
+      const summary = 'search dispatched; outcome unconfirmed (probe timed out)';
+      Object.assign(st, { lastOutcomeKind: 'unknown', lastOutcomeSummary: summary, lastOutcomeAt: Date.now(), lastReason: 'search_unconfirmed' });
+      searchState.set(key, st);
+      persistState();
+      metrics.emitEvent('search_outcome', { ap: app, id, ti: probe.title, mode: probe.mode, manual: probe.manual, kind: 'unknown', summary, attempt: probe.attempts || 0 });
+    }
+    clearSearchProbe(key);
+    return;
+  }
+  let history = null;
+  let indexers = null;
+  try {
+    [history, indexers] = await Promise.all([
+      tfetchJson(`${HOST.prowlarr}/api/v1/history?pageSize=200&sortKey=date&sortDirection=descending`, { headers: { 'X-Api-Key': cfg.PROWLARR_KEY || '' } }, 8000).catch(() => null),
+      cachedFetch('indexers:snapshot', 60000, getIndexerSnapshot, { degradedNames: [] }).catch(() => null),
+    ]);
+  } catch { /* best-effort */ }
+
+  const rows = (history && history.records) || [];
+  const idxById = new Map(((indexers && indexers.indexers) || []).map((ix) => [ix.id, ix.name]));
+  const matched = rows.filter((r) => r.eventType === 'indexerQuery'
+    && r.date
+    && new Date(r.date).getTime() >= probe.at - 5000
+    && new Date(r.date).getTime() <= Date.now() + 5000
+    && searchProbeMatchesTarget(probe, r));
+
+  if (!matched.length) {
+    const nextAttempt = (probe.attempts || 0) + 1;
+    probe.attempts = nextAttempt;
+    st.searchProbe = probe;
+    searchState.set(key, st);
+    metrics.emitEvent('search_probe', { ap: app, id, ti: probe.title, mode: probe.mode, manual: probe.manual, attempt: nextAttempt, status: 'pending' });
+    if (nextAttempt < SEARCH_PROBE_MAX_ATTEMPTS && age < SEARCH_PROBE_MAX_AGE_MS) {
+      clearSearchProbe(key);
+      searchProbeTimers.set(key, setTimeout(() => probeSearchOutcome(app, id, probeId), SEARCH_PROBE_RETRY_MS));
+      return;
+    }
+    const summary = 'search dispatched; no matching Prowlarr history yet';
+    Object.assign(st, { lastOutcomeKind: 'pending', lastOutcomeSummary: summary, lastOutcomeAt: Date.now() });
+    searchState.set(key, st);
+    persistState();
+    metrics.emitEvent('search_outcome', { ap: app, id, ti: probe.title, mode: probe.mode, manual: probe.manual, kind: 'pending', summary, attempt: nextAttempt });
+    clearSearchProbe(key);
+    return;
+  }
+
+  const statsByIndexer = new Map();
+  const indexerErrors = [];
+  let hits = 0;
+  let errors = 0;
+  for (const r of matched) {
+    const name = idxById.get(r.indexerId) || `indexer-${r.indexerId}`;
+    const qRes = Number(r.data && r.data.queryResults) || 0;
+    const cur = statsByIndexer.get(name) || { queries: 0, hits: 0, errors: 0, maxElapsed: 0 };
+    cur.queries += 1;
+    cur.hits += qRes;
+    cur.errors += r.successful === false ? 1 : 0;
+    cur.maxElapsed = Math.max(cur.maxElapsed, Number(r.data && r.data.elapsedTime) || 0);
+    statsByIndexer.set(name, cur);
+    hits += qRes;
+    if (r.successful === false) {
+      errors += 1;
+      indexerErrors.push({
+        indexer: name,
+        query: r.data && r.data.query || null,
+        reason: r.data && (r.data.errorMessage || r.data.message || r.data.error || r.data.exception || r.data.responseMessage) || 'indexer query failed',
+        status: r.data && (r.data.statusCode || r.data.status || r.data.httpStatus) || null,
+        url: r.data && r.data.url || null,
+      });
+    }
+  }
+  const hitIndexers = [];
+  const failedIndexers = [];
+  const zeroHitIndexers = [];
+  const topHitIndexers = [];
+  for (const [name, stat] of statsByIndexer) {
+    if (stat.hits > 0) {
+      hitIndexers.push(name);
+      topHitIndexers.push(name);
+    } else {
+      zeroHitIndexers.push(name);
+    }
+    if (stat.errors > 0) failedIndexers.push(name);
+  }
+  const outcome = summarizeSearchOutcome(probe, { hits, queries: matched.length, errors, hitIndexers, failedIndexers, zeroHitIndexers, topHitIndexers });
+  const details = {
+    queries: matched.length,
+    hits,
+    errors,
+    indexers: [...statsByIndexer.entries()].map(([name, stat]) => ({ name, ...stat })),
+    indexerErrors,
+  };
+  let decision = null;
+  let gap = null;
+  if (app === 'sonarr' && outcome.kind !== 'pending') {
+    let releases = [];
+    try {
+      const seasons = probeSearchSeasons(probe, st);
+      for (const sn of seasons.length ? seasons : [1]) {
+        try {
+          const rows = await arrGet('sonarr', `/release?seriesId=${id}&seasonNumber=${sn}`, 30000);
+          if (Array.isArray(rows)) releases.push(...rows);
+        } catch { /* per-season query best-effort */ }
+      }
+      decision = summarizeReleaseDecision(releases);
+    } catch { /* best-effort */ }
+    // Nothing grabbable? Check whether healthy releases exist upstream that never became candidates.
+    if (!decision || decision.acceptedCount === 0) {
+      try { gap = await probeSearchGap(probe.title, releases); } catch { /* best-effort */ }
+    }
+  }
+  Object.assign(st, {
+    lastOutcomeKind: decision && decision.kind === 'rejected' ? 'rejected' : outcome.kind,
+    lastOutcomeSummary: decision && decision.summary ? decision.summary : outcome.summary,
+    lastOutcomeAt: Date.now(),
+    lastOutcomeDetails: details,
+    lastOutcomeDecision: decision,
+    lastSearchGap: gap,
+    lastReason: decision && decision.kind === 'rejected'
+      ? 'search_rejected'
+      : outcome.kind === 'error'
+        ? 'search_failed'
+        : outcome.kind === 'empty'
+          ? 'search_empty'
+          : 'search_found',
+  });
+  searchState.set(key, st);
+  persistState();
+  metrics.emitEvent('search_outcome', {
+    ap: app,
+    id,
+    ti: probe.title,
+    mode: probe.mode,
+    manual: probe.manual,
+    kind: outcome.kind,
+      summary: outcome.summary,
+      queries: matched.length,
+      hits,
+      errors,
+      indexers: [...statsByIndexer.keys()],
+      indexerErrors,
+    });
+  if (decision) {
+    metrics.emitEvent('search_decision', {
+      ap: app,
+      id,
+      ti: probe.title,
+      mode: probe.mode,
+      manual: probe.manual,
+      kind: decision.kind,
+      summary: decision.summary,
+      accepted: decision.acceptedCount,
+      rejected: decision.rejectedCount,
+      reasons: decision.reasons || null,
+      indexerErrors,
+    });
+    if (decision.kind === 'rejected') {
+      metrics.emitEvent('search_reject', {
+        ap: app,
+        id,
+        ti: probe.title,
+        mode: probe.mode,
+        manual: probe.manual,
+        summary: decision.summary,
+        reasons: decision.reasons || null,
+        indexerErrors,
+      });
+    }
+  }
+  if (gap) {
+    metrics.emitEvent('search_gap', {
+      ap: app,
+      id,
+      ti: probe.title,
+      query: gap.query,
+      upstreamHealthy: gap.upstreamHealthy,
+      reasonClass: gap.reasonClass,
+      best: gap.best && gap.best.title,
+      seeders: gap.best && gap.best.seeders,
+      indexer: gap.best && gap.best.indexer,
+    });
+  }
+  clearSearchProbe(key);
+}
+
+// Probe timers live only in memory (searchProbeTimers), but the probe object itself rides along in
+// searchState → state.json. So a controller restart mid-search would leave st.searchProbe persisted
+// with NO timer to resolve it — the row would show "search in progress" forever. On boot, walk the
+// restored state and re-arm (or finalize) any probe that was still pending when we went down.
+function rehydrateSearchProbes() {
+  const now = Date.now();
+  for (const [key, st] of searchState) {
+    const probe = st && st.searchProbe;
+    if (!probe || st.lastOutcomeKind !== 'pending') continue;
+    const [app, idStr] = key.split(':');
+    const id = Number(idStr);
+    if (!app || !Number.isFinite(id)) continue;
+    const age = now - (probe.at || 0);
+    if (age > SEARCH_PROBE_MAX_AGE_MS || (probe.attempts || 0) >= SEARCH_PROBE_MAX_ATTEMPTS) {
+      // Aged out while we were down — finalize so the UI doesn't hang on "pending".
+      const summary = 'search dispatched; outcome unconfirmed (controller restarted mid-search)';
+      Object.assign(st, { lastOutcomeKind: 'unknown', lastOutcomeSummary: summary, lastOutcomeAt: now, lastReason: 'search_unconfirmed' });
+      searchState.set(key, st);
+      metrics.emitEvent('search_outcome', { ap: app, id, ti: probe.title, mode: probe.mode, manual: probe.manual, kind: 'unknown', summary, attempt: probe.attempts || 0 });
+      continue;
+    }
+    // Still within its window — re-arm the timer. Give the *arr/Prowlarr stack a moment to come up
+    // after the restart before we poll history.
+    clearSearchProbe(key);
+    searchProbeTimers.set(key, setTimeout(() => probeSearchOutcome(app, id, probe.id), SEARCH_PROBE_INITIAL_MS));
+  }
+  persistState();
+}
+setTimeout(rehydrateSearchProbes, 8000);  // after loadState() + a brief settle for the *arr stack
+
 async function sweepBlocklist() {
   for (const app of ['radarr', 'sonarr']) {
     try {
@@ -2652,6 +3542,7 @@ async function arrSweep() {
         try {
           await arrDelete(app, `/queue/${s.queueId}?removeFromClient=true&blocklist=${s.blocklist}`);
           console.log(`arrSweep: removed stuck queue item id=${s.id} from ${app}${s.blocklist ? ' (blocklisted dead release)' : ''}`);
+          metrics.emitEvent('queue_clean', { ap: app, id: s.id, blocklisted: !!s.blocklist });
         } catch (e) { console.log(`arrSweep: failed to remove queue item id=${s.id} from ${app} — ${e.message || e}`); }
       }
 
@@ -2660,6 +3551,7 @@ async function arrSweep() {
           const body = new URLSearchParams({ hashes: stalledHashes.join('|'), deleteFiles: 'true' });
           await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
           console.log(`arrSweep: removed ${stalledHashes.length} stalled torrent(s) from qBittorrent`);
+          metrics.emitEvent('stall_clean', { count: stalledHashes.length });
         } catch (e) { console.log(`arrSweep: failed to remove stalled torrents — ${e.message || e}`); }
       }
 
@@ -2716,6 +3608,7 @@ async function arrSweep() {
           try {
             await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: losers.join('|'), deleteFiles: 'true' }) });
             console.log(`arrSweep: radarr id=${id} had ${ts.length} in-flight torrents — kept "${sorted[0].name}", removed ${losers.length} duplicate download(s)`);
+            metrics.emitEvent('dedup', { ap: 'radarr', id, kept: sorted[0].name, removed: losers.length });
           } catch (e) { console.log(`arrSweep: duplicate cleanup failed for radarr id=${id} — ${e.message || e}`); }
         }
         // Superseded copies: a movie with >1 COMPLETED torrent (old pre-upgrade/redownload copy still
@@ -2729,6 +3622,7 @@ async function arrSweep() {
           try {
             await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: losers.join('|'), deleteFiles: 'true' }) });
             console.log(`arrSweep: radarr id=${id} had ${ts.length} completed torrents — kept newest "${sorted[0].name}", removed ${losers.length} superseded copy(ies)`);
+            metrics.emitEvent('supersede', { ap: 'radarr', id, kept: sorted[0].name, removed: losers.length });
           } catch (e) { console.log(`arrSweep: superseded cleanup failed for radarr id=${id} — ${e.message || e}`); }
         }
       }
@@ -2744,7 +3638,8 @@ async function arrSweep() {
 
       const now = Date.now();
       const qIds = new Set(queue.map((q) => q.movieId || q.seriesId));
-      const needSearch = items.filter((i) => {
+      const needSearch = [];
+      for (const i of items) {
         // Sonarr: a series is "complete" only when every monitored, aired episode has a file.
         // The old `!!episodeFileCount` treated a series holding ANY file as done, so a partially
         // filled series (e.g. S1 present, S2–S4 missing) was cleared and NEVER recovered.
@@ -2752,16 +3647,39 @@ async function arrSweep() {
         const hasContent = app === 'radarr'
           ? !!i.hasFile
           : !!(ss && ss.episodeCount > 0 && ss.episodeFileCount >= ss.episodeCount);
-        if (hasContent) { searchKeyClear(app, i.id); return false; }             // got it — clear all state
-        if (i.monitored === false) return false;
-        if (qIds.has(i.id) || downloadingIds.has(i.id)) { noteResolved(app, i.id); return false; } // in flight — reset clock
+        if (hasContent) { searchKeyClear(app, i.id); noteResolved(app, i.id); continue; }             // got it — clear all state
+        if (i.monitored === false) continue;
+        // Future release (Radarr): don't search for content that hasn't been released yet.
+        if (app === 'radarr') {
+          const fDates = [i.inCinemas, i.physicalRelease, i.digitalRelease].filter(Boolean);
+          if (fDates.length && fDates.some(d => new Date(d).getTime() > now + 86400000)) continue;
+        }
+        if (qIds.has(i.id) || downloadingIds.has(i.id)) { noteResolved(app, i.id); continue; } // in flight — reset clock
         const firstMissing = noteMissing(app, i.id);                            // start/read the missing clock
         const st = searchState.get(`${app}:${i.id}`);
-        if (st && st.blockedUntil && st.blockedUntil > now) return false;        // negative-cached (no content)
-        if (now - firstMissing < RECOVERY_GRACE_MS) return false;               // still *arr's own job — don't interfere
-        if (st && st.ts && now - st.ts < SEARCH_COOLDOWN_MS) return false;       // already recovered recently
-        return true;
-      });
+        if (st && st.blockedUntil && st.blockedUntil > now) {
+          if (!st.lastOutcomeKind || st.lastOutcomeKind === 'pending') {
+            touchSearchState(app, i.id, { lastReason: 'blocked', lastAt: now });
+          }
+          metrics.emitEvent('search_skip', { ti: i.title, ap: app, id: i.id, reason: 'blocked', fails: st.fails || 0, next: st.blockedUntil });
+          continue;                                                               // negative-cached (no content)
+        }
+        if (now - firstMissing < RECOVERY_GRACE_MS) {
+          if (!st || !st.lastOutcomeKind || st.lastOutcomeKind === 'pending') {
+            touchSearchState(app, i.id, { lastReason: 'grace', lastAt: now });
+          }
+          metrics.emitEvent('search_skip', { ti: i.title, ap: app, id: i.id, reason: 'grace', next: firstMissing + RECOVERY_GRACE_MS });
+          continue;                                                               // still *arr's own job — don't interfere
+        }
+        if (st && st.ts && now - st.ts < SEARCH_COOLDOWN_MS) {
+          if (!st.lastOutcomeKind || st.lastOutcomeKind === 'pending') {
+            touchSearchState(app, i.id, { lastReason: 'cooldown', lastAt: now });
+          }
+          metrics.emitEvent('search_skip', { ti: i.title, ap: app, id: i.id, reason: 'cooldown', next: st.ts + SEARCH_COOLDOWN_MS, fails: st.fails || 0 });
+          continue;                                                               // already recovered recently
+        }
+        needSearch.push(i);
+      }
 
       if (needSearch.length) {
         // Up to 8 recovery searches per 5-min sweep — gentle on indexers, and it does NOT gate on
@@ -2778,32 +3696,49 @@ async function arrSweep() {
           // counter — if nothing is searchable (all missing episodes are unaired) we skip without
           // burning a "fail", so an airing show never gets negative-cached for episodes that
           // simply haven't come out yet.
-          let episodeIds = null;
+          let episodeRefs = null;
           if (app === 'sonarr') {
-            episodeIds = await missingEpisodeIds(item.id);
-            if (!episodeIds.length) continue;
+            episodeRefs = await missingEpisodes(item.id);
+            if (!episodeRefs.length) {
+              touchSearchState(app, item.id, { lastReason: 'no_searchable_episodes', lastAt: now });
+              metrics.emitEvent('search_skip', { ti: item.title, ap: app, id: item.id, reason: 'no_searchable_episodes' });
+              continue;
+            }
           }
           const st = searchState.get(key) || { ts: 0, fails: 0, blockedUntil: 0 };
           if (st.ts) st.fails = (st.fails || 0) + 1;   // a prior search left it with no content → it failed
-          st.ts = now;
           if (st.fails >= SEARCH_FAIL_LIMIT) {
             st.blockedUntil = now + SEARCH_BLOCK_MS;
             console.log(`arrSweep: ${app} "${item.title}" (${item.id}) searched ${st.fails}× with no grab — negative-caching 7d (manual retry clears)`);
+            metrics.emitEvent('block', { ti: item.title, ap: app, id: item.id, fails: st.fails });
           }
-          searchState.set(key, st);
           try {
             if (app === 'radarr') {
               await arrPost(app, '/command', { name: 'MoviesSearch', movieIds: [item.id] }, 5000);
+              st.ts = now;
+              searchState.set(key, st);
+              trackSearchDispatch(app, item, { searchAt: now, mode: 'MoviesSearch' });
               console.log(`arrSweep: triggered search for radarr "${item.title}" (${item.id})`);
+              metrics.emitEvent('search', { ti: item.title, ap: app, id: item.id, mode: 'MoviesSearch', fails: st.fails || 0 });
             } else {
               // EpisodeSearch (NOT SeriesSearch): SeriesSearch/SeasonSearch only look for whole-season
               // PACKS, which airing shows usually lack — so those searches find nothing and the season
               // never fills in. EpisodeSearch with explicit episode IDs makes Sonarr grab the
               // individual-episode releases that actually exist, one per missing episode.
+              const episodeIds = episodeRefs.map((e) => e.id);
               await arrPost(app, '/command', { name: 'EpisodeSearch', episodeIds }, 8000);
+              const episodeCodes = episodeRefs.map((e) => `S${String(e.seasonNumber).padStart(2, '0')}E${String(e.episodeNumber).padStart(2, '0')}`);
+              st.ts = now;
+              searchState.set(key, st);
+              trackSearchDispatch(app, item, { searchAt: now, mode: 'EpisodeSearch', episodeCodes });
               console.log(`arrSweep: triggered EpisodeSearch for sonarr "${item.title}" (${item.id}) — ${episodeIds.length} missing episode(s)`);
+              metrics.emitEvent('search', { ti: item.title, ap: app, id: item.id, mode: 'EpisodeSearch', fails: st.fails || 0, eps: episodeCodes });
             }
-          } catch (e) { console.log(`arrSweep: search trigger failed for ${item.id} — ${e.message || e}`); }
+          } catch (e) {
+            touchSearchState(app, item.id, { lastReason: 'trigger_failed', lastError: String(e.message || e), lastAt: now });
+            console.log(`arrSweep: search trigger failed for ${item.id} — ${e.message || e}`);
+            metrics.emitEvent('search_skip', { ti: item.title, ap: app, id: item.id, reason: 'trigger_failed', error: String(e.message || e) });
+          }
         }
         persistState();
       }
@@ -2903,6 +3838,7 @@ async function requestGate() {
         if (free == null) free = await freeUnderCap();
         blocked.set(key, { title: await arrTitle(app, id, seasons), neededBytes: hit.size, freeBytes: free, ts: prev ? prev.ts : now, lastCheck: now });
         console.log(`requestGate: "${key}" blocked on disk — best release ${hit.size} B vs ${free} B free`);
+        metrics.emitEvent('req_blocked', { key, sB: hit.size, free });
       } else blocked.delete(key);                       // stuck for a non-disk reason → don't flag
     }
   } finally { reqBusy = false; persistState(); }

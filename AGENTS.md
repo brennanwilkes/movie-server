@@ -9,7 +9,7 @@ findings + what's already fixed + open recommendations).
 
 ## System Overview
 
-Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loopback image cap (disabled). Services run as Docker containers via `docker compose`. The controller (`controller/server.js`) is the brain — it polls every service every 5s, builds a unified download view, and runs 6 background sweeps.
+Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loopback image cap (disabled). Services run as Docker containers via `docker compose`. The controller (`controller/server.js`) is the brain — it polls every service every 5s, builds a unified download view, and runs 7 background sweeps.
 
 ## File Map
 
@@ -25,6 +25,9 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `controller/web/index.html` | Dashboard shell |
 | `controller/web/style.css` | Dark theme (custom accent colors) |
 | `controller/Dockerfile` | Node 20 slim image |
+| `controller/metrics.js` | Time-series metrics + event log writer/reader (JSONL, zero deps) |
+| `scripts/query-metrics.sh` | CLI tool for ad-hoc metrics/event analysis |
+| `Makefile` → `metrics` | `make metrics a='system --stats cpu'` |
 | `scripts/bootstrap.sh` | One-time host prep: dirs, loopback image, fstab, .env |
 | `scripts/deploy.sh` | Pull + recreate containers |
 | `scripts/provision.sh` | Apply config-as-code to all services |
@@ -75,7 +78,7 @@ All ports: `docker-compose.yml:104`
 
 ## Controller Sweeps (server.js)
 
-The controller runs 6 background sweeps. Each is independent and has its own interval.
+The controller runs 7 background sweeps. Each is independent and has its own interval.
 
 | Sweep | Interval | File Lines | What it does |
 |-------|----------|------------|-------------|
@@ -126,6 +129,143 @@ HIST_TTL            = 20s        # history + library cache TTL
 QUEUE_TTL           = 8s         # *arr queue + qBit cache TTL
 ```
 
+## Metrics & Event Log System
+
+The controller records time-series metrics and pipeline events to append-only JSONL files on disk. Zero external dependencies — no database, no sidecar. Every sweep emits events alongside its `console.log()` calls.
+
+### Storage Layout
+
+```
+/config/metrics/  (→ /opt/appdata/controller/metrics/)
+├── system/       CPU%, RAM%, CPU temp°C         — every 10s
+├── services/     Service up/down (7 services)    — every 10s
+├── dl/           Aggregate pipeline snapshot     — every 10s
+├── disk/         Disk total/used/free            — every 300s
+└── events/       Discrete pipeline events        — per-occurrence
+```
+
+One file per day per stream: `YYYY-MM-DD.jsonl`. Each line is a JSON object. Streams rotate automatically at midnight. Data volume: ~2 MB/day at 10s sampling (~700 MB/year). 35 GB free on the SSD — non-issue for years.
+
+### Schemas
+
+| Stream | Fields | Example |
+|--------|--------|---------|
+| `system` | `t,cpu,mem,temp` | `{"t":1700000000,"cpu":45,"mem":34,"temp":72}` |
+| `disk` | `t,uGb,fGb,tGb,pct` | `{"t":1700000000,"uGb":3800,"fGb":3500,"tGb":7300,"pct":52}` |
+| `services` | `t,qb,ra,so,pr,ba,jf,js` (1=up) | `{"t":1700000000,"qb":1,"ra":1,"so":1,"pr":1,"ba":1,"jf":1,"js":1}` |
+| `dl` | `t,dl,im,rd,st,dq,spB,eta,rGb` | `{"t":1700000000,"dl":3,"im":1,"rd":120,"st":0,"dq":5,"spB":50000000,"eta":600,"rGb":4.7}` |
+| `events` | `t,e,...` (event-type-specific) | `{"t":1700000000,"e":"grab","ti":"Dune (2021)","ap":"radarr","sB":8000000000}` |
+
+### Event Types
+
+Every meaningful pipeline state change is logged. Events carry correlation keys (`ti`=title, `ap`=app, hash) so you can join pipeline phases (grab→dl_done→import_ok) to compute durations.
+
+| Event | Emitter | Data |
+|-------|---------|------|
+| `grab` | `refreshDownloads` (state transition) | ti, ap, sB |
+| `dl_done` | `refreshDownloads` (state transition) | ti, ap, dur(s) |
+| `import_ok` | `refreshDownloads` / `importWatchdog` | ti, ap, count |
+| `import_err` | `importWatchdog` (transient) | ti, ap, backoff |
+| `garbage` | `importWatchdog` (fake file) | ti, ap, fails, blocklisted |
+| `orphan` | `orphanSweep` / `importWatchdog` | ti/ap/count/type/source |
+| `zombie` | `orphanSweep` | count, ap |
+| `missing_start` | `buildDownloads` / `noteMissing` | ap, id |
+| `missing_clear` | `buildDownloads` / `noteResolved` | ap, id |
+| `search_skip` | `arrSweep` | ti, ap, id, reason, next?, fails?, error? |
+| `search` | `arrSweep` | ti, ap, id, mode, fails, eps? |
+| `search_probe` | `probeSearchOutcome` | ap, id, ti, mode, manual, attempt, status |
+| `search_outcome` | `probeSearchOutcome` | ap, id, ti, mode, manual, kind, summary, queries, hits, errors, indexers, indexerErrors |
+| `search_decision` | `probeSearchOutcome` | ap, id, ti, mode, manual, kind, summary, accepted, rejected, reasons, indexerErrors |
+| `search_reject` | `probeSearchOutcome` | ap, id, ti, mode, manual, summary, reasons, indexerErrors |
+| `search_gap` | `probeSearchOutcome` | ap, id, ti, query, upstreamHealthy, reasonClass, best, seeders, indexer — healthy releases found by a raw text search that never became season-search candidates (e.g. year-named full-series packs with no S01 marker) |
+| `force_grab` | `/api/force-grab` | ap, id, ti, rel, seeders, indexer — pushes the best search_gap release straight to Sonarr's grab API |
+| `block` | `arrSweep` (negative-cached) | ti, ap, id, fails |
+| `queue_clean` | `arrSweep` (stuck item) | ap, id, blocklisted |
+| `stall_clean` | `arrSweep` (dead magnets) | count |
+| `dedup` | `arrSweep` (duplicate torrents) | ap, id, kept, removed |
+| `supersede` | `arrSweep` (old copies) | ap, id, kept, removed |
+| `decline` | `diskGate` | ti, ap, sB, free |
+| `req_blocked` | `requestGate` | key, sB, free |
+| `abandon` | `stallRecovery` (*arr-orphaned) | ti, ap, reason |
+| `re_search` | `stallRecovery` (blocklisted) | ti, ap, attempt |
+| `accepted_rare` | `stallRecovery` (gave up) | ti, ap |
+| `swap_start` | `gpuVerifySweep` | ti, label, oldScore, newScore, seeds |
+| `swap_done` | `gpuVerifySweep` | ti |
+| `swap_abandon` | `gpuVerifySweep` (48h timeout) | ti, reason |
+| `swap_defer` | `gpuVerifySweep` (mid-watch) | ti, reason |
+| `swap_none` | `gpuVerifySweep` | ti, label, score |
+| `swap_fail` | `gpuVerifySweep` | ti, status |
+| `svc_down` | `metricsSweep` (transition) | svc |
+| `svc_up` | `metricsSweep` (transition) | svc |
+| `redownload` | `POST /api/redownload` | ti, tier, steps |
+
+### Querying
+
+**Through the API** (for charts / dashboard):
+```bash
+# List available streams + date ranges
+curl -s localhost:8088/api/metrics
+
+# Query a stream by time range (Unix seconds)
+curl -s "localhost:8088/api/metrics?stream=system&from=1700000000&to=1700003600&limit=100"
+```
+
+**Directly on disk** (for ad-hoc analysis with standard tools):
+```bash
+# Count events by type
+jq -r '.e' /opt/appdata/controller/metrics/events/2026-07-06.jsonl | sort | uniq -c | sort -rn
+
+# Pipeline timing: time from grab to download complete
+jq -s 'group_by(.ti) | .[] | select(length > 1) |
+  {title: .[0].ti, grab: .[0].t, done: (.[] | select(.e=="dl_done") | .t)}' \
+  /opt/appdata/controller/metrics/events/2026-07-06.jsonl
+
+# CPU spike detection
+jq 'select(.cpu > 95)' /opt/appdata/controller/metrics/system/2026-07-06.jsonl
+
+# Service outage timeline
+jq -r 'select(.e=="svc_down" or .e=="svc_up") | [.t, .e, .svc] | @tsv' \
+  /opt/appdata/controller/metrics/events/2026-07-06.jsonl
+
+# DuckDB (if available): full SQL on all metrics
+# duckdb -c "SELECT avg(cpu), max(cpu), min(cpu) FROM read_json_auto('/opt/appdata/controller/metrics/system/*.jsonl')"
+```
+
+**CLI tool** (`make metrics` / `./scripts/query-metrics.sh`):
+```bash
+make metrics a='system --stats cpu'          # CPU min/max/avg
+make metrics a='system --chart temp'         # ASCII sparkline of temps
+make metrics a='events --type svc_down'      # service outages
+make metrics a='events --type grab'          # all downloads
+make metrics a='dl --chart spB'              # download speed over time
+make metrics a='system --last 100'           # raw data points
+```
+
+### Correlation: Pipeline Duration
+
+Events carry timestamps and correlated identifiers (title, hash). To compute average pipeline phase durations:
+
+```bash
+# Download time from grab to dl_done (seconds)
+jq -s '[group_by(.ti)[] | select(length>1) |
+  {title: .[0].ti,
+   dl_dur: (map(select(.e=="dl_done"))[0].t - map(select(.e=="grab"))[0].t)} |
+  select(.dl_dur > 0)] | .[].dl_dur' events/2026-07-06.jsonl |
+awk '{sum+=$1; n++} END {print "avg download:", sum/n, "s"}'
+```
+
+### Code
+
+- **Writer**: `controller/metrics.js` — `recordSystem()`, `recordDisk()`, `recordServices()`, `recordDlSummary()`, `emitEvent()`, `queryMetrics()`, `listStreams()`, `stats()`
+- **Sweep**: `metricsSweep()` in `server.js` — runs every 10s via `setInterval`, reads in-memory CPU/dl, probes services, appends to JSONL. Tracks service up/down transitions.
+- **Event hooks**: 30+ `metrics.emitEvent()` calls across all sweeps at every meaningful action, immediately after the `console.log()`.
+- **Transition tracking**: `_knownDownloads` Map tracks torrent state transitions in `refreshDownloads` to detect `grab`/`dl_done`/`import_ok` events without duplicates.
+- **Endpoint**: `GET /api/metrics?stream=system&from=...&to=...&limit=N` returns filtered data from JSONL files.
+
+### Storage consideration
+
+At 10s sampling: ~2 MB/day, ~700 MB/year. 35 GB free on the SSD (root) where metrics live. Files are plain text, highly compressible (`gzip` shrinks JSONL ~8:1). To archive: `gzip /opt/appdata/controller/metrics/system/2026-07-06.jsonl` — the API skips gz files (only reads `.jsonl`), but unzip on demand for historical queries.
+
 ## Common Failure Modes
 
 ### "Why didn't X download?"
@@ -156,10 +296,14 @@ QUEUE_TTL           = 8s         # *arr queue + qBit cache TTL
 6. **Check indexers are actually up** → `./scripts/show-indexers.sh` (then `--test` / `--search "term"`)
    - If a whole search comes back thin/empty, an indexer is probably down, not the request
    - **Cloudflare-protected trackers (EZTV) MUST carry the `flaresolverr` tag** or they 403/blocked
-   - `error code: 1006` = the tracker IP-banned this host; FlareSolverr can NOT fix it — disable that
-     mirror and lean on **Knaben** (meta-aggregator over 30+ sites, incl. 1337x/RARBG/TGx)
-   - Indexer config is IaC in `scripts/provision/prowlarr.sh` (a self-healing reconciler); re-run
-     `make provision s=prowlarr` to restore tags/enable/priority after any manual UI change
+- `error code: 1006` = the tracker IP-banned this host; FlareSolverr can NOT fix it — disable that
+  mirror and lean on **Knaben** (meta-aggregator over 30+ sites, incl. 1337x/RARBG/TGx)
+- Indexer config is IaC in `scripts/provision/prowlarr.sh` (a self-healing reconciler); re-run
+  `make provision s=prowlarr` to restore tags/enable/priority after any manual UI change
+- Missing rows now carry `searchHint` from the controller (`sources degraded`, `cooldown`, `grace`, `trigger failed`) so you can see why a title is still sitting in `Searching…` / `Not found` without jumping into logs first.
+- Search retries now emit `search_probe` / `search_outcome` / `search_decision` / `search_reject` events and the dashboard will show upstream results directly (`upstream found ...`, `Sonarr rejected all ...`, `upstream returned 0 hits ...`, `upstream error ...`). Use `./scripts/query-metrics.sh events --type search_outcome` or `make metrics a='events --type search_outcome'` to audit them.
+- `search_outcome` and `search_decision` also carry `indexerErrors` so a bad TPB/EZTV/etc call is visible as an explicit failure reason instead of getting flattened into a generic "no grab" result.
+- No new Prowlarr config is required for this telemetry: the controller reads Prowlarr history through the API. If we ever need retention or logging changes, keep them in `scripts/provision/prowlarr.sh` so they stay IaC-managed.
 
 ### "Why was THIS release picked?" (codec/size/quality complaints)
 
@@ -174,6 +318,7 @@ QUEUE_TTL           = 8s         # *arr queue + qBit cache TTL
    `curl -s localhost:8088/api/library?app=radarr | jq '.items[]|select(.gpuCompat!="ok")|{title,videoLabel}'`
    — and `gpuVerifySweep` auto-swaps such files if imported <48h ago (log: `gpuVerify:`).
    Older files: dashboard Library tab → Redownload.
+5. For TV titles, use `make why q="Planet Earth" s=sonarr`; the helper now falls back to Sonarr and diagnoses the first available episode file instead of failing on a series title.
 
 ### "Why isn't this playing on the PS4?" (the projector console — long mislabelled "PS3")
 

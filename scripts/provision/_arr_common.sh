@@ -315,14 +315,16 @@ provision_arr() {
   CFID["Size 6-10 GB"]=$(cf_ensure "Size 6-10 GB" "[$(sz 6 10)]")
   CFID["Size 10-15 GB"]=$(cf_ensure "Size 10-15 GB" "[$(sz 10 15)]")
   CFID["Size >15 GB"]=$(cf_ensure "Size >15 GB" "[$(sz 15 99999)]")
-  # Language: prefer releases that CARRY the original-language audio; penalise explicit English dubs.
+  # Language: prefer releases that CARRY the original-language audio; REJECT explicit dubs.
   #   • "Original-language audio" matches releases whose language includes the title's original language
   #     (MULTi/DUAL releases match too — they contain the original alongside a dub, which is fine).
-  #   • "Dubbed" catches the explicit release-title marker (a dub-only rip). These ORDER releases (a big
-  #     +/- spread) but never gate: a foreign film with only-dub releases still grabs (something-over-
-  #     nothing) — this is a bias, not a guarantee. English subs are handled separately by Bazarr.
+  #   • "Dubbed" catches dub-only rips (e.g. "[Hindi Dub]", "[English Dub]", "dubbed"). The score is
+  #     so extreme (-100000) that it gates: any release matching this format scores below minFormatScore
+  #     (-10000) and is REJECTED entirely. Foreign films whose original language matches a dub language
+  #     (e.g. a Hindi film with Hindi audio) won't say "Dub" and will match Original-language audio
+  #     instead. English subs are handled separately by Bazarr.
   CFID["Original-language audio"]=$(cf_ensure "Original-language audio" "[$(lg -2 false)]")
-  CFID["Dubbed"]=$(cf_ensure "Dubbed" "[$(rt '(?i)\b(dubbed|dublado|dubbing)\b')]")
+  CFID["Dubbed"]=$(cf_ensure "Dubbed" "[$(rt '(?i)\b(dub|dubbed|dublado|dubbing)\b')]")
   # Movie-only: prefer the LONGER cut (Redux/Extended/Director's/Final/etc.) when one exists, and
   # nudge explicitly-labelled Theatrical down. Matched on the RELEASE TITLE (not Radarr's flaky
   # edition parser). Only affects the initial grab — an already-imported theatrical won't auto-swap
@@ -350,7 +352,7 @@ provision_arr() {
     jq -n --argjson ids "$CF_IDMAP" --arg tier "$1" --arg app "$app" '
       def sc($name):
         if   $name=="Original-language audio" then 200
-        elif $name=="Dubbed" then -800
+        elif $name=="Dubbed" then -100000
         elif $name=="Extended / Long Cut" then 500
         elif $name=="Theatrical Cut" then -100
         # Codec spread is DELIBERATELY asymmetric: H.264 is the only codec whose 8-bit-ness the
@@ -377,8 +379,7 @@ provision_arr() {
   # Shared policy (applied to each): FULL SD→1080p allow-list so
   #    resolution is never a hard gate; junk (CAM/TS/SCR/workprint), Remux (20–40 GB) and 2160p/4K
   #    (projector tops out at 1080p) stay OFF; cutoff = Bluray-1080p (the upgrade target — 1080p
-  #    preferred, 720p/SD the something-over-nothing fallback); minFormatScore=-10000 so nothing is
-  #    ever rejected; formatItems = the tier's codec+size scores.
+  #    preferred, 720p/SD the something-over-nothing fallback); minFormatScore=-10000 (Dubbed at -100000 gates; everything else passes); formatItems = the tier's codec+size scores.
   local schema; schema=$("${AG[@]}" "${base}/qualityprofile/schema")
   local cutid cut720
   cutid=$(jq 'first(..|objects|select(.quality?.name=="Bluray-1080p").quality.id)' <<<"$schema")

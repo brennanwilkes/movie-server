@@ -50,7 +50,9 @@ diagnose:   ## full stack health check
 test:       ## fast read-only PASS/FAIL assertions for the whole stack (run after any change)
 	./scripts/smoke-test.sh
 why:        ## why isn't this playing (well) on the PS4/projector? (make why q="Pulp Fiction")
-	./scripts/why-playback.sh "$(q)"
+	./scripts/why-playback.sh $(if $(filter sonarr,$(s)),--sonarr,--radarr) "$(q)"
+metrics:    ## query time-series metrics (make metrics a='system --stats cpu' or a='events --type grab')
+	./scripts/query-metrics.sh $(a)
 
 # --- VPN (ProtonVPN via gluetun; routes ONLY qBittorrent) — see VPN.md ---
 # vpn-up/off FORCE the topology for this run via env, so they work regardless of whether

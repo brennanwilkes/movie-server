@@ -218,14 +218,33 @@ function renderSystem(s) {
 }
 async function pollHome() {
   try {
-    const [status, disk, sys, vpn, ts] = await Promise.all([getJSON('/api/status'), getJSON('/api/disk'), getJSON('/api/system').catch(() => null), getJSON('/api/vpn').catch(() => null), getJSON('/api/tailscale').catch(() => null)]);
+    const [status, disk, sys, vpn, ts, ix] = await Promise.all([getJSON('/api/status'), getJSON('/api/disk'), getJSON('/api/system').catch(() => null), getJSON('/api/vpn').catch(() => null), getJSON('/api/tailscale').catch(() => null), getJSON('/api/indexers').catch(() => null)]);
     setOffline(false);
     $('#live-btn').hidden = true;
-    renderServices(withTailscale(withVPN(status, vpn), ts));
+    renderServices(withIndexerHealth(withTailscale(withVPN(status, vpn), ts), ix));
     lastDisk = disk;
     renderDisk(disk);
     renderSystem(sys);
   } catch { setOffline(true); renderLauncher(); }
+}
+
+// Show indexer health as a subtitle on the Prowlarr row ("Sources").
+// Green = all OK; amber = some indexers failing (shows count + names).
+function withIndexerHealth(rows, ix) {
+  if (!ix || !ix.indexers) return rows;
+  const r = rows.find((x) => x.id === 'prowlarr');
+  if (!r) return rows;
+  if (ix.degraded === 0) {
+    r.sub = 'All ' + ix.enabled + ' OK';
+    r.subClass = '';
+    r.dotClass = 'up';
+  } else {
+    const names = ix.indexers.filter((x) => x.enabled && !x.healthy).map((x) => x.name).join(', ');
+    r.sub = ix.degradedPct + '% degraded (' + names + ')';
+    r.subClass = 'warn';
+    r.dotClass = 'warn';
+  }
+  return rows;
 }
 
 // ── Downloads ──
@@ -235,20 +254,21 @@ function renderDownloads(items) {
   // Not found that's been negative-cached). Blue is anything actively progressing on its own —
   // including the post-download steps (subtitles/import/processing), not just live byte transfer.
   // Orange is everything else mid-recovery: stalled, still searching/retrying, not yet resolved.
-  const COLOR = { Declined: 'var(--danger)', 'Needs attention': 'var(--danger)', Error: 'var(--danger)', 'Ready': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--accent)', 'Getting subtitles': 'var(--accent)', Processing: 'var(--accent)', Stalled: 'var(--warn)', 'Not found': 'var(--warn)' };
+  const COLOR = { Declined: 'var(--danger)', 'Needs attention': 'var(--danger)', Error: 'var(--danger)', Unreleased: 'var(--muted)', 'Ready': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--accent)', 'Getting subtitles': 'var(--accent)', Processing: 'var(--accent)', Stalled: 'var(--warn)', 'Not found': 'var(--warn)' };
   $('#downloads').innerHTML = items.map((d) => {
     const eta = d.state === 'Downloading' ? fmtEta(d.etaSeconds) : '';
     // Show the % on anything mid-transfer (not just "Downloading") — a partially-grabbed torrent
     // that's currently Queued/Stalled has real progress, and the bar floats it near the top, so
     // the label must explain why ("Queued · 25% · 8.5 GB") instead of looking like it hasn't started.
     const pctShown = d.progress > 0 && d.progress < 100 ? d.progress + '%' : '';
+    const searchHint = d.searchHint ? ` · ${d.searchHint}` : '';
     const leftMeta = d.state === 'Declined'
       ? `Declined · Not enough disk space, needs ${fmtBytes(d.neededBytes)}, only ${fmtBytes(d.freeBytes)} free`
       : d.state === 'Not found'
-      ? `Not found · ${fmtRecovery(d)}`
+      ? `Not found · ${fmtRecovery(d)}${searchHint}`
       : d.state === 'Stalled' && d.stallGiveUpAt
       ? `Stalled · ${fmtGiveUp(d.stallGiveUpAt)}`
-      : [d.state, pctShown, d.sizeBytes > 0 ? fmtBytes(d.sizeBytes) : '', d.note].filter(Boolean).join(' · ');
+      : [d.state, pctShown, d.sizeBytes > 0 ? fmtBytes(d.sizeBytes) : '', d.note, d.searchHint].filter(Boolean).join(' · ');
     const color = COLOR[d.state] || '';
     const seedsShown = typeof d.seeds === 'number' ? `Seeds: ${d.seeds}` : '';
     const barW = (d.state === 'Declined' || d.attention) ? 100 : Math.min(100, d.progress);

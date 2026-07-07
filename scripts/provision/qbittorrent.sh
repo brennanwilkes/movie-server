@@ -72,7 +72,11 @@ prefs=$(jq -n --arg u "$QBIT_USER" --arg p "$QBIT_PASS" '{
   # for minimal benefit (trackers + PEX suffice). Kill it.
   dht: (if env.QBIT_HOST == "gluetun" then false else true end),
   pex: false,
-  lsd: false
+  lsd: false,
+  # Reject known-dangerous file extensions at download time so they never hit disk.
+  # Substring match — a filename containing ".exe" (e.g. "crack.exe") is excluded.
+  excluded_file_names_enabled: true,
+  excluded_file_names: ".exe\n.scr\n.com\n.bat\n.ps1\n.cmd\n.vbs\n.jar\n.msi\n.reg\n.dll\n.pif\n.gadget\n.application\n.msc\n.vb\n.jse\n.vbe\n.wsh\n.wsf\n.wsc"
 }')
 # When qBittorrent rides the VPN (QBIT_HOST=gluetun) the listening port is the one
 # ProtonVPN forwards, kept in sync by the gluetun-qb-portsync sidecar — so UPnP/NAT-PMP
