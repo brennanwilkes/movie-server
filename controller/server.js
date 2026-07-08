@@ -884,7 +884,11 @@ async function buildDownloads() {
         const dec = st.lastOutcomeDecision;
         if (st.lastSearchGap && st.lastSearchGap.best) {
           // Most actionable: a healthy release exists but structured search can't reach it.
-          searchHint.push(`${st.lastSearchGap.best.seeders}-seed release found, not season-searchable`);
+          const g = st.lastSearchGap;
+          const b = g.best;
+          const shortTitle = String(b.title || '').replace(/ *\[.*?\]/g, '').replace(/ *\(.*?\)/g, '').trim().slice(0, 36);
+          const why = g.reasonClass === 'no-season-marker' ? 'no S01 marker' : 'not a candidate';
+          searchHint.push(clampHint(`"${shortTitle}" (${b.seeders} seeders) — ${why}`));
         } else if (dec && dec.rejectedCount && !dec.acceptedCount) {
           const reasons = String(dec.reasons || '').split(';').map(shortReason)
             .filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 2).join(', ');
@@ -2637,8 +2641,9 @@ app.post('/api/retry', async (req, res) => {
 
 // Force-grab the best "search gap" release — one that's healthy upstream (raw text search) but that
 // Sonarr's structured season-search never surfaced (e.g. a year-named full-series pack with no S01
-// marker). Pushes the release straight to Sonarr's grab API, bypassing the tvsearch that hid it.
-// This is the "and select it" path: the user has decided to accept the release (incl. its codec).
+// marker). Adds the release to qBittorrent directly via its magnet link or infoHash (bypassing the
+// broken Prowlarr POST /api/v1/search grab path). Sonarr's download client monitor will pick it up
+// from the qBittorrent queue and import it when complete.
 app.post('/api/force-grab', async (req, res) => {
   const { app: a, id } = req.body || {};
   if (a !== 'sonarr' || id == null) return res.status(400).json({ error: 'body must be {app:"sonarr",id}' });
@@ -2648,24 +2653,21 @@ app.post('/api/force-grab', async (req, res) => {
     // Prefer a fresh raw search so we grab a currently-seeded release; fall back to the cached gap.
     const title = st.lastSearchTitle || (st.searchProbe && st.searchProbe.title) || await arrTitle(a, Number(id), []);
     let gap = await probeSearchGap(title, []);
-    if ((!gap || !gap.best || !gap.best.guid) && st.lastSearchGap) gap = st.lastSearchGap;
-    if (!gap || !gap.best || !gap.best.guid) return res.status(404).json({ error: 'no grabbable gap release found' });
-    const { guid, indexerId, title: relTitle, seeders } = gap.best;
-    // Grab via PROWLARR, not Sonarr: Sonarr's POST /release only grabs releases from its OWN search
-    // cache, and these year-named packs never appear there (that's the whole gap). Prowlarr's grab
-    // pushes the torrent straight to the configured download client. (Sonarr won't auto-import an
-    // unmatched pack — it lands in qBittorrent for a manual import.)
-    const gr = await tfetch(`${HOST.prowlarr}/api/v1/search`,
-      { method: 'POST', headers: { 'X-Api-Key': cfg.PROWLARR_KEY || '', 'Content-Type': 'application/json' }, body: JSON.stringify({ guid, indexerId }) }, 20000);
-    if (!gr.ok) throw new Error(`prowlarr grab → HTTP ${gr.status}`);
+    if ((!gap || !gap.best) && st.lastSearchGap) gap = st.lastSearchGap;
+    if (!gap || !gap.best) return res.status(404).json({ error: 'no grabbable gap release found' });
+    const rel = gap.best;
+    const { title: relTitle, seeders } = rel;
+    // Add directly to qBittorrent via magnet link or infoHash. Sonarr monitors the "sonarr" category
+    // and will pick up the download, match it to the series, and import the files.
+    const result = await grabGapRelease(rel, 'sonarr');
     searchKeyClear(a, Number(id));
     Object.assign(st, { lastReason: 'force_grab', lastAt: Date.now(), lastOutcomeKind: 'grabbing', lastOutcomeSummary: `force-grabbed "${relTitle}"`, lastOutcomeAt: Date.now(), lastError: null });
     searchState.set(key, st);
     persistState();
-    metrics.emitEvent('force_grab', { ap: a, id: Number(id), ti: title, rel: relTitle, seeders, indexer: gap.best.indexer });
-    console.log(`force-grab: sonarr id=${id} → "${relTitle}" (${seeders} seeders)`);
+    metrics.emitEvent('force_grab', { ap: a, id: Number(id), ti: title, rel: relTitle, seeders, indexer: rel.indexer, method: result.method });
+    console.log(`force-grab: sonarr id=${id} → "${relTitle}" (${seeders} seeders, ${result.method})`);
     bustDownloadsCache();
-    res.json({ ok: true, grabbed: relTitle, seeders });
+    res.json({ ok: true, grabbed: relTitle, seeders, method: result.method });
   } catch (e) {
     const msg = String(e.message || e);
     metrics.emitEvent('force_grab', { ap: a, id: Number(id), error: msg });
@@ -3194,31 +3196,79 @@ const clampHint = (s, n = 68) => { const t = String(s || '').trim(); return t.le
 // tvsearch drops before the rejection list. `candidates` is Sonarr's /release set (to diff against).
 async function probeSearchGap(rawTitle, candidates) {
   const { query, year } = cleanSearchQuery(rawTitle);
-  if (!query) return null;
+  if (!query) { console.log(`probeSearchGap: "${rawTitle}" → null (empty query)`); return null; }
   const titleTokens = searchTokens(query.replace(/(19|20)\d{2}/, '')); // series-name tokens, sans year
   let results = null;
   try {
-    results = await tfetchJson(`${HOST.prowlarr}/api/v1/search?query=${encodeURIComponent(query)}&type=search&limit=200`,
-      { headers: { 'X-Api-Key': cfg.PROWLARR_KEY || '' } }, 12000).catch(() => null);
-  } catch { /* best-effort */ }
-  if (!Array.isArray(results)) return null;
+    const url = `${HOST.prowlarr}/api/v1/search?query=${encodeURIComponent(query)}&type=search&limit=100`;
+    results = await tfetchJson(url,
+      { headers: { 'X-Api-Key': cfg.PROWLARR_KEY || '' } }, 25000).catch((e) => { console.log(`probeSearchGap: tfetchJson failed for "${query}": ${e?.message || e}`); return null; });
+  } catch (e) { console.log(`probeSearchGap: catch for "${query}": ${e?.message || e}`); }
+  if (!Array.isArray(results)) { console.log(`probeSearchGap: "${query}" → ${results ? 'non-array result' : 'null'} (candidates=${Array.isArray(candidates) ? candidates.length : 'N/A'})`); return null; }
+  console.log(`probeSearchGap: "${query}" → ${results.length} raw results, candidates=${Array.isArray(candidates) ? candidates.length : 'N/A'}`);
   const candTitles = new Set((Array.isArray(candidates) ? candidates : [])
     .map((c) => normSearchText(c.title || c.sourceTitle || '')));
   const isTv = (r) => (r.categories || []).some((c) => { const n = Number(c && (c.id != null ? c.id : c)); return n >= 5000 && n < 6000; });
   const matchesSeries = (t) => { const nt = normSearchText(t); return titleTokens.every((tok) => nt.includes(tok)) && (!year || nt.includes(year)); };
-  const misses = results.filter((r) => Number(r.seeders) >= 1 && isTv(r) && matchesSeries(r.title)
-    && !candTitles.has(normSearchText(r.title)));
-  if (!misses.length) return null;
-  misses.sort((a, b) => (Number(b.seeders) || 0) - (Number(a.seeders) || 0));
+  const filtered = results.filter((r) => Number(r.seeders) >= 1);
+  const tvFiltered = filtered.filter((r) => isTv(r));
+  const seriesFiltered = tvFiltered.filter((r) => matchesSeries(r.title));
+  const misses = seriesFiltered.filter((r) => !candTitles.has(normSearchText(r.title)));
+  console.log(`probeSearchGap: "${query}" → seeders>=1:${filtered.length} isTv:${tvFiltered.length} matchesSeries:${seriesFiltered.length} notInCandidates:${misses.length}`);
+  if (!misses.length) { console.log(`probeSearchGap: "${query}" → null (no misses after all filters)`); return null; }
+  misses.sort((a, b) => {
+    // Grabbable releases (magnet guid or infoHash) sort above non-grabbable ones regardless of
+    // seed count. A release with no magnet and no infoHash can only be grabbed via Prowlarr's
+    // broken POST /api/v1/search path, so prefer the ones we can add to qBittorrent directly.
+    const grabbable = (r) => String(r.guid || '').startsWith('magnet:') || !!r.infoHash;
+    const ga = grabbable(a) ? 1 : 0, gb = grabbable(b) ? 1 : 0;
+    if (ga !== gb) return gb - ga;
+    const sa = Number(b.seeders) || 0, sb = Number(a.seeders) || 0;
+    if (sa !== sb) return sa - sb;
+    // Same seeder count: prefer releases with larger size (better quality).
+    return (Number(b.size) || 0) - (Number(a.size) || 0);
+  });
   const best = misses[0];
   const reasonClass = !hasSeasonMarker(best.title) ? 'no-season-marker' : 'not-a-candidate';
   return {
     query,
     upstreamHealthy: misses.length,
     reasonClass,
-    best: { title: best.title, seeders: Number(best.seeders) || 0, indexer: best.indexer || null, guid: best.guid || null, indexerId: best.indexerId != null ? best.indexerId : null },
+    best: {
+      title: best.title,
+      seeders: Number(best.seeders) || 0,
+      indexer: best.indexer || null,
+      guid: best.guid || null,
+      indexerId: best.indexerId != null ? best.indexerId : null,
+      magnetUrl: best.magnetUrl || null,
+      infoHash: best.infoHash || null,
+      size: best.size || null,
+      downloadUrl: best.downloadUrl || null,
+    },
     summary: `${misses.length} healthy release${misses.length === 1 ? '' : 's'} exist in raw search but were not season-search candidates (${reasonClass}); best: "${best.title}" (${Number(best.seeders) || 0} seeders)`,
   };
+}
+
+// Add a gap release straight to qBittorrent's queue. The release may come from any indexer;
+// TPB results carry a magnet `guid`; for others we construct one from `infoHash`.
+async function grabGapRelease(rel, category = 'sonarr') {
+  let addUrl = null;
+  let method = null;
+  if (rel.guid && String(rel.guid).startsWith('magnet:')) {
+    addUrl = rel.guid;
+    method = 'magnet';
+  } else if (rel.infoHash) {
+    addUrl = `magnet:?xt=urn:btih:${String(rel.infoHash).toUpperCase()}&dn=${encodeURIComponent(String(rel.title || 'unknown'))}`;
+    method = 'infohash';
+  }
+  if (!addUrl) throw new Error('gap release has no magnet guid or infoHash');
+  const params = new URLSearchParams({ urls: addUrl, category, tags: 'gap-auto' });
+  const r = await qbit.fetch('/api/v2/torrents/add', { method: 'POST', body: params }, 20000);
+  if (!r.ok) {
+    const text = await r.text().catch(() => '');
+    throw new Error(`qBittorrent add → HTTP ${r.status}${text ? ': ' + text.slice(0, 200) : ''}`);
+  }
+  return { ok: true, method, addUrl };
 }
 
 function clearSearchProbe(key) {
@@ -3378,7 +3428,38 @@ async function probeSearchOutcome(app, id, probeId) {
     } catch { /* best-effort */ }
     // Nothing grabbable? Check whether healthy releases exist upstream that never became candidates.
     if (!decision || decision.acceptedCount === 0) {
-      try { gap = await probeSearchGap(probe.title, releases); } catch { /* best-effort */ }
+      // The probe title may lack a year (Sonarr series title = "Planet Earth" not "Planet Earth (2006)").
+      // A bare "Planet Earth" Prowlarr query is too broad and times out → gap probe fails silently.
+      // Fetch the year from Sonarr and append it so the query is fast + targeted.
+      let gapTitle = probe.title;
+      if (app === 'sonarr' && !/(19|20)\d{2}/.test(gapTitle)) {
+        try {
+          const series = await arrGet(app, `/series/${id}`, 6000);
+          if (series && series.year) gapTitle = `${gapTitle} ${series.year}`;
+        } catch { /* best-effort */ }
+      }
+      try { gap = await probeSearchGap(gapTitle, releases); } catch (e) { console.log(`probeSearchOutcome: gap probe threw: ${e?.message || e}`); }
+      if (gap) {
+        console.log(`probeSearchOutcome: gap found for "${probe.title}" (${id}) — "${gap.best.title}" (${gap.best.seeders} seeders, ${gap.reasonClass})`);
+      } else {
+        console.log(`probeSearchOutcome: gap probe returned null for "${probe.title}" (${id}) — Prowlarr returned no matching releases (check indexers, query timeouts)`);
+        // If gap is null, the correct releases may be IN the candidate set but were
+        // rejected by Sonarr's parser (false negative, like "Carl Sagans Cosmos 1980...").
+        // Retry with empty candidates (same as force-grab endpoint).
+        if (app === 'sonarr') {
+          console.log(`probeSearchOutcome: retrying with empty candidates (rejected-false-negative fallback) for "${probe.title}" (${id})`);
+          try { gap = await probeSearchGap(gapTitle, []); } catch (e) { console.log(`probeSearchOutcome: fallback gap probe threw: ${e?.message || e}`); }
+          if (gap) {
+            gap.reasonClass = 'rejected-false-negative';
+            gap.summary = gap.summary.replace(/not.*candidates/, 'correct release was rejected by Sonarr parser');
+            console.log(`probeSearchOutcome: false-negative gap found for "${probe.title}" (${id}) — "${gap.best.title}" (${gap.best.seeders} seeders)`);
+          } else {
+            console.log(`probeSearchOutcome: false-negative fallback also returned null for "${probe.title}" (${id})`);
+          }
+        }
+      }
+    } else {
+      console.log(`probeSearchOutcome: skipping gap probe for "${probe.title}" (${id}) — decision=${decision.kind} accepted=${decision.acceptedCount}`);
     }
   }
   Object.assign(st, {
@@ -3451,6 +3532,46 @@ async function probeSearchOutcome(app, id, probeId) {
       seeders: gap.best && gap.best.seeders,
       indexer: gap.best && gap.best.indexer,
     });
+    // Auto-grab for single-season Sonarr series: if all missing episodes are in season 1, a
+    // year-named full-series pack (no S01 marker) is guaranteed to map to the only season,
+    // so grab the best gap release directly into qBittorrent.
+    //
+    // DISABLED (2026-07-07): this path adds torrents STRAIGHT to qBittorrent, bypassing Sonarr's
+    // quality profile, language gate, and dedup. Combined with the gap probe's loose title matching
+    // it auto-grabbed WRONG shows (e.g. "Cosmos Possible Worlds"/Russian "Космос" for Cosmos 1980)
+    // and unfiltered foreign-language packs. The gap is still surfaced in the UI (searchHint above);
+    // acquisition now goes only through the MANUAL /api/force-grab button, which the user drives.
+    const AUTO_GRAB_ENABLED = false;
+    if (AUTO_GRAB_ENABLED && app === 'sonarr' && gap.best && (gap.best.guid || gap.best.infoHash)) {
+      try {
+        const series = await arrGet('sonarr', `/series/${id}`, 6000);
+        if (series && Array.isArray(series.seasons)) {
+          const regSeasons = series.seasons.filter((s) => s.seasonNumber > 0 && s.monitored);
+          const onlyS1 = regSeasons.length === 1 && regSeasons[0].seasonNumber === 1;
+          if (onlyS1) {
+            const result = await grabGapRelease(gap.best, 'sonarr');
+            console.log(`arrSweep: auto-grab for single-season sonarr "${probe.title}" (${id}) → "${gap.best.title}" (${gap.best.seeders} seeders, ${result.method})`);
+            Object.assign(st, {
+              lastReason: 'auto_grab',
+              lastAt: Date.now(),
+              lastOutcomeKind: 'grabbing',
+              lastOutcomeSummary: `auto-grabbing "${gap.best.title}" (${gap.best.seeders} seeders)`,
+              lastOutcomeAt: Date.now(),
+            });
+            metrics.emitEvent('force_grab', {
+              ap: app, id, ti: probe.title, rel: gap.best.title,
+              seeders: gap.best.seeders, indexer: gap.best.indexer,
+              method: result.method, auto: true,
+            });
+            searchState.set(key, st);
+            persistState();
+            bustDownloadsCache();
+          }
+        }
+      } catch (e) {
+        console.log(`arrSweep: auto-grab failed for sonarr ${id} — ${e.message || e}`);
+      }
+    }
   }
   clearSearchProbe(key);
 }
@@ -3665,6 +3786,10 @@ async function arrSweep() {
           continue;                                                               // negative-cached (no content)
         }
         if (now - firstMissing < RECOVERY_GRACE_MS) {
+          // Grace applies to EVERY missing item, including never-searched ones. This is what makes
+          // a controller restart safe: firstMissing resets to now on restart, so the whole missing
+          // library sits in grace instead of triggering an immediate mass EpisodeSearch (which made
+          // Sonarr re-grab everything — including wrong-language/duplicate releases — every restart).
           if (!st || !st.lastOutcomeKind || st.lastOutcomeKind === 'pending') {
             touchSearchState(app, i.id, { lastReason: 'grace', lastAt: now });
           }

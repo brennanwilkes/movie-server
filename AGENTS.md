@@ -177,8 +177,8 @@ Every meaningful pipeline state change is logged. Events carry correlation keys 
 | `search_outcome` | `probeSearchOutcome` | ap, id, ti, mode, manual, kind, summary, queries, hits, errors, indexers, indexerErrors |
 | `search_decision` | `probeSearchOutcome` | ap, id, ti, mode, manual, kind, summary, accepted, rejected, reasons, indexerErrors |
 | `search_reject` | `probeSearchOutcome` | ap, id, ti, mode, manual, summary, reasons, indexerErrors |
-| `search_gap` | `probeSearchOutcome` | ap, id, ti, query, upstreamHealthy, reasonClass, best, seeders, indexer — healthy releases found by a raw text search that never became season-search candidates (e.g. year-named full-series packs with no S01 marker) |
-| `force_grab` | `/api/force-grab` | ap, id, ti, rel, seeders, indexer — pushes the best search_gap release straight to Sonarr's grab API |
+| `search_gap` | `probeSearchOutcome` | ap, id, ti, query, upstreamHealthy, reasonClass, best, seeders, indexer — healthy releases found by a raw text search that never became season-search candidates (e.g. year-named full-series packs with no S01 marker); triggers auto-grab via `grabGapRelease` (qBittorrent direct-add) for single-season Sonarr series |
+| `force_grab` | `/api/force-grab` / `probeSearchOutcome`(auto) | ap, id, ti, rel, seeders, indexer, method, auto?, error? — adds to qBittorrent via magnet/infoHash direct-add (`grabGapRelease`); manual endpoint (`auto` absent) or single-season Sonarr auto-grab (`auto: true`); `error` on failure |
 | `block` | `arrSweep` (negative-cached) | ti, ap, id, fails |
 | `queue_clean` | `arrSweep` (stuck item) | ap, id, blocklisted |
 | `stall_clean` | `arrSweep` (dead magnets) | count |
@@ -304,6 +304,10 @@ At 10s sampling: ~2 MB/day, ~700 MB/year. 35 GB free on the SSD (root) where met
 - Search retries now emit `search_probe` / `search_outcome` / `search_decision` / `search_reject` events and the dashboard will show upstream results directly (`upstream found ...`, `Sonarr rejected all ...`, `upstream returned 0 hits ...`, `upstream error ...`). Use `./scripts/query-metrics.sh events --type search_outcome` or `make metrics a='events --type search_outcome'` to audit them.
 - `search_outcome` and `search_decision` also carry `indexerErrors` so a bad TPB/EZTV/etc call is visible as an explicit failure reason instead of getting flattened into a generic "no grab" result.
 - No new Prowlarr config is required for this telemetry: the controller reads Prowlarr history through the API. If we ever need retention or logging changes, keep them in `scripts/provision/prowlarr.sh` so they stay IaC-managed.
+- **Gap release grabbing**: `grabGapRelease(rel, category)` helper adds a gap release to qBittorrent via `POST /api/v2/torrents/add` using `rel.guid` if it starts with `magnet:`, otherwise constructing a magnet link from `rel.infoHash`. Sets category=sonarr so Sonarr's download client monitor picks up the import. Used by both the manual force-grab endpoint and single-season Sonarr auto-grab.
+- **probeSearchGap sort order**: grabbable releases (magnet guid or infoHash) sort above non-grabbable ones regardless of seed count. The best release object captures `magnetUrl`, `infoHash`, `size`, `downloadUrl`.
+- **Auto-grab for single-season Sonarr**: in `probeSearchOutcome`, after emitting `search_gap`, the code fetches the series from Sonarr and auto-grabs via `grabGapRelease` if the series has exactly one monitored regular season (season 1). Log prefix: `arrSweep: auto-grab for single-season sonarr`.
+- **UI hint for search gaps** now shows the best gap release title (truncated), seeders, and specific reason (e.g. "no S01 marker" or "not a candidate") instead of a generic "N-seed release found, not season-searchable".
 
 ### "Why was THIS release picked?" (codec/size/quality complaints)
 
@@ -425,6 +429,10 @@ curl -s http://localhost:8088/api/system | python3 -m json.tool
 # Rebuild collections + re-register home shelves NOW (don't wait for the schedule).
 # Handy right after a boot, or after bulk imports. 409 if a sweep is already running.
 curl -X POST http://localhost:8088/api/collections/build
+
+# Force-grab the best search_gap release for a Sonarr series (adds to qBittorrent via magnet/infoHash).
+# Use sonarr id from the URL or from the dashboard row's _id field.
+curl -X POST http://localhost:8088/api/force-grab -H 'Content-Type: application/json' -d '{"app":"sonarr","id":104}'
 
 # Cross-service diagnosis
 ./scripts/diagnose.sh

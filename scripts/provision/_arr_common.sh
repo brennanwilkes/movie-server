@@ -325,6 +325,13 @@ provision_arr() {
   #     instead. English subs are handled separately by Bazarr.
   CFID["Original-language audio"]=$(cf_ensure "Original-language audio" "[$(lg -2 false)]")
   CFID["Dubbed"]=$(cf_ensure "Dubbed" "[$(rt '(?i)\b(dub|dubbed|dublado|dubbing)\b')]")
+  # HARD GATE: reject any release whose parsed language does NOT include the title's TMDb original
+  # language. `lg -2 true` = LanguageSpecification(Original, exceptLanguage=true) → matches releases
+  # that are NOT in the original language (e.g. a SWEDiSH Planet Earth, a KOREAN Lost, a Spanish
+  # X-Files). Scored -100000 so it drops below minFormatScore (-10000) and is REJECTED entirely —
+  # "original language only". MULTi/DUAL releases still include the original, so they don't match and
+  # pass. This closes the gap where foreign rips that aren't literally tagged "dub" scored ~0 and slipped through.
+  CFID["Non-original language (reject)"]=$(cf_ensure "Non-original language (reject)" "[$(lg -2 true)]")
   # Movie-only: prefer the LONGER cut (Redux/Extended/Director's/Final/etc.) when one exists, and
   # nudge explicitly-labelled Theatrical down. Matched on the RELEASE TITLE (not Radarr's flaky
   # edition parser). Only affects the initial grab — an already-imported theatrical won't auto-swap
@@ -353,6 +360,7 @@ provision_arr() {
       def sc($name):
         if   $name=="Original-language audio" then 200
         elif $name=="Dubbed" then -100000
+        elif $name=="Non-original language (reject)" then -100000
         elif $name=="Extended / Long Cut" then 500
         elif $name=="Theatrical Cut" then -100
         # Codec spread is DELIBERATELY asymmetric: H.264 is the only codec whose 8-bit-ness the
@@ -379,7 +387,10 @@ provision_arr() {
   # Shared policy (applied to each): FULL SD→1080p allow-list so
   #    resolution is never a hard gate; junk (CAM/TS/SCR/workprint), Remux (20–40 GB) and 2160p/4K
   #    (projector tops out at 1080p) stay OFF; cutoff = Bluray-1080p (the upgrade target — 1080p
-  #    preferred, 720p/SD the something-over-nothing fallback); minFormatScore=-10000 (Dubbed at -100000 gates; everything else passes); formatItems = the tier's codec+size scores.
+  #    preferred, 720p/SD the something-over-nothing fallback); minFormatScore=-10000 (Dubbed AND
+  #    non-original-language both gate at -100000; everything else passes); upgradeAllowed=false so an
+  #    imported file is NEVER auto-replaced/auto-deleted — upgrades happen only via manual Interactive
+  #    Search; formatItems = the tier's codec+size scores.
   local schema; schema=$("${AG[@]}" "${base}/qualityprofile/schema")
   local cutid cut720
   cutid=$(jq 'first(..|objects|select(.quality?.name=="Bluray-1080p").quality.id)' <<<"$schema")
@@ -396,7 +407,7 @@ provision_arr() {
       | (if $tier=="low"
           then ["Unknown","WORKPRINT","CAM","TELESYNC","TELECINE","REGIONAL","DVDSCR","SDTV","DVD","DVD-R","WEB 480p","Bluray-480p","Bluray-576p","HDTV-1080p","WEB 1080p","Bluray-1080p","Bluray-720p","HDTV-720p","WEB 720p","Remux-1080p","HDTV-2160p","WEB 2160p","Bluray-2160p","Remux-2160p","BR-DISK","Raw-HD"]
           else null end) as $order
-      | .name=$n | .upgradeAllowed=true | .cutoff=$cut | .minFormatScore=-10000 | .cutoffFormatScore=0 | .formatItems=$it
+      | .name=$n | .upgradeAllowed=false | .cutoff=$cut | .minFormatScore=-10000 | .cutoffFormatScore=0 | .formatItems=$it
       | .items=(.items|map(
           if (.quality and .quality.name) then ((.quality.name) as $qn | .allowed=(($allow|index($qn))!=null))
           elif (.items!=null and .items!=[]) then (.name as $gn | (($gallow|index($gn))!=null) as $ga | .allowed=$ga | .items=(.items|map(.allowed=$ga)))
