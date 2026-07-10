@@ -62,6 +62,26 @@ jf_add_library() {  # name  collectionType  path
 jf_add_library Movies movies   /media/movies
 jf_add_library TV     tvshows  /media/tv
 
+# 3a2. Trust local NFO metadata. *arr's Kodi/Emby consumer (enabled in _arr_common.sh) writes
+#      tvshow.nfo / episode NFO carrying the exact tvdbid. With the NFO reader ON, Jellyfin pins
+#      each folder to that id INSTEAD of fuzzy-parsing filenames — which is what let a year-less
+#      "Cosmos" folder match the wrong show (2014 vs 1980) and scattered messy releases into
+#      phantom seasons. Non-destructive: libraries with no NFO fall back to the online agents.
+jf_enable_nfo_reader() {  # name — idempotently put 'Nfo' first in LocalMetadataReaderOrder
+  local vf
+  vf=$(curl -fsS "$JF/Library/VirtualFolders" -H "X-Emby-Token: $token" | jq --arg n "$1" '.[]|select(.Name==$n)')
+  [[ -n "$vf" ]] || { warn "  could not find library '$1' to enable NFO reader"; return; }
+  if [[ "$(jq -r '.LibraryOptions.LocalMetadataReaderOrder // [] | index("Nfo") // "no"' <<<"$vf")" != "no" ]]; then
+    ok "library '$1' NFO reader already on"; return
+  fi
+  jq '{Id: .ItemId, LibraryOptions: (.LibraryOptions | .LocalMetadataReaderOrder=["Nfo"])}' <<<"$vf" \
+    | curl -fsS -X POST "$JF/Library/VirtualFolders/LibraryOptions" \
+        -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+  ok "library '$1' NFO local-metadata reader enabled"
+}
+jf_enable_nfo_reader TV
+jf_enable_nfo_reader Movies
+
 # 3b. Auto-collections: group movies into TMDb box sets (trilogies/sagas) automatically —
 #     zero new software, big browse win. Idempotent, same pattern as trickplay below.
 vf=$(curl -fsS "$JF/Library/VirtualFolders" -H "X-Emby-Token: $token" | jq '.[]|select(.Name=="Movies")')
@@ -155,6 +175,30 @@ for lib_name in Movies TV; do
     ok "trickplay set for '$lib_name' (on, generated off-hours by the 03:00 task)"
   fi
 done
+
+# 5b. Cap the "Generate Trickplay Images" task so it can't run past its off-hours window.
+#     The task ships as a DailyTrigger at 03:00 with NO MaxRuntimeTicks. On a large backlog
+#     (fresh library, many slow-decoding x265 10-bit files) a single run takes far longer than
+#     one night and keeps ffmpeg pinned all day and into primetime — the exact thing section 5
+#     tried to avoid. Cap it at 4h so it only runs 03:00–07:00. Trickplay is incremental, so it
+#     resumes the next night and the backlog clears over several nights without ever touching
+#     daytime. Same 4h cap Jellyfin already ships on "Extract Chapter Images".
+#     Ticks are 100ns: 03:00 = 108000000000 ; 4h cap = 144000000000.
+log "  capping Generate Trickplay Images at 4h (03:00–07:00 window)"
+tp_id=$(curl -fsS "$JF/ScheduledTasks" -H "X-Emby-Token: $token" | jq -r '.[]|select(.Key=="RefreshTrickplayImages").Id // empty')
+if [[ -z "$tp_id" ]]; then
+  warn "  trickplay task not found, skipping runtime cap"
+else
+  cur=$(curl -fsS "$JF/ScheduledTasks" -H "X-Emby-Token: $token" | jq -c --arg id "$tp_id" '.[]|select(.Id==$id).Triggers')
+  if jq -e 'length==1 and .[0].Type=="DailyTrigger" and .[0].TimeOfDayTicks==108000000000 and .[0].MaxRuntimeTicks==144000000000' <<<"$cur" >/dev/null 2>&1; then
+    ok "trickplay task already capped at 4h"
+  else
+    curl -fsS -X POST "$JF/ScheduledTasks/$tp_id/Triggers" \
+      -H "X-Emby-Token: $token" -H 'Content-Type: application/json' \
+      -d '[{"Type":"DailyTrigger","TimeOfDayTicks":108000000000,"MaxRuntimeTicks":144000000000}]' >/dev/null
+    ok "trickplay task capped: DailyTrigger 03:00 + 4h MaxRuntime"
+  fi
+fi
 
 # 6. Apply custom CSS (scyfin + OLED + red accent + polish).
 #     Pure CSS injected via the branding config — no plugin needed.

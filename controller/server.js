@@ -516,7 +516,12 @@ const getHasFileMap = (app) => cachedFetch(`hasFile:${app}`, HIST_TTL, async () 
   }
   return { hasFile, nameIds };
 }, { hasFile: new Map(), nameIds: new Map() });
-const torrentApp = (t) => { const c = (t.category || '').toLowerCase(); return (c === 'radarr' || c === 'sonarr' || c === 'tv-sonarr') ? (c === 'tv-sonarr' ? 'sonarr' : c) : null; };
+// `sonarr-force` is the manual force-grab category. It is NOT one of Sonarr's monitored download
+// categories (Sonarr's client uses `sonarr`), so Sonarr's Completed Download Handling never sees
+// these torrents and can't auto-import a mis-parsed release into the wrong series. The controller's
+// watchdog owns their import (always with the user-chosen seriesId). Here it still maps to 'sonarr'
+// so the Downloads UI groups/renders it like any other Sonarr download.
+const torrentApp = (t) => { const c = (t.category || '').toLowerCase(); return (c === 'radarr' || c === 'sonarr' || c === 'tv-sonarr' || c === 'sonarr-force') ? (c === 'radarr' ? 'radarr' : 'sonarr') : null; };
 
 // Per-series episodeId -> hasFile, so we can ask "does the library already hold the exact episodes
 // this torrent contains" (series-level hasFile is too coarse — true if ANY episode is present).
@@ -639,6 +644,8 @@ async function jellyfinReady(app, arrId, completionOn) {
 // Per-folder import-rescue state (NOT sticky): the watchdog retries with backoff, and
 // a title flips to "Ready" the moment *arr reports hasFile — regardless of this.
 const importState = new Map(); // folder -> { lastTry, reason }
+const forceGrabImport = new Map(); // infoHash -> { app, id, seriesTitle, folder: null } — post-force-grab import guarantee
+const completedForceGrabs = new Map(); // infoHash -> { id } — force-grabs the watchdog has fully imported; lets buildDownloads render them Ready (their ManualImport carries no downloadId, so *arr history isn't keyed to the hash)
 const knownInLibrary = new Set(); // torrent hash -> tracked for event-driven scan
 const _knownDownloads = new Map(); // hash -> { title, app, prog, imported, ts } — download transition tracking for metrics
 const _emittedEvents = new Set();  // `${event}:${hash}` dedup for metrics events
@@ -718,7 +725,12 @@ async function buildDownloads() {
     const qrec = app ? queues[app].get(h) : null;
     // Ground truth, independent of qBittorrent's (post-crash) progress/state: has *arr actually
     // imported this release into the library?
-    const hi = app && hist[app] && hist[app].get(h);
+    let hi = app && hist[app] && hist[app].get(h);
+    // Force-grabs import via a downloadId-less ManualImport, so *arr history isn't keyed to this
+    // hash and `hi` stays null. Once the watchdog confirms every episode landed it records the
+    // series in completedForceGrabs — synthesize the history entry so the row resolves to Ready
+    // (and never falls into the recover/"Importing"-forever path below).
+    if (!hi && app === 'sonarr' && completedForceGrabs.has(h)) hi = { id: completedForceGrabs.get(h).id, imported: true, size: 0 };
     // Has *arr actually imported THIS torrent? `hi.imported` is per-downloadId (an import event
     // referenced this exact hash) and is authoritative for both apps. The hasFile fallback (for a
     // cold history cache after restart) is RADARR-ONLY: a movie's hasFile is 1:1 with its torrent,
@@ -784,13 +796,28 @@ async function buildDownloads() {
       } else {                                      // downloaded but *arr has NOT imported it
         // Authoritative check first: is the library already holding this release's content? (cold
         // history cache after restart / aged-out window would otherwise flag imported titles.)
-        const owned = !hi ? await arrOwns(app, t.name, hasFile[app], nameIds[app]) : null;
+        const owned = await arrOwns(app, t.name, hasFile[app], nameIds[app]);
         if (owned) state = await resolveLibraryState(app, { id: owned.id, imported: true, size: 0 }, t);
         else {
-          recover = { app, folder: t.content_path, id: hi && hi.id, hash: h };
-          const reason = (importState.get(t.content_path) || {}).reason;
-          if (reason) { state = 'Needs attention'; attention = true; }
-          else state = 'Importing';               // the watchdog will import it shortly
+          // Fresh completions (≤1 day old) may still be picked up by the import watchdog →
+          // keep them as "Importing". Older completions with no queue entry and no confirmed
+          // import are almost certainly fine — the history window aged out the import event.
+          if (forceGrabImport.has(h) || (t.category || '').toLowerCase() === 'sonarr-force') {
+            // Force-grabs are owned EXCLUSIVELY by the watchdog pre-pass (importViaGrab, which knows
+            // the user-chosen series). NEVER emit a recover for a sonarr-force torrent: the generic
+            // recover runs importViaManual with no expectedId, and on an unparseable release its
+            // "Unknown Series" branch DELETES the folder with deleteFiles:true — this is what wiped
+            // Cosmos 1980. Gating on the CATEGORY (not just the hash map) keeps this safe even if the
+            // bookkeeping entry is briefly missing (e.g. right after a restart, before recover runs).
+            state = 'Importing';
+          } else if ((t.completion_on || 0) > 0 && now - t.completion_on > DAY) {
+            state = 'Likely imported';
+          } else {
+            recover = { app, folder: t.content_path, id: hi && hi.id, hash: h };
+            const reason = (importState.get(t.content_path) || {}).reason;
+            if (reason) { state = 'Needs attention'; attention = true; }
+            else state = 'Importing';             // the watchdog will import it shortly
+          }
         }
       }
     } else {
@@ -846,7 +873,18 @@ async function buildDownloads() {
   const beingFetched = (app, it) => {
     const tn = norm(it.title); if (!tn) return false;
     const yr = it.year ? String(it.year) : '';
-    return catTorNames[app].some((n) => (n === tn || n.startsWith(tn + ' ')) && (!yr || n.includes(yr)));
+    return catTorNames[app].some((n) => {
+      if ((n === tn || n.startsWith(tn + ' ')) && (!yr || n.includes(yr))) return true;
+      // Match title appearing anywhere as a word sequence (force-grabbed releases often
+      // prepend the uploader name or add suffixes before the title, e.g. "Carl Sagans Cosmos 1980...")
+      const idx = n.indexOf(tn);
+      if (idx >= 0) {
+        const before = idx === 0 || n[idx - 1] === ' ';
+        const after = idx + tn.length >= n.length || n[idx + tn.length] === ' ';
+        if (before && after && (!yr || n.includes(yr))) return true;
+      }
+      return false;
+    });
   };
   try {
     for (const app of ['radarr', 'sonarr']) {
@@ -854,7 +892,7 @@ async function buildDownloads() {
       try { list = await arrGet(app, app === 'radarr' ? '/movie' : '/series', 8000); } catch { continue; }
       for (const it of list) {
         const id = it.id;
-        const hasF = app === 'radarr' ? !!it.hasFile : (it.statistics && it.statistics.episodeFileCount) > 0;
+        const hasF = app === 'radarr' ? !!it.hasFile : !!(it.statistics && it.statistics.episodeCount > 0 && it.statistics.episodeFileCount >= it.statistics.episodeCount);
         if (hasF || it.monitored === false) { noteResolved(app, id); continue; }
         if (appIdsInQueue[app].has(id) || shownIds[app].has(id) || beingFetched(app, it)) { noteResolved(app, id); continue; }   // in queue / linked / freshly-grabbed torrent → not missing
         // Future release: movie hasn't been released yet → show Unreleased, don't mark missing.
@@ -1267,7 +1305,7 @@ async function registerHssShelf() {
     }
   } catch (e) { console.log(`hssShelf: registration failed — ${e?.message || e}`); }
 }
-setInterval(registerHssShelf, 600000);   // every 10 min: survives Jellyfin restarts, tracks hourly rotation
+setInterval(registerHssShelf, 1800000);   // every 30 min: survives Jellyfin restarts, tracks hourly rotation (was 10min; shelf doesn't churn that fast)
 // Boot self-heal: on a cold start the box sets don't exist yet, so a bare shelf registration has
 // nothing to show. Wait for Jellyfin to answer, build the collections FIRST, then register shelves
 // off the fresh sets — no 3-min gap where the home page is empty. bootSequence() is defined below
@@ -1303,6 +1341,351 @@ async function importViaManual(app, folder, expectedId) {
   const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'ManualImport', importMode: 'auto', files }) }, 90000);
   return { ok: cmd.ok, count: files.length, reason: cmd.ok ? null : `command HTTP ${cmd.status}` };
 }
+
+// Season-alias rescue (Sonarr only, rare). Some TVDB series merge two differently-numbered shows
+// into one entry — e.g. "Cosmos (2014)" = S01 "A Spacetime Odyssey" (2014) + S02 "Possible Worlds"
+// (2020). A "Possible Worlds" release numbers its files in its OWN season 1 (Cosmos.S01E01…), but
+// Sonarr grabbed them as the parent series' season 2. At import Sonarr blocks every file:
+// "Episode 1x01 was unexpected considering the …Possible.Worlds.S01… folder name". This remaps
+// each file to the exact episode Sonarr ITSELF grabbed this download for, matched by episode
+// NUMBER — so we never guess a season. The target comes from Sonarr HISTORY (the grabbed events for
+// this downloadId), which is DURABLE: it survives the queue being cleared once Sonarr stops tracking
+// the blocked import (the queue empties, so it can't be the source). Returns {ok:false} and no-ops
+// if history has no grab or nothing matches. Only ever called as a fallback AFTER the normal import
+// already failed with the season-mismatch rejection, so the happy path is untouched.
+async function importViaSeasonRemap(folder, seriesIdHint, hash) {
+  const { base, key } = arrOf('sonarr');
+  // 1. Episodes Sonarr GRABBED this exact download for, from history (durable). Per-episode grab
+  //    records carry episodeId + seriesId but not the episode NUMBER — resolve those below. The
+  //    seriesId also comes from here (once the queue is gone, the caller's rec.id can be null).
+  let grabbedEids = [], seriesId = seriesIdHint != null ? seriesIdHint : null;
+  try {
+    const hr = await arrGet('sonarr', `/history?pageSize=500&sortKey=date&sortDirection=descending&downloadId=${String(hash).toUpperCase()}`, 15000);
+    for (const r of (hr.records || [])) {
+      if ((r.eventType || '').toLowerCase() !== 'grabbed') continue;
+      if (r.episodeId) grabbedEids.push(r.episodeId);
+      if (r.seriesId != null) seriesId = r.seriesId;
+    }
+  } catch { return { ok: false, reason: 'season-remap: history unavailable' }; }
+  grabbedEids = [...new Set(grabbedEids)];
+  if (!grabbedEids.length || seriesId == null) return { ok: false, reason: 'season-remap: no grabbed episodes in history' };
+  // 2. Resolve grabbed episodeIds → episodeNumber, keyed for lookup by the files' embedded numbers.
+  const target = new Map();
+  try {
+    const eps = await arrGet('sonarr', `/episode?seriesId=${seriesId}`, 30000);
+    const want = new Set(grabbedEids);
+    for (const e of (eps || [])) if (want.has(e.id) && e.episodeNumber != null) target.set(e.episodeNumber, e.id);
+  } catch { return { ok: false, reason: 'season-remap: episode table unavailable' }; }
+  if (!target.size) return { ok: false, reason: 'season-remap: grabbed episodes not resolved' };
+  const r = await tfetch(`${base}/manualimport?folder=${encodeURIComponent(folder)}&filterExistingFiles=true`, { headers: { 'X-Api-Key': key } }, 90000);
+  if (!r.ok) return { ok: false, reason: `season-remap: manualimport HTTP ${r.status}` };
+  const files = [];
+  for (const c of await r.json()) {
+    if (!c.path) continue;
+    // Embedded episode number: prefer Sonarr's own parse, else pull E## / S##E## from the filename.
+    const emb = (c.episodes || [])[0];
+    let epNum = emb && emb.episodeNumber != null ? emb.episodeNumber : null;
+    if (epNum == null) { const m = path.basename(c.path).match(/[ ._-]S\d+E(\d+)[ ._-]/i) || path.basename(c.path).match(/[ ._-]E(\d+)[ ._-]/i); if (m) epNum = parseInt(m[1], 10); }
+    if (epNum == null) continue;
+    const tid = target.get(epNum);
+    if (tid == null) continue;
+    files.push({ path: c.path, quality: c.quality, languages: c.languages || [], releaseGroup: c.releaseGroup || '', seriesId, episodeIds: [tid], downloadId: String(hash).toUpperCase() });
+  }
+  if (!files.length) return { ok: false, reason: 'season-remap: no files matched grabbed episode numbers' };
+  const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'ManualImport', importMode: 'auto', files }) }, 90000);
+  return { ok: cmd.ok, count: files.length, reason: cmd.ok ? null : `season-remap: command HTTP ${cmd.status}` };
+}
+
+// Maximum-aggression force-grab import for Sonarr. Gap releases reachable only via text search
+// are, by definition, the ones Sonarr's structured parser can't handle. Their filenames are
+// unreliable — no S01E##, wrong series name, year-suffixed, dot-separated nothingburgers.
+// This function tries 4 strategies in order, falling through on emptiness:
+//
+//   1. Sonarr /manualimport — handles releases that parse fine despite the text-search detour
+//   2. Episode-number extraction — regex patterns (S01E03, E03, 03, scene-numbered) against
+//      the filename, looked up in the series' full episode table
+//   3. Episode-title fuzzy match — strip the series name, match remaining words against Sonarr's
+//      episode titles (handles "Planet Earth 03 Fresh Water" → "Fresh Water" → S01E03)
+//   4. Sequential fill — sort video files by name, assign to first missing monitored episodes in
+//      order (last resort; works for season packs whose filenames have no recognizable pattern
+//      at all but are known to be a contiguous season)
+async function importViaGrab(app, folder, expectedId) {
+  const { base, key } = arrOf(app);
+
+  // ── Scan video files directly so we have ground truth ──
+  let onDiskVideos = [];
+  try {
+    const entries = await fs.promises.readdir(folder);
+    for (const e of entries) {
+      const ext = path.extname(e).toLowerCase();
+      if (VIDEO_EXT.has(ext)) onDiskVideos.push(path.join(folder, e));
+    }
+  } catch {}
+  onDiskVideos.sort();
+
+  // ── Fetch full episode table for this series ──
+  let allEps = [], episodeCount = 0, episodeFileCount = 0;
+  if (expectedId) {
+    try {
+      const sr = await tfetch(`${base}/episode?seriesId=${expectedId}`, { headers: { 'X-Api-Key': key } }, 30000);
+      if (sr.ok) {
+        allEps = await sr.json();
+        const statsR = await tfetch(`${base}/series/${expectedId}`, { headers: { 'X-Api-Key': key } }, 8000);
+        if (statsR.ok) {
+          const s = await statsR.json();
+          if (s.statistics) { episodeCount = s.statistics.episodeCount || 0; episodeFileCount = s.statistics.episodeFileCount || 0; }
+        }
+      }
+    } catch {}
+  }
+
+  // Maps for fast lookup: key = "season:episode" → episode object, key = "season:episode" → id
+  const epByKey = new Map();
+  const epByTitle = new Map(); // lowercase title → episode id (for fuzzy match)
+  for (const ep of allEps) {
+    const k = `${ep.seasonNumber}:${ep.episodeNumber}`;
+    epByKey.set(k, ep);
+    if (ep.title) epByTitle.set(ep.title.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim(), ep.id);
+  }
+
+  // Helper: extract episode id from a filename using regex + episode table
+  function resolveEpisode(filename) {
+    // Patterns ordered most → least specific
+    const patterns = [
+      /[ ._-]S(\d+)E(\d+)[ ._-]/i,
+      /[ ._-]S(\d+)[ ._-]+E(\d+)[ ._-]/i,
+      /[ ._-]E(\d+)[ ._-]/i,
+      /[ ._-]0*(\d+)[ ._-][vV]\d+/,
+      /[ ._-](\d{2})[ ._-]/,
+      /[ ._-](\d)[ ._-]/,
+    ];
+    for (const pat of patterns) {
+      const m = filename.match(pat);
+      if (!m) continue;
+      if (m[2] !== undefined) {
+        const eid = epByKey.get(`${parseInt(m[1],10)}:${parseInt(m[2],10)}`);
+        if (eid) return eid.id;
+      } else if (m[1] !== undefined) {
+        const num = parseInt(m[1], 10);
+        if (num >= 1 && num <= 50) {
+          const eid = epByKey.get(`1:${num}`);
+          if (eid) return eid.id;
+        }
+      }
+    }
+    // Episode-title fuzzy match: strip common noise, check remaining words
+    const cleaned = filename
+      .replace(path.extname(filename), '')
+      .replace(/[._()\[\]{}\-]/g, ' ')
+      .replace(/\d{3,}p/g, '')           // 1080p, 720p
+      .replace(/\bx265\b|\bx264\b|\bh265\b|\bh264\b|\bhevc\b|\bavc\b|\bav1\b|\bvp9\b/gi, '')
+      .replace(/\b\d{4}\b/g, '')          // years
+      .replace(/\b\d+x\d+\b/g, '')        // resolutions
+      .replace(/\s+/g, ' ').trim().toLowerCase();
+    const words = cleaned.split(/\s+/).filter(w => w.length > 2);
+    for (const [title, epId] of epByTitle) {
+      const titleWords = title.split(/\s+/);
+      const matchCount = titleWords.filter(tw => words.includes(tw)).length;
+      if (matchCount >= Math.min(titleWords.length, 2) && matchCount / titleWords.length >= 0.5) {
+        return epId;
+      }
+    }
+    return null;
+  }
+
+  // Detect a MULTI-EPISODE file — one video that spans an episode range (e.g. Cosmos 1980's
+  // "Carl Sagan's Cosmos - Chapter 5 to 8" = episodes 5,6,7,8 in a single file, or "E05-E08").
+  // Returns [episodeId,…] so Sonarr records it as a multi-episode file (all covered episodes get
+  // marked present); null when there's no range. Must be tried BEFORE resolveEpisode, which would
+  // otherwise match just the first number ("5") and strand the rest as missing.
+  function resolveEpisodeRange(filename) {
+    const b = filename.replace(path.extname(filename), '');
+    let season = 1, a = null, z = null, m;
+    if ((m = b.match(/[ ._-]S(\d+)[ ._-]*E(\d+)[ ._-]*(?:-|–|to|thru|through)[ ._-]*E?(\d+)\b/i))) {
+      season = parseInt(m[1], 10); a = parseInt(m[2], 10); z = parseInt(m[3], 10);
+    } else if ((m = b.match(/[ ._-]E(\d+)[ ._-]*(?:-|–|to|thru|through)[ ._-]*E?(\d+)\b/i))) {
+      a = parseInt(m[1], 10); z = parseInt(m[2], 10);
+    } else if ((m = b.match(/\b(?:chapters?|ch|episodes?|ep|parts?)[ ._-]*(\d{1,2})[ ._-]*(?:to|thru|through|-|–)[ ._-]*(\d{1,2})\b/i))) {
+      a = parseInt(m[1], 10); z = parseInt(m[2], 10);
+    } else if ((m = b.match(/[ ._-](\d{1,2})[ ._-]*(?:to|thru|through)[ ._-]*(\d{1,2})[ ._-]/i))) {
+      a = parseInt(m[1], 10); z = parseInt(m[2], 10);
+    }
+    if (a == null || !(a >= 1 && z > a && z - a <= 40)) return null;
+    const ids = [];
+    for (let n = a; n <= z; n++) { const e = epByKey.get(`${season}:${n}`); if (e) ids.push(e.id); }
+    return ids.length >= 2 ? ids : null;
+  }
+
+  // ── Strategy 1: Try Sonarr's /manualimport ──
+  const mr = await tfetch(`${base}/manualimport?folder=${encodeURIComponent(folder)}&filterExistingFiles=true`, { headers: { 'X-Api-Key': key } }, 90000);
+  if (mr.ok) {
+    const manualItems = await mr.json();
+    const importable = [];
+
+    for (const c of manualItems) {
+      if (!c.path || !onDiskVideos.includes(c.path)) continue;
+      const rejected = c.rejections && c.rejections.length;
+      const rsn = rejected ? c.rejections[0].reason : '';
+      const hasSeries = !!c.series;
+      const hasEpisodes = c.episodes && c.episodes.length > 0;
+
+      // Only trust Sonarr's own parse when it agrees with the series the user force-grabbed for.
+      // A gap release reachable only via text search often mis-parses (e.g. "Carl Sagan's Cosmos
+      // 1980…" → Cosmos 2014); c.series/c.episodes would then point at the WRONG series. When it
+      // disagrees (or expectedId is unknown), fall through to our own resolver, which keys off the
+      // correct series' episode table below.
+      if (hasSeries && hasEpisodes && (!expectedId || c.series.id === expectedId)) {
+        // Clean match — Sonarr parsed everything, and it's the series we intended
+        importable.push({ path: c.path, quality: c.quality, languages: c.languages || [], releaseGroup: c.releaseGroup || '', seriesId: c.series.id, episodeIds: c.episodes.map(e => e.id) });
+        continue;
+      }
+
+      // Multi-episode file first (a single video spanning a range, e.g. "Chapter 5 to 8").
+      const rangeIds = resolveEpisodeRange(path.basename(c.path));
+      if (rangeIds) {
+        importable.push({ path: c.path, quality: c.quality, languages: c.languages || [], releaseGroup: c.releaseGroup || '', seriesId: expectedId || (c.series && c.series.id), episodeIds: rangeIds });
+        console.log(`importViaGrab: multi-episode file "${path.basename(c.path)}" → ${rangeIds.length} episodes`);
+        continue;
+      }
+      // Attempt our own resolution
+      const epId = resolveEpisode(path.basename(c.path));
+      if (epId != null) {
+        importable.push({ path: c.path, quality: c.quality, languages: c.languages || [], releaseGroup: c.releaseGroup || '', seriesId: expectedId || (c.series && c.series.id), episodeIds: [epId] });
+        continue;
+      }
+
+      // Last-ditch: if this is a series match with rejections but we know expectedId,
+      // try by file order vs missing episodes
+      if (hasSeries && expectedId) {
+        // We'll handle these in strategy 4 below
+      }
+    }
+
+    if (importable.length) {
+      const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'ManualImport', importMode: 'auto', files: importable }) }, 90000);
+      return { ok: cmd.ok, count: importable.length, reason: cmd.ok ? null : `command HTTP ${cmd.status}` };
+    }
+  }
+
+  // ── Strategy 2+3: Direct file scan with episode resolution ──
+  let resolved = [];
+  for (const fp of onDiskVideos) {
+    const rangeIds = resolveEpisodeRange(path.basename(fp));
+    if (rangeIds) { resolved.push({ path: fp, seriesId: expectedId, episodeIds: rangeIds }); continue; }
+    const epId = resolveEpisode(path.basename(fp));
+    if (epId != null) {
+      resolved.push({ path: fp, seriesId: expectedId, episodeIds: [epId] });
+    }
+  }
+
+  if (resolved.length) {
+    const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'ManualImport', importMode: 'auto', files: resolved }) }, 90000);
+    return { ok: cmd.ok, count: resolved.length, reason: cmd.ok ? null : `command HTTP ${cmd.status}` };
+  }
+
+  // ── Strategy 4: Sequential fill — sort files, assign to first missing monitored episodes ──
+  if (expectedId && onDiskVideos.length > 0) {
+    const missingEps = allEps
+      .filter(e => e.monitored && !e.hasFile)
+      .sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber);
+    if (missingEps.length >= onDiskVideos.length) {
+      const sequential = onDiskVideos.map((fp, i) => ({
+        path: fp,
+        seriesId: expectedId,
+        episodeIds: [missingEps[i].id],
+      }));
+      const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'ManualImport', importMode: 'auto', files: sequential }) }, 90000);
+      return { ok: cmd.ok, count: sequential.length, reason: cmd.ok ? null : `command HTTP ${cmd.status}` };
+    }
+  }
+
+  return { ok: false, reason: onDiskVideos.length ? 'could not match any video file to an episode' : 'no video files found in folder' };
+}
+
+// ── Force-grab post-import verification & telemetry ──────────────────────────────────────────
+// Force-grabs bypass Sonarr's own quality/parse gates, so a bad one can look "imported" while
+// actually landing in the wrong series, scattering into phantom Jellyfin seasons, doubling, or
+// importing only partially. This cross-checks Sonarr AND Jellyfin after import and emits a loud
+// `fg_verify` event (make metrics a='events --type fg_verify') the moment anything is off — the
+// safety net behind the rename+NFO+range fixes. A few minutes' delay lets Jellyfin finish scanning.
+const forceGrabVerify = new Map(); // seriesId -> { hash, dueAt, tries }
+function scheduleForceGrabVerify(seriesId, hash) {
+  if (seriesId == null) return;
+  forceGrabVerify.set(Number(seriesId), { hash: String(hash || '').toLowerCase(), dueAt: Math.floor(Date.now() / 1000) + 150, tries: 0 });
+}
+async function jellyfinSeriesByPath(mappedPath) {
+  if (!cfg.JELLYFIN_KEY || !mappedPath) return [];
+  const uid = await jellyfinUserId();
+  const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+  const q = new URLSearchParams({ recursive: 'true', includeItemTypes: 'Series', fields: 'Path,ProviderIds', limit: '2000' });
+  const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 8000)).json()).Items) || [];
+  const norm = (p) => String(p || '').replace(/\/+$/, '');
+  return items.filter((i) => norm(i.Path) === norm(mappedPath));
+}
+async function jellyfinSeasonCounts(seriesItemId) {
+  const uid = await jellyfinUserId();
+  const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+  const q = new URLSearchParams({ parentId: seriesItemId, recursive: 'true', includeItemTypes: 'Episode', fields: 'ParentIndexNumber', limit: '5000' });
+  const eps = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 10000)).json()).Items) || [];
+  const bySeason = {};
+  for (const e of eps) { const s = e.ParentIndexNumber == null ? 'unknown' : String(e.ParentIndexNumber); bySeason[s] = (bySeason[s] || 0) + 1; }
+  return { total: eps.length, bySeason };
+}
+// Compute (do not emit) the verification result for a force-grabbed Sonarr series.
+async function computeForceGrabVerify(seriesId) {
+  const issues = [];
+  let series;
+  try { series = await arrGet('sonarr', `/series/${seriesId}`, 8000); }
+  catch (e) { return { ok: false, transient: true, issues: ['sonarr_unreachable'], payload: { id: seriesId, error: String(e.message || e) } }; }
+  const st = series.statistics || {};
+  const title = `${series.title}${series.year ? ` (${series.year})` : ''}`;
+  const tvdb = series.tvdbId || null;
+  const sonarrSeasons = {};
+  for (const sn of (series.seasons || [])) if (sn.seasonNumber > 0) { const ss = sn.statistics || {}; sonarrSeasons[String(sn.seasonNumber)] = ss.episodeFileCount || 0; }
+  if (!(st.episodeCount > 0 && st.episodeFileCount >= st.episodeCount)) issues.push(`sonarr_incomplete:${st.episodeFileCount || 0}/${st.episodeCount || 0}`);
+  let jf = null, transient = false;
+  try {
+    const mapped = (series.path || '').replace('/data/media', '/media');
+    const jseries = await jellyfinSeriesByPath(mapped);
+    if (!jseries.length) { issues.push('jellyfin_missing'); transient = true; }
+    else {
+      if (jseries.length > 1) issues.push(`jellyfin_duplicate:${jseries.length}`);
+      const s0 = jseries[0];
+      const jtvdb = s0.ProviderIds && (s0.ProviderIds.Tvdb || s0.ProviderIds.tvdb);
+      if (tvdb && jtvdb && String(jtvdb) !== String(tvdb)) issues.push(`jellyfin_wrong_tvdb:${jtvdb}!=${tvdb}`);
+      const counts = await jellyfinSeasonCounts(s0.Id);
+      jf = { tvdb: jtvdb || null, total: counts.total, seasons: counts.bySeason };
+      const real = new Set(Object.keys(sonarrSeasons));
+      for (const s of Object.keys(counts.bySeason)) if (s === 'unknown' || !real.has(s)) issues.push(`jellyfin_phantom_season:${s}`);
+      if (st.episodeFileCount && counts.total > st.episodeFileCount) issues.push(`jellyfin_extra_episodes:${counts.total}>${st.episodeFileCount}`);
+    }
+  } catch { issues.push('jellyfin_check_error'); transient = true; }
+  return {
+    ok: issues.length === 0,
+    transient,
+    issues,
+    payload: { id: Number(seriesId), ti: title, tvdb, ok: issues.length === 0, issues, sonarr: { files: st.episodeFileCount || 0, eps: st.episodeCount || 0, seasons: sonarrSeasons }, jellyfin: jf },
+  };
+}
+let fgVerifyBusy = false;
+async function forceGrabVerifySweep() {
+  if (masterPaused || fgVerifyBusy || !forceGrabVerify.size) return;
+  fgVerifyBusy = true;
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    for (const [sid, v] of forceGrabVerify) {
+      if (now < v.dueAt) continue;
+      v.tries++;
+      const r = await computeForceGrabVerify(sid).catch((e) => ({ ok: false, transient: false, issues: ['verify_error'], payload: { id: sid, error: String(e.message || e) } }));
+      // Only transient issues (Jellyfin still scanning) and tries left → wait and retry, don't cry wolf.
+      if (!r.ok && r.transient && v.tries < 4) { v.dueAt = now + 180; continue; }
+      metrics.emitEvent('fg_verify', r.payload);
+      console.log(`fg-verify: ${r.ok ? 'PASS' : 'FAIL'} "${r.payload.ti || sid}" (tvdb ${r.payload.tvdb || '?'})${r.ok ? '' : ' — ' + r.issues.join(', ')}`);
+      forceGrabVerify.delete(sid);
+    }
+  } finally { fgVerifyBusy = false; }
+}
+setInterval(forceGrabVerifySweep, 60000);
 
 // A download can fail to import forever when the "release" is a fake — e.g. a .scr Windows
 // executable padded to episode size. *arr rejects it every sweep ("Unable to determine if file
@@ -1404,6 +1787,98 @@ async function importWatchdog() {
   try {
     const now = Math.floor(Date.now() / 1000);
     let handled = 0;
+    // Pre-pass: resolve force-grabbed torrents whose content is on disk but Sonarr hasn't
+    // fully imported. These don't appear in `snap` (torrent may be gone from qBittorrent
+    // while the download folder still holds orphaned episode files). Try Manual Import for
+    // any watched hash whose folder is known (either from the live torrent or from disk).
+    const fgTorrents = forceGrabImport.size ? await getQbitTorrents().catch(() => []) : [];
+    const fgByHash = new Map();
+    for (const t of fgTorrents) fgByHash.set((t.hash || '').toLowerCase(), t);
+    const CAT_PATH = '/data/torrents/complete/sonarr-force';
+    for (const [infoHash, fg] of forceGrabImport) {
+      if (handled >= WATCHDOG_BATCH) break;
+      const liveTorrent = fgByHash.get(infoHash);
+      if (liveTorrent) {
+        // Import ONLY once the torrent is complete. Importing mid-download hardlinks preallocated/
+        // half-written files into the library — Sonarr then marks them imported and never replaces
+        // them with the finished data, and Jellyfin probes partial media. qBit's content_path also
+        // points into the incomplete/ tree until completion. Wait for the next sweep.
+        if ((liveTorrent.progress || 0) < 1) { fg.folder = null; continue; }
+        if (liveTorrent.content_path) fg.folder = liveTorrent.content_path;
+      } else if (!fg.folder) {
+        // Torrent gone from qBittorrent but may still have files on disk.
+        // Scan the sonarr category folder for a directory matching the series title.
+        try {
+          const entries = await fs.promises.readdir(CAT_PATH).catch(() => []);
+          const seriesNorm = norm(fg.seriesTitle);
+          for (const entry of entries) {
+            if (norm(entry).includes(seriesNorm)) {
+              const fp = path.join(CAT_PATH, entry);
+              const st = await fs.promises.stat(fp).catch(() => null);
+              if (st && st.isDirectory()) { fg.folder = fp; break; }
+            }
+          }
+        } catch { /* best-effort */ }
+      }
+      if (!fg.folder) continue; // not ready yet, retry next sweep
+      if (fg.folder.includes('/torrents/incomplete/')) continue; // defense: never import from the incomplete tree
+      // Already fully imported (by a prior sweep, or the standard path) → finalize and stop retrying.
+      // Without this, importViaGrab finds nothing new to import (all files present) and would keep
+      // counting "failures" against a series that's actually complete.
+      try {
+        const s0 = await arrGet('sonarr', `/series/${fg.id}`, 6000);
+        const ss = s0 && s0.statistics;
+        if (ss && ss.episodeCount > 0 && ss.episodeFileCount >= ss.episodeCount) {
+          forceGrabImport.delete(infoHash);
+          completedForceGrabs.set(infoHash, { id: fg.id });
+          importState.delete(fg.folder);
+          persistState();
+          metrics.emitEvent('fg_import', { id: fg.id, ti: fg.seriesTitle, files: ss.episodeFileCount, eps: ss.episodeCount, done: true, via: 'precomplete', infoHash });
+          scheduleForceGrabVerify(fg.id, infoHash);
+          console.log(`watchdog: force-grab complete (${ss.episodeFileCount}/${ss.episodeCount}) — "${fg.seriesTitle}"`);
+          continue;
+        }
+      } catch { /* stats unavailable — fall through and let importViaGrab try */ }
+      const st = importState.get(fg.folder) || { lastTry: 0, reason: null, fails: 0, backoff: IMPORT_BACKOFF_MIN };
+      if (now - st.lastTry < (st.backoff || IMPORT_BACKOFF_MIN)) continue;
+      st.lastTry = now; handled++;
+      let res;
+      try { res = await importViaGrab('sonarr', fg.folder, fg.id); }
+      catch (e) { res = { ok: false, reason: e.message || 'error' }; }
+      if (res && res.ok) {
+        importState.set(fg.folder, { lastTry: now, reason: null, fails: 0, backoff: IMPORT_BACKOFF_MIN });
+        triggerJellyfinScan();
+        console.log(`watchdog: force-grab imported ${res.count} file(s) from "${fg.folder}"`);
+        // Check if ALL episodes are now in the library — partial imports keep retrying.
+        let allDone = false, stats = null;
+        try {
+          const seriesData = await arrGet('sonarr', `/series/${fg.id}`, 6000);
+          stats = seriesData && seriesData.statistics;
+          if (stats && stats.episodeCount > 0 && stats.episodeFileCount != null) {
+            allDone = stats.episodeFileCount >= stats.episodeCount;
+          }
+        } catch { /* best-effort — retry next sweep */ }
+        metrics.emitEvent('fg_import', { id: fg.id, ti: fg.seriesTitle, imported: res.count, files: stats && stats.episodeFileCount, eps: stats && stats.episodeCount, done: allDone, via: 'watchdog', infoHash });
+        if (allDone) {
+          forceGrabImport.delete(infoHash);
+          completedForceGrabs.set(infoHash, { id: fg.id }); // remember the series so buildDownloads renders this Ready (no downloadId-keyed *arr history)
+          persistState();
+          scheduleForceGrabVerify(fg.id, infoHash);
+        }
+      } else if (res && (/no matching (series|episode)/i.test(res.reason || '') || (st.fails || 0) >= IMPORT_MAX_FAILS)) {
+        // Can't match: folder was removed or Sonarr truly can't parse these files. Give up.
+        console.log(`watchdog: force-grab gave up on "${fg.folder}" — ${res.reason || 'max fails'}`);
+        metrics.emitEvent('fg_giveup', { id: fg.id, ti: fg.seriesTitle, folder: fg.folder, reason: res ? res.reason : 'max fails', infoHash });
+        forceGrabImport.delete(infoHash);
+        importState.delete(fg.folder);
+        persistState();
+      } else {
+        st.fails = (st.fails || 0) + 1;
+        st.backoff = Math.min((st.backoff || IMPORT_BACKOFF_MIN) * 2, IMPORT_BACKOFF_MAX);
+        st.reason = res ? res.reason : 'error';
+        importState.set(fg.folder, st);
+      }
+    }
     for (const it of snap) {
       if (handled >= WATCHDOG_BATCH) break;                         // spread the backlog across sweeps, don't pile onto the CPU
       const rec = it._recover; if (!rec) continue;                  // only completed-but-not-imported / import-blocked
@@ -1442,6 +1917,17 @@ async function importWatchdog() {
         }
         res = { ok: false, reason: e.message || 'error' };          // a real, non-transient throw is treated as a rejection below
       }
+      // Season-alias fallback: only when the normal import was blocked because the files' embedded
+      // season differs from the season Sonarr grabbed the release for (merged TVDB series like
+      // Cosmos 2014's "Possible Worlds" S02). Scoped tightly — Sonarr only, needs the download hash,
+      // and only this exact rejection class — so the standard import path is never affected.
+      if (!res.ok && rec.app === 'sonarr' && rec.hash &&
+          /unexpected considering the .* folder name|not found in the grabbed release/i.test(res.reason || '')) {
+        try {
+          const remap = await importViaSeasonRemap(rec.folder, rec.id, rec.hash);
+          if (remap.ok) { res = remap; console.log(`watchdog: season-alias remap imported ${remap.count} file(s) from "${rec.folder}"`); metrics.emitEvent('season_remap', { id: rec.id, ti: rec.folder, count: remap.count, hash: rec.hash }); }
+        } catch { /* fall through to normal failure handling */ }
+      }
       if (res.ok) {
         importState.set(rec.folder, { lastTry: now, reason: null, fails: 0, backoff: IMPORT_BACKOFF_MIN }); // cleared on success
         triggerJellyfinScan();
@@ -1453,6 +1939,10 @@ async function importWatchdog() {
       // content that isn't in *arr). It can NEVER import — remove the torrent so it stops recurring
       // and quits consuming disk/seed slots. Not garbage, so don't blocklist (the content may be re-added).
       if (/no matching (series|movie)|unknown (series|movie)/i.test(res.reason || '')) {
+        // Defense-in-depth: never orphan-delete a manual force-grab. Its release name frequently
+        // doesn't parse to any series (that's WHY it was force-grabbed), which would otherwise trip
+        // this branch and wipe the files with deleteFiles:true. The pre-pass owns these folders.
+        if ((rec.folder || '').includes('/complete/sonarr-force/')) { importState.delete(rec.folder); continue; }
         try { if (rec.hash) await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: rec.hash, deleteFiles: 'true' }) }); } catch { /* qbit hiccup — retried next sweep */ }
         importState.delete(rec.folder);
         console.log(`watchdog: orphan removed (not tracked by ${rec.app}): "${rec.folder}" — ${res.reason}`);
@@ -1479,7 +1969,7 @@ async function importWatchdog() {
     }
   } finally { watchdogBusy = false; }
 }
-setInterval(importWatchdog, 30000); // sweep often; per-folder exponential backoff + batch cap bound real attempts
+setInterval(importWatchdog, 60000); // sweep every 60s (was 30s); imports take minutes, per-folder exponential backoff + batch cap bound real attempts
 setTimeout(importWatchdog, 8000);
 
 // ── Stalled-download recovery (backend, container-to-container) ──────────────────────────────
@@ -1545,6 +2035,10 @@ async function stallRecovery() {
     if (now - _stallSince.get(h) < STALL_DEAD) continue;                                 // give a 0-seed swarm time to appear
     const app = torrentApp(t); const qrec = app && queues[app].get(h);
     if (app && (!qrec || qrec.id == null)) {
+      // Force-grabbed torrents are user-approved and may not have an *arr queue record
+      // yet (or ever, if the release name doesn't parse). Don't delete them — the import
+      // watchdog will retry Manual Import on the download folder until files land.
+      if (forceGrabImport.has(h) || (t.category || '').toLowerCase() === 'sonarr-force') { _stallSince.delete(h); continue; }
       // Dead download that *arr no longer tracks (queue record gone — e.g. a prior cleanup
       // removed the record but the qBittorrent delete failed). NOTHING else can rescue it:
       // the escalation below needs a queue id, and the orphan sweep only acts when the
@@ -1738,7 +2232,7 @@ async function gpuVerifySweep() {
     }
   } finally { gpuVerifyBusy = false; }
 }
-setInterval(gpuVerifySweep, 600000); // every 10 min; per-cycle cap + once-per-movie guard bound the work
+setInterval(gpuVerifySweep, 900000); // every 15 min (was 10min); well within the 48h swap window; per-cycle cap + once-per-movie guard bound the work
 setTimeout(gpuVerifySweep, 60000);
 
 // ---- Auto-collections sweep: decade / genre / top-rated collections, maintained natively ──
@@ -2182,7 +2676,7 @@ async function recordServiceMetrics() {
   _lastServiceStates = curStates;
 }
 // Fire at 7s (5s after system first fire), then every 10s.
-setTimeout(() => { recordServiceMetrics(); setInterval(recordServiceMetrics, 10000); }, 7000);
+setTimeout(() => { recordServiceMetrics(); setInterval(recordServiceMetrics, 30000); }, 7000);   // 30s (was 10s): service up/down is meaningful at 30s; cuts Jellyfin auth-challenge frequency ~67%
 
 // Metrics query endpoint
 app.get('/api/metrics', (req, res) => {
@@ -2577,9 +3071,10 @@ app.post('/api/retry', async (req, res) => {
     searchState.set(key, st);
     persistState();
     const refs = a === 'sonarr' ? await missingEpisodes(Number(id)) : [];
+    const seasons = a === 'sonarr' ? [...new Set(refs.map((e) => e.seasonNumber))] : [];
     const title = a === 'radarr'
       ? await arrTitle(a, Number(id), [])
-      : await arrTitle(a, Number(id), refs.map((e) => e.seasonNumber));
+      : await arrTitle(a, Number(id), seasons);
     if (a === 'radarr') {
       await arrPost(a, '/command', { name: 'MoviesSearch', movieIds: [Number(id)] }, 5000);
       st.ts = Date.now();
@@ -2645,26 +3140,36 @@ app.post('/api/retry', async (req, res) => {
 // broken Prowlarr POST /api/v1/search grab path). Sonarr's download client monitor will pick it up
 // from the qBittorrent queue and import it when complete.
 app.post('/api/force-grab', async (req, res) => {
-  const { app: a, id } = req.body || {};
+  const { app: a, id, release } = req.body || {};
   if (a !== 'sonarr' || id == null) return res.status(400).json({ error: 'body must be {app:"sonarr",id}' });
   try {
     const key = `${a}:${Number(id)}`;
     const st = searchState.get(key) || {};
-    // Prefer a fresh raw search so we grab a currently-seeded release; fall back to the cached gap.
-    const title = st.lastSearchTitle || (st.searchProbe && st.searchProbe.title) || await arrTitle(a, Number(id), []);
-    let gap = await probeSearchGap(title, []);
-    if ((!gap || !gap.best) && st.lastSearchGap) gap = st.lastSearchGap;
-    if (!gap || !gap.best) return res.status(404).json({ error: 'no grabbable gap release found' });
-    const rel = gap.best;
+    let rel, title;
+    if (release && (release.guid || release.infoHash)) {
+      // User-selected release from the UI — use it directly
+      rel = release;
+      title = release.title || 'Unknown';
+    } else {
+      // Fallback: fresh search + best pick (backward compat for scripts/curl)
+      title = st.lastSearchTitle || (st.searchProbe && st.searchProbe.title) || await arrTitle(a, Number(id), []);
+      let gap = await probeSearchGap(title, []);
+      if ((!gap || !gap.best) && st.lastSearchGap) gap = st.lastSearchGap;
+      if (!gap || !gap.best) return res.status(404).json({ error: 'no grabbable gap release found' });
+      rel = gap.best;
+    }
     const { title: relTitle, seeders } = rel;
-    // Add directly to qBittorrent via magnet link or infoHash. Sonarr monitors the "sonarr" category
-    // and will pick up the download, match it to the series, and import the files.
-    const result = await grabGapRelease(rel, 'sonarr');
+    const result = await grabGapRelease(rel, 'sonarr-force');
+    // Track for post-grab import guarantee: when the torrent completes (or lands on disk),
+    // the watchdog will retry Manual Import until all episodes are accounted for.
+    if (result.infoHash) {
+      forceGrabImport.set(String(result.infoHash).toLowerCase(), { app: a, id: Number(id), seriesTitle: title, folder: null });
+    }
     searchKeyClear(a, Number(id));
-    Object.assign(st, { lastReason: 'force_grab', lastAt: Date.now(), lastOutcomeKind: 'grabbing', lastOutcomeSummary: `force-grabbed "${relTitle}"`, lastOutcomeAt: Date.now(), lastError: null });
+    Object.assign(st, { lastReason: 'force_grab', lastAt: Date.now(), lastOutcomeKind: 'grabbing', lastOutcomeSummary: `force-grabbed "${relTitle}"`, lastOutcomeAt: Date.now(), lastError: null, fails: 0, blockedUntil: 0 });
     searchState.set(key, st);
     persistState();
-    metrics.emitEvent('force_grab', { ap: a, id: Number(id), ti: title, rel: relTitle, seeders, indexer: rel.indexer, method: result.method });
+    metrics.emitEvent('force_grab', { ap: a, id: Number(id), ti: title, rel: relTitle, seeders, indexer: rel.indexer, method: result.method, infoHash: result.infoHash });
     console.log(`force-grab: sonarr id=${id} → "${relTitle}" (${seeders} seeders, ${result.method})`);
     bustDownloadsCache();
     res.json({ ok: true, grabbed: relTitle, seeders, method: result.method });
@@ -2673,6 +3178,38 @@ app.post('/api/force-grab', async (req, res) => {
     metrics.emitEvent('force_grab', { ap: a, id: Number(id), error: msg });
     console.log(`force-grab: failed for sonarr id=${id} — ${msg}`);
     res.status(500).json({ error: msg });
+  }
+});
+
+// Read-only: return all grabbable gap releases for a Sonarr item (no side effects).
+// The UI calls this to populate the manual-grab release picker.
+app.post('/api/force-grab/search', async (req, res) => {
+  const { app: a, id } = req.body || {};
+  if (a !== 'sonarr' || id == null) return res.status(400).json({ error: 'body must be {app:"sonarr",id}' });
+  try {
+    const st = searchState.get(`${a}:${Number(id)}`) || {};
+    const title = st.lastSearchTitle || (st.searchProbe && st.searchProbe.title) || await arrTitle(a, Number(id), []);
+    // Fetch series metadata from Sonarr (best-effort)
+    let series = null;
+    try {
+      const s = await arrGet('sonarr', `/series/${Number(id)}`, 6000);
+      if (s) {
+        const monitoredSeasons = (s.seasons || []).filter((sn) => sn.monitored && sn.seasonNumber > 0);
+        series = {
+          title: s.title,
+          year: s.year || null,
+          tvdbId: s.tvdbId || null,
+          monitoredSeasonCount: monitoredSeasons.length,
+          episodeCount: (s.statistics && s.statistics.episodeCount) || null,
+          runtime: s.runtime || null,
+        };
+      }
+    } catch { /* best-effort */ }
+    let gap = await probeSearchGap(title, []);
+    if (!gap || !gap.all || !gap.all.length) return res.json({ results: [], query: gap?.query || null, series });
+    return res.json({ results: gap.all, query: gap.query, summary: gap.summary, series });
+  } catch (e) {
+    return res.status(500).json({ error: String(e.message || e) });
   }
 });
 
@@ -2711,12 +3248,14 @@ function persistState() {
   clearTimeout(persistState._timer);
   persistState._timer = setTimeout(() => {
     try {
-      const obj = { declined: {}, blocked: {}, searchState: {}, gpuSwapped: {}, gpuPending: {}, masterPaused };
+      const obj = { declined: {}, blocked: {}, searchState: {}, gpuSwapped: {}, gpuPending: {}, masterPaused, forceGrabImport: {}, completedForceGrabs: {} };
       for (const [k, v] of declined) obj.declined[k] = v;
       for (const [k, v] of blocked) obj.blocked[k] = v;
       for (const [k, v] of searchState) obj.searchState[k] = v;
       for (const [k, v] of gpuSwapped) obj.gpuSwapped[k] = v;
       for (const [k, v] of gpuPending) obj.gpuPending[k] = v;
+      for (const [k, v] of forceGrabImport) obj.forceGrabImport[k] = v;
+      for (const [k, v] of completedForceGrabs) obj.completedForceGrabs[k] = v;
       fs.writeFileSync('/config/state.json', JSON.stringify(obj));
     } catch { /* */ }
   }, 500);
@@ -2730,9 +3269,59 @@ function loadState() {
     if (obj.gpuSwapped) for (const [k, v] of Object.entries(obj.gpuSwapped)) gpuSwapped.set(Number(k), v);
     if (obj.gpuPending) for (const [k, v] of Object.entries(obj.gpuPending)) gpuPending.set(Number(k), v);
     if (typeof obj.masterPaused === 'boolean') masterPaused = obj.masterPaused;
+    // Lowercase keys on load to migrate any pre-fix state written with an UPPERCASE infoHash.
+    if (obj.forceGrabImport) for (const [k, v] of Object.entries(obj.forceGrabImport)) forceGrabImport.set(String(k).toLowerCase(), v);
+    if (obj.completedForceGrabs) for (const [k, v] of Object.entries(obj.completedForceGrabs)) completedForceGrabs.set(String(k).toLowerCase(), v);
   } catch { /* */ }
 }
 loadState();
+
+// Recover forceGrabImport from qBittorrent torrents tagged manual-force-grab.
+// Runs early (before bootSequence / collectionsSweep) so the watchdog pre-pass
+// can retry imports immediately after a controller restart.
+async function recoverForceGrabImport() {
+  try {
+    const fgTorrents = await getQbitTorrents();
+    for (const t of fgTorrents) {
+      const tags = t.tags || '';
+      if (!tags.includes('manual-force-grab')) continue;
+      const h = (t.hash || '').toLowerCase();
+      if (forceGrabImport.has(h) || completedForceGrabs.has(h)) continue; // already tracked or already fully imported
+      let seriesTitle = null, seriesId = null;
+      if (t.content_path) {
+        const folderName = path.basename(t.content_path);
+        const cleaned = folderName.replace(/\.\w+$/, '').replace(/[\(\)]/g, '').trim();
+        seriesTitle = cleaned;
+        try {
+          const seriesList = await arrGet('sonarr', '/series', 8000);
+          if (Array.isArray(seriesList)) {
+            const n = (x) => String(x || '').toLowerCase().replace(/[._'’:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
+            // Title match is ambiguous when two series share a name (e.g. Cosmos 1980 vs Cosmos
+            // 2014). Collect every title match, then disambiguate by a year token in the folder
+            // name — a wrong bind here would import the whole pack into the wrong series.
+            const cands = seriesList.filter((s) => n(cleaned).includes(n(s.title)) || n(s.title).includes(n(cleaned)));
+            const years = (cleaned.match(/\b(19|20)\d{2}\b/g) || []).map(Number);
+            const byYear = years.length ? cands.find((s) => s.year && years.includes(s.year)) : null;
+            const pick = byYear || (cands.length === 1 ? cands[0] : null); // don't guess when ambiguous and no year to break the tie
+            if (pick) { seriesTitle = pick.title; seriesId = pick.id; }
+          }
+        } catch { /* best-effort */ }
+      }
+      if (seriesId != null) {
+        forceGrabImport.set(h, { app: 'sonarr', id: seriesId, seriesTitle: seriesTitle || 'Unknown', folder: t.content_path || null });
+        console.log(`recover: force-grab → sonarr id=${seriesId} "${seriesTitle || '?'}" (${h.slice(0, 12)}…)`);
+      }
+    }
+    // Prune completedForceGrabs whose torrent is gone from qBittorrent — the row can't render
+    // anymore, so the entry is dead weight in state.json. (Force-grabs are rare; this just keeps
+    // the persisted map from accreting hashes forever.)
+    let pruned = false;
+    const liveHashes = new Set(fgTorrents.map((t) => (t.hash || '').toLowerCase()));
+    for (const h of completedForceGrabs.keys()) if (!liveHashes.has(h)) { completedForceGrabs.delete(h); pruned = true; }
+    if (forceGrabImport.size || pruned) persistState();
+  } catch (e) { console.log('recover: forceGrabImport error —', e.message || e); }
+}
+setTimeout(recoverForceGrabImport, 4000);  // after loadState, before 1st watchdog at ~6s
 
 async function arrIdForHash(app, hash) {
   const r = (await getQueueMap(app)).get(hash);
@@ -2841,7 +3430,7 @@ async function diskGate() {
     }
   } finally { gateBusy = false; persistState(); }
 }
-setInterval(diskGate, 8000); // cheap (qbit info + statfs); catches a new torrent before it fills /data
+setInterval(diskGate, 30000); // 30s (was 8s); cheap (qbit info + statfs); 30s still catches a new torrent before it fills /data (3.7TB headroom)
 setTimeout(diskGate, 6000);
 
 // ---- Orphan sweep: tear down *arr torrents whose series/movie has been deleted ----
@@ -2925,7 +3514,7 @@ async function orphanSweep() {
     }
   } finally { orphanBusy = false; }
 }
-setInterval(orphanSweep, 60000);
+setInterval(orphanSweep, 300000);   // every 5 min (was 60s); orphan torrents are harmless and don't trend in under 5 min
 setTimeout(orphanSweep, 15000);
 
 // ---- Seerr orphan sweep: remove media entries whose *arr counterpart is gone ----
@@ -2965,7 +3554,7 @@ async function seerrSweep() {
   } catch (e) { console.log(`seerrSweep: sweep failed — ${e.message || e}`); }
   finally { seerrSweepBusy = false; }
 }
-setInterval(seerrSweep, 300000); // every 5 min
+setInterval(seerrSweep, 900000); // every 15 min (was 5min); orphan cleanup doesn't need 5min resolution
 setTimeout(seerrSweep, 30000);   // first run after 30s
 
 // ---- *arr sweep: auto-recover stuck queue items + trigger search for missing monitored items ----
@@ -3245,6 +3834,17 @@ async function probeSearchGap(rawTitle, candidates) {
       size: best.size || null,
       downloadUrl: best.downloadUrl || null,
     },
+    all: misses.map((r) => ({
+      title: r.title,
+      seeders: Number(r.seeders) || 0,
+      size: r.size || 0,
+      indexer: r.indexer || null,
+      guid: r.guid || null,
+      infoHash: r.infoHash || null,
+      magnetUrl: r.magnetUrl || null,
+      indexerId: r.indexerId != null ? r.indexerId : null,
+      downloadUrl: r.downloadUrl || null,
+    })),
     summary: `${misses.length} healthy release${misses.length === 1 ? '' : 's'} exist in raw search but were not season-search candidates (${reasonClass}); best: "${best.title}" (${Number(best.seeders) || 0} seeders)`,
   };
 }
@@ -3262,13 +3862,18 @@ async function grabGapRelease(rel, category = 'sonarr') {
     method = 'infohash';
   }
   if (!addUrl) throw new Error('gap release has no magnet guid or infoHash');
-  const params = new URLSearchParams({ urls: addUrl, category, tags: 'gap-auto' });
+  const params = new URLSearchParams({ urls: addUrl, category, tags: 'manual-force-grab' });
   const r = await qbit.fetch('/api/v2/torrents/add', { method: 'POST', body: params }, 20000);
   if (!r.ok) {
     const text = await r.text().catch(() => '');
     throw new Error(`qBittorrent add → HTTP ${r.status}${text ? ': ' + text.slice(0, 200) : ''}`);
   }
-  return { ok: true, method, addUrl };
+  // Lowercase ALWAYS: qBittorrent reports hashes lowercase and every consumer (buildDownloads,
+  // watchdog, stall-recovery) looks up with t.hash.toLowerCase(). A release-supplied rel.infoHash
+  // is often UPPERCASE — storing it as the forceGrabImport key uppercased meant every `.has(h)`
+  // missed, so the guard/skip never engaged and the generic importer deleted the force-grab.
+  const infoHash = String(rel.infoHash || (rel.guid || '').replace(/^magnet:\?xt=urn:btih:/i, '').split('&')[0]).toLowerCase();
+  return { ok: true, method, addUrl, infoHash: infoHash || null };
 }
 
 function clearSearchProbe(key) {
@@ -3532,46 +4137,6 @@ async function probeSearchOutcome(app, id, probeId) {
       seeders: gap.best && gap.best.seeders,
       indexer: gap.best && gap.best.indexer,
     });
-    // Auto-grab for single-season Sonarr series: if all missing episodes are in season 1, a
-    // year-named full-series pack (no S01 marker) is guaranteed to map to the only season,
-    // so grab the best gap release directly into qBittorrent.
-    //
-    // DISABLED (2026-07-07): this path adds torrents STRAIGHT to qBittorrent, bypassing Sonarr's
-    // quality profile, language gate, and dedup. Combined with the gap probe's loose title matching
-    // it auto-grabbed WRONG shows (e.g. "Cosmos Possible Worlds"/Russian "Космос" for Cosmos 1980)
-    // and unfiltered foreign-language packs. The gap is still surfaced in the UI (searchHint above);
-    // acquisition now goes only through the MANUAL /api/force-grab button, which the user drives.
-    const AUTO_GRAB_ENABLED = false;
-    if (AUTO_GRAB_ENABLED && app === 'sonarr' && gap.best && (gap.best.guid || gap.best.infoHash)) {
-      try {
-        const series = await arrGet('sonarr', `/series/${id}`, 6000);
-        if (series && Array.isArray(series.seasons)) {
-          const regSeasons = series.seasons.filter((s) => s.seasonNumber > 0 && s.monitored);
-          const onlyS1 = regSeasons.length === 1 && regSeasons[0].seasonNumber === 1;
-          if (onlyS1) {
-            const result = await grabGapRelease(gap.best, 'sonarr');
-            console.log(`arrSweep: auto-grab for single-season sonarr "${probe.title}" (${id}) → "${gap.best.title}" (${gap.best.seeders} seeders, ${result.method})`);
-            Object.assign(st, {
-              lastReason: 'auto_grab',
-              lastAt: Date.now(),
-              lastOutcomeKind: 'grabbing',
-              lastOutcomeSummary: `auto-grabbing "${gap.best.title}" (${gap.best.seeders} seeders)`,
-              lastOutcomeAt: Date.now(),
-            });
-            metrics.emitEvent('force_grab', {
-              ap: app, id, ti: probe.title, rel: gap.best.title,
-              seeders: gap.best.seeders, indexer: gap.best.indexer,
-              method: result.method, auto: true,
-            });
-            searchState.set(key, st);
-            persistState();
-            bustDownloadsCache();
-          }
-        }
-      } catch (e) {
-        console.log(`arrSweep: auto-grab failed for sonarr ${id} — ${e.message || e}`);
-      }
-    }
   }
   clearSearchProbe(key);
 }
@@ -3968,7 +4533,7 @@ async function requestGate() {
     }
   } finally { reqBusy = false; persistState(); }
 }
-setInterval(requestGate, 60000);
+setInterval(requestGate, 300000);   // every 5 min (was 60s); stuck Jellyseerr requests stay stuck for hours, not seconds
 setTimeout(requestGate, 15000);
 
 // ---- JellyfReady refresh (event-driven + self-healing periodic sweep) ----
@@ -4033,7 +4598,7 @@ setInterval(() => {
       triggerJellyfinScan();
     });
   }
-}, 120000);
+}, 300000);   // 5 min (was 120s); scans are heavy and this already defers while trickplay runs — less frequent is safer
 // On controller start, wait for Jellyfin to be ready then do a catch-up scan
 // so media imported during downtime gets discovered.
 setTimeout(() => { if (cfg.JELLYFIN_KEY) { console.log('jfScan: startup catch-up scan'); triggerJellyfinScan(); } }, 45000);

@@ -87,7 +87,7 @@ ok "WebUI creds + save paths set ($QBIT_USER / save=/data/torrents/complete)"
 # Re-auth in case the password just changed, then ensure categories exist.
 qb_login "$QBIT_USER" "$QBIT_PASS"
 existing=$(curl -s -b "$jar" "$QB/api/v2/torrents/categories")
-for cat in radarr sonarr; do
+for cat in radarr sonarr sonarr-force; do
   mkdir -p "/data/torrents/complete/$cat"   # so Radarr/Sonarr's path-exists check passes
   if echo "$existing" | jq -e --arg c "$cat" 'has($c)' >/dev/null 2>&1; then
     curl -s -b "$jar" --data-urlencode "category=$cat" --data-urlencode "savePath=/data/torrents/complete/$cat" "$QB/api/v2/torrents/editCategory" >/dev/null

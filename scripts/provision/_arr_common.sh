@@ -86,6 +86,41 @@ provision_arr() {
     ok "${app}: log level set to info (was ${ll})"
   fi
 
+  # 4b. File renaming + NFO metadata — so Jellyfin identifies imports DETERMINISTICALLY.
+  #     By default *arr keeps raw release names and writes no metadata, forcing Jellyfin to
+  #     fuzzy-parse filenames. That mis-fires on messy releases: Planet Earth 2006 scattered into
+  #     "Season 20"/"Unknown" (the "20" from "2006"), Possible Worlds files named Cosmos.S01E##
+  #     collapsed onto the 2014 show's Season 1 (doubling), and the year-less "Cosmos" folder
+  #     matched the WRONG tvdb (2014 instead of 1980). Fix, both new-import-only (never a
+  #     library-wide operation):
+  #       • renameEpisodes/renameMovies=true → clean "Series (Year) - S01E05 - Title" filenames.
+  #       • Kodi/Emby (XbmcMetadata) consumer → writes tvshow.nfo/episode NFO carrying the exact
+  #         tvdbid, which Jellyfin's NFO reader (enabled in jellyfin.sh) uses to pin the right show.
+  local nm rename_field; nm=$("${AG[@]}" "${base}/config/naming")
+  if [[ "$app" == "radarr" ]]; then rename_field="renameMovies"; else rename_field="renameEpisodes"; fi
+  if [[ "$(echo "$nm" | jq -r ".${rename_field} // false")" == "true" ]]; then
+    ok "${app}: file renaming already on (${rename_field})"
+  else
+    echo "$nm" | jq ".${rename_field}=true" | "${AJ[@]}" -X PUT "${base}/config/naming" -d @- >/dev/null
+    [[ "$("${AG[@]}" "${base}/config/naming" | jq -r ".${rename_field}")" == "true" ]] \
+      && ok "${app}: file renaming enabled — clean SxxExx names on new imports" \
+      || warn "${app}: ${rename_field} did not persist"
+  fi
+  local md mdid; md=$("${AG[@]}" "${base}/metadata" | jq '[.[]|select(.implementation=="XbmcMetadata")][0]')
+  if [[ -n "$md" && "$md" != "null" ]]; then
+    if [[ "$(echo "$md" | jq -r '.enable')" == "true" ]]; then
+      ok "${app}: NFO metadata consumer already enabled"
+    else
+      mdid=$(echo "$md" | jq '.id')
+      # Turn on the NFO writers (fields ending in 'Metadata': seriesMetadata/episodeMetadata/movieMetadata).
+      echo "$md" | jq '.enable=true | .fields=(.fields|map(if (.name|test("Metadata$")) then .value=true else . end))' \
+        | "${AJ[@]}" -X PUT "${base}/metadata/${mdid}" -d @- >/dev/null
+      [[ "$("${AG[@]}" "${base}/metadata" | jq -r '[.[]|select(.implementation=="XbmcMetadata")][0].enable')" == "true" ]] \
+        && ok "${app}: NFO metadata consumer enabled — writes tvdbid for Jellyfin to pin the series" \
+        || warn "${app}: NFO metadata consumer did not persist"
+    fi
+  fi
+
   # 5. Jellyfin connection — auto-scan Jellyfin on import/upgrade/rename/delete, so new
   #    media (and removals) show up without waiting for Jellyfin's periodic scan.
   if "${AG[@]}" "${base}/notification" | jq -e 'any(.[]; .implementation=="MediaBrowser")' >/dev/null; then

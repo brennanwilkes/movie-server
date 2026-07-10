@@ -275,6 +275,7 @@ function renderDownloads(items) {
     const isDone = d.state === 'Ready' || d.state === 'Done';
     const canDelete = d.hash && d.state !== 'Ready' && d.state !== 'Done';
     const isMissing = d.state === 'Not found';
+    const canForceGrab = isMissing && d.source === 'sonarr' && d._id != null;
     // Pause/resume: only for a real torrent that's actively in flight (not a "missing:" pseudo-row,
     // not a finished/importing item). Paused rows offer Resume; the rest offer Pause.
     const realHash = d.hash && !String(d.hash).startsWith('missing:');
@@ -292,7 +293,7 @@ function renderDownloads(items) {
     return `<li class="row dl${(d.attention || d.state === 'Declined') ? ' attn' : ''}${isDone ? ' done' : ''}" data-hash="${esc(d.hash || '')}" data-state="${esc(d.state)}" data-title="${esc(cleanTitle)}" data-source="${esc(d.source)}"${d._id ? ` data-app="${esc(d.source)}" data-id="${esc(d._id)}"` : ''}>
       <div class="dl-title-row">
         <span class="title">${esc(d.title)}</span>
-        <span class="dl-actions">${isMissing ? `<button class="dl-retry" aria-label="Retry search"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></button>` : ''}${pausable ? `<button class="dl-pause" aria-label="${isPaused ? 'Resume' : 'Pause'} download">${isPaused ? '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>'}</button>` : ''}${canDelete ? `<button class="dl-stop" aria-label="Delete torrent & files"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg></button>` : ''}</span>
+        <span class="dl-actions">${isMissing ? `<button class="dl-retry" aria-label="Retry search"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></button>` : ''}${canForceGrab ? `<button class="dl-force" aria-label="Force grab via search"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 20h14"/></svg></button>` : ''}${pausable ? `<button class="dl-pause" aria-label="${isPaused ? 'Resume' : 'Pause'} download">${isPaused ? '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>'}</button>` : ''}${canDelete ? `<button class="dl-stop" aria-label="Delete torrent & files"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg></button>` : ''}</span>
       </div>
       <div class="mini-bar"><div style="width:${barW}%${color ? `;background:${color}` : ''}"></div></div>
       <div class="sub dl-meta"><span>${esc(leftMeta)}</span><span class="dl-meta-right">${[eta, seedsShown].filter(Boolean).map(esc).join(' · ')}</span></div>
@@ -318,6 +319,12 @@ function renderDownloads(items) {
           toast(paused ? 'Resumed' : 'Paused');
           pollDownloads();                       // refresh so the icon flips to its new state
         } catch { pbtn.disabled = false; toast(paused ? 'Resume failed' : 'Pause failed'); }
+      } else if (e.target.closest('.dl-force')) {
+        const bli = e.target.closest('li');
+        const app = bli && bli.dataset.app;
+        const id = bli && bli.dataset.id;
+        if (!app || !id) return;
+        openForceGrabSheet(app, Number(id));
       } else if (rbtn) {
         const bli = rbtn.closest('li');
         const app = bli && bli.dataset.app;
@@ -643,6 +650,110 @@ $('#redl-confirm').addEventListener('click', async () => {
     loadLibrary();
   } catch { toast('Redownload failed'); }
   finally { $('#redl-confirm').textContent = 'Redownload'; closeRedl(); }
+});
+
+// ── Force-grab sheet ──
+let forceGrabResults = [];
+let forceGrabApp = null;
+let forceGrabId = null;
+let forceGrabSeries = null;
+
+// Parse resolution + source from a release title, return coloured badge info.
+function parseReleaseMeta(title) {
+  const resMatch = title.match(/[.\s[(_-](\d{3,4})p[.\s[)\])\/-]/i);
+  let resolution = '', resCls = '';
+  if (resMatch) {
+    resolution = `${resMatch[1]}p`;
+    const r = parseInt(resMatch[1]);
+    resCls = r >= 2160 ? 'bad' : 'ok';
+  }
+  const srcMatch = title.match(/[.\s[(_-](WEB-DL|WEBRip|BluRay|BDRip|HDTV|REMUX|DVDRip|HDRip|SATRip)[.\s[)\])\/-]/i);
+  let source = '', srcCls = '';
+  if (srcMatch) {
+    source = srcMatch[1];
+    const s = source.toUpperCase();
+    if (s === 'REMUX' || s === 'BDRIP' || s === 'DVDRIP') srcCls = 'bad';
+    else if (s === 'WEB-DL' || s === 'BLURAY') srcCls = 'ok';
+    else srcCls = 'warn';
+  }
+  const fmtParts = [resolution, source].filter(Boolean);
+  const fmtLabel = fmtParts.join(' ');
+  const fmtCls = resCls || srcCls || '';
+  return { fmtLabel, fmtCls };
+}
+
+function closeForceGrab() { $('#force-backdrop').hidden = true; forceGrabResults = []; }
+
+async function openForceGrabSheet(app, id) {
+  forceGrabResults = [];
+  forceGrabApp = app;
+  forceGrabId = id;
+  const backdrop = $('#force-backdrop');
+  $('#force-title').textContent = 'Manual Grab';
+  $('#force-series').textContent = 'Loading series info…';
+  $('#force-sub').textContent = 'Searching for releases…';
+  $('#force-results').innerHTML = '<p class="force-loading"><span class="pulse">Searching for releases…</span></p>';
+  backdrop.hidden = false;
+  try {
+    const data = await postJSON('/api/force-grab/search', { app, id });
+    // Series info
+    if (data.series) {
+      const s = data.series;
+      const seasonInfo = s.monitoredSeasonCount
+        ? `${s.monitoredSeasonCount} season${s.monitoredSeasonCount > 1 ? 's' : ''} monitored`
+        : '<span class="warn-text">No monitored seasons</span>';
+      const tvdb = s.tvdbId ? ` · TVDB ${s.tvdbId}` : '';
+      const eps = s.episodeCount ? ` · ${s.episodeCount} eps` : '';
+      $('#force-series').innerHTML = `${esc(s.title)} (${s.year})${tvdb}${eps} · ${seasonInfo}`;
+    } else {
+      $('#force-series').innerHTML = '<span class="muted">Series info unavailable</span>';
+    }
+    // Results
+    if (!data.results || !data.results.length) {
+      $('#force-sub').textContent = 'No grabbable releases found';
+      $('#force-results').innerHTML = '';
+      return;
+    }
+    $('#force-sub').textContent = `${data.results.length} release${data.results.length > 1 ? 's' : ''} available`;
+    forceGrabResults = data.results;
+    forceGrabSeries = data.series || null;
+    $('#force-results').innerHTML = data.results.map((r, i) => {
+      const { fmtLabel, fmtCls } = parseReleaseMeta(r.title || '');
+      const fmtBadge = fmtLabel ? `<span class="format ${fmtCls}">${esc(fmtLabel)}</span>` : '';
+      return `<div class="result-row">
+        <div class="result-info">
+          <div class="result-title">${esc(r.title)}</div>
+          <div class="result-meta">${fmtBadge}${r.seeders} seeders · ${fmtBytes(r.size)} · ${esc(r.indexer || 'unknown')}</div>
+        </div>
+        <button class="result-grab" data-idx="${i}">Grab</button>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    $('#force-series').innerHTML = '';
+    $('#force-sub').textContent = 'Search failed';
+    $('#force-results').innerHTML = `<p class="force-error">${esc(err.message || 'Unknown error')}</p>`;
+  }
+}
+$('#force-close').addEventListener('click', closeForceGrab);
+$('#force-backdrop').addEventListener('click', (e) => { if (e.target === $('#force-backdrop')) closeForceGrab(); });
+$('#force-results').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.result-grab');
+  if (!btn) return;
+  const idx = Number(btn.dataset.idx);
+  const rel = forceGrabResults[idx];
+  if (!rel) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    await postJSON('/api/force-grab', { app: forceGrabApp, id: forceGrabId, release: rel });
+    toast(`Grabbing: ${esc(rel.title || 'release')}`);
+    closeForceGrab();
+    pollDownloads();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Grab';
+    toast(`Grab failed: ${err.message || ''}`);
+  }
 });
 
 let toastTimer;

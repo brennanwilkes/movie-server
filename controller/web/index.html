@@ -97,6 +97,23 @@
     </div>
   </div>
 
+  <!-- Force-grab sheet: pick a gap release to add directly to qBittorrent -->
+  <div id="force-backdrop" class="sheet-backdrop" hidden>
+    <div class="sheet force-sheet" role="dialog" aria-modal="true">
+      <div class="force-header">
+        <h3 id="force-title">Manual Grab</h3>
+        <p id="force-series" class="force-series muted"></p>
+        <p id="force-sub" class="muted" style="margin-top:8px"></p>
+      </div>
+      <div id="force-body" class="force-body">
+        <div id="force-results" class="force-results"></div>
+      </div>
+      <div class="force-footer sheet-actions">
+        <button id="force-close" class="btn-ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="toast" class="toast" hidden></div>
 
