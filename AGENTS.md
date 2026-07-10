@@ -7,6 +7,8 @@ This doc helps agents auto-discover the system layout, failure modes, and where 
 (why a title won't play on the PS4/projector) · `AUDIT.md` (2026-07-02 deep audit: verified
 findings + what's already fixed + open recommendations).
 
+**Deep diagnostics:** when scripts/controller-API aren't enough, query each service's own API directly — see **Direct Service API Access** (key retrieval + the most useful Sonarr/Radarr/qBittorrent/Jellyfin/Jellyseerr endpoints for cross-checking DB vs torrents vs library). For the manual force-grab / naming path, see the **Force-grab / manual-import subsystem** and **Naming & Jellyfin identity** sections + `make metrics a='events --type fg_verify'` (post-import PASS/FAIL health check).
+
 ## System Overview
 
 Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loopback image cap (disabled). Services run as Docker containers via `docker compose`. The controller (`controller/server.js`) is the brain — it polls every service every 5s, builds a unified download view, and runs 7 background sweeps.
@@ -83,7 +85,8 @@ The controller runs 7 background sweeps. Each is independent and has its own int
 | Sweep | Interval | File Lines | What it does |
 |-------|----------|------------|-------------|
 | `buildDownloads` / `refreshDownloads` | 5s | `628-640` | Polls all services → builds unified `_dl` snapshot |
-| `importWatchdog` | 30s | `774-795` | Manual Import for completed-but-not-imported torrents |
+| `importWatchdog` | 60s | search `importWatchdog` | Manual Import for completed-but-not-imported torrents. **Pre-pass** first handles force-grabs (`sonarr-force`): imports only when complete, via `importViaGrab` (multi-episode ranges, correct-series-only). Generic recover path also runs `importViaSeasonRemap` for merged-series season mismatches. See the force-grab subsystem section. |
+| `forceGrabVerifySweep` | 60s | search `forceGrabVerifySweep` | ~2.5 min after a force-grab imports, cross-checks Sonarr + Jellyfin and emits `fg_verify` (PASS/FAIL). The manual-import safety net. |
 | `stallRecovery` | 5min | `837-881` | Reannounce stalling torrents; blocklist+research dead ones |
 | `diskGate` | 8s | `1291-1387` | Tear down torrents that would exceed disk cap |
 | `orphanSweep` | 5min | `1393-1445` | Delete torrents whose *arr item is gone |
@@ -177,8 +180,12 @@ Every meaningful pipeline state change is logged. Events carry correlation keys 
 | `search_outcome` | `probeSearchOutcome` | ap, id, ti, mode, manual, kind, summary, queries, hits, errors, indexers, indexerErrors |
 | `search_decision` | `probeSearchOutcome` | ap, id, ti, mode, manual, kind, summary, accepted, rejected, reasons, indexerErrors |
 | `search_reject` | `probeSearchOutcome` | ap, id, ti, mode, manual, summary, reasons, indexerErrors |
-| `search_gap` | `probeSearchOutcome` | ap, id, ti, query, upstreamHealthy, reasonClass, best, seeders, indexer — healthy releases found by a raw text search that never became season-search candidates (e.g. year-named full-series packs with no S01 marker); triggers auto-grab via `grabGapRelease` (qBittorrent direct-add) for single-season Sonarr series |
-| `force_grab` | `/api/force-grab` / `probeSearchOutcome`(auto) | ap, id, ti, rel, seeders, indexer, method, auto?, error? — adds to qBittorrent via magnet/infoHash direct-add (`grabGapRelease`); manual endpoint (`auto` absent) or single-season Sonarr auto-grab (`auto: true`); `error` on failure |
+| `search_gap` | `probeSearchOutcome` | ap, id, ti, query, upstreamHealthy, reasonClass, best, seeders, indexer — healthy releases found by a raw text search that never became season-search candidates (e.g. year-named full-series packs with no S01 marker). Surfaced in the UI as a `searchHint`; acquisition is MANUAL only (auto-grab removed 2026-07-07 — see INVARIANTS below) |
+| `force_grab` | `/api/force-grab` (manual button only) | ap, id, ti, rel, seeders, indexer, method, infoHash, error? — user picked a specific gap release; `grabGapRelease` adds it to qBittorrent in the **`sonarr-force`** category (NOT `sonarr`) so Sonarr never auto-imports it into the wrong series. `error` on failure |
+| `fg_import` | `importWatchdog` force-grab pre-pass | id, ti, imported, files, eps, done, via, infoHash — a force-grab folder was imported (per sweep); `done:true` when all episodes present |
+| `fg_giveup` | `importWatchdog` force-grab pre-pass | id, ti, folder, reason, infoHash — **ALERT**: a force-grab could not import (unparseable/no video/max fails). Files stay on disk (never deleted) |
+| `season_remap` | `importWatchdog` (`importViaSeasonRemap`) | id, ti, count, hash — a merged-series release whose files are numbered in a sub-show's own S01 (e.g. Cosmos 2014 "Possible Worlds") was remapped to the season Sonarr grabbed it for |
+| `fg_verify` | `forceGrabVerifySweep` (~2.5 min after import) | id, ti, tvdb, ok, issues[], sonarr{files,eps,seasons}, jellyfin{tvdb,total,seasons} — **the force-grab safety net**: cross-checks Sonarr AND Jellyfin. `ok:false` with issues like `jellyfin_wrong_tvdb`/`jellyfin_phantom_season`/`jellyfin_extra_episodes`/`sonarr_incomplete`/`jellyfin_duplicate`. Query FIRST after any force-grab: `make metrics a='events --type fg_verify'` |
 | `block` | `arrSweep` (negative-cached) | ti, ap, id, fails |
 | `queue_clean` | `arrSweep` (stuck item) | ap, id, blocklisted |
 | `stall_clean` | `arrSweep` (dead magnets) | count |
@@ -304,10 +311,10 @@ At 10s sampling: ~2 MB/day, ~700 MB/year. 35 GB free on the SSD (root) where met
 - Search retries now emit `search_probe` / `search_outcome` / `search_decision` / `search_reject` events and the dashboard will show upstream results directly (`upstream found ...`, `Sonarr rejected all ...`, `upstream returned 0 hits ...`, `upstream error ...`). Use `./scripts/query-metrics.sh events --type search_outcome` or `make metrics a='events --type search_outcome'` to audit them.
 - `search_outcome` and `search_decision` also carry `indexerErrors` so a bad TPB/EZTV/etc call is visible as an explicit failure reason instead of getting flattened into a generic "no grab" result.
 - No new Prowlarr config is required for this telemetry: the controller reads Prowlarr history through the API. If we ever need retention or logging changes, keep them in `scripts/provision/prowlarr.sh` so they stay IaC-managed.
-- **Gap release grabbing**: `grabGapRelease(rel, category)` helper adds a gap release to qBittorrent via `POST /api/v2/torrents/add` using `rel.guid` if it starts with `magnet:`, otherwise constructing a magnet link from `rel.infoHash`. Sets category=sonarr so Sonarr's download client monitor picks up the import. Used by both the manual force-grab endpoint and single-season Sonarr auto-grab.
-- **probeSearchGap sort order**: grabbable releases (magnet guid or infoHash) sort above non-grabbable ones regardless of seed count. The best release object captures `magnetUrl`, `infoHash`, `size`, `downloadUrl`.
-- **Auto-grab for single-season Sonarr**: in `probeSearchOutcome`, after emitting `search_gap`, the code fetches the series from Sonarr and auto-grabs via `grabGapRelease` if the series has exactly one monitored regular season (season 1). Log prefix: `arrSweep: auto-grab for single-season sonarr`.
-- **UI hint for search gaps** now shows the best gap release title (truncated), seeders, and specific reason (e.g. "no S01 marker" or "not a candidate") instead of a generic "N-seed release found, not season-searchable".
+- **Gap release grabbing**: `grabGapRelease(rel, category)` adds a gap release to qBittorrent via `POST /api/v2/torrents/add` using `rel.guid` if it starts with `magnet:`, else a magnet built from `rel.infoHash`. It returns the infoHash **lowercased** (see the force-grab subsystem section — this was a load-bearing bug fix). Called ONLY by the manual `/api/force-grab` endpoint, with category **`sonarr-force`**.
+- **probeSearchGap sort order**: grabbable releases (magnet guid or infoHash) sort above non-grabbable ones regardless of seed count. The best release object captures `magnetUrl`, `infoHash`, `size`, `downloadUrl`. `probeSearchGap` also returns `all` (every grabbable release) which powers the manual release-picker modal.
+- **Auto-grab was REMOVED (2026-07-07)**: `probeSearchOutcome` emits `search_gap` for the UI hint but NEVER acquires. Acquisition is manual only (force-grab button). See INVARIANTS in the force-grab subsystem section — there is no `AUTO_GRAB_ENABLED` flag to flip.
+- **UI hint for search gaps** shows the best gap release title (truncated), seeders, and specific reason (e.g. "no S01 marker" or "not a candidate").
 
 ### "Why was THIS release picked?" (codec/size/quality complaints)
 
@@ -358,6 +365,34 @@ usually has no pack, so those seasons come back empty and never fill in on their
 The import watchdog runs every 30s but backs off 120s per folder. Check:
 - `./scripts/query-logs.sh controller --grep watchdog` — shows "not importable yet: <reason>"
 - Common reasons: "no matching movie" (file name parsing mismatch), "rejected" (file quality below cutoff)
+
+### Force-grab / manual-import subsystem (the `sonarr-force` path)
+
+When a title is "Not found" (no season-search candidate), the user can pick a specific release via the dashboard download-arrow button. This path is **deliberately isolated** from Sonarr's normal import so a mis-parsed release can't pollute the wrong series. Read this before touching `grabGapRelease`, `importViaGrab`, `importViaSeasonRemap`, or the `importWatchdog` pre-pass.
+
+**Pipeline**: `/api/force-grab` → `grabGapRelease(rel,'sonarr-force')` adds the torrent to qBittorrent category **`sonarr-force`** (savePath `/data/torrents/complete/sonarr-force`, created by `qbittorrent.sh`). Sonarr's download client only watches `sonarr`, so it never sees these → no wrong-series auto-import. The controller's `importWatchdog` **pre-pass** is the sole importer: it waits for the torrent to be 100% complete, then `importViaGrab('sonarr', folder, expectedId)` maps files to episodes using the user-chosen `seriesId`.
+
+**`importViaGrab` strategies** (in order, all keyed on the correct `expectedId` series):
+1. Sonarr `/manualimport` — but trusts its parse only when `c.series.id === expectedId` (else falls through, so a "Carl Sagan's Cosmos 1980"→Cosmos 2014 mis-parse can't win).
+2. `resolveEpisodeRange` — multi-episode files ("Chapter 5 to 8", "E05-E08") → one file mapped to episodeIds `[5,6,7,8]`. Tried BEFORE single-episode matching.
+3. `resolveEpisode` — regex (SxxExx / E## / bare number) then episode-title fuzzy match.
+4. Sequential fill — sort files, assign to first missing monitored episodes (last resort).
+
+**`importViaSeasonRemap`** (generic recover watchdog, Sonarr-only fallback): for merged TVDB series where a release's files are numbered in the sub-show's own S01 but Sonarr grabbed them as S2 (Cosmos 2014 "Possible Worlds"). Fires ONLY on the rejection `unexpected considering the … folder name` / `not found in the grabbed release`. Reads the target episodes from Sonarr **history** grabbed-events (durable — the queue empties once import is blocked), matches by episode number, and ManualImports to the right season.
+
+**State**: `forceGrabImport` (in-flight) + `completedForceGrabs` (done) Maps, both persisted in `state.json`, both keyed by **LOWERCASE infoHash**. This casing is load-bearing — qBittorrent reports hashes lowercase and every consumer looks up `t.hash.toLowerCase()`; a 2026-07-09 bug keyed them UPPERCASE so `.has()` always missed, which bypassed the guards and let the generic importer delete a force-grab with `deleteFiles:true`. Guards on the buildDownloads recover path and stall-recovery skip gate on the `sonarr-force` **category** (not just the hash map) as belt-and-suspenders.
+
+**INVARIANTS** (do not regress): no auto-grab (manual button is the only acquirer); force-grabs import ONLY when the torrent is complete (never from `/torrents/incomplete/`); nothing except the pre-pass imports or deletes a `sonarr-force` torrent; force-grabs are never deleted for being unparseable (they sit as "Importing"; `fg_giveup` is emitted, files stay for manual handling).
+
+**Diagnosing a force-grab**: `make metrics a='events --type fg_verify'` (PASS/FAIL + issues), then `fg_import` / `fg_giveup` / `season_remap`. `fg_verify` cross-checks Jellyfin, so it catches wrong-tvdb merges, phantom seasons, doubling, and partial imports automatically. Live: `docker logs controller | grep -E "force-grab|season-alias remap|multi-episode|fg-verify"`.
+
+### Naming & Jellyfin identity (why episodes show wrong seasons / a show splits or merges)
+
+Jellyfin identifies content by **filename + NFO**, not by Sonarr's DB. Two config levers make this deterministic (both codified, both new-import-only — never a library-wide rename):
+- **Sonarr/Radarr `renameEpisodes`/`renameMovies` = true** (`_arr_common.sh` §4b) → clean `Series (Year) - S01E05 - Title` names. Without it, raw release names make Jellyfin invent phantom seasons (e.g. "…2006…" → Season 20) and collapse a sub-show's S01-numbered files onto Season 1 (doubling).
+- **Sonarr/Radarr Kodi/Emby (Xbmc) NFO metadata consumer** (`_arr_common.sh` §4b) writes `tvshow.nfo`/episode NFO with the exact `tvdbid`; **Jellyfin TV+Movies `LocalMetadataReaderOrder=['Nfo']`** (`jellyfin.sh`) reads it. This pins the right series — e.g. a year-less `Cosmos` folder resolves to tvdb 74995 (1980) instead of fuzzy-matching Cosmos 2014 (260586).
+
+To verify identity: `GET {jellyfin}/Items?includeItemTypes=Series&fields=Path,ProviderIds` and compare `ProviderIds.Tvdb` per folder against Sonarr's `tvdbId`. Note `POST /Library/Refresh` only re-checks KNOWN items — a brand-new folder needs the real-time watcher or a full scan to appear.
 
 ### "Why did it grab a huge/bloated release?"
 
@@ -446,6 +481,47 @@ curl -X POST http://localhost:8088/api/force-grab -H 'Content-Type: application/
 # *arr queue status (blocked imports, stuck items)
 ./scripts/diagnose.sh --queue
 ```
+
+## Direct Service API Access (deep diagnostics)
+
+When the controller API + scripts aren't enough, query each service's own API directly. This is how the 2026-07-09 force-grab/naming investigation was done — cross-checking Sonarr's DB vs qBittorrent's torrents vs Jellyfin's parsed library. Each service is on `localhost` (bridge/host net); the controller reaches them by container name.
+
+**Get the API keys** (all also available inside the controller container's `/config/keys.env`):
+```bash
+SONARR_KEY=$(docker exec sonarr cat /config/config.xml | grep -oP '(?<=<ApiKey>)[^<]+')   # radarr/prowlarr same
+JELLYFIN_KEY=$(grep -oP '^JELLYFIN_KEY=\K.*' /opt/appdata/controller/keys.env)             # header: X-Emby-Token
+JELLYSEERR_KEY=$(docker exec jellyseerr sh -c 'python3 -c "import json;print(json.load(open(\"/app/config/settings.json\"))[\"main\"][\"apiKey\"])"')
+# qBittorrent uses a session cookie, not a key:
+docker exec qbittorrent sh -c 'curl -s -c /tmp/j -d "username=brennan&password=brennan" localhost:8080/api/v2/auth/login >/dev/null && curl -s -b /tmp/j "<endpoint>"'
+```
+
+**Sonarr / Radarr** (`localhost:8989` / `:7878`, `/api/v3`, header `X-Api-Key`):
+- `GET /series` · `/series/{id}` — `statistics.episodeFileCount`/`episodeCount` (completeness), `seasons[].statistics`, `tvdbId`, `path`. (Radarr: `/movie`, `hasFile`, `tmdbId`.)
+- `GET /episode?seriesId={id}` — per-episode `hasFile`, `episodeFileId`, season/episode numbers.
+- `GET /episodefile?seriesId={id}` — PHYSICAL files (fewer than episodes ⇒ multi-episode files; cross-ref which episodes map to each fileId).
+- `GET /queue?includeEpisode=true&includeUnknownSeriesItems=true` — import-blocked items + their episode mapping + `statusMessages` (rejection reasons like "unexpected considering the folder name").
+- `GET /history?downloadId={HASH}` — durable grab→episode mapping. **`downloadId` is the UPPERCASE hash**; qBit reports lowercase. Grabbed events carry `episodeId`+`seriesId`.
+- `GET /rename?seriesId={id}` — preview clean names (0 entries if `renameEpisodes` is off). `GET /config/naming`, `/metadata` — rename + NFO-consumer config.
+- Mutations used: `POST /command {name:"RenameFiles"|"RefreshSeries"|"ManualImport"|"EpisodeSearch",…}`, `DELETE /series/{id}?deleteFiles=true`.
+
+**qBittorrent** (`localhost:8080`, `/api/v2`, cookie auth above):
+- `GET /torrents/info[?category=sonarr-force]` — `hash` (LOWERCASE), `progress`, `state`, `category`, `content_path` (points into `/torrents/incomplete/…` until complete).
+- `GET /torrents/files?hash={h}` — per-file names/sizes/progress → reveals multi-file packaging (e.g. one 18 GB "Chapter 5 to 8" file).
+- `GET /torrents/categories` — category → savePath.
+
+**Jellyfin** (`localhost:8096`, header `X-Emby-Token`; media path maps `/data/media`→`/media`):
+- `GET /Items?recursive=true&includeItemTypes=Series&fields=Path,ProviderIds` — **match a folder by `Path`, then check `ProviderIds.Tvdb`** to catch wrong-tvdb merges (two folders → same tvdb) or duplicates.
+- `GET /Items?parentId={seriesItemId}&recursive=true&includeItemTypes=Episode&fields=ParentIndexNumber` — season/episode distribution (phantom seasons, doubling). `ParentIndexNumber` null = "Season Unknown".
+- `GET /Library/VirtualFolders` — libraries + `LibraryOptions` (`LocalMetadataReaderOrder` for NFO). `POST /Library/VirtualFolders/LibraryOptions` to change (see `jellyfin.sh` pattern).
+- `POST /Library/Refresh` — scan; only re-checks KNOWN items (new folders need the watcher/full scan). `GET /ScheduledTasks` — poll `State=="Running"` to wait for a scan. `DELETE /Items/{id}` — remove a stale/phantom entry.
+
+**Jellyseerr** (`localhost:5055`, `/api/v1`, header `X-Api-Key`):
+- `GET /search?query=Title` — per-result `mediaInfo` (null/absent ⇒ CLEARED ⇒ re-requestable; status 5 = available). Use to confirm a wipe left a title re-requestable.
+- `GET /request?take=N&filter=all` · `DELETE /media/{id}` — inspect/clear requests+media. (The controller's `seerrSweep` auto-clears orphans when *arr items are deleted.)
+
+**Controller internals** (files on the host):
+- `/opt/appdata/controller/state.json` — `forceGrabImport`/`completedForceGrabs` (LOWERCASE infoHash keys), `searchState` (keyed `sonarr:{id}`), `declined`, `blocked`, `gpuSwapped`, `masterPaused`. To hand-edit: `docker stop controller`, edit, `docker start controller` (avoids the running process overwriting on its persist timer).
+- `/opt/appdata/controller/metrics/events/$(date +%F).jsonl` — event log (in-container: `/config/metrics/events/`). `jq -c 'select(.e=="fg_verify")'` etc.
 
 ## Log Query Patterns
 
