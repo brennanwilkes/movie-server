@@ -240,12 +240,61 @@
 	}
 
 	// ---- scan / observe ----------------------------------------------------------------------
+	// On a playlist detail page, jellyfin gives each item row data-action="playallfromhere",
+	// so clicking a movie starts playback immediately instead of opening its details page.
+	// Rewrite that primary action to "link" — jellyfin's own click handler then navigates to
+	// the movie (using the row's data-id/data-serverid). Scoped to rows carrying a
+	// data-playlistitemid, so only playlist views are touched; the drag handle and the
+	// per-row menu/played/favourite buttons keep their own actions. Idempotent: once a row is
+	// "link" it no longer matches, so our own DOM change doesn't re-trigger.
+	function playlistClicksToDetails() {
+		document.querySelectorAll('[data-playlistitemid][data-action="playallfromhere"]').forEach(function (row) {
+			// The row carries the item's data-id/serverid/type, so it's the correct link target.
+			row.setAttribute('data-action', 'link');
+			// The poster child has its own playallfromhere action but NO data-id, so retargeting
+			// it to "link" would misresolve. Drop its action instead → clicks defer up to the row.
+			row.querySelectorAll('[data-action="playallfromhere"]').forEach(function (el) {
+				el.removeAttribute('data-action');
+			});
+		});
+	}
+
+	// Shuffle the Watchlist detail page's rows on each visit, so it feels fresh — mirroring how
+	// the curated collection rows randomize (ItemSortBy.RANDOM) elsewhere. Scoped to the Watchlist
+	// playlist id ONLY: Top 100 keeps its hand-ranked order (Brennan's source of truth). Display
+	// only — we reorder DOM nodes, never the stored playlist. Shuffles once per rendered list
+	// (a dataset marker on the container), so a fresh visit (new container) reshuffles but scroll/
+	// mutations don't; our own reorder doesn't re-trigger since the marker is already set.
+	function shuffleWatchlist() {
+		var watchId = idByName[WATCHLIST];
+		if (!watchId) return;
+		var hash = location.hash || '';
+		if (hash.indexOf('/details') === -1) return;
+		var q = hash.split('?')[1];
+		if (!q) return;
+		var id;
+		try { id = new URLSearchParams(q).get('id'); } catch (e) { return; }
+		if (!id || normalize(id) !== normalize(watchId)) return; // only the Watchlist page
+		var container = document.querySelector('#childrenContent .itemsContainer');
+		if (!container || container.dataset.curatedShuffled) return;
+		var rows = Array.prototype.slice.call(container.querySelectorAll(':scope > .listItem'));
+		if (rows.length < 2) return; // nothing to shuffle (or not rendered yet — retry next tick)
+		container.dataset.curatedShuffled = '1';
+		for (var i = rows.length - 1; i > 0; i--) { // Fisher-Yates
+			var j = Math.floor(Math.random() * (i + 1));
+			var tmp = rows[i]; rows[i] = rows[j]; rows[j] = tmp;
+		}
+		rows.forEach(function (r) { container.appendChild(r); }); // re-append in shuffled order
+	}
+
 	function scan() {
 		if (loaded) {
 			document.querySelectorAll('.card[data-id]').forEach(decorateItem);
 			document.querySelectorAll('.listItem[data-id]').forEach(decorateItem);
 			decorateDetails();
 		}
+		playlistClicksToDetails(); // independent of `loaded` — pure DOM attribute rewrite
+		shuffleWatchlist();        // needs idByName (set early in loadLists); no-op off the Watchlist page
 		addSidebarEntries(); // independent of `loaded` — needs only idByName, set early in loadLists
 	}
 
