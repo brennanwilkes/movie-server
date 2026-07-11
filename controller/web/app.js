@@ -484,8 +484,11 @@ async function pollDownloads() {
 let libApp = 'radarr';
 let libItems = [];
 let libSeq = 0;   // request sequence — a slow older response must never clobber a newer one
+let libLoading = false;
+function setLibLoading(v) { libLoading = v; const el = $('#library-loading'); if (el) el.hidden = !v; }
 $('#lib-toggle').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.app === libApp) return;                      // already on this tab — nothing to reload
   $$('#lib-toggle button').forEach((x) => x.classList.toggle('active', x === b));
   libApp = b.dataset.app;
   // Clear immediately: until the new list arrives, the OLD app's rows were still rendered and
@@ -499,7 +502,9 @@ $('#lib-search').addEventListener('input', renderLibrary);
 function renderLibrary() {
   const q = $('#lib-search').value.trim().toLowerCase();
   const items = q ? libItems.filter((m) => m.title.toLowerCase().includes(q)) : libItems;
-  $('#library-empty').hidden = items.length > 0;
+  // While a fetch is in flight the list is intentionally empty — show the spinner, not a
+  // premature "Nothing here yet." (the bug where flicking tabs looked like an empty library).
+  $('#library-empty').hidden = items.length > 0 || libLoading;
   $('#library-empty').textContent = libItems.length ? 'No matches.' : 'Nothing here yet.';
   $('#library').innerHTML = items.map((m) => {
     let rate = '', rateCls = '';
@@ -541,18 +546,22 @@ function renderLibrary() {
   }));
 }
 async function loadLibrary() {
-  if (offline) { $('#library').innerHTML = ''; $('#library-empty').hidden = false; $('#library-empty').textContent = 'Connect to your home network to manage your library.'; return; }
+  if (offline) { setLibLoading(false); $('#library').innerHTML = ''; $('#library-empty').hidden = false; $('#library-empty').textContent = 'Connect to your home network to manage your library.'; return; }
   const seq = ++libSeq;
+  setLibLoading(true);
+  renderLibrary();                                               // hide the empty message behind the spinner right away
   try {
     const data = await getJSON(`/api/library?app=${libApp}`);
     if (seq !== libSeq) return;                                  // a newer request superseded this one
     libItems = (data.items || []).map((m) => ({ ...m, _app: data.app }));
     const el = $(`#lib-count-${data.app}`);
     if (el) el.textContent = libItems.length ? `(${libItems.length})` : '';
+    setLibLoading(false);
     renderLibrary();
   }
   catch {
     if (seq !== libSeq) return;
+    setLibLoading(false);
     libItems = [];                                               // stale rows must not stay actionable
     $('#library').innerHTML = '';
     $('#library-empty').hidden = false;

@@ -56,6 +56,19 @@ if ! cmp -s scripts/ps4fix.service /etc/systemd/system/ps4fix.service 2>/dev/nul
   echo "Installed ps4fix.timer (post-import PS4 audio normalization, every 30 min)."
 fi
 
+# 2d. Auto-collection reconcile: Jellyfin auto-creates TMDB BoxSets — many are tiny clutter
+#     (1-2 films) and franchises default to alphabetical order (scrambled sequels). This
+#     one-shot service hides the tiny ones (tag + BlockedTags) and orders franchises
+#     chronologically once per boot — NOT a recurring timer. Provision (jellyfin.sh) also
+#     runs it for an immediate apply on deploy. See sort-collections.sh.
+if ! cmp -s scripts/collection-sort.service /etc/systemd/system/collection-sort.service 2>/dev/null; then
+  sudo install -m 644 scripts/collection-sort.service /etc/systemd/system/
+  sudo rm -f /etc/systemd/system/collection-sort.timer   # drop the old timer if a prior bootstrap installed one
+  sudo systemctl daemon-reload
+  sudo systemctl enable collection-sort.service   # runs at boot; provision applies it now
+  echo "Installed collection-sort.service (hide tiny auto-collections + order franchises, once per boot)."
+fi
+
 # 3. create the data + config tree (single $DATA root enables hardlinks)
 sudo mkdir -p "$DATA"/torrents/{incomplete,complete} \
               "$DATA"/media/{movies,tv} \

@@ -1,0 +1,15 @@
+[Unit]
+Description=Reconcile auto-created Jellyfin collections: hide tiny ones + order franchises (movie-server)
+# Runs once per boot, after Docker (and thus the Jellyfin container) has started. The
+# script waits for Jellyfin's API to answer before doing anything, so the reconcile is
+# re-asserted on every boot without a recurring timer. NOT a cron — one-shot at boot.
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+User=brennan
+ExecStart=/home/brennan/movie-server/scripts/sort-collections.sh
+
+[Install]
+WantedBy=multi-user.target

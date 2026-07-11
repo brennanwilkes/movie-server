@@ -94,6 +94,78 @@ else
   ok "Movies library now auto-adds to TMDb collections (box sets)"
 fi
 
+# 3c. Curated ordered playlists (Top 100, Watchlist). IaC only CREATES them empty — it
+#     NEVER touches membership or order. In-app editing (web/mobile drag-reorder) is the
+#     source of truth for contents; a reconcile here would fight manual edits. Once a
+#     playlist exists, Jellyfin surfaces a "Playlists" entry in the web sidebar drawer,
+#     and the Firestick fork's toolbar buttons open each list by name. See DESIGN-PLAYLISTS.md.
+#     Playlists are user-scoped, so create them under the admin user we authenticated as.
+jf_uid=$(curl -fsS "$JF/Users/Me" -H "X-Emby-Token: $token" | jq -r '.Id')
+[[ -n "$jf_uid" && "$jf_uid" != "null" ]] || die "could not resolve Jellyfin user id for playlists"
+existing_playlists=$(curl -fsS "$JF/Items?userId=$jf_uid&IncludeItemTypes=Playlist&Recursive=true" \
+  -H "X-Emby-Token: $token" | jq -r '.Items[].Name')
+jf_ensure_playlist() {  # name — create an EMPTY video playlist if none with this exact name exists
+  if grep -qxF "$1" <<<"$existing_playlists"; then
+    ok "playlist '$1' already exists (contents left untouched)"; return
+  fi
+  # CreatePlaylistDto: empty Ids => empty playlist. MediaType Video so it lives under Movies/TV.
+  curl -fsS -X POST "$JF/Playlists" -H "X-Emby-Token: $token" -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg n "$1" --arg u "$jf_uid" '{Name:$n, Ids:[], UserId:$u, MediaType:"Video"}')" >/dev/null \
+    && ok "playlist '$1' created (empty — populate/rank in-app)" \
+    || warn "  failed to create playlist '$1'"
+}
+jf_ensure_playlist "Top 100"
+jf_ensure_playlist "Watchlist"
+
+# Rebuild each curated playlist's cover as a 2x2 poster mosaic from its CURRENT items.
+# We build it OURSELVES rather than letting Jellyfin regenerate: Jellyfin's collage generator
+# STRETCHES each 2:3 poster to fill a square cell, so the posters come out vertically squashed.
+# Instead we cover-crop each poster to a 300x300 cell (proportions preserved, edges trimmed) and
+# tile four into a 600x600 square with ImageMagick, then upload it. Runs every provision so covers
+# track the list. Falls back to Jellyfin's (squashed) regen if ImageMagick isn't installed.
+# (Caveat: editing a playlist in-app can make Jellyfin rebuild its own squashed collage; the next
+# provision re-asserts ours.)
+jf_refresh_playlist_cover() {  # name
+  local pid tmp iid n=0; local -a cells=()
+  pid=$(curl -fsS "$JF/Items?userId=$jf_uid&IncludeItemTypes=Playlist&Recursive=true" \
+    -H "X-Emby-Token: $token" | jq -r --arg n "$1" '.Items[]|select(.Name==$n).Id // empty')
+  [[ -n "$pid" ]] || return
+  if ! command -v montage >/dev/null 2>&1 || ! command -v convert >/dev/null 2>&1; then
+    # Fallback: let Jellyfin rebuild its own collage (may look squashed).
+    curl -fsS -X DELETE "$JF/Items/$pid/Images/Primary" -H "X-Emby-Token: $token" >/dev/null 2>&1 || true
+    curl -fsS -X POST "$JF/Items/$pid/Refresh?metadataRefreshMode=FullRefresh&imageRefreshMode=FullRefresh&replaceAllImages=true" \
+      -H "X-Emby-Token: $token" >/dev/null 2>&1 || true
+    warn "  ImageMagick not found — '$1' cover left to Jellyfin (may look squashed)"; return
+  fi
+  tmp=$(mktemp -d)
+  while read -r iid; do
+    [[ -n "$iid" ]] || continue
+    curl -fsS "$JF/Items/$iid/Images/Primary?maxHeight=450&quality=90" -H "X-Emby-Token: $token" -o "$tmp/raw$n" 2>/dev/null \
+      && convert "$tmp/raw$n" -resize 300x300^ -gravity center -extent 300x300 "$tmp/cell$n.png" 2>/dev/null \
+      && { cells+=("$tmp/cell$n.png"); n=$((n+1)); } || true
+  done < <(curl -fsS "$JF/Playlists/$pid/Items?userId=$jf_uid&Limit=8" -H "X-Emby-Token: $token" \
+             | jq -r '.Items[]|select(.ImageTags.Primary!=null)|.Id' | head -4)
+  if (( ${#cells[@]} >= 1 )) \
+     && montage "${cells[@]}" -tile 2x2 -geometry +0+0 -background '#000' "$tmp/mosaic.png" 2>/dev/null \
+     && base64 -w0 "$tmp/mosaic.png" | curl -fsS -X POST "$JF/Items/$pid/Images/Primary" \
+          -H "X-Emby-Token: $token" -H 'Content-Type: image/png' --data-binary @- >/dev/null; then
+    ok "playlist '$1' cover rebuilt (${#cells[@]}-poster mosaic, correct aspect)"
+  else
+    warn "  could not rebuild cover for '$1' (no poster items yet, or ImageMagick error)"
+  fi
+  rm -rf "$tmp"
+}
+jf_refresh_playlist_cover "Top 100"
+jf_refresh_playlist_cover "Watchlist"
+
+# 3d. Reconcile auto-created (TMDB) collections: HIDE tiny ones (<3 films) server-side via a
+#     tag + the user's BlockedTags policy, and ORDER franchise ones chronologically
+#     (DisplayOrder=PremiereDate). sort-collections.sh does both. It also runs once per boot
+#     via collection-sort.service (installed by bootstrap.sh) to catch collections created
+#     since the last deploy; we invoke it here so a deploy applies it immediately. Single
+#     implementation lives in the script — see its header for scope + the block-toggle detail.
+scripts/sort-collections.sh || warn "  collection reconcile failed (re-runs next boot)"
+
 # 4. Install Intro Skipper plugin (auto-skip intros/credits in TV shows).
 #     Requires a third-party repository; the manifest is versioned by Jellyfin ABI.
 log "  ensuring Intro Skipper plugin is installed"
@@ -200,6 +272,26 @@ else
   fi
 fi
 
+# 5c. Keyframe-only trickplay extraction — clears the one-time library backlog far faster.
+#     By default trickplay full-decodes every frame at 0.1fps to sample thumbnails; on this 2c/4t
+#     Skylake, software x265 10-bit decode is ~13 min/file, so the initial ~1800-file backlog would
+#     take ~3 months of nightly 4h runs (section 5b). Keyframe-only seeks to keyframes instead of
+#     full-decoding — several times faster, at the cost of slightly coarser scrub-preview precision.
+#     Only ever runs inside the capped 03:00–07:00 window, so daytime is untouched either way.
+#     TrickplayOptions lives on the ROOT server config (not encoding) as of 10.11. ProcessThreads
+#     left at its default of 1 on purpose. Existing spritesheets are unaffected; this applies to
+#     the files still missing trickplay.
+log "  enabling keyframe-only trickplay extraction (faster backlog clear)"
+sc=$(curl -fsS "$JF/System/Configuration" -H "X-Emby-Token: $token")
+if [[ "$(jq -r '.TrickplayOptions.EnableKeyFrameOnlyExtraction' <<<"$sc")" == "true" ]]; then
+  ok "keyframe-only trickplay already enabled"
+else
+  jq '.TrickplayOptions.EnableKeyFrameOnlyExtraction=true' <<<"$sc" \
+    | curl -fsS -X POST "$JF/System/Configuration" \
+        -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+  ok "keyframe-only trickplay enabled"
+fi
+
 # 6. Apply custom CSS (scyfin + OLED + red accent + polish).
 #     Pure CSS injected via the branding config — no plugin needed.
 log "  ensuring custom CSS theme is applied"
@@ -298,6 +390,31 @@ else
     ok "Playback Reporting plugin installed ($prver) — restart below activates it"
   else
     warn "Playback Reporting not found in plugin catalog — skipped"
+  fi
+fi
+
+# 6d3. JavaScript Injector plugin (n00bcodr) — delivery vehicle for our custom WEB JS (curated-list
+#      flair: Top 100 rank pills + Watchlist bookmarks on posters, and the Top 100 / Watchlist
+#      sidebar entries). It registers via File Transformation's RUNTIME path — the same mechanism
+#      HSS uses — so it COEXISTS with HSS's index.html transform. (FT's config-based search/replace
+#      does NOT: HSS's runtime transform wins on index.html, and config transforms don't reach the
+#      static JS bundles — verified on-box 2026-07-10.) The script itself is pushed as this plugin's
+#      config in §9, after the §7 restart activates the plugin. See DESIGN-PLAYLISTS.md.
+jsinj_repo="https://raw.githubusercontent.com/n00bcodr/jellyfin-plugins/main/10.11/manifest.json"
+repos=$(curl -fsS "$JF/Repositories" -H "X-Emby-Token: $token")
+if ! jq -e --arg u "$jsinj_repo" '.[]|select(.Url==$u)' <<<"$repos" >/dev/null 2>&1; then
+  jq --arg u "$jsinj_repo" '. + [{"Name":"n00bcodr","Url":$u,"Enabled":true}]' <<<"$repos" \
+    | curl -fsS -X POST "$JF/Repositories" -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+  ok "JavaScript Injector repository registered"
+fi
+if grep -qxF "JavaScript Injector" <<<"$installed"; then
+  ok "JavaScript Injector plugin already installed"
+else
+  sleep 2   # give the catalog a moment after a fresh repo add
+  if curl -fsS -X POST "$JF/Packages/Installed/JavaScript%20Injector?assemblyGuid=f5a34f7b-2e8a-4e6a-a722-3a216a81b374" -H "X-Emby-Token: $token" >/dev/null 2>&1; then
+    ok "JavaScript Injector plugin installed — restart below activates it"
+  else
+    warn "JavaScript Injector install failed (catalog may need a minute after repo add) — re-run make provision s=jellyfin"
   fi
 fi
 
@@ -407,5 +524,42 @@ else
     curl -fsS -X POST "$JF/Plugins/${hss_id}/Configuration" -H "X-Emby-Token: $token" \
       -H 'Content-Type: application/json' -d "$hss_desired" >/dev/null
     ok "Home Screen Sections layout applied (14 rows enabled incl. Off the Shelf, integrations wired to $NUC_IP)"
+  fi
+fi
+
+# 9. Web curated-list flair — push our custom web JS into the JavaScript Injector plugin (installed
+#    in §6d3, activated by the §7 restart). It surfaces the Top 100 rank pills + Watchlist bookmarks
+#    on movie posters AND the Top 100 / Watchlist sidebar entries — the web counterpart to the
+#    Firestick fork's card badges + toolbar buttons. JS Injector serves the script at
+#    /JavaScriptInjector/public.js and injects a loader into index.html via File Transformation's
+#    runtime path (coexists with HSS). Config applies LIVE — no restart needed. Script source is
+#    jellyfin-web-flair.js next to this file. In-app playlist edits stay the source of truth.
+#    NOTE: browsers cache the web assets via a service worker — hard-refresh once after a change.
+#    See DESIGN-PLAYLISTS.md.
+FLAIR_JS="$(dirname "${BASH_SOURCE[0]}")/jellyfin-web-flair.js"
+js_id=$(curl -fsS "$JF/Plugins" -H "X-Emby-Token: $token" | jq -r '.[]|select(.Name=="JavaScript Injector" and .Status=="Active").Id // empty')
+if [[ -z "$js_id" ]]; then
+  warn "JavaScript Injector not active — skipping web flair (re-run make provision s=jellyfin)"
+elif [[ ! -f "$FLAIR_JS" ]]; then
+  warn "jellyfin-web-flair.js missing next to jellyfin.sh — skipping web flair"
+else
+  # Dedupe by NAME, not Id: the JS Injector plugin does NOT persist an Id field on stored
+  # entries (keys are only Name/Script/Enabled/RequiresAuthentication), so an Id-based
+  # "update in place" never matched and every provision piled up another duplicate — which
+  # the plugin concatenates into public.js. Drop all prior "Curated List Flair" entries,
+  # then append exactly one.
+  flair_name="Curated List Flair"
+  js_cur=$(curl -fsS "$JF/Plugins/$js_id/Configuration" -H "X-Emby-Token: $token")
+  js_desired=$(jq --rawfile js "$FLAIR_JS" --arg name "$flair_name" '
+    .PluginJavaScripts = (.PluginJavaScripts // []) |
+    .CustomJavaScripts = (((.CustomJavaScripts // []) | map(select(.Name != $name))) + [{
+      Name: $name, Script: $js, Enabled: true, RequiresAuthentication: false
+    }])' <<<"$js_cur")
+  if [[ "$(jq -S . <<<"$js_cur")" == "$(jq -S . <<<"$js_desired")" ]]; then
+    ok "web flair script already up to date in JavaScript Injector"
+  else
+    curl -fsS -X POST "$JF/Plugins/$js_id/Configuration" -H "X-Emby-Token: $token" \
+      -H 'Content-Type: application/json' -d "$js_desired" >/dev/null
+    ok "web flair script pushed to JavaScript Injector (served at /JavaScriptInjector/public.js; hard-refresh browser)"
   fi
 fi
