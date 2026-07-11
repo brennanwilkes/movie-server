@@ -292,16 +292,16 @@ else
   ok "keyframe-only trickplay enabled"
 fi
 
-# 6. Apply custom CSS (scyfin + OLED + red accent + polish).
-#     Pure CSS injected via the branding config — no plugin needed.
+# 6. Apply custom CSS — Movie Night "Canyon" web theme (scyfin base + identity overrides,
+#     script wordmark embedded as data URI, drawer prune). Source of truth:
+#     scripts/provision/jellyfin-custom.css; see docs/branding/SPEC.md §7.
 log "  ensuring custom CSS theme is applied"
 branding=$(curl -fsS "$JF/System/Configuration/Branding" -H "X-Emby-Token: $token")
-css_urls="@import url('https://cdn.jsdelivr.net/gh/loof2736/scyfin@latest/CSS/scyfin-theme.css');
-@import url('https://cdn.jsdelivr.net/gh/loof2736/scyfin@latest/CSS/theme-oled.css');
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0, 164, 220, 0.3); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(0, 164, 220, 0.5); }"
+CUSTOM_CSS_FILE="$(dirname "${BASH_SOURCE[0]}")/jellyfin-custom.css"
+if [[ ! -f "$CUSTOM_CSS_FILE" ]]; then
+  warn "jellyfin-custom.css missing next to jellyfin.sh — skipping custom CSS"
+fi
+css_urls="$(cat "$CUSTOM_CSS_FILE")"
 if [[ "$(jq -r '.CustomCss // ""' <<<"$branding")" == "$css_urls" ]]; then
   ok "custom CSS theme already applied"
 else
