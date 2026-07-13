@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d12">
+  <title>Elo Movie Tuner</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Elo Movie Tuner</h1>
+    <span id="phase-label" class="phase-badge">Loading…</span>
+  </header>
+
+  <main>
+    <!-- Comparison card (the only interactive view) -->
+    <section id="compare" class="phase" hidden>
+      <div class="progress-wrap">
+        <div id="progress-bar" class="progress-bar"></div>
+      </div>
+      <p id="prog-text" class="muted prog-text"></p>
+      <div class="split-card">
+        <button class="split-option" id="opt-a">
+          <div class="poster-wrap"><img id="poster-a" alt=""></div>
+          <div class="split-info">
+            <strong id="title-a"></strong>
+            <span id="meta-a" class="muted"></span>
+          </div>
+        </button>
+        <div class="vs-divider"><span>VS</span></div>
+        <button class="split-option" id="opt-b">
+          <div class="poster-wrap"><img id="poster-b" alt=""></div>
+          <div class="split-info">
+            <strong id="title-b"></strong>
+            <span id="meta-b" class="muted"></span>
+          </div>
+        </button>
+      </div>
+      <button id="back-btn" class="btn-back" hidden>↩ Back</button>
+    </section>
+
+    <!-- Review -->
+    <section id="review" class="phase" hidden>
+      <p class="phase-desc">Your sorted list. Accept to update the Jellyfin Top 100 playlist.</p>
+      <div class="review-actions">
+        <button id="review-accept" class="btn-primary">Accept & Reorder Playlist</button>
+        <button id="review-reject" class="btn-secondary">Start Over</button>
+      </div>
+      <div id="review-loading" class="loading" hidden>
+        <span class="spinner"></span> Reordering playlist…
+      </div>
+      <div id="review-done" hidden>
+        <div class="success-banner">Playlist reordered!</div>
+        <button id="review-continue" class="btn-primary">Continue Fine-Tuning</button>
+        <button id="review-export" class="btn-secondary">Export as JSON</button>
+      </div>
+      <ol id="review-list" class="ranked-list"></ol>
+    </section>
+
+    <div id="loading" class="loading"><span class="spinner"></span> Loading Top 100…</div>
+
+    <div id="error" class="error-banner" hidden>
+      <strong>Error:</strong> <span id="error-msg"></span>
+      <button id="error-retry" class="btn-secondary">Retry</button>
+    </div>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

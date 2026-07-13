@@ -295,20 +295,94 @@ fi
 # 6. Apply custom CSS — Movie Night "Canyon" web theme (scyfin base + identity overrides,
 #     script wordmark embedded as data URI, drawer prune). Source of truth:
 #     scripts/provision/jellyfin-custom.css; see docs/branding/SPEC.md §7.
+#
+#     The Branding API POST silently discards CustomCss payloads >~35KB in Jellyfin 10.11
+#     (returns 204 but doesn't persist — in-memory cache served, disk never written). Workaround:
+#     write branding.xml directly into the container and let the §7 restart pick it up.
 log "  ensuring custom CSS theme is applied"
-branding=$(curl -fsS "$JF/System/Configuration/Branding" -H "X-Emby-Token: $token")
 CUSTOM_CSS_FILE="$(dirname "${BASH_SOURCE[0]}")/jellyfin-custom.css"
 if [[ ! -f "$CUSTOM_CSS_FILE" ]]; then
   warn "jellyfin-custom.css missing next to jellyfin.sh — skipping custom CSS"
-fi
-css_urls="$(cat "$CUSTOM_CSS_FILE")"
-if [[ "$(jq -r '.CustomCss // ""' <<<"$branding")" == "$css_urls" ]]; then
-  ok "custom CSS theme already applied"
 else
-  jq --arg css "$css_urls" '.CustomCss = $css' <<<"$branding" \
-    | curl -fsS -X POST "$JF/System/Configuration/Branding" \
-        -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
-  ok "custom CSS theme applied"
+  live_css=$(docker exec jellyfin python3 -c "
+import xml.etree.ElementTree as ET
+try:
+    tree = ET.parse('/config/branding.xml')
+    print(tree.find('CustomCss').text or '', end='')
+except Exception:
+    pass
+" 2>/dev/null || echo "")
+  src_css=$(cat "$CUSTOM_CSS_FILE")
+  if [[ "$live_css" == "$src_css" ]]; then
+    ok "custom CSS theme already applied"
+  else
+    python3 -c "
+import html, sys
+css = open(sys.argv[1]).read()
+xml = '''<?xml version=\"1.0\" encoding=\"utf-8\"?>
+<BrandingOptions xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">
+  <CustomCss>{}</CustomCss>
+  <SplashscreenEnabled>true</SplashscreenEnabled>
+  <SplashscreenLocation>/config/data/data/splashscreen-upload.png</SplashscreenLocation>
+</BrandingOptions>'''.format(html.escape(css))
+open(sys.argv[2], 'w').write(xml)
+" "$CUSTOM_CSS_FILE" /tmp/jellyfin-branding.xml
+    docker cp /tmp/jellyfin-branding.xml jellyfin:/config/branding.xml
+    rm -f /tmp/jellyfin-branding.xml
+    ok "custom CSS theme written to branding.xml (picked up by restart in §7)"
+  fi
+fi
+
+# 6a2. Branded login splashscreen (Movie Night wordmark on teal). Uploaded once; the branding
+#      option enables it as the login page background. Asset: scripts/provision/movienight-splash.png.
+SPLASH_PNG="$(dirname "${BASH_SOURCE[0]}")/movienight-splash.png"
+if [[ -f "$SPLASH_PNG" ]]; then
+  log "  ensuring branded splashscreen"
+  branding=$(curl -fsS "$JF/System/Configuration/Branding" -H "X-Emby-Token: $token")
+  if [[ "$(jq -r '.SplashscreenEnabled' <<<"$branding")" != "true" ]]; then
+    jq '.SplashscreenEnabled = true' <<<"$branding" \
+      | curl -fsS -X POST "$JF/System/Configuration/Branding" \
+          -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+  fi
+  base64 -w0 "$SPLASH_PNG" \
+    | curl -fsS -X POST "$JF/Branding/Splashscreen" \
+        -H "X-Emby-Token: $token" -H 'Content-Type: image/png' --data-binary @- >/dev/null \
+    && ok "branded splashscreen uploaded" || warn "splashscreen upload failed (non-fatal)"
+fi
+
+# 6a3. Boot loading splash: jellyfin-web's index.html shows .splashLogo (banner-light.*.png)
+#      BEFORE any server CSS loads, so CustomCss can't touch it. Overwrite the bundled PNGs with
+#      the Movie Night wordmark inside the container. Survives restarts; re-applied by provision
+#      after image updates (files are content-hashed names, hence the glob).
+LOGO_PNG="$(dirname "${BASH_SOURCE[0]}")/movienight-logo-transparent.png"
+if [[ -f "$LOGO_PNG" ]]; then
+  log "  branding web boot splash (bundled banner PNGs)"
+  for target in $(docker exec jellyfin sh -c 'ls /usr/share/jellyfin/web/banner-light.*.png /usr/share/jellyfin/web/icon-transparent.*.png 2>/dev/null'); do
+    docker cp "$LOGO_PNG" "jellyfin:$target"
+  done
+  ok "web boot splash branded"
+fi
+
+# 6a4. Self-hosted Poppins for CustomCss — the fonts.googleapis @import never loads from an
+#      injected style, so the font-family rules fell back to Segoe. The CSS @font-faces
+#      url('fonts/poppins.ttf'), resolved against /web/, and this drops the file there.
+#      Same in-container-overwrite pattern as the boot splash above.
+POPPINS_TTF="$(dirname "${BASH_SOURCE[0]}")/poppins.ttf"
+if [[ -f "$POPPINS_TTF" ]]; then
+  log "  installing self-hosted Poppins into jellyfin-web"
+  docker exec jellyfin mkdir -p /usr/share/jellyfin/web/fonts
+  docker cp "$POPPINS_TTF" "jellyfin:/usr/share/jellyfin/web/fonts/poppins.ttf"
+  ok "poppins.ttf installed at /web/fonts/poppins.ttf"
+fi
+
+# 6a5. Self-hosted Palm Canyon Drive — cursive script wordmark font (brand-studies.html
+#      prototype). Used by Canyon theme's "Movie Night" wordmark in the web flair JS.
+PCD_OTF="$(dirname "${BASH_SOURCE[0]}")/palm-canyon-drive.otf"
+if [[ -f "$PCD_OTF" ]]; then
+  log "  installing Palm Canyon Drive wordmark font into jellyfin-web"
+  docker exec jellyfin mkdir -p /usr/share/jellyfin/web/fonts
+  docker cp "$PCD_OTF" "jellyfin:/usr/share/jellyfin/web/fonts/palm-canyon-drive.otf"
+  ok "palm-canyon-drive.otf installed at /web/fonts/palm-canyon-drive.otf"
 fi
 
 # 6b. Intel Quick Sync hardware transcoding. Requires the iGPU passed into the container via

@@ -1231,6 +1231,62 @@ app.get('/api/jellyfin/resolve', async (req, res) => {
   } catch { res.json({ id: null, serverId: null }); }
 });
 
+// ── Elo Tuner: Top 100 playlist reading + reordering ───────────────────────────────────────
+function corsOk(res) { res.header('Access-Control-Allow-Origin', '*'); res.header('Access-Control-Allow-Headers', 'Content-Type'); return res; }
+app.get('/api/elo/top100', async (_req, res) => {
+  corsOk(res);
+  try {
+    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
+    const uid = await jellyfinUserId();
+    const playlists = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${new URLSearchParams({ IncludeItemTypes: 'Playlist', Recursive: 'true', Limit: '20' })}`, { headers: h }, 15000)).json()).Items) || [];
+    const playlist = playlists.find(p => p.Name === 'Top 100');
+    if (!playlist) return res.status(404).json({ error: 'Top 100 playlist not found' });
+    const items = ((await (await tfetch(`${HOST.jellyfin}/Playlists/${playlist.Id}/Items?${new URLSearchParams({ UserId: uid, Fields: 'ProductionYear,Genres,CommunityRating,RunTimeTicks,ProviderIds,People,Studios,Path,ImageTags,Overview' })}`, { headers: h }, 60000)).json()).Items) || [];
+    res.json({ playlistId: playlist.Id, items: items.map((it, i) => ({ ...it, _eloRank: i + 1, _playlistItemId: it.PlaylistItemId })) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/elo/top100/reorder', async (req, res) => {
+  corsOk(res);
+  try {
+    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
+    const { playlistId, itemIds } = req.body; // itemIds = array of Jellyfin itemIds in new order
+    if (!playlistId || !Array.isArray(itemIds)) return res.status(400).json({ error: 'playlistId and itemIds required' });
+    // NOTE: Playlists/{id}/Items/{itemId}/Move/{newIndex} looks right per the Jellyfin API but
+    // is broken for API-key auth — MoveItem resolves the calling user from the request's auth
+    // context to look up the playlist, and an API key isn't bound to a user session, so Jellyfin
+    // gets an empty user GUID and 400s on every single call ("Guid can't be empty (Parameter
+    // 'id')" in PlaylistManager.GetPlaylists). It was failing silently — reorder always reported
+    // ok:true while every per-item move errored. Add/remove both accept an explicit userId, so
+    // reorder instead by clearing the playlist and re-adding items in the desired order.
+    const uid = await jellyfinUserId();
+    const current = ((await (await tfetch(`${HOST.jellyfin}/Playlists/${playlistId}/Items?${new URLSearchParams({ UserId: uid })}`, { headers: h }, 10000)).json()).Items) || [];
+    const currentIds = new Set(current.map(it => it.Id));
+    const orderedIds = itemIds.filter(id => {
+      if (!currentIds.has(id)) { console.log(`elo/reorder: item ${id} not in current playlist`); return false; }
+      return true;
+    });
+    if (!orderedIds.length) return res.json({ ok: true });
+
+    const entryIds = current.map(it => it.PlaylistItemId);
+    const delR = await tfetch(`${HOST.jellyfin}/Playlists/${playlistId}/Items?${new URLSearchParams({ entryIds: entryIds.join(',') })}`, { method: 'DELETE', headers: h }, 10000);
+    if (!delR.ok) throw new Error(`clearing playlist failed: HTTP ${delR.status}`);
+
+    const addR = await tfetch(`${HOST.jellyfin}/Playlists/${playlistId}/Items?${new URLSearchParams({ ids: orderedIds.join(','), userId: uid })}`, { method: 'POST', headers: h }, 15000);
+    if (!addR.ok) throw new Error(`re-adding items failed: HTTP ${addR.status}`);
+
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/elo/config', async (_req, res) => {
+  corsOk(res);
+  try {
+    const uid = await jellyfinUserId();
+    res.json({ nucIp: NUC_IP, userId: uid, jellyfinBase: HOST.jellyfin });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── HSS custom sections: rotating collection SHELVES as home rows ───────────────────────────
 // Three rows registered with the Home Screen Sections plugin, each titled with the ACTUAL
 // collection it's showing ("Mob Classics", "90s Movies", …). The registration's displayText
