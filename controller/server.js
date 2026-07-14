@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 const express = require('express');
+const compression = require('compression');
 const metrics = require('./metrics');
 
 // ── Config: /config/keys.env (written by scripts/provision/controller.sh) over env ──
@@ -154,12 +155,16 @@ async function jellyfinServerId() {
 // over the (small) library.
 async function jellyfinIdByTmdb(type, tmdbId) {
   if (!cfg.JELLYFIN_KEY || !tmdbId) return null;
-  const uid = await jellyfinUserId();
-  const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
-  const q = new URLSearchParams({ recursive: 'true', includeItemTypes: type || 'Movie,Series', fields: 'ProviderIds', limit: '2000' });
-  const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 8000)).json()).Items) || [];
-  const m = items.find((i) => i.ProviderIds && String(i.ProviderIds.Tmdb) === String(tmdbId));
-  return (m && m.Id) || null;
+  const t = type || 'Movie,Series';
+  const cacheKey = `jfTmdb:${t}:${tmdbId}`;
+  return cachedFetch(cacheKey, 300_000, async () => {
+    const uid = await jellyfinUserId();
+    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+    const q = new URLSearchParams({ recursive: 'true', includeItemTypes: t, fields: 'ProviderIds', limit: '2000' });
+    const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 8000)).json()).Items) || [];
+    const m = items.find((i) => i.ProviderIds && String(i.ProviderIds.Tmdb) === String(tmdbId));
+    return (m && m.Id) || null;
+  }, null);
 }
 // Fallback title→item-id lookup (used only when there's no Radarr/Sonarr tmdb id to pin on).
 async function jellyfinSearchId(title, type) {
@@ -196,8 +201,9 @@ async function seerrMediaId(kind, tmdbId) {
 
 // ── App ──
 const app = express();
+app.use(compression());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'web')));
+app.use(express.static(path.join(__dirname, 'web'), { maxAge: '1h' }));
 
 // Status — probe each service in parallel. up = the HTTP request resolved at all
 // (any status code, even 401 from a missing key); only a network error/timeout is
@@ -1236,13 +1242,21 @@ function corsOk(res) { res.header('Access-Control-Allow-Origin', '*'); res.heade
 app.get('/api/elo/top100', async (_req, res) => {
   corsOk(res);
   try {
-    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
-    const uid = await jellyfinUserId();
-    const playlists = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${new URLSearchParams({ IncludeItemTypes: 'Playlist', Recursive: 'true', Limit: '20' })}`, { headers: h }, 15000)).json()).Items) || [];
-    const playlist = playlists.find(p => p.Name === 'Top 100');
-    if (!playlist) return res.status(404).json({ error: 'Top 100 playlist not found' });
-    const items = ((await (await tfetch(`${HOST.jellyfin}/Playlists/${playlist.Id}/Items?${new URLSearchParams({ UserId: uid, Fields: 'ProductionYear,Genres,CommunityRating,RunTimeTicks,ProviderIds,People,Studios,Path,ImageTags,Overview' })}`, { headers: h }, 60000)).json()).Items) || [];
-    res.json({ playlistId: playlist.Id, items: items.map((it, i) => ({ ...it, _eloRank: i + 1, _playlistItemId: it.PlaylistItemId })) });
+    const data = await cachedFetch('elo:top100', 30000, async () => {
+      const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
+      const uid = await jellyfinUserId();
+      // Cache the playlist ID for 1 hour — changes only on manual rename/delete (extremely rare).
+      const playlistId = await cachedFetch('elo:top100:id', 3600000, async () => {
+        const playlists = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${new URLSearchParams({ IncludeItemTypes: 'Playlist', Recursive: 'true', Limit: '20' })}`, { headers: h }, 15000)).json()).Items) || [];
+        const p = playlists.find(p => p.Name === 'Top 100');
+        return p ? p.Id : null;
+      });
+      if (!playlistId) throw new Error('Top 100 playlist not found');
+      const items = ((await (await tfetch(`${HOST.jellyfin}/Playlists/${playlistId}/Items?${new URLSearchParams({ UserId: uid, Fields: 'ProductionYear,Genres,CommunityRating,RunTimeTicks,ProviderIds,People,Studios,Path,ImageTags' })}`, { headers: h }, 60000)).json()).Items) || [];
+      return { playlistId, items: items.map((it, i) => ({ ...it, _eloRank: i + 1, _playlistItemId: it.PlaylistItemId })) };
+    });
+    if (!data) return res.status(404).json({ error: 'Top 100 playlist not found' });
+    res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1275,6 +1289,7 @@ app.post('/api/elo/top100/reorder', async (req, res) => {
     const addR = await tfetch(`${HOST.jellyfin}/Playlists/${playlistId}/Items?${new URLSearchParams({ ids: orderedIds.join(','), userId: uid })}`, { method: 'POST', headers: h }, 15000);
     if (!addR.ok) throw new Error(`re-adding items failed: HTTP ${addR.status}`);
 
+    delete _cache['elo:top100'];  // bust cache so next load picks up new order
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2795,69 +2810,72 @@ function gpuTier(mi) {
   return 'ok';
 }
 
-// Library — titles to clean up, biggest first.
+// Library — titles to clean up, biggest first.  Cached 15s to deduplicate tab switches + 4s poll.
 app.get('/api/library', async (req, res) => {
   const a = req.query.app === 'sonarr' ? 'sonarr' : 'radarr';
   try {
-    let items, queue = [];
-    try { const qr = await arrGet(a, `/queue?pageSize=200&includeUnknownMovieItems=true`); queue = qr.records || []; }
-    catch { /* queue down */ }
-    const qByItemId = {};
-    for (const qe of queue) {
-      const id = qe.movieId || qe.seriesId;
-      if (id != null && !qByItemId[id]) qByItemId[id] = qe;
-    }
-    if (a === 'radarr') {
-      const movies = await arrGet('radarr', '/movie');
-      items = movies.map((m) => {
-        const item = { id: m.id, title: m.title, year: m.year, hasFile: !!m.hasFile, sizeBytes: (m.movieFile && m.movieFile.size) || m.sizeOnDisk || 0, tmdbId: m.tmdbId, runtimeMinutes: m.runtime || 0, videoLabel: videoLabel(m.movieFile && m.movieFile.mediaInfo), gpuCompat: gpuTier(m.movieFile && m.movieFile.mediaInfo) };
-        if (!m.hasFile) {
-          const qe = qByItemId[m.id];
-          if (qe) {
-            if (qe.status === 'completed' || qe.trackedDownloadState === 'imported') { item.downloadStatus = 'importing'; item.downloadDetail = 'Importing…'; }
-            else if (qe.status === 'downloading') { item.downloadStatus = 'downloading'; item.downloadDetail = `Downloading${qe.size && qe.sizeleft ? ' (' + Math.round((1 - qe.sizeleft / qe.size) * 100) + '%)' : ''}`; }
-            else if (qe.status === 'queued' || qe.status === 'paused') { item.downloadStatus = 'queued'; item.downloadDetail = 'Queued'; }
-            else if (qe.trackedDownloadState === 'importBlocked') { item.downloadStatus = 'blocked'; item.downloadDetail = qe.errorMessage || 'Import blocked'; }
-            else if (qe.trackedDownloadState === 'failed') { item.downloadStatus = 'failed'; item.downloadDetail = qe.errorMessage || 'Download failed'; }
-            else { item.downloadStatus = 'queued'; item.downloadDetail = qe.status || 'Queued'; }
-          } else {
-            item.downloadStatus = m.monitored === false ? 'paused' : 'missing';
-            item.downloadDetail = m.monitored === false ? 'Paused (unmonitored)' : 'Not found';
+    const result = await cachedFetch(`lib:${a}`, 15_000, async () => {
+      let items, queue = [];
+      try { const qr = await arrGet(a, `/queue?pageSize=200&includeUnknownMovieItems=true`); queue = qr.records || []; }
+      catch { /* queue down */ }
+      const qByItemId = {};
+      for (const qe of queue) {
+        const id = qe.movieId || qe.seriesId;
+        if (id != null && !qByItemId[id]) qByItemId[id] = qe;
+      }
+      if (a === 'radarr') {
+        const movies = await arrGet('radarr', '/movie');
+        items = movies.map((m) => {
+          const item = { id: m.id, title: m.title, year: m.year, hasFile: !!m.hasFile, sizeBytes: (m.movieFile && m.movieFile.size) || m.sizeOnDisk || 0, tmdbId: m.tmdbId, runtimeMinutes: m.runtime || 0, videoLabel: videoLabel(m.movieFile && m.movieFile.mediaInfo), gpuCompat: gpuTier(m.movieFile && m.movieFile.mediaInfo) };
+          if (!m.hasFile) {
+            const qe = qByItemId[m.id];
+            if (qe) {
+              if (qe.status === 'completed' || qe.trackedDownloadState === 'imported') { item.downloadStatus = 'importing'; item.downloadDetail = 'Importing…'; }
+              else if (qe.status === 'downloading') { item.downloadStatus = 'downloading'; item.downloadDetail = `Downloading${qe.size && qe.sizeleft ? ' (' + Math.round((1 - qe.sizeleft / qe.size) * 100) + '%)' : ''}`; }
+              else if (qe.status === 'queued' || qe.status === 'paused') { item.downloadStatus = 'queued'; item.downloadDetail = 'Queued'; }
+              else if (qe.trackedDownloadState === 'importBlocked') { item.downloadStatus = 'blocked'; item.downloadDetail = qe.errorMessage || 'Import blocked'; }
+              else if (qe.trackedDownloadState === 'failed') { item.downloadStatus = 'failed'; item.downloadDetail = qe.errorMessage || 'Download failed'; }
+              else { item.downloadStatus = 'queued'; item.downloadDetail = qe.status || 'Queued'; }
+            } else {
+              item.downloadStatus = m.monitored === false ? 'paused' : 'missing';
+              item.downloadDetail = m.monitored === false ? 'Paused (unmonitored)' : 'Not found';
+            }
           }
-        }
-        return item;
-      });
-    } else {
-      const seriesList = await arrGet('sonarr', '/series');
-      let miBySeries = {};
-      await Promise.allSettled(seriesList.filter((s) => s.statistics && s.statistics.episodeFileCount > 0).map(async (s) => {
-        const efs = await arrGet('sonarr', `/episodefile?seriesId=${s.id}`, 5000);
-        if (!Array.isArray(efs) || !efs.length) return;
-        const mi = efs.find((ef) => ef.mediaInfo);
-        if (mi) miBySeries[s.id] = mi.mediaInfo;
-      }));
-      items = seriesList.map((s) => {
-        const mi = miBySeries[s.id];
-        const item = { id: s.id, title: s.title, year: s.year, hasFile: ((s.statistics && s.statistics.episodeFileCount) || 0) > 0, sizeBytes: (s.statistics && s.statistics.sizeOnDisk) || 0, tmdbId: s.tmdbId, runtimeMinutes: (s.runtime && s.statistics && s.statistics.episodeFileCount) ? s.runtime * s.statistics.episodeFileCount : 0, videoLabel: videoLabel(mi), gpuCompat: gpuTier(mi) };
-        if (!item.hasFile) {
-          const qe = qByItemId[s.id];
-          if (qe) {
-            if (qe.status === 'completed' || qe.trackedDownloadState === 'imported') { item.downloadStatus = 'importing'; item.downloadDetail = 'Importing…'; }
-            else if (qe.status === 'downloading') { item.downloadStatus = 'downloading'; item.downloadDetail = `Downloading${qe.size && qe.sizeleft ? ' (' + Math.round((1 - qe.sizeleft / qe.size) * 100) + '%)' : ''}`; }
-            else if (qe.status === 'queued' || qe.status === 'paused') { item.downloadStatus = 'queued'; item.downloadDetail = 'Queued'; }
-            else if (qe.trackedDownloadState === 'importBlocked') { item.downloadStatus = 'blocked'; item.downloadDetail = qe.errorMessage || 'Import blocked'; }
-            else if (qe.trackedDownloadState === 'failed') { item.downloadStatus = 'failed'; item.downloadDetail = qe.errorMessage || 'Download failed'; }
-            else { item.downloadStatus = 'queued'; item.downloadDetail = qe.status || 'Queued'; }
-          } else {
-            item.downloadStatus = s.monitored === false ? 'paused' : 'missing';
-            item.downloadDetail = s.monitored === false ? 'Paused (unmonitored)' : 'Not found';
+          return item;
+        });
+      } else {
+        const seriesList = await arrGet('sonarr', '/series');
+        let miBySeries = {};
+        await Promise.allSettled(seriesList.filter((s) => s.statistics && s.statistics.episodeFileCount > 0).map(async (s) => {
+          const efs = await arrGet('sonarr', `/episodefile?seriesId=${s.id}`, 5000);
+          if (!Array.isArray(efs) || !efs.length) return;
+          const mi = efs.find((ef) => ef.mediaInfo);
+          if (mi) miBySeries[s.id] = mi.mediaInfo;
+        }));
+        items = seriesList.map((s) => {
+          const mi = miBySeries[s.id];
+          const item = { id: s.id, title: s.title, year: s.year, hasFile: ((s.statistics && s.statistics.episodeFileCount) || 0) > 0, sizeBytes: (s.statistics && s.statistics.sizeOnDisk) || 0, tmdbId: s.tmdbId, runtimeMinutes: (s.runtime && s.statistics && s.statistics.episodeFileCount) ? s.runtime * s.statistics.episodeFileCount : 0, videoLabel: videoLabel(mi), gpuCompat: gpuTier(mi) };
+          if (!item.hasFile) {
+            const qe = qByItemId[s.id];
+            if (qe) {
+              if (qe.status === 'completed' || qe.trackedDownloadState === 'imported') { item.downloadStatus = 'importing'; item.downloadDetail = 'Importing…'; }
+              else if (qe.status === 'downloading') { item.downloadStatus = 'downloading'; item.downloadDetail = `Downloading${qe.size && qe.sizeleft ? ' (' + Math.round((1 - qe.sizeleft / qe.size) * 100) + '%)' : ''}`; }
+              else if (qe.status === 'queued' || qe.status === 'paused') { item.downloadStatus = 'queued'; item.downloadDetail = 'Queued'; }
+              else if (qe.trackedDownloadState === 'importBlocked') { item.downloadStatus = 'blocked'; item.downloadDetail = qe.errorMessage || 'Import blocked'; }
+              else if (qe.trackedDownloadState === 'failed') { item.downloadStatus = 'failed'; item.downloadDetail = qe.errorMessage || 'Download failed'; }
+              else { item.downloadStatus = 'queued'; item.downloadDetail = qe.status || 'Queued'; }
+            } else {
+              item.downloadStatus = s.monitored === false ? 'paused' : 'missing';
+              item.downloadDetail = s.monitored === false ? 'Paused (unmonitored)' : 'Not found';
+            }
           }
-        }
-        return item;
-      });
-    }
-    items.sort((x, y) => y.sizeBytes - x.sizeBytes);
-    res.json({ app: a, items });
+          return item;
+        });
+      }
+      items.sort((x, y) => y.sizeBytes - x.sizeBytes);
+      return { app: a, items };
+    });
+    res.json(result);
   } catch (e) { res.status(502).json({ error: String(e.message || e) }); }
 });
 

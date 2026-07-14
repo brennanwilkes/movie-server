@@ -367,23 +367,52 @@ fi
 #      injected style, so the font-family rules fell back to Segoe. The CSS @font-faces
 #      url('fonts/poppins.ttf'), resolved against /web/, and this drops the file there.
 #      Same in-container-overwrite pattern as the boot splash above.
+#      The /web/fonts dir is bind-mounted (${CONFIG}/jellyfin-web/fonts in docker-compose.yml) so
+#      these files survive image pulls/recreates — but docker cp still works and writes through the
+#      mount, so this stays a single idempotent install path for both fresh and existing containers.
+#      poppins-face.css is a standalone @font-face stylesheet the flair JS <link>s early (CustomCss
+#      strips @font-face and inline <style> doesn't reliably trigger loading — see the flair JS note).
 POPPINS_TTF="$(dirname "${BASH_SOURCE[0]}")/poppins.ttf"
+POPPINS_FACE_CSS="$(dirname "${BASH_SOURCE[0]}")/poppins-face.css"
 if [[ -f "$POPPINS_TTF" ]]; then
   log "  installing self-hosted Poppins into jellyfin-web"
   docker exec jellyfin mkdir -p /usr/share/jellyfin/web/fonts
   docker cp "$POPPINS_TTF" "jellyfin:/usr/share/jellyfin/web/fonts/poppins.ttf"
-  ok "poppins.ttf installed at /web/fonts/poppins.ttf"
+  [[ -f "$POPPINS_FACE_CSS" ]] && docker cp "$POPPINS_FACE_CSS" "jellyfin:/usr/share/jellyfin/web/fonts/poppins-face.css"
+  ok "poppins.ttf + poppins-face.css installed at /web/fonts/"
 fi
 
 # 6a5. Self-hosted Palm Canyon Drive — cursive script wordmark font (brand-studies.html
-#      prototype). Used by Canyon theme's "Movie Night" wordmark in the web flair JS.
+#      prototype). Used by Canyon theme's "Movie Night" wordmark in the web flair JS. The
+#      -face.css mirrors poppins-face.css for parity (available if the flair JS ever <link>s it;
+#      the JS currently loads Palm Canyon via inline @font-face + the FontFace API force-load loop).
 PCD_OTF="$(dirname "${BASH_SOURCE[0]}")/palm-canyon-drive.otf"
+PCD_FACE_CSS="$(dirname "${BASH_SOURCE[0]}")/palm-canyon-face.css"
 if [[ -f "$PCD_OTF" ]]; then
   log "  installing Palm Canyon Drive wordmark font into jellyfin-web"
   docker exec jellyfin mkdir -p /usr/share/jellyfin/web/fonts
   docker cp "$PCD_OTF" "jellyfin:/usr/share/jellyfin/web/fonts/palm-canyon-drive.otf"
-  ok "palm-canyon-drive.otf installed at /web/fonts/palm-canyon-drive.otf"
+  [[ -f "$PCD_FACE_CSS" ]] && docker cp "$PCD_FACE_CSS" "jellyfin:/usr/share/jellyfin/web/fonts/palm-canyon-face.css"
+  ok "palm-canyon-drive.otf + palm-canyon-face.css installed at /web/fonts/"
 fi
+
+# 6a6. Self-hosted Oswald / Archivo / Jost — woff2 body/UI fonts loaded by the web flair JS.
+#      Eliminates 3 jsDelivr round-trips (DNS+TLS each) on every page load. Same pattern
+#      as Poppins: -face.css is an optional early-<link> stylesheet; the inline @font-face in
+#      the flair JS also points to /web/fonts/ as a fallback.
+PROVISION_DIR="$(dirname "${BASH_SOURCE[0]}")"
+for _ff in oswald-face.css archivo-face.css jost-face.css; do
+  if [[ -f "$PROVISION_DIR/$_ff" ]]; then
+    docker cp "$PROVISION_DIR/$_ff" "jellyfin:/usr/share/jellyfin/web/fonts/$_ff"
+  fi
+done
+for _f in oswald-latin-{400,600,700}-normal.woff2 archivo-latin-{400,700}-normal.woff2 jost-latin-{400,500}-normal.woff2; do
+  if [[ -f "$PROVISION_DIR/$_f" ]]; then
+    docker cp "$PROVISION_DIR/$_f" "jellyfin:/usr/share/jellyfin/web/fonts/$_f"
+  fi
+done
+unset _ff _f PROVISION_DIR
+ok "self-hosted Oswald/Archivo/Jost woff2 + -face.css installed at /web/fonts/"
 
 # 6b. Intel Quick Sync hardware transcoding. Requires the iGPU passed into the container via
 #     docker-compose (devices: /dev/dri + group_add render/video). The Iris 540 (Skylake) has no

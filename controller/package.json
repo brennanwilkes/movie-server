@@ -12,6 +12,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "compression": "^1.8.1",
     "express": "^4.19.2"
   }
 }

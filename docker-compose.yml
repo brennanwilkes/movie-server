@@ -6,6 +6,12 @@ services:
     volumes:
       - ${CONFIG}/jellyfin:/config
       - ${DATA}/media:/media
+      # Self-hosted web fonts (Palm Canyon Drive wordmark, Poppins) + their @font-face CSS live in
+      # jellyfin-web's /usr/share/jellyfin/web/fonts — which is baked into the image, NOT the /config
+      # volume. Without this bind mount, every `docker compose pull` of :latest recreates the
+      # container from a clean layer and wipes them (reboots are fine — same container restarts).
+      # Provision (§6a) populates this host dir; the mount makes the files durable across image updates.
+      - ${CONFIG}/jellyfin-web/fonts:/usr/share/jellyfin/web/fonts
     # Host networking so the PS4 can discover Jellyfin over DLNA/SSDP (UDP 1900 multicast doesn't
     # cross Docker's bridge). Jellyfin still serves on the NUC's IP :8096 exactly as before — only
     # internal container refs changed (now reach it at ${NUC_IP}:8096, not the 'jellyfin' DNS name).

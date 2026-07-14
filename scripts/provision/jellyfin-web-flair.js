@@ -52,6 +52,7 @@
 	var playlistsViewId = null; // the "Playlists" library-view id, to locate its drawer entry
 	var loaded = false;
 	var top100Items = new Map(); // id -> enriched item (People, ImageTags, ProductionYear, RunTimeTicks)
+	var _drawerCssCache = null;  // cached scyfin CSS-var reads for themeDrawer (theme is fixed per tab)
 
 	// ---- helpers (Top 100 enrichment) -------------------------------------------------------
 	function rtText(ticks) {
@@ -391,13 +392,15 @@
 					disc.style.cssText = 'display:inline-block;width:38px;height:38px;border-radius:50%;background:#E8442E;margin-right:-8px;flex-shrink:0;';
 					var txt = document.createElement('span');
 					txt.textContent = 'Movie Night';
-					txt.style.cssText = 'font-family:Poppins,sans-serif;font-weight:700;font-size:18px;color:#F2EFE6;position:relative;text-shadow:0 0 8px rgba(232,68,46,.3);';
+					// brand-studies.html .wm-reelone .word uses var(--script) = Palm Canyon Drive (not Poppins)
+					txt.style.cssText = 'font-family:"Palm Canyon Drive",cursive;font-weight:400;font-size:30px;color:#F2EFE6;position:relative;text-shadow:0 0 8px rgba(232,68,46,.45);';
 					el.appendChild(disc);
 					el.appendChild(txt);
 				},
 				marquee: function(el) {
-					el.textContent = 'MOVIE NIGHT';
-					el.style.cssText = 'font-family:Jost,"Segoe UI",sans-serif;font-weight:500;font-size:17px;letter-spacing:.2em;text-transform:uppercase;background:linear-gradient(180deg,#E8C96A,#C9A227 55%,#8F6F14);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:transparent;';
+					el.textContent = 'Movie Night';
+					// brand-studies.html .wm-marquee .word uses var(--script) = Palm Canyon Drive with a gold gradient fill
+					el.style.cssText = 'font-family:"Palm Canyon Drive",cursive;font-weight:400;font-size:28px;background:linear-gradient(180deg,#E8C96A,#C9A227 55%,#8F6F14);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:transparent;';
 				},
 			};
 			var applyWm = THEMES_WM[pick];
@@ -408,13 +411,13 @@
 					wmSt.textContent =
 						'@font-face{font-family:"Palm Canyon Drive";src:url("/web/fonts/palm-canyon-drive.otf") format("opentype");font-weight:400;font-display:swap;}' +
 						'@font-face{font-family:"Poppins";src:url("/web/fonts/poppins.ttf") format("truetype");font-weight:100 900;font-display:swap;}' +
-						'@font-face{font-family:"Oswald";src:url("https://cdn.jsdelivr.net/npm/@fontsource/oswald@5.1.1/files/oswald-latin-400-normal.woff2") format("woff2");font-weight:400;font-display:swap;}' +
-						'@font-face{font-family:"Oswald";src:url("https://cdn.jsdelivr.net/npm/@fontsource/oswald@5.1.1/files/oswald-latin-600-normal.woff2") format("woff2");font-weight:600;font-display:swap;}' +
-						'@font-face{font-family:"Oswald";src:url("https://cdn.jsdelivr.net/npm/@fontsource/oswald@5.1.1/files/oswald-latin-700-normal.woff2") format("woff2");font-weight:700;font-display:swap;}' +
-						'@font-face{font-family:"Archivo";src:url("https://cdn.jsdelivr.net/npm/@fontsource/archivo@5.1.1/files/archivo-latin-400-normal.woff2") format("woff2");font-weight:400;font-display:swap;}' +
-						'@font-face{font-family:"Archivo";src:url("https://cdn.jsdelivr.net/npm/@fontsource/archivo@5.1.1/files/archivo-latin-700-normal.woff2") format("woff2");font-weight:700;font-display:swap;}' +
-						'@font-face{font-family:"Jost";src:url("https://cdn.jsdelivr.net/npm/@fontsource/jost@5.1.1/files/jost-latin-400-normal.woff2") format("woff2");font-weight:400;font-display:swap;}' +
-						'@font-face{font-family:"Jost";src:url("https://cdn.jsdelivr.net/npm/@fontsource/jost@5.1.1/files/jost-latin-500-normal.woff2") format("woff2");font-weight:500;font-display:swap;}' +
+						'@font-face{font-family:"Oswald";src:url("/web/fonts/oswald-latin-400-normal.woff2") format("woff2");font-weight:400;font-display:swap;}' +
+						'@font-face{font-family:"Oswald";src:url("/web/fonts/oswald-latin-600-normal.woff2") format("woff2");font-weight:600;font-display:swap;}' +
+						'@font-face{font-family:"Oswald";src:url("/web/fonts/oswald-latin-700-normal.woff2") format("woff2");font-weight:700;font-display:swap;}' +
+						'@font-face{font-family:"Archivo";src:url("/web/fonts/archivo-latin-400-normal.woff2") format("woff2");font-weight:400;font-display:swap;}' +
+						'@font-face{font-family:"Archivo";src:url("/web/fonts/archivo-latin-700-normal.woff2") format("woff2");font-weight:700;font-display:swap;}' +
+						'@font-face{font-family:"Jost";src:url("/web/fonts/jost-latin-400-normal.woff2") format("woff2");font-weight:400;font-display:swap;}' +
+						'@font-face{font-family:"Jost";src:url("/web/fonts/jost-latin-500-normal.woff2") format("woff2");font-weight:500;font-display:swap;}' +
 						'#mn-wordmark{position:fixed;top:10px;left:14px;z-index:9999;pointer-events:none;opacity:.9;transition:opacity .3s;}#mn-wordmark:hover{opacity:1;}';
 					document.head.appendChild(wmSt);
 				}
@@ -424,9 +427,9 @@
 				var FONT_URLS = {
 					Poppins: '/web/fonts/poppins.ttf',
 					'Palm Canyon Drive': '/web/fonts/palm-canyon-drive.otf',
-					Oswald:  'https://cdn.jsdelivr.net/npm/@fontsource/oswald@5.1.1/files/oswald-latin-700-normal.woff2',
-					Archivo: 'https://cdn.jsdelivr.net/npm/@fontsource/archivo@5.1.1/files/archivo-latin-700-normal.woff2',
-					Jost:    'https://cdn.jsdelivr.net/npm/@fontsource/jost@5.1.1/files/jost-latin-500-normal.woff2'
+					Oswald:  '/web/fonts/oswald-latin-700-normal.woff2',
+					Archivo: '/web/fonts/archivo-latin-700-normal.woff2',
+					Jost:    '/web/fonts/jost-latin-500-normal.woff2'
 				};
 				function createWmEl() {
 					var wmEl = document.getElementById('mn-wordmark');
@@ -755,26 +758,32 @@
 	}
 
 	// ---- sidebar drawer: apply inline styles directly (beats all imported CSS) ----------------
-	// No guard — runs every scan because Jellyfin re-renders nav options on drawer open/close,
-	// creating fresh elements without our inline styles. Idempotent and fast.
+	// Cache CSS variable reads — theme roulette picks once per tab session, so these values
+	// don't change. The 7 getComputedStyle() calls were the most expensive part of each scan.
 	function themeDrawer() {
-		var accent = getComputedStyle(document.documentElement).getPropertyValue('--primary-accent-color').trim() || '#47c4b8';
-		var accent2 = getComputedStyle(document.documentElement).getPropertyValue('--secondary-accent-color').trim() || '#f26d3d';
-		var bg2 = getComputedStyle(document.documentElement).getPropertyValue('--secondary-background-color').trim() || '#0e2a30';
-		var muted = getComputedStyle(document.documentElement).getPropertyValue('--mn-muted').trim() || '#7fa8a4';
-		var textOnAccent = getComputedStyle(document.documentElement).getPropertyValue('--mn-text-on-accent').trim() || '#0c2429';
-		var btnRound = getComputedStyle(document.documentElement).getPropertyValue('--mn-btn-round').trim() || '999px';
-		var navFont = getComputedStyle(document.documentElement).getPropertyValue('--mn-nav-font').trim() || 'Poppins, "Segoe UI", sans-serif';
-		var navCase = getComputedStyle(document.documentElement).getPropertyValue('--mn-nav-case').trim() || 'none';
-		var navTrack = getComputedStyle(document.documentElement).getPropertyValue('--mn-nav-track').trim() || 'normal';
+		if (!_drawerCssCache) {
+			var s = getComputedStyle(document.documentElement);
+			_drawerCssCache = {
+				accent: s.getPropertyValue('--primary-accent-color').trim() || '#47c4b8',
+				accent2: s.getPropertyValue('--secondary-accent-color').trim() || '#f26d3d',
+				bg2: s.getPropertyValue('--secondary-background-color').trim() || '#0e2a30',
+				muted: s.getPropertyValue('--mn-muted').trim() || '#7fa8a4',
+				textOnAccent: s.getPropertyValue('--mn-text-on-accent').trim() || '#0c2429',
+				btnRound: s.getPropertyValue('--mn-btn-round').trim() || '999px',
+				navFont: s.getPropertyValue('--mn-nav-font').trim() || 'Poppins, "Segoe UI", sans-serif',
+				navCase: s.getPropertyValue('--mn-nav-case').trim() || 'none',
+				navTrack: s.getPropertyValue('--mn-nav-track').trim() || 'normal',
+			};
+		}
+		var c = _drawerCssCache;
 		var menuOpts = document.querySelector('.libraryMenuOptions');
 		if (!menuOpts) return;
 		var drawer = menuOpts.closest('.mainDrawer') || menuOpts.closest('.sidebarMenu') || menuOpts.parentElement;
 		if (!drawer) return;
 		// Drawer background
-		if (drawer.style.background !== bg2) drawer.style.background = bg2;
+		if (drawer.style.background !== c.bg2) drawer.style.background = c.bg2;
 		var scroll = drawer.querySelector('.mainDrawer-scrollContainer');
-		if (scroll && scroll.style.background !== bg2) scroll.style.background = bg2;
+		if (scroll && scroll.style.background !== c.bg2) scroll.style.background = c.bg2;
 		// Current page ID (exact match only — prevents multi-highlight)
 		var curId = (location.hash.match(/[?&]id=([^&]*)/) || [])[1] || '';
 		// Theme EVERY nav option
@@ -785,8 +794,8 @@
 			opt.querySelectorAll('.navMenuOptionIcon').forEach(function (ic) {
 				ic.style.setProperty('display', 'none', 'important');
 			});
-			opt.style.setProperty('color', muted, 'important');
-			opt.style.setProperty('border-radius', btnRound, 'important');
+			opt.style.setProperty('color', c.muted, 'important');
+			opt.style.setProperty('border-radius', c.btnRound, 'important');
 		opt.style.setProperty('margin', '3px 8px', 'important');
 		opt.style.setProperty('padding-left', '20px', 'important');
 		opt.style.setProperty('padding', '10px 16px', 'important');
@@ -795,11 +804,11 @@
 			opt.style.setProperty('text-align', 'left', 'important');
 			opt.style.setProperty('border-left', 'none', 'important');
 			opt.style.setProperty('transition', 'background .15s, color .15s', 'important');
-			opt.style.setProperty('font-family', navFont, 'important');
+			opt.style.setProperty('font-family', c.navFont, 'important');
 			opt.style.setProperty('font-size', '14px', 'important');
 			opt.style.setProperty('font-weight', '500', 'important');
-			opt.style.setProperty('text-transform', navCase, 'important');
-			opt.style.setProperty('letter-spacing', navTrack, 'important');
+			opt.style.setProperty('text-transform', c.navCase, 'important');
+			opt.style.setProperty('letter-spacing', c.navTrack, 'important');
 			// hover
 			opt.addEventListener('mouseenter', function () {
 				if (opt.classList.contains('navMenuOption-selected') || isExactMatch(opt, curId)) return;
@@ -809,27 +818,27 @@
 			opt.addEventListener('mouseleave', function () {
 				if (opt.classList.contains('navMenuOption-selected') || isExactMatch(opt, curId)) return;
 				opt.style.setProperty('background', 'transparent', 'important');
-				opt.style.setProperty('color', muted, 'important');
+				opt.style.setProperty('color', c.muted, 'important');
 			});
 		});
 		// Clear ALL selected states first (prevents stale highlights)
 		drawer.querySelectorAll('.navMenuOption').forEach(function (opt) {
 			if (!opt.classList.contains('navMenuOption-selected') && !isExactMatch(opt, curId)) {
 				opt.style.removeProperty('background');
-				opt.style.setProperty('color', muted, 'important');
+				opt.style.setProperty('color', c.muted, 'important');
 				opt.style.removeProperty('box-shadow');
 				opt.style.setProperty('font-weight', '500', 'important');
 			}
 		});
 		// Selected: FILLED pill with accent bg + dark text + glow
 		drawer.querySelectorAll('.navMenuOption-selected').forEach(function (sel) {
-			applySelected(sel, accent, textOnAccent, btnRound);
+			applySelected(sel, c.accent, c.textOnAccent, c.btnRound);
 		});
 		// Also highlight by exact ID match (curated links don't get navMenuOption-selected)
 		if (curId) {
 			drawer.querySelectorAll('a.navMenuOption').forEach(function (a) {
 				if (isExactMatch(a, curId) && !a.classList.contains('navMenuOption-selected')) {
-					applySelected(a, accent, textOnAccent, btnRound);
+					applySelected(a, c.accent, c.textOnAccent, c.btnRound);
 				}
 			});
 		}
@@ -851,13 +860,22 @@
 
 	function scan() {
 		if (loaded) {
-			document.querySelectorAll('.card[data-id]').forEach(decorateItem);
-			document.querySelectorAll('.listItem[data-id]').forEach(decorateItem);
+			// Scope card/listItem queries to the active content area instead of the entire DOM.
+			// On the home page this limits scanning to the visible browse row (~20-30 elements
+			// vs 200+ when scanning everything). On Top 100, all 100 items are in scope either way.
+			var scope = document.querySelector('.mainContent, #content, .detailContentContainer') || document;
+			scope.querySelectorAll('.card[data-id]').forEach(decorateItem);
+			scope.querySelectorAll('.listItem[data-id]').forEach(decorateItem);
 			decorateDetails();
 		}
 		playlistClicksToDetails();
 		shuffleWatchlist();
 		showcaseTop100();
+		// MUST run every scan: Jellyfin destroys & rebuilds the drawer nav on open/close, wiping
+		// our injected entries and inline styles. Both are cheap+idempotent — addSidebarEntries()
+		// no-ops when the entries already exist, and themeDrawer() now reads its CSS vars from
+		// _drawerCssCache (the one genuinely expensive part, cached once). A boolean/hash guard
+		// here makes Top 100/Watchlist vanish after the first drawer rebuild (regression fixed).
 		addSidebarEntries();
 		themeDrawer(); // apply inline styles to sidebar drawer (beats all imported CSS)
 	}
@@ -865,7 +883,7 @@
 	function start() {
 		injectStyles();
 		var t;
-		var obs = new MutationObserver(function () { clearTimeout(t); t = setTimeout(scan, 250); });
+		var obs = new MutationObserver(function () { clearTimeout(t); t = setTimeout(scan, 500); });
 		obs.observe(document.body, { childList: true, subtree: true });
 		window.addEventListener('hashchange', function () { setTimeout(scan, 150); });
 		loadLists();

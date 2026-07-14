@@ -21,37 +21,37 @@
 }
 @font-face {
   font-family: 'Oswald';
-  src: url('https://cdn.jsdelivr.net/npm/@fontsource/oswald@5.1.1/files/oswald-latin-400-normal.woff2') format('woff2');
+  src: url('/web/fonts/oswald-latin-400-normal.woff2') format('woff2');
   font-weight: 400; font-display: swap;
 }
 @font-face {
   font-family: 'Oswald';
-  src: url('https://cdn.jsdelivr.net/npm/@fontsource/oswald@5.1.1/files/oswald-latin-600-normal.woff2') format('woff2');
+  src: url('/web/fonts/oswald-latin-600-normal.woff2') format('woff2');
   font-weight: 600; font-display: swap;
 }
 @font-face {
   font-family: 'Oswald';
-  src: url('https://cdn.jsdelivr.net/npm/@fontsource/oswald@5.1.1/files/oswald-latin-700-normal.woff2') format('woff2');
+  src: url('/web/fonts/oswald-latin-700-normal.woff2') format('woff2');
   font-weight: 700; font-display: swap;
 }
 @font-face {
   font-family: 'Archivo';
-  src: url('https://cdn.jsdelivr.net/npm/@fontsource/archivo@5.1.1/files/archivo-latin-400-normal.woff2') format('woff2');
+  src: url('/web/fonts/archivo-latin-400-normal.woff2') format('woff2');
   font-weight: 400; font-display: swap;
 }
 @font-face {
   font-family: 'Archivo';
-  src: url('https://cdn.jsdelivr.net/npm/@fontsource/archivo@5.1.1/files/archivo-latin-700-normal.woff2') format('woff2');
+  src: url('/web/fonts/archivo-latin-700-normal.woff2') format('woff2');
   font-weight: 700; font-display: swap;
 }
 @font-face {
   font-family: 'Jost';
-  src: url('https://cdn.jsdelivr.net/npm/@fontsource/jost@5.1.1/files/jost-latin-400-normal.woff2') format('woff2');
+  src: url('/web/fonts/jost-latin-400-normal.woff2') format('woff2');
   font-weight: 400; font-display: swap;
 }
 @font-face {
   font-family: 'Jost';
-  src: url('https://cdn.jsdelivr.net/npm/@fontsource/jost@5.1.1/files/jost-latin-500-normal.woff2') format('woff2');
+  src: url('/web/fonts/jost-latin-500-normal.woff2') format('woff2');
   font-weight: 500; font-display: swap;
 }
 

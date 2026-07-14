@@ -1,0 +1,12 @@
+@font-face {
+  font-family: 'Archivo';
+  src: url('/web/fonts/archivo-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Archivo';
+  src: url('/web/fonts/archivo-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
