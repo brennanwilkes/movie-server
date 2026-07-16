@@ -1,8 +1,12 @@
 /* Movie Night web theme — Canyon (docs/branding/SPEC.md §7, NEXT-STEPS §6).
    scyfin is CSS-variable driven — identity swaps happen via its vars (verified names),
    declared AFTER the imports so they win. Class names verified against the running bundle. */
-@import url('https://cdn.jsdelivr.net/gh/loof2736/scyfin@latest/CSS/scyfin-theme.css');
-@import url('https://cdn.jsdelivr.net/gh/loof2736/scyfin@latest/CSS/theme-oled.css');
+/* PINNED to @v1.5.5 (2026-07-16): @latest is unreproducible — a scyfin update can silently
+   change class names/geometry and break our overrides (a suspected cause of past regressions).
+   Verified byte-identical to the @latest we were already serving, so pinning is a no-op visually.
+   To bump: pick a new tag at github.com/loof2736/scyfin/releases, diff, re-verify overrides. */
+@import url('https://cdn.jsdelivr.net/gh/loof2736/scyfin@v1.5.5/CSS/scyfin-theme.css');
+@import url('https://cdn.jsdelivr.net/gh/loof2736/scyfin@v1.5.5/CSS/theme-oled.css');
 /* Poppins is SELF-HOSTED: provision copies poppins.ttf into the container's jellyfin-web dir
    (like the boot-splash PNGs) — the googleapis @import never loaded (CSP/import position), so
    the font-family rules silently fell back to Segoe (round-3 item 12). Relative URL resolves
@@ -63,6 +67,31 @@ html, :root {
   --primary-r: 71;
   --primary-g: 196;
   --primary-b: 184;
+  --mn-text: #eef1f6;
+  --mn-muted: #7fa8a4;
+  /* ── Shape tokens ── */
+  --mn-card-radius: 8px;
+  --mn-btn-radius: 999px;
+  --mn-input-radius: 6px;
+  --mn-pill-radius: 99px;
+  --mn-sheet-radius: 8px;
+  /* ── Glow / Shadow ── */
+  --mn-glow-color: rgba(71,196,184,0.6);
+  --mn-glow-spread: 24px;
+  --mn-litho-offset-x: 0px;
+  --mn-litho-offset-y: 0px;
+  --mn-litho-color: transparent;
+  /* ── Flair toggles ── */
+  --mn-glow-text: 0;
+  --mn-gilded-text: 0;
+  --mn-cut-geometry: 0;
+  --mn-texture-grain: 0;
+  --mn-texture-crosshatch: 0;
+  /* ── Divider ── */
+  --mn-divider-color: rgba(255,255,255,0.08);
+  --mn-divider-accent: var(--primary-accent-color);
+  /* ── Scrollbar ── */
+  --mn-scrollbar-color: rgba(71,196,184,0.35);
 }
 
 /* Wordmark: script Movie Night replaces the header/title logo */
@@ -73,7 +102,36 @@ html, :root {
 
 /* Hide stock header logo — our fixed-position wordmark replaces it */
 .pageTitleWithDefaultLogo,
+.headerLeft .pageTitle,
 .headerLeft .pageTitleWithLogo { display: none !important; }
+
+/* Back arrow / wordmark spacing: the fixed-position wordmark overlaps the back arrow
+   and header content. Push header content right to clear the wordmark. */
+.headerLeft {
+  padding-left: 170px !important;
+}
+/* Wordmark: fill the sidebar (drawer) width with an even gutter.
+   The wordmark is position:fixed, so `width: 100%` resolved against the VIEWPORT (≈1607px)
+   and the logo spanned the whole screen. The drawer is a fixed 250px, so pin the width to the
+   drawer minus even 12px gutters and align to the left gutter. The inner img/svg fills 100%. */
+#mn-wordmark {
+  left: 12px !important;
+  right: auto !important;
+  width: 226px !important; /* 250px drawer − 12px × 2 */
+  max-width: none !important;
+}
+#mn-wordmark img,
+#mn-wordmark svg {
+  width: 100% !important;
+  height: auto !important;
+}
+@media (max-width: 600px) {
+  .headerLeft { padding-left: 0 !important; }
+  #mn-wordmark {
+    width: auto !important;
+    max-width: calc(100% - 80px) !important;
+  }
+}
 
 /* Drawer prune: flat nav only — no groups, no admin, no secondary nav */
 .sidebarHeader, .sidebarGroup, .sidebarMenuHeader,
@@ -83,18 +141,148 @@ html, :root {
 /* Remove the secondary header nav bar (Home / Favourites etc.) */
 .headerTabs, .headerTabsSecondary { display: none !important; }
 
-/* UI face: Poppins across chrome (sidebar, headers, buttons) — body text inherits it too */
-body, .mainDrawer, .emby-button, .headerTabs, .sectionTitle, .listItemBodyText, .cardText,
-.navMenuOptionText, .formDialogHeaderTitle, h1, h2, h3 {
-  font-family: 'Poppins', 'Segoe UI', sans-serif !important;
+/* Remove back arrow — redundant since back == home */
+.headerLeft .btnBack,
+.headerLeft [title="Back"],
+.headerLeft .btnBack+NavigateBack { display: none !important; }
+
+/* UI face: JS sets --mn-nav-font per theme (Canyon=Poppins, Matinee=Oswald, Reel One=Archivo, Marquee=Jost) */
+body, h1, h2, h3, h4, p, span, div, .mainDrawer, .emby-button, .headerTabs, .sectionTitle,
+.listItemBodyText, .cardText, .navMenuOptionText, .formDialogHeaderTitle {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
 }
+/* Exception: Material Icons must keep their own font — the span override above kills them */
+.material-icons, .material-icons-outlined { font-family: 'Material Icons' !important; }
 .navMenuOptionText { font-size: 1.02em; letter-spacing: .02em; }
 
-/* Scrollbar: turquoise */
+/* ── Home page + detail page theming ──
+   Selectors verified against Jellyfin 10.11.11 DOM (2026-07-13 audit).
+   Font comes from --mn-nav-font (set per theme by the roulette JS).
+   Colours come from --mn-text / --mn-muted (also set per theme by roulette). */
+
+/* Row / section headers on home page: "My Media", "Collections", "Continue Watching", etc.
+   Real class: .sectionTitle (an <h2>). Also covers .sectionTitle-cards variant. */
+.sectionTitle {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+  color: var(--mn-text, #eef1f6) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* Card text under posters: movie/show titles — real classes: .cardText, .cardText-first,
+   .listItemBodyText */
+.cardText,
+.cardText-first,
+.listItemBodyText,
+.listItemBody {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+  color: var(--mn-text, #eef1f6) !important;
+}
+
+/* Secondary text: runtime, year, episode info under cards.
+   Real classes: .secondary, .cardText-secondary */
+.secondary,
+.cardText-secondary {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+  color: var(--mn-muted, #8b93a7) !important;
+}
+
+/* Tertiary card text (year/dates on detail page cards) */
+.cardText-tertiary {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+  color: var(--mn-muted, #8b93a7) !important;
+  font-size: 0.85em !important;
+}
+
+/* Item detail page: title.
+   Real classes: .itemName (inside .infoWrapper .nameContainer) */
+.infoWrapper .nameContainer .itemName,
+.itemDetailPage .itemName {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+  color: var(--mn-text, #eef1f6) !important;
+}
+
+/* Detail page: tagline */
+.tagline {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+  color: var(--mn-muted, #8b93a7) !important;
+  font-style: italic !important;
+}
+
+/* Detail page: year, runtime, rating, video/audio info.
+   Real classes: .itemMiscInfo, .itemMiscInfo-primary, .itemMiscInfo-secondary,
+   .listItemMediaInfo */
+.itemMiscInfo,
+.itemMiscInfo-primary,
+.itemMiscInfo-secondary,
+.listItemMediaInfo {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+  color: var(--mn-muted, #8b93a7) !important;
+}
+
+/* Detail page: synopsis / overview.
+   Real class: .overview (NOT .itemOverviewText or .summary) */
+.overview,
+.overview-controls {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+  color: var(--mn-muted, #8b93a7) !important;
+  line-height: 1.6 !important;
+}
+
+/* Detail page: genres, tags, director, studios labels.
+   Real classes: .itemGenres, .itemTags, .genres, .genresLabel, .detailSectionContent .label */
+.itemGenres,
+.itemTags,
+.genres,
+.genresLabel,
+.detailSectionContent .label,
+.detailSectionContent h3 {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+  color: var(--mn-muted, #8b93a7) !important;
+  background: transparent !important;
+}
+.itemGenres a,
+.itemTags a,
+.genres a,
+.genresLabel a {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+/* Detail page: cast & crew names — real class: .card .cardText (inside cast section) */
+.detailVerticalSection .card .cardText {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+  color: var(--mn-text, #eef1f6) !important;
+}
+
+/* "More Like This" section on detail page — real ID: #similarCollapsible */
+#similarCollapsible .sectionTitle {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+  color: var(--mn-text, #eef1f6) !important;
+}
+
+/* Home page: library buttons (My Media) — standard .card elements.
+   Apply card radius at rest (scyfin's 15px wins otherwise). */
+.card {
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+}
+.cardImageContainer,
+.listItemImage,
+.cardContent,
+.cardScalable {
+  border-radius: var(--mn-card-radius, 8px) !important;
+}
+
+/* Scrollbar: token-driven per theme */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(71, 196, 184, .35); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(71, 196, 184, .55); }
+::-webkit-scrollbar-thumb { background: var(--mn-scrollbar-color); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--mn-scrollbar-color) 150%, transparent); }
+
+/* ── Divider styling ── */
+.listItem-border {
+  border-color: var(--mn-divider-color) !important;
+}
 
 /* Drawer: follow the Movie Night palette explicitly (round-3 item 13). scyfin only themes the
    drawer under .layout-desktop and hardcodes a #101010 gradient when a backdrop is up — these
@@ -104,9 +292,38 @@ body, .mainDrawer, .emby-button, .headerTabs, .sectionTitle, .listItemBodyText, 
 .mainDrawer, .mainDrawer-scrollContainer {
   background: var(--secondary-background-color, #0e2a30) !important;
 }
+/* Nav sits above body pseudo-element textures (crosshatch z:9998, vignette z:9997)
+   so hover highlights aren't obscured by the overlays.
+   DO NOT set position here: Jellyfin's `.touch-menu-la` gives the drawer
+   `position:fixed; top:0; bottom:0` for full viewport height. Our old
+   `position:relative` had equal specificity but loaded later, so it won — which
+   dropped the fixed top/bottom anchor and collapsed the drawer to height:0 (the
+   whole left nav "disappeared"). z-index alone layers it above the textures; a
+   fixed element is already positioned, so z-index still applies. See
+   docs/branding/TROUBLESHOOTING.md. */
+.mainDrawer {
+  z-index: 9999;
+}
+/* Override scyfin's drawer gradient under .layout-desktop */
+.layout-desktop .mainDrawer,
+.layout-desktop .mainDrawer-scrollContainer {
+  background: var(--secondary-background-color, #0e2a30) !important;
+}
+/* Override scyfin's header gradient/transparency */
+.skinHeader,
+.layout-desktop .skinHeader {
+  background: transparent !important;
+}
+/* Override scyfin's backdrop-tinted header */
+.headerTop {
+  background: transparent !important;
+}
+.mainDrawer .navMenuOption:not(.navMenuOption-selected) {
+  background: transparent !important;
+}
 .mainDrawer .navMenuOption {
   color: var(--mn-muted, #7fa8a4) !important;
-  border-radius: var(--mn-btn-round, 999px) !important;
+  border-radius: var(--mn-btn-radius) !important;
   font-family: var(--mn-nav-font, Poppins, "Segoe UI", sans-serif) !important;
   text-transform: var(--mn-nav-case, none) !important;
   letter-spacing: var(--mn-nav-track, normal) !important;
@@ -122,44 +339,70 @@ body, .mainDrawer, .emby-button, .headerTabs, .sectionTitle, .listItemBodyText, 
   padding-left: 4px !important;
 }
 .mainDrawer .navMenuOption:hover:not(.navMenuOption-selected) {
-  background: rgba(255, 255, 255, .06) !important;
+  background: rgba(255, 255, 255, .08) !important;
   color: rgba(255, 255, 255, .95) !important;
   transform: none !important;
+  box-shadow: none !important;
 }
 .mainDrawer .navMenuOption-selected {
   background: var(--primary-accent-color, #47c4b8) !important;
   color: var(--mn-text-on-accent, #0c2429) !important;
   font-weight: 700 !important;
-  box-shadow: 0 0 14px rgba(var(--primary-r, 71), var(--primary-g, 196), var(--primary-b, 184), .4) !important;
 }
 .mainDrawer .navMenuOption-selected .navMenuOptionIcon { color: var(--mn-text-on-accent, #0c2429) !important; }
 /* Hide nav icons entirely — curated drawer entries don't use them */
 .mainDrawer .navMenuOptionIcon { display: none !important; }
 
+/* ── Mobile overrides ── */
+@media (max-width: 600px) {
+  /* Wordmark: shift right to clear the hamburger menu button */
+  #mn-wordmark {
+    left: 56px !important;
+    top: 12px !important;
+    transform: scale(0.75) !important;
+    transform-origin: left center !important;
+  }
+  /* Sidebar: add top margin so nav items aren't hidden behind the wordmark */
+  .mainDrawer-scrollContainer {
+    padding-top: 48px !important;
+  }
+  /* Back arrow: no left padding needed on mobile (hamburger replaces it) */
+  .headerLeft {
+    padding-left: 0 !important;
+  }
+}
+
 /* Card hover: themed accent outline + subtle glow — scoped to the image container only.
    Jellyfin main CSS has overflow:hidden on .listItem and contain:strict on .cardImageContainer,
-   both of which clip box-shadow. Override on hover so the glow renders outside the clip box. */
+   both of which clip box-shadow. Override on hover so the glow renders outside the clip box.
+   Glow is gated: only themes with --mn-glow-color != transparent get the shadow. */
 .listItem:not(.mn-t1):not(.mn-t2):not(.mn-t3):hover {
   overflow: visible !important;
 }
 .listItem:not(.mn-t1):not(.mn-t2):not(.mn-t3):hover .cardImageContainer,
 .listItem:not(.mn-t1):not(.mn-t2):not(.mn-t3):hover .listItemImage {
-  border-radius: var(--mn-btn-round, 15px) !important;
-  box-shadow: 0 0 12px rgba(var(--primary-r,71),var(--primary-g,196),var(--primary-b,184),.25) !important;
+  border-radius: var(--mn-card-radius) !important;
   contain: none !important;
+}
+[mn-glow-color]:not([mn-glow-color="transparent"]) .listItem:not(.mn-t1):not(.mn-t2):not(.mn-t3):hover .cardImageContainer,
+[mn-glow-color]:not([mn-glow-color="transparent"]) .listItem:not(.mn-t1):not(.mn-t2):not(.mn-t3):hover .listItemImage {
+  box-shadow:
+    0 0 8px var(--primary-accent-color),
+    0 0 var(--mn-glow-spread) var(--mn-glow-color) !important;
+  border: 1px solid var(--primary-accent-color) !important;
 }
 .card:hover {
   transform: scale(1.02) !important;
   transform-origin: center bottom;
 }
-
-/* Card text: themed font + muted runtime */
-.listItemBodyText, .listItem .listItemBodyText,
-.cardText, .card .cardText,
-.secondary, .listItem .secondary,
-.card .secondary {
-  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
+/* Detail page poster: no hover expansion — it's not clickable */
+.itemDetailPage .detailImageContainer:hover {
+  transform: none !important;
 }
+.itemDetailPage .card:hover {
+  transform: none !important;
+}
+
 /* Subtle hover glow on home page cards — scoped to image container only.
    ROOT CAUSE: .card:not(.show-animation) has `contain:layout style paint` in Jellyfin main CSS.
    `contain: paint` IMPLIES overflow:hidden — it clips box-shadow regardless of overflow value.
@@ -172,13 +415,187 @@ body, .mainDrawer, .emby-button, .headerTabs, .sectionTitle, .listItemBodyText, 
   z-index: 10;
 }
 .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardContent,
-.card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardScalable,
-.card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardImageContainer {
+.card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardScalable {
   overflow: visible !important;
   contain: none !important;
 }
+/* .cardImageContainer keeps its containment so the image clips to border-radius.
+   The outer .card's contain:none already lets box-shadow render outside. */
 .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardImageContainer {
-  box-shadow: 0 0 16px rgba(var(--primary-r,71),var(--primary-g,196),var(--primary-b,184),.3) !important;
+  border-radius: var(--mn-card-radius) !important;
+}
+[mn-glow-color]:not([mn-glow-color="transparent"]) .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardImageContainer {
+  box-shadow:
+    0 0 8px var(--primary-accent-color),
+    0 0 var(--mn-glow-spread) var(--mn-glow-color) !important;
+  border: 1px solid var(--primary-accent-color) !important;
+}
+
+/* Buttons: token-driven border-radius */
+.button-submit {
+  border-radius: var(--mn-btn-radius) !important;
+}
+
+/* Inputs: token-driven border-radius */
+.emby-input {
+  border-radius: var(--mn-input-radius) !important;
+}
+
+/* ── Glow text on section headers only (Canyon: mn-glow-text=1).
+   Excludes .itemName — the detail page title gets a softer single-shadow below. ── */
+[mn-glow-text="1"] .sectionTitle {
+  text-shadow:
+    0 0 1px #fff,
+    0 0 4px rgba(var(--primary-r,71), var(--primary-g,196), var(--primary-b,184), 0.6),
+    0 0 12px rgba(var(--primary-r,71), var(--primary-g,196), var(--primary-b,184), 0.4),
+    0 0 24px rgba(var(--primary-r,71), var(--primary-g,196), var(--primary-b,184), 0.5),
+    0 0 40px rgba(var(--primary-r,71), var(--primary-g,196), var(--primary-b,184), 0.2);
+}
+[mn-glow-text="1"] .itemName {
+  text-shadow:
+    0 0 2px rgba(var(--primary-r,71), var(--primary-g,196), var(--primary-b,184), 0.3);
+}
+
+/* ── Gilded text on headings (Marquee: mn-gilded-text=1) ── */
+[mn-gilded-text="1"] .sectionTitle,
+[mn-gilded-text="1"] .itemName {
+  background: linear-gradient(135deg, #BF953F, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* ── Litho offset shadow on buttons (Matinee: litho-x=3) ── */
+[mn-litho-offset-x="3"] .emby-button,
+[mn-litho-offset-x="3"] .button-submit {
+  box-shadow:
+    var(--mn-litho-offset-x) var(--mn-litho-offset-y) 0 var(--mn-litho-color);
+}
+
+/* ── Cut geometry on section headers (Reel One: cut-geometry=1) — home page only ── */
+[mn-cut-geometry="1"] .homePageSection .sectionTitleContainer,
+[mn-cut-geometry="1"] .sectionTitle-cards .sectionTitleContainer {
+  clip-path: polygon(0 10%, 100% 0, 100% 100%, 0 100%);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Phase 2: Textures & Decorative Flair
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Paper grain overlay (Matinee: mn-texture-grain=1) ── */
+[mn-texture-grain="1"] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: overlay;
+}
+
+/* ── Crosshatch overlay (Matinee + Marquee: mn-texture-crosshatch=1) ── */
+[mn-texture-crosshatch="1"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      transparent, transparent 10px,
+      rgba(var(--primary-r), var(--primary-g), var(--primary-b), 0.04) 10px,
+      rgba(var(--primary-r), var(--primary-g), var(--primary-b), 0.04) 11px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent, transparent 10px,
+      rgba(var(--primary-r), var(--primary-g), var(--primary-b), 0.03) 10px,
+      rgba(var(--primary-r), var(--primary-g), var(--primary-b), 0.03) 11px
+    );
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* ── Vignette (Marquee: mn-gilded-text=1) ── */
+[mn-gilded-text="1"] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.3));
+  pointer-events: none;
+  z-index: 9997;
+}
+
+/* ── Section markers — CSS-drawn shapes (explicit dimensions, no font-size dependency) ── */
+[mn-glow-text="1"] .sectionTitle::before {
+  content: '' !important;
+  display: inline-block !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  background: #F26D3D !important;
+  margin-right: 8px !important;
+  vertical-align: middle !important;
+}
+[mn-litho-offset-x="3"] .sectionTitle::before {
+  content: '' !important;
+  display: inline-block !important;
+  width: 0 !important;
+  height: 0 !important;
+  border-left: 7px solid var(--mn-litho-color) !important;
+  border-top: 5px solid transparent !important;
+  border-bottom: 5px solid transparent !important;
+  margin-right: 8px !important;
+  vertical-align: middle !important;
+}
+[mn-cut-geometry="1"] .sectionTitle::before {
+  content: '' !important;
+  display: inline-block !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  background: var(--primary-accent-color) !important;
+  margin-right: 8px !important;
+  vertical-align: middle !important;
+}
+[mn-gilded-text="1"] .sectionTitle::before {
+  content: '' !important;
+  display: inline-block !important;
+  width: 9px !important;
+  height: 9px !important;
+  background: var(--primary-accent-color) !important;
+  margin-right: 8px !important;
+  vertical-align: middle !important;
+  transform: rotate(45deg) !important;
+}
+
+/* ── Diamond dividers (Marquee: mn-gilded-text=1) ── */
+[mn-gilded-text="1"] .listItem-border::after {
+  content: '\25C6';
+  display: block;
+  text-align: center;
+  color: var(--primary-accent-color);
+  font-size: 6px;
+  letter-spacing: 0.5em;
+  padding: 2px 0;
+}
+
+/* ── Hairline rules (Marquee: mn-gilded-text=1) ── */
+[mn-gilded-text="1"] .listItem-border {
+  border: none !important;
+  height: 1px !important;
+  background: linear-gradient(90deg, transparent, var(--primary-accent-color) 20%, var(--primary-accent-color) 80%, transparent) !important;
+}
+
+/* ── Diagonal accent strip (Reel One: mn-cut-geometry=1) ── */
+[mn-cut-geometry="1"] .detailImageContainer::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: var(--primary-accent-color);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4px), 0 100%);
 }
 
 /* Top 100 showcase: t1/t3 full-width, t2 two columns.
@@ -187,7 +604,7 @@ body, .mainDrawer, .emby-button, .headerTabs, .sectionTitle, .listItemBodyText, 
 .mn-top100 #childrenContent .itemsContainer {
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
-  gap: 6px 12px !important;
+  gap: 8px 16px !important;
   align-items: start !important;
 }
 .mn-top100 .mn-t1,
@@ -200,4 +617,824 @@ body, .mainDrawer, .emby-button, .headerTabs, .sectionTitle, .listItemBodyText, 
 }
 .mn-top100 .mn-t2 .listItem-content {
   width: 100% !important;
+}
+
+/* Tier 3 (Ledger, 51+) — compact rows: min-height prevents Marquee crunched layout,
+   absolute-positioned image fills the row as a subtle backdrop (fixes Canyon sizing). */
+.mn-top100 .mn-t3 {
+  min-height: 56px !important;
+  padding: 10px 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  position: relative !important;
+  overflow: hidden !important;
+  border-radius: var(--mn-card-radius, 8px) !important;
+  background: linear-gradient(135deg, #091d22, #0e2a30) !important;
+}
+.mn-top100 .mn-t3 .listItemImage {
+  background-size: cover !important;
+  background-position: center !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: var(--mn-card-radius, 8px) !important;
+  opacity: 0.15 !important;
+}
+.mn-top100 .mn-t3 > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Hide stock Top 100 UI elements until custom showcase loads (prevents flash).
+   JS adds .mn-ready to the container once the showcase is painted. */
+.mn-top100.itemDetailPage #childrenContent .itemsContainer {
+  opacity: 0 !important;
+}
+.mn-top100.itemDetailPage #childrenContent .itemsContainer.mn-ready {
+  opacity: 1 !important;
+  transition: opacity 0.3s ease !important;
+}
+/* Loading spinner for Top 100 */
+.mn-top100-spinner {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+  gap: 12px;
+  color: var(--mn-muted, #7fa8a4);
+  font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif);
+  font-size: 14px;
+}
+.mn-top100-spinner::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: var(--primary-accent-color, #47c4b8);
+  animation: mn-spin 0.8s linear infinite;
+}
+@keyframes mn-spin { to { transform: rotate(360deg); } }
+
+/* ── Mobile Top 100 overrides ── */
+@media (max-width: 600px) {
+  /* Hide the stray play/shuffle/action bar that Jellyfin renders on playlist pages */
+  .playlistHeader,
+  .playlistSelectionToolbar,
+  .selectionToolbar,
+  #playlistSelectionToolbar {
+    display: none !important;
+  }
+
+  /* Force single-column grid on mobile */
+  .mn-top100 #childrenContent .itemsContainer {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Tier 1 (Pantheon): show poster image prominently, reduce height */
+  .mn-top100 .mn-t1 {
+    min-height: auto !important;
+    flex-direction: column !important;
+    padding: 0 !important;
+  }
+  .mn-t1 .listItemImage {
+    height: 280px !important;
+    width: 100% !important;
+    border-radius: 4px 4px 0 0 !important;
+    align-self: stretch !important;
+  }
+  .mn-t1 .mn-rank {
+    font-size: 48px !important;
+    width: auto !important;
+    text-align: left !important;
+    padding: 8px 16px 0 !important;
+  }
+  .mn-t1 .listItemBody {
+    padding: 8px 16px 24px !important;
+  }
+  .mn-t1 .mn-logo {
+    max-height: 40px !important;
+    max-width: 200px !important;
+  }
+
+  /* Tier 2 (Gallery): show poster, single column */
+  .mn-t2 {
+    min-height: auto !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+  }
+  .mn-t2 .listItemImage {
+    display: block !important;
+    height: 120px !important;
+    width: 80px !important;
+    min-width: 80px !important;
+    background-size: cover !important;
+    background-position: center !important;
+    border-radius: 4px 0 0 4px !important;
+  }
+  .mn-t2 .mn-rank {
+    font-size: 28px !important;
+    width: 40px !important;
+    padding: 0 4px !important;
+  }
+  .mn-t2 .listItemBody {
+    padding: 8px !important;
+    flex: 1 !important;
+  }
+
+  /* Tier 3 (Ledger): compact on mobile */
+  .mn-t3 .mn-rank {
+    font-size: 16px !important;
+    width: 36px !important;
+  }
+
+  /* ═══ Phase 3: degrade textures/glow on mobile ═══ */
+  [mn-texture-grain="1"] body::after { display: none !important; }
+  [mn-texture-crosshatch="1"] body::before { opacity: 0.5 !important; }
+  [mn-glow-text="1"] .sectionTitle {
+    text-shadow: 0 0 8px var(--primary-accent-color) !important;
+  }
+  [mn-glow-text="1"] .itemName {
+    text-shadow: none !important;
+  }
+  [mn-glow-color]:not([mn-glow-color="transparent"]) .listItem:hover .cardImageContainer,
+  [mn-glow-color]:not([mn-glow-color="transparent"]) .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardImageContainer {
+    box-shadow: 0 0 8px var(--primary-accent-color) !important;
+  }
+  /* Ensure card radius token is used on mobile too */
+  .mn-t1 .listItemImage {
+    border-radius: var(--mn-card-radius) !important;
+  }
+  .mn-t2 .listItemImage {
+    border-radius: var(--mn-card-radius) !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Per-theme overrides — gated by [mn-*] attribute selectors set by the roulette JS.
+   Each section: Canyon → Matinee → Reel One → Marquee
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── §2: Section title (h2) per-theme ── */
+[mn-glow-text="1"] .sectionTitle {
+  font-weight: 650 !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
+}
+[mn-litho-offset-x="3"] .sectionTitle {
+  font-weight: 800 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: var(--mn-muted, #9c7c53) !important;
+}
+[mn-cut-geometry="1"] .sectionTitle {
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  text-transform: uppercase !important;
+}
+[mn-gilded-text="1"] .sectionTitle {
+  font-weight: 500 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: #F4E9D8 !important;
+}
+
+/* ── §3: h3/h4 + caption per-theme ── */
+[mn-glow-text="1"] h3,
+[mn-glow-text="1"] h4,
+[mn-glow-text="1"] .itemMiscInfo,
+[mn-glow-text="1"] .secondary,
+[mn-glow-text="1"] .cardText-secondary {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: #C9B99A !important;
+}
+[mn-litho-offset-x="3"] h3,
+[mn-litho-offset-x="3"] h4,
+[mn-litho-offset-x="3"] .itemMiscInfo,
+[mn-litho-offset-x="3"] .secondary,
+[mn-litho-offset-x="3"] .cardText-secondary {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  color: #7A6B5A !important;
+}
+[mn-cut-geometry="1"] h3,
+[mn-cut-geometry="1"] h4,
+[mn-cut-geometry="1"] .itemMiscInfo,
+[mn-cut-geometry="1"] .secondary,
+[mn-cut-geometry="1"] .cardText-secondary {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: #8D8A80 !important;
+}
+[mn-gilded-text="1"] h3,
+[mn-gilded-text="1"] h4,
+[mn-gilded-text="1"] .itemMiscInfo,
+[mn-gilded-text="1"] .secondary,
+[mn-gilded-text="1"] .cardText-secondary {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.2em !important;
+  text-transform: uppercase !important;
+  color: #B79F77 !important;
+}
+
+/* ── §4: Card surface per-theme (at rest + hover) ──
+   Use background-color (not background shorthand) to preserve background-image from lazy loader */
+[mn-glow-text="1"] .cardImageContainer,
+[mn-glow-text="1"] .listItemImage {
+  background-color: #162A35 !important;
+  border: 1px solid rgba(71, 196, 184, 0.1) !important;
+}
+[mn-litho-offset-x="3"] .cardImageContainer,
+[mn-litho-offset-x="3"] .listItemImage {
+  background-color: #191009 !important;
+  border: 1px solid rgba(181, 42, 26, 0.2) !important;
+}
+[mn-cut-geometry="1"] .cardImageContainer,
+[mn-cut-geometry="1"] .listItemImage {
+  background-color: #111 !important;
+  border: 2px solid #2A2725 !important;
+}
+[mn-gilded-text="1"] .cardImageContainer,
+[mn-gilded-text="1"] .listItemImage {
+  background-color: #171311 !important;
+  border: 1px solid rgba(143, 107, 46, 0.25) !important;
+}
+
+/* ── §4b: Override scyfin's defaultCardBackground placeholders ──
+   scyfin computes --primary-alt* from --primary-r/g/b → for Reel One (232,68,46)
+   that produces dark red rgb(202,38,16) which bleeds through the entire .card
+   (image area + text). Pin to the theme's secondary background instead. */
+.defaultCardBackground1,
+.defaultCardBackground2,
+.defaultCardBackground3,
+.defaultCardBackground4,
+.defaultCardBackground5 {
+  background-color: var(--secondary-background-color, #0e2a30) !important;
+}
+
+/* ── §5: Inputs per-theme ── */
+[mn-glow-text="1"] .emby-input {
+  background: #162A35 !important;
+  border: 1px solid #2c261e !important;
+  color: #F5EEDC !important;
+}
+[mn-glow-text="1"] .emby-input:focus {
+  outline: 2px solid #47C4B8 !important;
+  outline-offset: 2px !important;
+}
+[mn-litho-offset-x="3"] .emby-input {
+  background: #191009 !important;
+  border: 1px solid #7A6B5A !important;
+  color: #E8D5B0 !important;
+  border-radius: 0 !important;
+}
+[mn-litho-offset-x="3"] .emby-input:focus {
+  outline: 1px solid #D98E32 !important;
+  outline-offset: 1px !important;
+}
+[mn-cut-geometry="1"] .emby-input {
+  background: #111 !important;
+  border: 2px solid #2A2725 !important;
+  color: #F2EFE6 !important;
+  border-radius: 0 !important;
+}
+[mn-cut-geometry="1"] .emby-input:focus {
+  outline: 2px solid #E34234 !important;
+  outline-offset: 0 !important;
+}
+[mn-gilded-text="1"] .emby-input {
+  background: #171311 !important;
+  border: 1px solid #8F6B2E !important;
+  color: #F2E6CB !important;
+}
+[mn-gilded-text="1"] .emby-input:focus {
+  outline: 1px solid #D4AF37 !important;
+  outline-offset: 2px !important;
+}
+
+/* ── §6: Buttons per-theme ── */
+[mn-glow-text="1"] .button-submit,
+[mn-glow-text="1"] .emby-button {
+  background: #47C4B8 !important;
+  color: #0c2429 !important;
+}
+[mn-glow-text="1"] .button-submit:hover,
+[mn-glow-text="1"] .emby-button:hover {
+  box-shadow: 0 0 4px #47C4B8, 0 0 12px #47C4B8, 0 0 24px rgba(71, 196, 184, 0.5), 0 0 48px rgba(71, 196, 184, 0.25) !important;
+}
+[mn-litho-offset-x="3"] .button-submit,
+[mn-litho-offset-x="3"] .emby-button {
+  background: #D98E32 !important;
+  color: #1c120a !important;
+}
+[mn-litho-offset-x="3"] .button-submit:hover,
+[mn-litho-offset-x="3"] .emby-button:hover {
+  box-shadow: 4px 4px 0 #B52A1A !important;
+}
+[mn-cut-geometry="1"] .button-submit,
+[mn-cut-geometry="1"] .emby-button {
+  background: #E34234 !important;
+  color: #F2EFE6 !important;
+  border-radius: 0 !important;
+}
+[mn-cut-geometry="1"] .button-submit:hover,
+[mn-cut-geometry="1"] .emby-button:hover {
+  background: #D7261E !important;
+}
+[mn-gilded-text="1"] .button-submit,
+[mn-gilded-text="1"] .emby-button {
+  background: #D4AF37 !important;
+  color: #0E0B06 !important;
+}
+[mn-gilded-text="1"] .button-submit:hover,
+[mn-gilded-text="1"] .emby-button:hover {
+  box-shadow: 0 0 16px rgba(212, 175, 55, 0.35) !important;
+}
+
+/* ── §6b: Detail page action buttons — ghost style (overrides §6 for detail page only).
+   Play button keeps scyfin's accent pill. Other buttons become transparent with themed icon color.
+   Favourite heart: override scyfin's red-filled active state so it stays ghost-style. ── */
+.itemDetailPage .detailButton,
+.itemDetailPage .mainDetailButtons .emby-button {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.itemDetailPage .mainDetailButtons .emby-button:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+/* Favourite heart icon: kill the red background fill on active/filled state */
+.itemDetailPage .detailButton .material-icons,
+.itemDetailPage .detailButton .material-icons-outlined {
+  background: transparent !important;
+}
+.itemDetailPage .detailButton.btnWatchedActive,
+.itemDetailPage .detailButton.btnFavoriteActive,
+.itemDetailPage .detailButton.emby-button-favorite,
+.itemDetailPage .detailButton[data-type="favorite"],
+.itemDetailPage .detailButton[title*="Remove from"],
+.itemDetailPage .detailButton[title*="Add to"] {
+  background: transparent !important;
+  color: inherit !important;
+}
+[mn-glow-text="1"] .itemDetailPage .detailButton { color: #47C4B8 !important; }
+[mn-glow-text="1"] .itemDetailPage .detailButton:hover { color: #5fd4c8 !important; }
+[mn-litho-offset-x="3"] .itemDetailPage .detailButton { color: #D98E32 !important; }
+[mn-litho-offset-x="3"] .itemDetailPage .detailButton:hover { color: #e9a042 !important; }
+[mn-cut-geometry="1"] .itemDetailPage .detailButton { color: #E34234 !important; }
+[mn-cut-geometry="1"] .itemDetailPage .detailButton:hover { color: #f05545 !important; }
+[mn-gilded-text="1"] .itemDetailPage .detailButton { color: #D4AF37 !important; }
+[mn-gilded-text="1"] .itemDetailPage .detailButton:hover { color: #e4bf47 !important; }
+
+/* ── §7: Alerts / notifications per-theme (Jellyfin uses .notification) ── */
+[mn-glow-text="1"] .notification {
+  background: rgba(71, 196, 184, 0.1) !important;
+  border: 1px solid rgba(71, 196, 184, 0.35) !important;
+  color: #F5EEDC !important;
+}
+[mn-glow-text="1"] .dialog {
+  background: #162A35 !important;
+  border-radius: var(--mn-card-radius) !important;
+}
+[mn-litho-offset-x="3"] .notification {
+  background: rgba(217, 142, 50, 0.1) !important;
+  border: 1px solid rgba(217, 142, 50, 0.35) !important;
+  color: #E8D5B0 !important;
+  border-radius: 0 !important;
+}
+[mn-litho-offset-x="3"] .dialog {
+  background: #191009 !important;
+  border-radius: 0 !important;
+}
+[mn-cut-geometry="1"] .notification {
+  background: rgba(242, 239, 230, 0.06) !important;
+  border: 2px solid #8D8A80 !important;
+  color: #F2EFE6 !important;
+  border-radius: 0 !important;
+}
+[mn-cut-geometry="1"] .dialog {
+  background: #111 !important;
+  border-radius: 0 !important;
+}
+[mn-gilded-text="1"] .notification {
+  background: rgba(212, 175, 55, 0.06) !important;
+  border: 1px solid rgba(143, 107, 46, 0.3) !important;
+  color: #F2E6CB !important;
+}
+[mn-gilded-text="1"] .dialog {
+  background: #171311 !important;
+  border-radius: var(--mn-card-radius) !important;
+}
+
+/* ── §8: Badges / chips — text-only, accent color, no solid background ── */
+[mn-glow-text="1"] .chip,
+[mn-glow-text="1"] .badge {
+  border-radius: var(--mn-pill-radius, 99px) !important;
+  background: transparent !important;
+  color: #47C4B8 !important;
+  border: none !important;
+}
+[mn-litho-offset-x="3"] .chip,
+[mn-litho-offset-x="3"] .badge {
+  border-radius: var(--mn-pill-radius, 2px) !important;
+  background: transparent !important;
+  color: #D98E32 !important;
+  border: none !important;
+}
+[mn-cut-geometry="1"] .chip,
+[mn-cut-geometry="1"] .badge {
+  border-radius: var(--mn-pill-radius, 0px) !important;
+  background: transparent !important;
+  color: #E34234 !important;
+  border: none !important;
+}
+[mn-gilded-text="1"] .chip,
+[mn-gilded-text="1"] .badge {
+  border-radius: var(--mn-pill-radius, 3px) !important;
+  background: transparent !important;
+  color: #D4AF37 !important;
+  border: none !important;
+}
+
+/* ── §12: Matinee thick-thin divider ── */
+[mn-litho-offset-x="3"] .listItem-border {
+  border-top: 3px solid #7A6B5A !important;
+  border-bottom: 1px solid #7A6B5A !important;
+  border-left: none !important;
+  border-right: none !important;
+  background: none !important;
+}
+
+/* ── §13: Reel One wordmark glow suppression ── */
+[mn-cut-geometry="1"] #mn-wordmark {
+  text-shadow: none !important;
+}
+/* Reel One detail page: override scyfin's translucent containers so backdrop doesn't bleed through text */
+[mn-cut-geometry="1"] .detailSectionContent,
+[mn-cut-geometry="1"] .detailsGroupItem,
+[mn-cut-geometry="1"] .trackSelections,
+[mn-cut-geometry="1"] .itemDetailPage .detailImageContainer {
+  background: var(--primary-background-color, #0b0b0b) !important;
+  backdrop-filter: none !important;
+}
+/* Reel One: don't lowercase detail page section titles */
+[mn-cut-geometry="1"] .itemDetailPage .sectionTitle {
+  text-transform: none !important;
+}
+
+/* ── §15: Wire dead tokens — pill radius on badges/chips ── */
+.badge, .chip {
+  border-radius: var(--mn-pill-radius, 99px) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Additional component styling — secondary buttons, progress bars, toasts,
+   dialogs, backdrop scrim. All gated by [mn-*] attribute selectors.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Secondary buttons per-theme ── */
+[mn-glow-text="1"] .button-secondary {
+  background: transparent !important;
+  border: 1.5px solid #47C4B8 !important;
+  color: #47C4B8 !important;
+}
+[mn-glow-text="1"] .button-secondary:hover {
+  background: rgba(71, 196, 184, 0.08) !important;
+}
+[mn-litho-offset-x="3"] .button-secondary {
+  background: transparent !important;
+  border: 1.5px solid #7A6B5A !important;
+  color: #D98E32 !important;
+}
+[mn-litho-offset-x="3"] .button-secondary:hover {
+  background: rgba(217, 142, 50, 0.08) !important;
+}
+[mn-cut-geometry="1"] .button-secondary {
+  background: transparent !important;
+  border: 2px solid #F2EFE6 !important;
+  color: #F2EFE6 !important;
+  border-radius: 0 !important;
+}
+[mn-cut-geometry="1"] .button-secondary:hover {
+  background: #F2EFE6 !important;
+  color: #0B0B0B !important;
+}
+[mn-gilded-text="1"] .button-secondary {
+  background: transparent !important;
+  border: 1px solid #D4AF37 !important;
+  color: #D4AF37 !important;
+}
+[mn-gilded-text="1"] .button-secondary:hover {
+  background: rgba(212, 175, 55, 0.08) !important;
+}
+
+/* ── Progress bars per-theme ── */
+[mn-glow-text="1"] .itemProgressBar {
+  background: rgba(71, 196, 184, 0.2) !important;
+}
+[mn-glow-text="1"] .itemProgressBarForeground {
+  background: #47C4B8 !important;
+}
+[mn-litho-offset-x="3"] .itemProgressBar {
+  background: rgba(217, 142, 50, 0.2) !important;
+}
+[mn-litho-offset-x="3"] .itemProgressBarForeground {
+  background: #D98E32 !important;
+}
+[mn-cut-geometry="1"] .itemProgressBar {
+  background: rgba(227, 66, 52, 0.2) !important;
+}
+[mn-cut-geometry="1"] .itemProgressBarForeground {
+  background: #E34234 !important;
+}
+[mn-gilded-text="1"] .itemProgressBar {
+  background: rgba(212, 175, 55, 0.2) !important;
+}
+[mn-gilded-text="1"] .itemProgressBarForeground {
+  background: #D4AF37 !important;
+}
+
+/* ── Toast / notification popups per-theme ── */
+[mn-glow-text="1"] .toast,
+[mn-glow-text="1"] .notification {
+  border-radius: var(--mn-card-radius) !important;
+}
+[mn-litho-offset-x="3"] .toast,
+[mn-litho-offset-x="3"] .notification {
+  border-radius: 0 !important;
+}
+[mn-cut-geometry="1"] .toast,
+[mn-cut-geometry="1"] .notification {
+  border-radius: 0 !important;
+}
+[mn-gilded-text="1"] .toast,
+[mn-gilded-text="1"] .notification {
+  border-radius: var(--mn-card-radius) !important;
+}
+
+/* ── Dialog / modal surfaces per-theme ── */
+[mn-glow-text="1"] .dialogBackdrop {
+  background: rgba(9, 29, 34, 0.85) !important;
+}
+[mn-litho-offset-x="3"] .dialogBackdrop {
+  background: rgba(22, 13, 6, 0.85) !important;
+}
+[mn-cut-geometry="1"] .dialogBackdrop {
+  background: rgba(11, 11, 11, 0.85) !important;
+}
+[mn-gilded-text="1"] .dialogBackdrop {
+  background: rgba(14, 11, 6, 0.85) !important;
+}
+
+/* ── Detail page backdrop scrim per-theme ── */
+[mn-glow-text="1"] .itemBackdrop {
+  background: linear-gradient(to right, rgba(9,29,34,0.95) 0%, rgba(9,29,34,0.6) 50%, rgba(9,29,34,0.3) 100%) !important;
+}
+[mn-litho-offset-x="3"] .itemBackdrop {
+  background: linear-gradient(to right, rgba(22,13,6,0.95) 0%, rgba(22,13,6,0.6) 50%, rgba(22,13,6,0.3) 100%) !important;
+}
+[mn-cut-geometry="1"] .itemBackdrop {
+  background: linear-gradient(to right, rgba(11,11,11,0.95) 0%, rgba(11,11,11,0.6) 50%, rgba(11,11,11,0.3) 100%) !important;
+}
+[mn-gilded-text="1"] .itemBackdrop {
+  background: linear-gradient(to right, rgba(14,11,6,0.95) 0%, rgba(14,11,6,0.6) 50%, rgba(14,11,6,0.3) 100%) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   §Bugfix 2026-07-16 — scyfin/specificity conflicts found via DevTools matched-rules
+   probe (scripts/branding-console-probe.js). See docs/branding/TROUBLESHOOTING.md
+   for the method + why each rule below has to look the way it does.
+   MUST stay after the per-theme "§6: Buttons per-theme" block — the link fix relies
+   on being later in source order to win same-specificity ties.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Link-style buttons must NOT get the solid themed button background.
+   The per-theme rule `[mn-*] .emby-button { background: <accent> !important }` (spec
+   0,0,2,0) was matching EVERY link — tags, genres, search results — because Jellyfin
+   renders inline links as `<a class="button-link emby-button">`. Adding `.button-link`
+   raises us to spec 0,0,3,0 AND we're later in source, so we beat both rest + hover. */
+[mn-glow-text="1"] .emby-button.button-link,
+[mn-litho-offset-x="3"] .emby-button.button-link,
+[mn-cut-geometry="1"] .emby-button.button-link,
+[mn-gilded-text="1"] .emby-button.button-link,
+[mn-glow-text="1"] .emby-button.button-link:hover,
+[mn-litho-offset-x="3"] .emby-button.button-link:hover,
+[mn-cut-geometry="1"] .emby-button.button-link:hover,
+[mn-gilded-text="1"] .emby-button.button-link:hover,
+.emby-button.button-link,
+.emby-button.button-link:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  /* Themed, visible text — without this the link inherited a near-black color and vanished on
+     dark themes (marquee/canyon). Accent color reads as a link and is visible on all 4 themes. */
+  color: var(--primary-accent-color, #47c4b8) !important;
+}
+
+/* Watched checkmark / played indicator on cards+posters: scyfin (via @import) and
+   Jellyfin's theme.css render it as a solid colored circle. We want a bare themed
+   checkmark — transparent background, accent-colored glyph. --primary-accent-color is
+   set per theme by the flair JS (applyTheme, jellyfin-web-flair.js). */
+.playedIndicator,
+.cardIndicators .playedIndicator,
+.playedIndicator .material-icons,
+.cardIndicators .playedIndicator .material-icons {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--primary-accent-color, #47c4b8) !important;
+}
+/* Poster overlay action buttons (mark-played, favourite) went invisible on marquee (transparent
+   bg + inherited near-invisible glyph). Force their glyphs to the theme accent so they read on
+   every theme. Excludes the Play FAB (handled separately below). */
+.cardOverlayButton:not(.cardOverlayFab-primary),
+.cardOverlayButton:not(.cardOverlayFab-primary) .material-icons {
+  color: var(--primary-accent-color, #47c4b8) !important;
+}
+
+/* Hover dark-tint overlay must share the card radius. scyfin forces
+   `.cardOverlayContainer` to 15px (via @import, invisible to our matched-rules probe),
+   while the poster (.cardImageContainer) uses var(--mn-card-radius, 8px) — so the
+   rounded tint mismatched the poster corners on hover. Tie the overlay to the same
+   token at rest AND on hover. */
+.cardOverlayContainer,
+.card:hover .cardOverlayContainer,
+.listItem:hover .cardOverlayContainer {
+  border-radius: var(--mn-card-radius, 8px) !important;
+}
+
+/* Detail-page curated poster (our own .curated-host-detail host, injected by the flair
+   JS) is not an actionable card — kill its hover overlay/tint + action buttons. */
+.curated-host-detail .cardOverlayContainer {
+  display: none !important;
+}
+
+/* Detail-page action-button cluster (.mainDetailButtons) ships as a scyfin gray pill
+   (radius 100px, rgba(35,35,35,.5)) that ignores the theme. Make it read as ONE themed
+   unit: per-theme corner geometry via --mn-btn-radius (set by the flair JS applyTheme —
+   reelone=0, canyon=999px pill, matinee/marquee=2px) + a subtle accent hairline. */
+.mainDetailButtons {
+  border-radius: var(--mn-btn-radius, 999px) !important;
+  border: 1px solid var(--primary-accent-color, #47c4b8) !important; /* theme primary, not hardcoded */
+}
+
+/* §Bugfix 2026-07-16 (batch 2) — nav geometry + hover coverage, from probe 4 data. */
+
+/* #14 Nav even L/R margin: probe showed gapL:18 vs gapR:8. The .mainDrawer-scrollContainer
+   sits ~10px in from the drawer's left edge but flush against the right, so the 8px item
+   margins render asymmetric (10+8 vs 0+8). Force the scroll container flush + full width so
+   the symmetric item margins (set to 8px by the flair JS) read evenly on both sides. */
+.mainDrawer-scrollContainer {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  width: 100% !important;
+}
+
+/* #17 Hover tint must fully cover the poster. Probe: overlay box 229×129 vs poster 233×133 —
+   the overlay insets INSIDE .cardImageContainer's border (reelone 2px, other themes 1px),
+   leaving a border-width gap uncovered on hover. Grow the overlay by the border width so it
+   reaches the poster's outer edge. .card/.listItem prefix (spec 0,0,2,0) beats scyfin's
+   plain .cardOverlayContainer. */
+.card .cardOverlayContainer,
+.listItem .cardOverlayContainer {
+  inset: -1px !important;
+}
+[mn-cut-geometry="1"] .card .cardOverlayContainer,
+[mn-cut-geometry="1"] .listItem .cardOverlayContainer {
+  inset: -2px !important;
+}
+
+/* #16 Detail-page curated poster: kill ALL hover affordances (best-effort — the effect comes
+   from scyfin, invisible to our probe). Scoped entirely to .curated-host-detail so it cannot
+   affect real cards elsewhere. NEEDS visual confirmation (see OVERNIGHT-NOTES-2026-07-16.md). */
+.curated-host-detail:hover,
+.curated-host-detail .cardScalable:hover,
+.itemDetailPage .curated-host-detail:hover,
+.curated-host-detail .cardBox:hover {
+  transform: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+.curated-host-detail .cardOverlayContainer,
+.curated-host-detail .cardOverlayButton,
+.curated-host-detail .cardOverlayButton-hover,
+.curated-host-detail .cardOverlayFab {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* §Bugfix 2026-07-17 — from probe 5 (matched-rules) */
+
+/* Card-hover overlay action buttons (mark-played, add-to-favourites) got the solid themed
+   button background because they're `.emby-button` and the per-theme `[mn-*] .emby-button`
+   rule (spec 0,0,2,0) matched them. They should be icon-only/transparent. Exclude the primary
+   Play FAB (.cardOverlayFab-primary) which intentionally keeps its dark circle. The
+   `[mn-*] ... :not(.cardOverlayFab-primary)` selector (0,0,3,0) + later source order wins. */
+[mn-glow-text="1"] .cardOverlayButton:not(.cardOverlayFab-primary),
+[mn-litho-offset-x="3"] .cardOverlayButton:not(.cardOverlayFab-primary),
+[mn-cut-geometry="1"] .cardOverlayButton:not(.cardOverlayFab-primary),
+[mn-gilded-text="1"] .cardOverlayButton:not(.cardOverlayFab-primary),
+.cardOverlayButton:not(.cardOverlayFab-primary) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* #16 v2 — detail-page curated poster hover. The effect is a scyfin (@import, invisible) hover
+   transform + border-width bump, animated by the poster's `transition:all`, and it out-specificities
+   the earlier `.curated-host-detail:hover` rule. Kill the transition, force transform/shadow none
+   with higher specificity, and lock the image border to its rest width per theme. Scoped to
+   .curated-host-detail so no real card is touched. */
+.itemDetailPage .curated-host-detail,
+.itemDetailPage .curated-host-detail .cardScalable,
+.itemDetailPage .curated-host-detail .cardImageContainer {
+  transition: none !important;
+}
+.itemDetailPage .curated-host-detail:hover,
+.itemDetailPage .curated-host-detail:hover *,
+.itemDetailPage .card:hover .curated-host-detail,
+.itemDetailPage .card:hover .curated-host-detail * {
+  transform: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+/* Force the detail curated poster's border CONSISTENT (none) at rest AND hover so hovering can
+   never change the frame — hover capture showed the img border toggling to 2px all-4 on hover.
+   Scoped to .curated-host-detail (grid cards keep their per-theme frame). If a framed hero is
+   wanted later, set a single fixed themed border here instead of 0. */
+.itemDetailPage .curated-host-detail .cardImageContainer,
+.itemDetailPage .curated-host-detail:hover .cardImageContainer,
+.itemDetailPage .card:hover .curated-host-detail .cardImageContainer {
+  border: 0 !important;
+}
+
+/* Play FAB (the circular play button in the center of a poster on hover): it's `.emby-button`,
+   so the per-theme `[mn-*] .emby-button:hover` rule was flooding the whole circle with accent.
+   Keep the circle dark (its rest look) and tint ONLY the play glyph to the theme accent on hover.
+   Theme-prefixed selectors (0,0,3,0) tie the themed :hover rule and win on source order. */
+[mn-glow-text="1"] .cardOverlayFab-primary:hover,
+[mn-litho-offset-x="3"] .cardOverlayFab-primary:hover,
+[mn-cut-geometry="1"] .cardOverlayFab-primary:hover,
+[mn-gilded-text="1"] .cardOverlayFab-primary:hover,
+.cardOverlayFab-primary,
+.cardOverlayFab-primary:hover {
+  background: rgba(0, 0, 0, 0.7) !important;
+  background-color: rgba(0, 0, 0, 0.7) !important;
+}
+.cardOverlayFab-primary:hover .material-icons,
+.cardOverlayFab-primary:hover {
+  color: var(--primary-accent-color, #47c4b8) !important;
+}
+
+/* §Bugfix 2026-07-17b — hover polish (cross-theme) */
+
+/* The per-theme glow box-shadow reads as an ugly boxy outline on TRANSPARENT elements (tags,
+   links, search suggestions, overlay glyph buttons). Replace it with intentional feedback:
+   text links underline, everything brightens. Theme-prefixed (0,0,4,0) beats the themed
+   `[mn-*] .emby-button:hover` glow; plain selectors cover non-themed cases. */
+[mn-glow-text="1"] .emby-button.button-link:hover,
+[mn-litho-offset-x="3"] .emby-button.button-link:hover,
+[mn-cut-geometry="1"] .emby-button.button-link:hover,
+[mn-gilded-text="1"] .emby-button.button-link:hover,
+[mn-glow-text="1"] .cardOverlayButton:not(.cardOverlayFab-primary):hover,
+[mn-litho-offset-x="3"] .cardOverlayButton:not(.cardOverlayFab-primary):hover,
+[mn-cut-geometry="1"] .cardOverlayButton:not(.cardOverlayFab-primary):hover,
+[mn-gilded-text="1"] .cardOverlayButton:not(.cardOverlayFab-primary):hover,
+.emby-button.button-link:hover,
+.itemTags a:hover, .itemGenres a:hover, .genres a:hover,
+.cardOverlayButton:not(.cardOverlayFab-primary):hover {
+  box-shadow: none !important;
+  filter: brightness(1.3) !important;
+}
+.emby-button.button-link:hover,
+.itemTags a:hover, .itemGenres a:hover, .genres a:hover {
+  text-decoration: underline !important;
+}
+
+/* §Bugfix 2026-07-17c — detail action buttons visible + hover feedback on ALL themes.
+   Root cause: on matinee the Play button (btnPlay) inherited a near-black text color (≈theme bg)
+   on our transparent ghost bg → invisible. The per-theme `[mn-*="v"] .itemDetailPage .detailButton`
+   color rules are gated on the theme ATTRIBUTE VALUE and weren't winning here. Use
+   var(--primary-accent-color) (set by the flair JS, attribute-independent) so the glyph/text is
+   always visible & themed. Hover brightens (fixes "favourite doesn't change on hover" on matinee). */
+.itemDetailPage .mainDetailButtons .detailButton,
+.itemDetailPage .mainDetailButtons .detailButton .material-icons,
+.itemDetailPage .mainDetailButtons .emby-button {
+  color: var(--primary-accent-color, #47c4b8) !important;
+}
+.itemDetailPage .mainDetailButtons .detailButton:hover,
+.itemDetailPage .mainDetailButtons .detailButton:hover .material-icons {
+  filter: brightness(1.35) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }

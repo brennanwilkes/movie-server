@@ -55,7 +55,10 @@ function fmtEta(s) {
 // "Not found" rows: say when the next recovery search will actually fire, so it doesn't just
 // sit there looking abandoned. d.recoveryNext is an absolute ms timestamp from the server.
 function fmtRecovery(d) {
-  if (d.recoveryBlocked) return `gave up after ${d.recoveryFails} tries, will retry ${fmtWhen(d.recoveryNext)}`;
+  if (d.recoveryBlocked) {
+    if (d.recentRelease) return `no torrent yet — will retry ${fmtWhen(d.recoveryNext)}`;
+    return `gave up after ${d.recoveryFails} tries, will retry ${fmtWhen(d.recoveryNext)}`;
+  }
   if (!d.recoveryNext) return 'retrying soon';
   const ms = d.recoveryNext - Date.now();
   if (ms <= 0) return 'retrying now';
@@ -254,7 +257,7 @@ function renderDownloads(items) {
   // Not found that's been negative-cached). Blue is anything actively progressing on its own —
   // including the post-download steps (subtitles/import/processing), not just live byte transfer.
   // Orange is everything else mid-recovery: stalled, still searching/retrying, not yet resolved.
-  const COLOR = { Declined: 'var(--danger)', 'Needs attention': 'var(--danger)', Error: 'var(--danger)', Unreleased: 'var(--muted)', 'Ready': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--accent)', 'Getting subtitles': 'var(--accent)', Processing: 'var(--accent)', Stalled: 'var(--warn)', 'Not found': 'var(--warn)' };
+  const COLOR = { Declined: 'var(--danger)', 'Needs attention': 'var(--danger)', Error: 'var(--danger)', Unreleased: 'var(--muted)', 'Ready': 'var(--ok)', Done: 'var(--ok)', Importing: 'var(--accent)', 'Getting subtitles': 'var(--accent)', Processing: 'var(--accent)', Stalled: 'var(--warn)', 'Not found': 'var(--warn)', 'Not found (recent)': 'var(--muted)' };
   $('#downloads').innerHTML = items.map((d) => {
     const eta = d.state === 'Downloading' ? fmtEta(d.etaSeconds) : '';
     // Show the % on anything mid-transfer (not just "Downloading") — a partially-grabbed torrent
@@ -264,8 +267,8 @@ function renderDownloads(items) {
     const searchHint = d.searchHint ? ` · ${d.searchHint}` : '';
     const leftMeta = d.state === 'Declined'
       ? `Declined · Not enough disk space, needs ${fmtBytes(d.neededBytes)}, only ${fmtBytes(d.freeBytes)} free`
-      : d.state === 'Not found'
-      ? `Not found · ${fmtRecovery(d)}${searchHint}`
+      : d.state === 'Not found' || d.state === 'Not found (recent)'
+      ? `${d.state} · ${fmtRecovery(d)}${searchHint}`
       : d.state === 'Stalled' && d.stallGiveUpAt
       ? `Stalled · ${fmtGiveUp(d.stallGiveUpAt)}`
       : [d.state, pctShown, d.sizeBytes > 0 ? fmtBytes(d.sizeBytes) : '', d.note, d.searchHint].filter(Boolean).join(' · ');
@@ -274,7 +277,7 @@ function renderDownloads(items) {
     const barW = (d.state === 'Declined' || d.attention) ? 100 : Math.min(100, d.progress);
     const isDone = d.state === 'Ready' || d.state === 'Done';
     const canDelete = d.hash && d.state !== 'Ready' && d.state !== 'Done';
-    const isMissing = d.state === 'Not found';
+    const isMissing = d.state === 'Not found' || d.state === 'Not found (recent)';
     const canForceGrab = isMissing && d.source === 'sonarr' && d._id != null;
     // Pause/resume: only for a real torrent that's actively in flight (not a "missing:" pseudo-row,
     // not a finished/importing item). Paused rows offer Resume; the rest offer Pause.

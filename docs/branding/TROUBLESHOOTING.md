@@ -1,0 +1,100 @@
+# Fire Stick / Jellyfin crash & log troubleshooting crib
+
+## Fire Stick (adb) — stick at `192.168.1.77:5555`, app id `org.jellyfin.androidtv.debug`
+```bash
+adb connect 192.168.1.77:5555
+adb shell am force-stop org.jellyfin.androidtv.debug        # hard-kill the app (fixes wedged/black screen)
+adb shell am start -n org.jellyfin.androidtv.debug/org.jellyfin.androidtv.ui.startup.StartupActivity
+adb logcat -c                                               # clear, then reproduce, then:
+adb logcat -d | grep -B2 -A25 "FATAL EXCEPTION" | grep -v com.amazon   # Amazon system svcs crash constantly — ignore them
+adb logcat -d | grep -E "jellyfin|Timber"                   # app-tagged lines
+adb shell dumpsys dropbox                                   # crash/ANR records survive logcat rotation
+adb shell dumpsys dropbox --print data_app_crash
+adb exec-out screencap -p > shot.png                        # see what's actually on screen
+```
+Notes: "app crashed" reports with NO logcat/dropbox record usually mean a WEDGED process (e.g. recreate-during-startup) or LMK kill, not a Java crash — force-stop first, then reproduce with a clean logcat.
+
+## THE GOLD MINE: ACRA crash reports land on the Jellyfin server
+The app's "a crash report was sent to your server" → files on the NUC:
+```bash
+docker exec jellyfin sh -c 'ls -t /config/log/upload* | head'
+docker exec jellyfin sh -c 'grep -oE "\"STACK_TRACE\":\"[^\"]{0,1200}" "/config/log/<file>" | sed "s/\\\\n/\n/g"'
+```
+Full stack trace, device info, exact build — even when you weren't attached with adb. Check here FIRST.
+
+## Jellyfin server logs
+```bash
+docker exec jellyfin sh -c 'tail -100 /config/log/log_$(date +%Y%m%d).log'
+```
+
+## Build & deploy (fork at ~/jellyfin-androidtv, branch collections)
+```bash
+cd ~/jellyfin-androidtv && JAVA_HOME=$HOME/jdk-21 PATH=$HOME/jdk-21/bin:$PATH ./gradlew :app:assembleDebug
+adb -s 192.168.1.77:5555 install -r app/build/outputs/apk/debug/*.apk
+```
+Worktree builds need `echo "sdk.dir=/home/brennan/android-sdk" > local.properties`.
+
+## Hard-won landmines (real bugs from this project)
+1. **`android:colorAccent` in theme XML MUST be a `@color` resource, never a raw hex literal.** Leanback's
+   PlaybackTransportRowPresenter resolves it by resourceId → raw literal = id 0 → `Resources$NotFoundException`
+   **crash on pressing Play**. Applies to any attr a library resolves by resourceId.
+2. **Fire OS 5 = API 22:** `?attr/...` font references in layout XML silently don't apply; `ImageView.setForeground`
+   needs API 23 (use the card/FrameLayout's foreground instead). Compose loads font resources fine.
+3. **Activity `recreate()` during the startup flow wedges the app** (black screen, no crash record). Don't change
+   the resolved theme while StartupActivity is mid-flow; roulette re-rolls need a background-dwell guard.
+4. **Fire OS keeps the app process alive for days** — "per launch" anything must be lifecycle-event based
+   (ProcessLifecycleOwner onStop/onStart), not process-lifetime `by lazy`.
+5. Heavy `/Items` field sets (MediaSources/MediaStreams/Chapters ×100 items) take ~20-30s on the stick — always
+   request minimal `fields=`.
+6. Blind adb D-pad navigation is unreliable for reaching specific toolbar buttons — screencap between steps.
+
+## Web client debugging
+- CustomCss + flair JS: edit `scripts/provision/jellyfin-custom.css` / `jellyfin-web-flair.js` → `make provision s=jellyfin` → hard refresh.
+- Verify class names against the real bundle before styling: `docker exec jellyfin sh -c 'cat /usr/share/jellyfin/web/*.js | grep -o "someClassName"'`
+- scyfin themes are CSS-variable driven (`--primary-accent-color`, `--primary-r/g/b`...) — override the VARIABLES.
+- Inline styles on `document.documentElement` (flair JS roulette) beat all stylesheets.
+- The BOOT loading splash is baked into the web bundle (`banner-light.*.png`) — provision overwrites it in-container.
+
+### Web theme debugging METHOD (2026-07-16 — read this before touching web CSS)
+
+Previous agents burned hours guessing at CSS. Don't guess — **measure, then edit.** The whole
+method is: dump computed styles → if an override isn't winning, dump the *matched rules* → do the
+specificity math → write the minimal higher-specificity rule. A reusable probe lives at
+`scripts/branding-console-probe.js` (paste into DevTools console, logged in as brennan/brennan).
+
+**Deploy & caching model (established, do NOT re-investigate):**
+- Live CSS is byte-identical to `jellyfin-custom.css` (provision writes `branding.xml`, §7a sha256-verifies). Live flair JS is byte-identical to `jellyfin-web-flair.js` (JS Injector serves it at a versioned `public.js?v=<ticks>` URL). If a change isn't showing, it's almost never caching — check specificity/scoping first.
+- CSS/JS changes ship ONLY via `make provision s=jellyfin`, **never** `make deploy` (deploy just pulls+restarts).
+- There is NO service worker (`serviceworker.js` → 404). `index.html` is `Cache-Control:no-cache`. A normal refresh picks up new CSS/JS.
+
+**Why our overrides lose (the #1 time-sink) — specificity + source order:**
+- scyfin is loaded via `@import` of a cross-origin jsDelivr URL. Its rules are **invisible to JS/DevTools rule inspectors** (CORS blocks `.cssRules`, and `@import`ed sheets aren't in top-level `document.styleSheets`). So a matched-rules probe will show OUR rules + Jellyfin's bundles, and scyfin is the culprit *by elimination* when computed ≠ any visible rule.
+- Our CSS is injected as an inline `<style>`, so on **equal specificity we win by source order** — but scyfin often uses higher-specificity selectors, so a plain `.foo{...!important}` loses. Fix by raising specificity (add an ancestor class / an `[mn-*]` theme-attr prefix), not by adding more `!important`.
+- Worked example (tags/links): `[mn-cut-geometry="1"] .emby-button{background:accent!important}` (0,0,2,0) beat `.itemTags a{transparent!important}` (0,0,1,1). Jellyfin renders inline links as `<a class="button-link emby-button">`, so the themed *button* rule hit every link. Fix: `.emby-button.button-link` (0,0,3,0) + later in source.
+
+**Theme tokens are CSS vars set per-theme by the flair JS `applyTheme` (jellyfin-web-flair.js THEMES map):**
+`--primary-accent-color`, `--mn-card-radius`, `--mn-btn-radius`, `--mn-divider-accent`, `--mn-muted`, etc.
+Reelone (`[mn-cut-geometry="1"]`) sets card/btn radius to **0** (angular theme) — a poster `border-radius:0` is intentional, not a bug. Prefer these vars over hardcoded hex so a rule works across all 4 themes. `[mn-*]` body attrs select the active theme (mn-glow-text=canyon, mn-litho-offset-x=matinee, mn-cut-geometry=reelone, mn-gilded-text=marquee).
+
+**Landmines specific to this theme:**
+- `position:` on `.mainDrawer` — DON'T set it. Jellyfin's `.touch-menu-la` gives it `position:fixed;top:0;bottom:0` for full height; overriding to `relative` (equal specificity, ours loads later → wins) collapsed it to `height:0` and the whole left nav "disappeared." Layer with `z-index` only.
+- `#mn-wordmark` is `position:fixed`, so `width:100%` resolves against the VIEWPORT, not the 250px drawer — use a drawer-relative px width.
+- Card indicators (`.playedIndicator`) get a solid colored circle from Jellyfin `theme.css` + scyfin. Override to transparent bg + `var(--primary-accent-color)`.
+- Card hover overlay (`.cardOverlayContainer`) insets inside `.cardImageContainer`'s per-theme border (reelone 2px), so at `inset:0` it's border-width smaller than the poster → grow it with negative `inset`.
+- Nav "selected" highlight: the flair JS applies it via inline styles for the Home route (no `.navMenuOption-selected` class), so hover handlers must guard on our own `data-mn-selected` flag or leaving the item wipes the highlight.
+
+**Recurring issue types to expect:** (1) an override that "should work" but loses to scyfin specificity; (2) a fix scoped too narrowly (e.g. `.itemDetailPage`-only) that misses cards/home/search; (3) `@import scyfin@latest` is UNPINNED — a scyfin update can silently change class names/geometry and break overrides (candidate pin: `@v1.5.5`); (4) something that renders differently per theme because a rule hardcodes one theme's value instead of a token.
+
+### Landmine (2026-07-17): theme selectors gated on `[mn-*]` attributes set in JS
+The 4 web themes are identified by attributes on `<html>` set in the flair JS `applyTheme`
+(`mn-glow-text`=canyon, `mn-cut-geometry`=reelone, `mn-gilded-text`=marquee,
+`mn-litho-offset-x`=matinee). CSS rules are gated like `[mn-litho-offset-x="3"] .foo{...}`.
+**If a theme's attribute isn't set, EVERY one of its rules silently fails and that theme renders
+almost unthemed.** This actually happened: `mn-litho-offset-x` was never `setAttribute`'d (only the
+`--mn-litho-offset-x` CSS *variable* was set), so **all of matinee was broken** (Play button
+invisible, buttons/tags/wordmark unstyled) while the other three themes worked. When a whole theme
+looks wrong, FIRST check `document.documentElement` has its `mn-*` attribute — don't debug individual
+rules. Prefer `var(--primary-accent-color)` etc. (always set, attribute-independent) over
+`[mn-*="v"]`-gated hardcoded colors where a single themed value suffices.
+Note: `mn-glow-color` is also referenced by CSS attribute selectors but only ever set as a CSS var —
+the card-hover glow rules `[mn-glow-color]:not(...)` therefore never match (latent, no complaint yet).

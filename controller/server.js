@@ -157,14 +157,24 @@ async function jellyfinIdByTmdb(type, tmdbId) {
   if (!cfg.JELLYFIN_KEY || !tmdbId) return null;
   const t = type || 'Movie,Series';
   const cacheKey = `jfTmdb:${t}:${tmdbId}`;
-  return cachedFetch(cacheKey, 300_000, async () => {
+  // Cache POSITIVE resolutions only (a tmdb->jf id never changes). A "not found" is NOT cached:
+  // negative-caching would hide a freshly-imported movie for the whole TTL after Jellyfin scans
+  // it. On a miss we also drop any stale positive entry (e.g. after a delete) so it self-heals.
+  const c = _cache[cacheKey];
+  if (c && Date.now() - c.ts < 300_000) return c.val;
+  try {
     const uid = await jellyfinUserId();
     const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
     const q = new URLSearchParams({ recursive: 'true', includeItemTypes: t, fields: 'ProviderIds', limit: '2000' });
     const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 8000)).json()).Items) || [];
     const m = items.find((i) => i.ProviderIds && String(i.ProviderIds.Tmdb) === String(tmdbId));
-    return (m && m.Id) || null;
-  }, null);
+    const id = (m && m.Id) || null;
+    if (id) _cache[cacheKey] = { ts: Date.now(), val: id };
+    else delete _cache[cacheKey];
+    return id;
+  } catch {
+    return c ? c.val : null;   // network error → last-known-good, else null
+  }
 }
 // Fallback title→item-id lookup (used only when there's no Radarr/Sonarr tmdb id to pin on).
 async function jellyfinSearchId(title, type) {
@@ -909,6 +919,9 @@ async function buildDownloads() {
             continue;
           }
         }
+        // Recent release: movie came out in the last 14 days. Torrents may not exist yet, so use
+        // shorter grace/cooldown and show a softer status (not alarming like "Not found").
+        const recentRelease = app === 'radarr' && isRecentRelease(it);
         // A freshly-requested item briefly has no file/queue while *arr's own search resolves. Show
         // "Searching…" (not the alarming "Not found") until NOTFOUND_GRACE — this is what stops the
         // "Not found → found seconds later" flip-flop. Only after the grace do we call it "Not found".
@@ -920,7 +933,8 @@ async function buildDownloads() {
         const outcomeKind = st.lastOutcomeKind || '';
         const outcomeVisible = ['found', 'partial', 'pending'].includes(outcomeKind);
         const manualRetryVisible = manualRetryRecent && !['empty', 'error'].includes(outcomeKind);
-        const searching = manualRetryVisible || outcomeVisible || (!outcomeKind && now2 - firstMissing < NOTFOUND_GRACE_MS);
+        const uiGrace = recentRelease ? RECENT_RELEASE_GRACE_MS : NOTFOUND_GRACE_MS;
+        const searching = manualRetryVisible || outcomeVisible || (!outcomeKind && now2 - firstMissing < uiGrace);
         const title = it.title + (it.year ? ` (${it.year})` : '');
         // Mirror arrSweep's own scheduling logic so the UI can say when the NEXT recovery search
         // will actually fire, instead of leaving "Not found" with no indication of what happens next.
@@ -958,18 +972,19 @@ async function buildDownloads() {
           searchHint.push(`sources degraded: ${indexerSnapshot.degradedNames.slice(0, 2).join(', ')}`);
         }
         const recoveryBlocked = !!(st.blockedUntil && st.blockedUntil > now2);
+        const recoveryGrace = recentRelease ? RECENT_RELEASE_GRACE_MS : RECOVERY_GRACE_MS;
         let recoveryNext;
         if (manualRetryRecent) recoveryNext = now2;
         else if (recoveryBlocked) recoveryNext = st.blockedUntil;
-        else if (now2 - firstMissing < RECOVERY_GRACE_MS) recoveryNext = firstMissing + RECOVERY_GRACE_MS;
+        else if (now2 - firstMissing < recoveryGrace) recoveryNext = firstMissing + recoveryGrace;
         else if (st.ts) recoveryNext = st.ts + SEARCH_COOLDOWN_MS;
         else recoveryNext = now2; // sweep hasn't tried yet — due on its next 5-min tick
         // attention (→ red) is reserved for items automation has actually given up on
         // (negative-cached). A "Not found" that's still going to retry on its own is orange, not
         // red — red should mean "a human needs to look at this," not "still working on it."
-        items.push({ title, progress: 0, state: searching ? 'Searching…' : 'Not found',
-          etaSeconds: null, sizeBytes: 0, source: app, attention: recoveryBlocked,
-          hash: `missing:${app}:${id}`, _id: id,
+        items.push({ title, progress: 0, state: searching ? 'Searching…' : (recentRelease ? 'Not found (recent)' : 'Not found'),
+          etaSeconds: null, sizeBytes: 0, source: app, attention: recoveryBlocked && !recentRelease,
+          hash: `missing:${app}:${id}`, _id: id, recentRelease,
           recoveryNext, recoveryFails: st.fails || 0, recoveryBlocked,
           searchHint: searchHint.join(' · '), searchReason: outcomeKind || st.lastReason || null });
       }
@@ -3647,6 +3662,9 @@ const BLOCKLIST_TTL_MS = 12 * 3600 * 1000;    // 12h — blocklisted releases au
 // NOTFOUND_GRACE, covering normal grab latency.
 const RECOVERY_GRACE_MS = 2 * 3600000;         // 2h: leave a missing item to *arr's own search first
 const NOTFOUND_GRACE_MS = 20 * 60000;          // 20min: show "Searching…" before "Not found" in the UI
+const RECENT_RELEASE_WINDOW_MS = 14 * 86400000; // 14 days — movies this new may not have torrents yet
+const RECENT_RELEASE_GRACE_MS = 30 * 60000;    // 30 min grace (vs 2h) — recent releases get searched sooner
+const RECENT_RELEASE_BLOCK_MS = 1 * 86400000;  // 1 day block (vs 7d) — torrent may appear any time
 // firstMissing bookkeeping shared by buildDownloads (UI) and arrSweep (recovery). Starts the clock
 // the first time an item is seen missing; cleared once it has a file / queue / torrent again.
 function noteMissing(app, id) {
@@ -3665,6 +3683,12 @@ function noteResolved(app, id) {  // item now has file/queue/torrent → reset t
     searchState.set(k, st);
     metrics.emitEvent('missing_clear', { ap: app, id });
   }
+}
+function isRecentRelease(item) {
+  const dates = [item.inCinemas, item.physicalRelease, item.digitalRelease].filter(Boolean);
+  if (!dates.length) return false;
+  const newest = Math.max(...dates.map(d => new Date(d).getTime()));
+  return Date.now() - newest < RECENT_RELEASE_WINDOW_MS;
 }
 function touchSearchState(app, id, patch) {
   const k = `${app}:${id}`;
@@ -4416,6 +4440,7 @@ async function arrSweep() {
         }
         if (qIds.has(i.id) || downloadingIds.has(i.id)) { noteResolved(app, i.id); continue; } // in flight — reset clock
         const firstMissing = noteMissing(app, i.id);                            // start/read the missing clock
+        const isRR = app === 'radarr' && isRecentRelease(i);
         const st = searchState.get(`${app}:${i.id}`);
         if (st && st.blockedUntil && st.blockedUntil > now) {
           if (!st.lastOutcomeKind || st.lastOutcomeKind === 'pending') {
@@ -4424,15 +4449,16 @@ async function arrSweep() {
           metrics.emitEvent('search_skip', { ti: i.title, ap: app, id: i.id, reason: 'blocked', fails: st.fails || 0, next: st.blockedUntil });
           continue;                                                               // negative-cached (no content)
         }
-        if (now - firstMissing < RECOVERY_GRACE_MS) {
+        if (now - firstMissing < (isRR ? RECENT_RELEASE_GRACE_MS : RECOVERY_GRACE_MS)) {
           // Grace applies to EVERY missing item, including never-searched ones. This is what makes
           // a controller restart safe: firstMissing resets to now on restart, so the whole missing
           // library sits in grace instead of triggering an immediate mass EpisodeSearch (which made
           // Sonarr re-grab everything — including wrong-language/duplicate releases — every restart).
+          // Recent releases get a shorter grace (30 min vs 2h) since torrents may appear soon.
           if (!st || !st.lastOutcomeKind || st.lastOutcomeKind === 'pending') {
             touchSearchState(app, i.id, { lastReason: 'grace', lastAt: now });
           }
-          metrics.emitEvent('search_skip', { ti: i.title, ap: app, id: i.id, reason: 'grace', next: firstMissing + RECOVERY_GRACE_MS });
+          metrics.emitEvent('search_skip', { ti: i.title, ap: app, id: i.id, reason: 'grace', next: firstMissing + (isRR ? RECENT_RELEASE_GRACE_MS : RECOVERY_GRACE_MS) });
           continue;                                                               // still *arr's own job — don't interfere
         }
         if (st && st.ts && now - st.ts < SEARCH_COOLDOWN_MS) {
@@ -4472,9 +4498,11 @@ async function arrSweep() {
           const st = searchState.get(key) || { ts: 0, fails: 0, blockedUntil: 0 };
           if (st.ts) st.fails = (st.fails || 0) + 1;   // a prior search left it with no content → it failed
           if (st.fails >= SEARCH_FAIL_LIMIT) {
-            st.blockedUntil = now + SEARCH_BLOCK_MS;
-            console.log(`arrSweep: ${app} "${item.title}" (${item.id}) searched ${st.fails}× with no grab — negative-caching 7d (manual retry clears)`);
-            metrics.emitEvent('block', { ti: item.title, ap: app, id: item.id, fails: st.fails });
+            const rr = app === 'radarr' && isRecentRelease(item);
+            const blockMs = rr ? RECENT_RELEASE_BLOCK_MS : SEARCH_BLOCK_MS;
+            st.blockedUntil = now + blockMs;
+            console.log(`arrSweep: ${app} "${item.title}" (${item.id}) searched ${st.fails}× with no grab — negative-caching ${rr ? '1d' : '7d'} (manual retry clears)`);
+            metrics.emitEvent('block', { ti: item.title, ap: app, id: item.id, fails: st.fails, recent: rr || undefined });
           }
           try {
             if (app === 'radarr') {

@@ -107,11 +107,14 @@ blocklisting via grab history and deleting the torrent — log prefix `recovery:
 
 ```
 SEARCH_COOLDOWN_MS  = 6h         # between recovery re-searches of the same item
-SEARCH_FAIL_LIMIT   = 4          # → negative-cache for 7 days
-SEARCH_BLOCK_MS     = 7 days     # duration of negative cache
+SEARCH_FAIL_LIMIT   = 4          # → negative-cache for 7 days (1 day for recent releases)
+SEARCH_BLOCK_MS     = 7 days     # duration of negative cache (1 day for recent releases)
 SWEEP_MAX_ACTIVE_DL = 10         # no new searches while this many downloading
 RECOVERY_GRACE_MS   = 2h         # leave missing item to *arr's own search first
 NOTFOUND_GRACE_MS   = 20min      # show "Searching…" before "Not found" in UI
+RECENT_RELEASE_WINDOW_MS = 14 days  # movies released within this window get faster retries
+RECENT_RELEASE_GRACE_MS  = 30min    # shorter grace for recent releases (vs 2h)
+RECENT_RELEASE_BLOCK_MS  = 1 day    # shorter block for recent releases (vs 7d)
 ```
 
 ### Key Constants (stallRecovery)
@@ -279,8 +282,8 @@ At 10s sampling: ~2 MB/day, ~700 MB/year. 35 GB free on the SSD (root) where met
 
 1. **Check if it's being searched** → `./scripts/show-history.sh --missing`
    - `cooldown` = searched within 6h, won't retry
-   - `blocked` = searched 4× with no grab, blocked for 7 days
-   - `grace` = first seen missing <2h ago, leaving *arr's own search alone
+   - `blocked` = searched 4× with no grab, blocked for 7 days (1 day for recent releases)
+   - `grace` = first seen missing <2h ago, leaving *arr's own search alone (30 min for recent releases)
    - `recovery=initial` = never searched by sweep yet
 
 2. **Check arrSweep logs** → `./scripts/query-logs.sh controller --grep "arrSweep"`
@@ -584,6 +587,8 @@ to live installs on every provision, so edit the script, never the *arr UI.
 3. **New service**: add to `docker-compose.yml`, add provision script, add API key discovery to `controller.sh`, add status check to `server.js:STATUS_SERVICES`
 4. **Logging**: all sweeps use `console.log()` (→ docker logs). New diagnostics should use the `INFO/WARN/ERROR` helpers that add log level prefixes.
 5. **Library fallback**: the `isErrored` branch in `buildDownloads` (server.js:498-520) now has a title-based fallback when the history cache misses. The `getHasFileMap` function returns `{ hasFile, nameIds }` — both Maps. `hasFile[id]` is the authoritative "in library" check. `nameIds[normTitle]` maps normalized *arr titles to ids. If adding a new fallback, make sure to pre-populate `nameIds` for both `norm(title)` and `norm(title + year)`.
+6. **TV client fork** ("Movie Night", jellyfin-androidtv): clone lives outside this repo at `~/jellyfin-androidtv`. Build requires **JDK 21** (`~/jdk-21`; system `java` is 17): `cd ~/jellyfin-androidtv && ./gradlew :app:compileDebugKotlin -Dorg.gradle.java.home=/home/brennan/jdk-21`. Android SDK at `~/android-sdk`.
+7. **Branding CSS/JS** (web): edit `scripts/provision/jellyfin-custom.css` / `jellyfin-web-flair.js`, then `make provision s=jellyfin` (NOT `make deploy` — deploy only pulls/restarts, it does not re-push branding or flair). §7a verifies the served CSS is sha256-identical to source. Theme values are mirrored across Android XML + web JS/CSS: keep `docs/branding/THEME-TOKENS.json` in sync and run `make check-themes`.
 
 ## Restart Safety
 

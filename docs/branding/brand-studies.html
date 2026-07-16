@@ -306,15 +306,120 @@
   .weblogin .field { background: rgba(245,238,220,.07); border: 1px solid rgba(245,238,220,.22); border-radius: 8px; color: #7fa8a4; text-align: left; font-size: 13px; padding: 11px 14px; margin-top: 12px; }
   .weblogin .go { margin-top: 16px; width: 100%; border: none; border-radius: 999px; background: #47c4b8; color: #0c2429; font: inherit; font-weight: 800; font-size: 14px; padding: 11px; box-shadow: 0 0 16px rgba(71,196,184,.4); }
 
+  /* ── Design System Gallery ── */
+  .ds-gallery { margin: 30px 0 0; }
+  .ds-gallery > .frame-label:first-child { margin-top: 0; }
+  .ds-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; margin: 8px 0 18px; }
+  .ds-box { padding: 16px 20px; min-width: 140px; flex: 1; }
+  .ds-box.outlined { border: 1px solid; }
+  .ds-box.filled { }
+  .ds-scale { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 18px; }
+  .ds-scale > div { padding: 4px 0; }
+  .ds-btn-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 8px 0 18px; }
+  .ds-btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 22px; font-weight: 600; cursor: pointer; border: none; font-size: 14px; }
+  .ds-btn:active { transform: scale(.97); }
+  .ds-flair { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 8px 0 18px; }
+  .ds-flair-item { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 18px; min-width: 100px; }
+  .ds-flair-item .glyph { font-size: 28px; line-height: 1; }
+  .ds-flair-item .label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+  .ds-divider-demo { margin: 12px 0 18px; }
+  .ds-divider-demo hr { border: none; margin: 10px 0; }
+  .ds-input { width: 100%; max-width: 320px; padding: 10px 14px; font-size: 14px; font: inherit; }
+  .ds-alert { padding: 12px 16px; border-radius: 4px; font-size: 14px; margin: 6px 0; max-width: 400px; }
+
+  /* Canyon DS additions */
+  .ds-canyon .ds-box { background: #162A35; border-color: #2c261e; border-radius: 8px; color: #F5EEDC; }
+  .ds-canyon .ds-btn-primary { background: #47C4B8; color: #0c2429; border-radius: 999px; box-shadow: 0 0 4px #47C4B8, 0 0 12px #47C4B8, 0 0 24px rgba(71,196,184,.5), 0 0 48px rgba(71,196,184,.25); }
+  .ds-canyon .ds-btn-secondary { background: transparent; color: #47C4B8; border: 1.5px solid #47C4B8; border-radius: 999px; }
+  .ds-canyon .ds-btn-ghost { background: rgba(71,196,184,.08); color: #47C4B8; border-radius: 999px; }
+  .ds-canyon .ds-pill { background: rgba(71,196,184,.12); color: #47C4B8; border: 1px solid #47C4B8; border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; box-shadow: 0 0 8px rgba(71,196,184,.35); }
+  .ds-canyon .ds-badge { background: #F26D3D; color: #fff; border-radius: 999px; padding: 3px 10px; font-size: 11px; font-weight: 700; clip-path: polygon(50% 0%,56% 14%,68% 6%,60% 24%,80% 20%,64% 36%,100% 50%,64% 64%,80% 80%,60% 76%,68% 94%,56% 86%,50% 100%,44% 86%,32% 94%,40% 76%,20% 80%,36% 64%,0% 50%,36% 36%,20% 20%,40% 24%,32% 6%,44% 14%); padding: 8px 14px; }
+  .ds-canyon .ds-input-demo { background: #162A35; border: 1px solid #2c261e; border-radius: 8px; color: #F5EEDC; }
+  .ds-canyon .ds-input-demo:focus { outline: 2px solid #47C4B8; outline-offset: 2px; box-shadow: 0 0 8px rgba(71,196,184,.4); }
+  .ds-canyon .ds-alert-warn { background: rgba(242,109,61,.12); border: 1px solid rgba(242,109,61,.4); color: #F5EEDC; border-radius: 8px; }
+  .ds-canyon .ds-alert-ok { background: rgba(71,196,184,.1); border: 1px solid rgba(71,196,184,.35); color: #F5EEDC; border-radius: 8px; }
+  .ds-canyon .hr-demo { background: linear-gradient(90deg, transparent, #2c261e, transparent); }
+  .ds-canyon .neon-text { color: #47C4B8; text-shadow: 0 0 1px #fff, 0 0 4px #47C4B8, 0 0 12px #47C4B8, 0 0 24px rgba(71,196,184,.5), 0 0 40px rgba(71,196,184,.2); }
+  .ds-canyon .flair-star { color: #F26D3D; text-shadow: 0 0 4px #F26D3D, 0 0 12px rgba(242,109,61,.5); font-size: 22px; }
+
+  /* Matinee DS additions */
+  .ds-matinee .ds-box { background: #1C1209; border-color: #7A6B5A; border-radius: 0; color: #E2D1AD; }
+  .ds-matinee .ds-btn-primary { background: #D4912B; color: #1C1209; border-radius: 2px; box-shadow: 3px 3px 0 #B52A1A; font-family: var(--cond); text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
+  .ds-matinee .ds-btn-primary:hover { box-shadow: 4px 4px 0 #B52A1A; }
+  .ds-matinee .ds-btn-secondary { background: transparent; color: #E2D1AD; border: 2px solid #7A6B5A; border-radius: 2px; box-shadow: 3px 3px 0 rgba(122,107,90,.35); font-family: var(--cond); text-transform: uppercase; letter-spacing: .1em; }
+  .ds-matinee .ds-btn-ghost { background: rgba(212,145,43,.08); color: #D4912B; border-radius: 2px; font-family: var(--cond); text-transform: uppercase; letter-spacing: .1em; }
+  .ds-matinee .ds-pill { background: rgba(212,145,43,.1); color: #D4912B; border: 2px solid #D4912B; border-radius: 0; padding: 4px 10px; font-size: 12px; font-family: var(--cond); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+  .ds-matinee .ds-badge { background: #B52A1A; color: #F5ECD7; border-radius: 0; padding: 4px 10px; font-size: 11px; font-weight: 700; font-family: var(--cond); text-transform: uppercase; letter-spacing: .08em; }
+  .ds-matinee .ds-input-demo { background: #1C1209; border: 2px solid #7A6B5A; border-radius: 0; color: #E2D1AD; }
+  .ds-matinee .ds-input-demo:focus { outline: 2px solid #D4912B; outline-offset: 1px; }
+  .ds-matinee .ds-alert-warn { background: rgba(181,42,26,.12); border: 2px solid #B52A1A; color: #E2D1AD; border-radius: 0; }
+  .ds-matinee .ds-alert-ok { background: rgba(212,145,43,.08); border: 2px solid #D4912B; color: #E2D1AD; border-radius: 0; }
+  .ds-matinee .hr-demo { height: 0; border-top: 3px solid #7A6B5A; border-bottom: 1px solid #7A6B5A; background: none; }
+  .ds-matinee .hr-ornamental { display: flex; align-items: center; gap: 12px; }
+  .ds-matinee .hr-ornamental::before, .ds-matinee .hr-ornamental::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #7A6B5A); }
+  .ds-matinee .flair-shadow { font-size: 28px; font-family: var(--cond); font-weight: 800; text-transform: uppercase; color: #E2D1AD; text-shadow: 3px 3px 0 #B52A1A; letter-spacing: .04em; }
+  .ds-matinee .halftone-bg { background-color: #1C1209; background-image: radial-gradient(circle, rgba(181,42,26,.07) 1px, transparent 1px); background-size: 10px 10px; }
+
+  /* Reel One DS additions */
+  .ds-reelone .ds-box { background: #111; border: 2px solid #2A2725; border-radius: 0; color: #F2EFE6; }
+  .ds-reelone .ds-btn-primary { background: #E34234; color: #F2EFE6; border-radius: 0; }
+  .ds-reelone .ds-btn-primary:hover { background: #D7261E; }
+  .ds-reelone .ds-btn-secondary { background: transparent; color: #F2EFE6; border: 2px solid #F2EFE6; border-radius: 0; }
+  .ds-reelone .ds-btn-secondary:hover { background: #F2EFE6; color: #0B0B0B; }
+  .ds-reelone .ds-btn-ghost { background: none; color: #8D8A80; border-bottom: 2px solid transparent; border-radius: 0; text-transform: uppercase; letter-spacing: .08em; font-size: 12px; }
+  .ds-reelone .ds-btn-ghost:hover { color: #E34234; border-bottom-color: #E34234; }
+  .ds-reelone .ds-pill { background: rgba(227,66,52,.1); color: #E34234; border: 1px solid #E34234; border-radius: 0; padding: 4px 10px; font-size: 12px; font-weight: 600; }
+  .ds-reelone .ds-badge { background: #E34234; color: #F2EFE6; border-radius: 0; padding: 4px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+  .ds-reelone .ds-input-demo { background: #111; border: 2px solid #2A2725; border-radius: 0; color: #F2EFE6; }
+  .ds-reelone .ds-input-demo:focus { outline: 2px solid #E34234; outline-offset: 0; }
+  .ds-reelone .ds-alert-warn { background: rgba(227,66,52,.1); border: 2px solid #E34234; color: #F2EFE6; border-radius: 0; }
+  .ds-reelone .ds-alert-ok { background: rgba(242,239,230,.06); border: 2px solid #8D8A80; color: #F2EFE6; border-radius: 0; }
+  .ds-reelone .hr-demo { background: #333; }
+  .ds-reelone .flair-square { display: inline-block; width: 18px; height: 18px; background: #E34234; }
+  .ds-reelone .flair-strip { width: 80px; height: 4px; background: #E34234; transform: rotate(-3deg); }
+  .ds-reelone .flair-disc { width: 28px; height: 28px; border-radius: 50%; background: #E34234; }
+  .ds-reelone .flair-crosshair { position: relative; width: 28px; height: 28px; }
+  .ds-reelone .flair-crosshair::before, .ds-reelone .flair-crosshair::after { content: ''; position: absolute; background: #E34234; }
+  .ds-reelone .flair-crosshair::before { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
+  .ds-reelone .flair-crosshair::after { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+  .ds-reelone .card-featured { border-top: 4px solid #E34234; }
+
+  /* Marquee DS additions */
+  .ds-marquee .ds-box { background: #171311; border: 1px solid rgba(143,107,46,.25); border-radius: 3px; color: #F2E6CB; }
+  .ds-marquee .ds-btn-primary { background: #D4AF37; color: #0E0B06; border-radius: 2px; box-shadow: 0 0 8px rgba(212,175,55,.2); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .ds-marquee .ds-btn-primary:hover { box-shadow: 0 0 16px rgba(212,175,55,.35); }
+  .ds-marquee .ds-btn-secondary { background: transparent; color: #D4AF37; border: 1px solid #8F6B2E; border-radius: 2px; letter-spacing: .12em; text-transform: uppercase; }
+  .ds-marquee .ds-btn-ghost { background: rgba(212,175,55,.06); color: #B79F77; border-radius: 2px; letter-spacing: .1em; text-transform: uppercase; font-size: 12px; }
+  .ds-marquee .ds-pill { background: rgba(212,175,55,.08); color: #D4AF37; border: 1px solid rgba(143,107,46,.4); border-radius: 3px; padding: 4px 10px; font-size: 12px; letter-spacing: .08em; }
+  .ds-marquee .ds-badge { background: #D4AF37; color: #0E0B06; border-radius: 3px; padding: 4px 10px; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+  .ds-marquee .ds-input-demo { background: #171311; border: 1px solid #8F6B2E; border-radius: 2px; color: #F2E6CB; }
+  .ds-marquee .ds-input-demo:focus { outline: 1px solid #D4AF37; outline-offset: 2px; box-shadow: 0 0 8px rgba(212,175,55,.2); }
+  .ds-marquee .ds-alert-warn { background: rgba(139,26,26,.15); border: 1px solid #8B1A1A; color: #F2E6CB; border-radius: 3px; }
+  .ds-marquee .ds-alert-ok { background: rgba(212,175,55,.06); border: 1px solid rgba(143,107,46,.3); color: #F2E6CB; border-radius: 3px; }
+  .ds-marquee .hr-demo { background: linear-gradient(90deg, transparent, #D4AF37 20%, #D4AF37 80%, transparent); height: 1px; }
+  .ds-marquee .hr-double { background: linear-gradient(90deg, transparent, #8F6B2E, transparent) top/100% 1px no-repeat, linear-gradient(90deg, transparent, #8F6B2E, transparent) bottom/100% 1px no-repeat; height: 5px; }
+  .ds-marquee .hr-diamond { display: flex; align-items: center; gap: 10px; }
+  .ds-marquee .hr-diamond::before, .ds-marquee .hr-diamond::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #8F6B2E, transparent); }
+  .ds-marquee .gilded-text { background: linear-gradient(135deg, #BF953F, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
+  .ds-marquee .flair-diamond { display: inline-block; width: 10px; height: 10px; background: #D4AF37; transform: rotate(45deg); }
+  .ds-marquee .flair-chevron { width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 10px solid #D4AF37; }
+  .ds-marquee .flair-sunburst { width: 32px; height: 32px; background: repeating-conic-gradient(rgba(212,175,55,.15) 0deg 5deg, transparent 5deg 10deg); border-radius: 50%; }
+  .ds-marquee .corner-accent { position: relative; }
+  .ds-marquee .corner-accent::before, .ds-marquee .corner-accent::after { content: ''; position: absolute; width: 14px; height: 14px; border-color: #D4AF37; border-style: solid; }
+  .ds-marquee .corner-accent::before { top: 4px; left: 4px; border-width: 2px 0 0 2px; }
+  .ds-marquee .corner-accent::after { bottom: 4px; right: 4px; border-width: 0 2px 2px 0; }
+  .ds-marquee .vignette-demo { position: relative; }
+  .ds-marquee .vignette-demo::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.35)); pointer-events: none; border-radius: inherit; }
+
   @media (max-width: 700px) { .deck h1 { font-size: 40px; } }
 </style>
 
 <div class="wrap">
   <header class="deck">
     <h1>Movie Night</h1>
-    <span class="kicker">Brand studies · v5 · four themes, one app · July 2026</span>
+    <span class="kicker">Brand studies · v6 · four themes, one app · design system galleries · July 2026</span>
   </header>
-  <p class="brief"><strong>New in v5:</strong> the Top 100 pantheon expands to ranks 1–10 and goes bespoke — billing blocks (director + cast in poster-credit type), genre/franchise motifs (venetian blinds, map routes, gunbarrel dots), composition variety, tiers re-cut to 1–10 / 11–50 / 51–100. <strong>From v4:</strong> toolbars now show the real center nav (Home / Search / Top 100 / Watchlist, per MainToolbar) with a themed active state · a new <strong>Top 100 tab</strong> designs the showcase page that replaces the text-list playlist view — full-bleed pantheon for the top ranks, gallery, then ledger, with automatic era treatments · the Web tab converges on the Fire Stick: pruned sidebar + the same showcase. <strong>From v3:</strong> home screens now render over <strong>live blurred artwork</strong>, exactly as the app does while browsing (AppBackground: blur + ~58% dim). Each theme claims the background only through a hue-biased dim wash — never a stronger one, so no artwork brightness is lost vs today. <strong>From v2:</strong> taglines removed everywhere (the wordmark stands alone) · the hero spotlight row is now mocked accurately (backdrop, tinted scrim, the movie's own clearlogo, themed Play button) · poster cards use the real app format — busy one-sheet art, the actual <code>#7</code> rank-pill geometry with per-theme stroke &amp; font, titles + runtime below in the theme face · <strong>🎲 Spin</strong> simulates the launch roulette. Content is identical across themes; only the chrome changes.</p>
+  <p class="brief"><strong>New in v6:</strong> each theme now includes a <strong>Design System Gallery</strong> — a comprehensive showcase of every DOM element (h1–h4, p, buttons, cards, pills, badges, inputs, dividers, alerts, status dots) styled to theme, plus the theme's unique visual flair elements (starbursts, litho shadows, cut-paper geometry, Deco diamonds). These galleries define the full branding guidelines beyond font colours. <strong>From v5:</strong> the Top 100 pantheon expands to ranks 1–10 and goes bespoke — billing blocks (director + cast in poster-credit type), genre/franchise motifs (venetian blinds, map routes, gunbarrel dots), composition variety, tiers re-cut to 1–10 / 11–50 / 51–100. <strong>From v4:</strong> toolbars now show the real center nav (Home / Search / Top 100 / Watchlist, per MainToolbar) with a themed active state · a new <strong>Top 100 tab</strong> designs the showcase page that replaces the text-list playlist view — full-bleed pantheon for the top ranks, gallery, then ledger, with automatic era treatments · the Web tab converges on the Fire Stick: pruned sidebar + the same showcase. <strong>From v3:</strong> home screens now render over <strong>live blurred artwork</strong>, exactly as the app does while browsing (AppBackground: blur + ~58% dim). Each theme claims the background only through a hue-biased dim wash — never a stronger one, so no artwork brightness is lost vs today. <strong>From v2:</strong> taglines removed everywhere (the wordmark stands alone) · the hero spotlight row is now mocked accurately (backdrop, tinted scrim, the movie's own clearlogo, themed Play button) · poster cards use the real app format — busy one-sheet art, the actual <code>#7</code> rank-pill geometry with per-theme stroke &amp; font, titles + runtime below in the theme face · <strong>🎲 Spin</strong> simulates the launch roulette. Content is identical across themes; only the chrome changes.</p>
 
   <nav class="tabs" role="tablist" aria-label="Themes">
     <button class="tab" role="tab" aria-selected="true" data-study="canyon"><span class="n">1</span>Canyon</button>
@@ -376,6 +481,76 @@
       <div class="note"><h3>Live backdrop</h3><p>Dim wash biased toward desert teal (<em>rgba(9,29,34,.60)</em>). The neon halo on wordmark and focus ring is what keeps chrome separated from any artwork behind it.</p></div>
       <div class="note"><h3>Launcher role</h3><p>The Fire Stick icon/banner can't rotate, so Canyon is the permanent out-of-app identity: starburst + neon script "Movie Night" on teal at 320×180.</p></div>
     </div>
+
+    <!-- ── Canyon Design System Gallery ── -->
+    <div class="ds-gallery ds-canyon">
+      <p class="frame-label">Typography scale</p>
+      <div class="ds-scale" style="padding:20px;background:#0D1B2A;border-radius:8px;">
+        <div class="neon-text" style="font-family:var(--script);font-size:42px;line-height:1.1;">Movie Night</div>
+        <div style="font-size:24px;font-weight:650;letter-spacing:-.01em;color:#F5EEDC;">Section Heading (h2)</div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#C9B99A;">Subsection Label (h3/h4)</div>
+        <div style="font-size:15px;line-height:1.55;color:#F5EEDC;">Body text in desert cream. <span style="color:#C9B99A;">Secondary text in sand.</span></div>
+        <div style="font-size:12px;color:#C9B99A;">Caption · metadata · 12px</div>
+      </div>
+
+      <p class="frame-label">Buttons</p>
+      <div class="ds-btn-row">
+        <button class="ds-btn ds-btn-primary">Play Now</button>
+        <button class="ds-btn ds-btn-secondary">Add to Watchlist</button>
+        <button class="ds-btn ds-btn-ghost">More Info</button>
+      </div>
+
+      <p class="frame-label">Cards & surfaces</p>
+      <div class="ds-row">
+        <div class="ds-box" style="max-width:260px;">
+          <div style="font-weight:650;margin-bottom:4px;">Card Title</div>
+          <div style="font-size:13px;color:#C9B99A;">Secondary info and metadata go here.</div>
+        </div>
+        <div class="ds-box outlined corner-accent" style="max-width:260px;border-color:#47C4B8 !important;box-shadow:0 0 12px rgba(71,196,184,.2);">
+          <div style="font-weight:650;margin-bottom:4px;">Focused Card</div>
+          <div style="font-size:13px;color:#C9B99A;">Turquoise glow on hover/focus.</div>
+        </div>
+      </div>
+
+      <p class="frame-label">Pills & badges</p>
+      <div class="ds-flair">
+        <span class="ds-pill">Bluray-1080p</span>
+        <span class="ds-pill">H.264</span>
+        <span class="ds-badge">NEW</span>
+        <span class="ds-pill" style="box-shadow:0 0 6px rgba(71,196,184,.5);">★ Top 100</span>
+      </div>
+
+      <p class="frame-label">Dividers</p>
+      <div class="ds-divider-demo">
+        <hr class="hr-demo" style="height:1px;">
+        <div style="text-align:center;padding:6px 0;"><span class="flair-star" style="font-size:16px;">✶</span></div>
+        <hr class="hr-demo" style="height:1px;">
+      </div>
+
+      <p class="frame-label">Form inputs</p>
+      <div style="margin:8px 0 18px;">
+        <input class="ds-input ds-input-demo" placeholder="Search movies…" style="max-width:280px;">
+      </div>
+
+      <p class="frame-label">Alerts</p>
+      <div class="ds-alert ds-alert-ok">Disk space adequate — 3.5 TB free.</div>
+      <div class="ds-alert ds-alert-warn">Disk gate active — downloads paused.</div>
+
+      <p class="frame-label">Visual flair elements</p>
+      <div class="ds-flair">
+        <div class="ds-flair-item"><span class="glyph flair-star">✶</span><span class="label">Starburst</span></div>
+        <div class="ds-flair-item"><span class="glyph neon-text" style="font-family:var(--script);font-size:22px;">Neon</span><span class="label">Neon glow</span></div>
+        <div class="ds-flair-item"><span class="glyph" style="width:28px;height:28px;border-radius:50%;border:2px solid #47C4B8;box-shadow:0 0 6px #47C4B8,0 0 14px rgba(71,196,184,.4);"></span><span class="label">Orbital dot</span></div>
+        <div class="ds-flair-item"><span class="glyph" style="font-size:20px;color:#47C4B8;">→</span><span class="label">Googie arrow</span></div>
+      </div>
+
+      <p class="frame-label">Status dot</p>
+      <div class="ds-flair" style="gap:20px;">
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:99px;background:#47C4B8;box-shadow:0 0 6px rgba(71,196,184,.5);"></span><span style="color:#C9B99A;font-size:13px;">Service up</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:99px;background:#F26D3D;box-shadow:0 0 6px rgba(242,109,61,.5);"></span><span style="color:#C9B99A;font-size:13px;">Service down</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:99px;background:#5B6270;"></span><span style="color:#C9B99A;font-size:13px;">Unknown</span></div>
+      </div>
+    </div>
   </section>
 
   <!-- ═══════════ MATINEE ═══════════ -->
@@ -427,6 +602,77 @@
       <div class="note"><h3>Live backdrop</h3><p>Dim wash toward warm leather (<em>rgba(22,13,6,.60)</em>) — blurred art reads like an aged matte painting behind the condensed titling.</p></div>
       <div class="note"><h3>Roulette note</h3><p>Sharing the wordmark <em>drawable</em> across themes isn't required — each theme ships its own <code>app_logo</code> via a theme attr, so Matinee's titling mark appears only on Matinee nights.</p></div>
     </div>
+
+    <!-- ── Matinee Design System Gallery ── -->
+    <div class="ds-gallery ds-matinee">
+      <p class="frame-label">Typography scale</p>
+      <div class="ds-scale" style="padding:20px;background:#1C1209;">
+        <div class="flair-shadow">Movie Night</div>
+        <div style="font-size:26px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E2D1AD;font-family:var(--cond);">Section Heading (h2)</div>
+        <div style="font-size:11px;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:#7A6B5A;font-family:var(--cond);">Subsection Label (h3/h4)</div>
+        <div style="font-size:15px;line-height:1.55;color:#E2D1AD;">Body text in aged paper. <span style="color:#7A6B5A;">Secondary in faded rule colour.</span></div>
+        <div style="font-size:12px;color:#7A6B5A;font-family:var(--cond);letter-spacing:.08em;text-transform:uppercase;">Caption · metadata · condensed</div>
+      </div>
+
+      <p class="frame-label">Buttons</p>
+      <div class="ds-btn-row">
+        <button class="ds-btn ds-btn-primary">Play Now</button>
+        <button class="ds-btn ds-btn-secondary">Add to Watchlist</button>
+        <button class="ds-btn ds-btn-ghost">More Info</button>
+      </div>
+
+      <p class="frame-label">Cards & surfaces</p>
+      <div class="ds-row">
+        <div class="ds-box" style="max-width:260px;">
+          <div style="font-weight:800;font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Card Title</div>
+          <div style="font-size:13px;color:#7A6B5A;">Secondary info and metadata.</div>
+        </div>
+        <div class="ds-box" style="max-width:260px;border-color:#D4912B;">
+          <div style="font-weight:800;font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;color:#D4912B;">Active Card</div>
+          <div style="font-size:13px;color:#7A6B5A;">Amber border accent.</div>
+        </div>
+      </div>
+
+      <p class="frame-label">Pills & badges</p>
+      <div class="ds-flair">
+        <span class="ds-pill">Bluray-1080p</span>
+        <span class="ds-pill">H.264</span>
+        <span class="ds-badge">NEW</span>
+        <span class="ds-badge" style="background:#D4912B;color:#1C1209;">★ TOP 100</span>
+      </div>
+
+      <p class="frame-label">Dividers</p>
+      <div class="ds-divider-demo">
+        <hr class="hr-demo">
+      </div>
+      <div class="ds-divider-demo">
+        <div class="hr-ornamental" style="color:#7A6B5A;font-size:12px;letter-spacing:.3em;">◆</div>
+      </div>
+
+      <p class="frame-label">Form inputs</p>
+      <div style="margin:8px 0 18px;">
+        <input class="ds-input ds-input-demo" placeholder="Search movies…" style="max-width:280px;">
+      </div>
+
+      <p class="frame-label">Alerts</p>
+      <div class="ds-alert ds-alert-ok">Disk space adequate — 3.5 TB free.</div>
+      <div class="ds-alert ds-alert-warn">Disk gate active — downloads paused.</div>
+
+      <p class="frame-label">Visual flair elements</p>
+      <div class="ds-flair">
+        <div class="ds-flair-item"><span class="glyph flair-shadow" style="font-size:20px;">Aa</span><span class="label">Litho offset</span></div>
+        <div class="ds-flair-item"><span class="glyph" style="font-size:24px;color:#B52A1A;font-family:var(--cond);font-weight:800;">▸</span><span class="label">Section tick</span></div>
+        <div class="ds-flair-item halftone-bg" style="width:60px;height:40px;border-radius:0;border:1px solid #7A6B5A;"><span class="label" style="margin-top:auto;">Halftone</span></div>
+        <div class="ds-flair-item"><span class="glyph" style="display:block;width:60px;height:3px;background:linear-gradient(90deg,transparent,#B52A1A,transparent);"></span><span class="label">Red rule</span></div>
+      </div>
+
+      <p class="frame-label">Status dot</p>
+      <div class="ds-flair" style="gap:20px;">
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:0;background:#D4912B;"></span><span style="color:#7A6B5A;font-size:13px;">Service up</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:0;background:#B52A1A;"></span><span style="color:#7A6B5A;font-size:13px;">Service down</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:0;background:#7A6B5A;"></span><span style="color:#7A6B5A;font-size:13px;">Unknown</span></div>
+      </div>
+    </div>
   </section>
 
   <!-- ═══════════ REEL ONE ═══════════ -->
@@ -477,6 +723,79 @@
       <div class="note"><h3>Typography</h3><p>UI face: <em>Archivo</em> (OFL grotesque), row headers bold lowercase like Bass poster credits. Script only in the wordmark, over the disc.</p></div>
       <div class="note"><h3>Live backdrop</h3><p>Neutral dim (<em>rgba(11,11,11,.58)</em>, same as stock) — Bass wouldn’t tint a frame. The vermilion chrome pops against anything.</p></div>
       <div class="note"><h3>Motion opportunity</h3><p>Splash: the disc snaps in off-center, then the script fades over it — one 500 ms beat, no sound. The only theme where splash motion earns its place.</p></div>
+    </div>
+
+    <!-- ── Reel One Design System Gallery ── -->
+    <div class="ds-gallery ds-reelone">
+      <p class="frame-label">Typography scale</p>
+      <div class="ds-scale" style="padding:20px;background:#0B0B0B;">
+        <div style="font-family:var(--script);font-size:42px;line-height:1.1;color:#F2EFE6;">Movie Night</div>
+        <div style="font-size:24px;font-weight:700;letter-spacing:-.02em;color:#F2EFE6;font-family:'Archivo',system-ui,sans-serif;text-transform:lowercase;">section heading (h2)</div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#8D8A80;font-family:'Archivo',system-ui,sans-serif;">SUBSECTION LABEL (h3/h4)</div>
+        <div style="font-size:15px;line-height:1.5;color:#F2EFE6;font-family:'Archivo',system-ui,sans-serif;">Body text in paper white. <span style="color:#8D8A80;">Secondary text in warm grey.</span></div>
+        <div style="font-size:12px;color:#8D8A80;font-family:'Archivo',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.1em;">Caption · metadata · credits</div>
+      </div>
+
+      <p class="frame-label">Buttons</p>
+      <div class="ds-btn-row">
+        <button class="ds-btn ds-btn-primary" style="font-family:'Archivo',sans-serif;text-transform:uppercase;letter-spacing:.08em;">Play Now</button>
+        <button class="ds-btn ds-btn-secondary" style="font-family:'Archivo',sans-serif;text-transform:uppercase;letter-spacing:.08em;">Add to Watchlist</button>
+        <button class="ds-btn ds-btn-ghost" style="font-family:'Archivo',sans-serif;">More Info</button>
+      </div>
+
+      <p class="frame-label">Cards & surfaces</p>
+      <div class="ds-row">
+        <div class="ds-box" style="max-width:260px;">
+          <div style="font-weight:700;margin-bottom:4px;font-family:'Archivo',system-ui;text-transform:lowercase;">card title</div>
+          <div style="font-size:13px;color:#8D8A80;font-family:'Archivo',system-ui;">Secondary info and metadata.</div>
+        </div>
+        <div class="ds-box card-featured" style="max-width:260px;">
+          <div style="font-weight:700;margin-bottom:4px;font-family:'Archivo',system-ui;text-transform:lowercase;">featured card</div>
+          <div style="font-size:13px;color:#8D8A80;font-family:'Archivo',system-ui;">Vermilion accent strip at top.</div>
+        </div>
+      </div>
+
+      <p class="frame-label">Pills & badges</p>
+      <div class="ds-flair">
+        <span class="ds-pill" style="font-family:'Archivo',sans-serif;">Bluray-1080p</span>
+        <span class="ds-pill" style="font-family:'Archivo',sans-serif;">H.264</span>
+        <span class="ds-badge" style="font-family:'Archivo',sans-serif;">NEW</span>
+        <span class="ds-badge" style="font-family:'Archivo',sans-serif;">TOP 100</span>
+      </div>
+
+      <p class="frame-label">Dividers</p>
+      <div class="ds-divider-demo">
+        <hr class="hr-demo" style="height:2px;">
+      </div>
+      <div class="ds-divider-demo" style="display:flex;align-items:center;gap:12px;">
+        <hr style="flex:1;height:2px;background:#333;border:none;">
+        <div style="width:8px;height:8px;background:#E34234;transform:rotate(45deg);"></div>
+        <hr style="flex:1;height:2px;background:#333;border:none;">
+      </div>
+
+      <p class="frame-label">Form inputs</p>
+      <div style="margin:8px 0 18px;">
+        <input class="ds-input ds-input-demo" placeholder="Search movies…" style="max-width:280px;font-family:'Archivo',sans-serif;">
+      </div>
+
+      <p class="frame-label">Alerts</p>
+      <div class="ds-alert ds-alert-ok" style="font-family:'Archivo',sans-serif;">Disk space adequate — 3.5 TB free.</div>
+      <div class="ds-alert ds-alert-warn" style="font-family:'Archivo',sans-serif;">Disk gate active — downloads paused.</div>
+
+      <p class="frame-label">Visual flair elements</p>
+      <div class="ds-flair">
+        <div class="ds-flair-item"><span class="glyph flair-square"></span><span class="label">Section marker</span></div>
+        <div class="ds-flair-item"><span class="glyph flair-strip"></span><span class="label">Diagonal strip</span></div>
+        <div class="ds-flair-item"><span class="glyph flair-disc"></span><span class="label">Vermilion disc</span></div>
+        <div class="ds-flair-item"><span class="glyph flair-crosshair"></span><span class="label">Crosshair</span></div>
+      </div>
+
+      <p class="frame-label">Status dot</p>
+      <div class="ds-flair" style="gap:20px;">
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:0;background:#E34234;"></span><span style="color:#8D8A80;font-size:13px;">Service up</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:0;background:#8D8A80;"></span><span style="color:#8D8A80;font-size:13px;">Service down</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:0;background:#5B5248;"></span><span style="color:#8D8A80;font-size:13px;">Unknown</span></div>
+      </div>
     </div>
   </section>
 
@@ -532,6 +851,81 @@
       <div class="note"><h3>Typography</h3><p>UI face: <em>Jost</em> (OFL geometric), headers in wide-tracked caps. Gold stays muted (#C9A227) and rare.</p></div>
       <div class="note"><h3>Live backdrop</h3><p>Dim wash toward warm house-black (<em>rgba(13,10,5,.62)</em>) — art glows like a screen in a dark theater; gold chrome stays rare and legible.</p></div>
       <div class="note"><h3>Roulette role</h3><p>Your least-favorite of the four — easy to exclude from the rotation set, or keep as the rare pull. The roster is one array in code.</p></div>
+    </div>
+
+    <!-- ── Marquee Design System Gallery ── -->
+    <div class="ds-gallery ds-marquee">
+      <p class="frame-label">Typography scale</p>
+      <div class="ds-scale" style="padding:24px;background:#0E0B06;position:relative;">
+        <div style="font-family:var(--script);font-size:42px;line-height:1.1;" class="gilded-text">Movie Night</div>
+        <div style="font-size:24px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#F4E9D8;">Section Heading (h2)</div>
+        <div style="font-size:11px;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:#B79F77;">SUBSECTION LABEL (h3/h4)</div>
+        <div style="font-size:15px;line-height:1.6;color:#F2E6CB;">Body text in warm cream. <span style="color:#B79F77;">Secondary in muted gold.</span></div>
+        <div style="font-size:12px;color:#B79F77;letter-spacing:.2em;text-transform:uppercase;">CAPTION · METADATA · WIDE-TRACKED</div>
+      </div>
+
+      <p class="frame-label">Buttons</p>
+      <div class="ds-btn-row">
+        <button class="ds-btn ds-btn-primary">Play Now</button>
+        <button class="ds-btn ds-btn-secondary">Add to Watchlist</button>
+        <button class="ds-btn ds-btn-ghost">More Info</button>
+      </div>
+
+      <p class="frame-label">Cards & surfaces</p>
+      <div class="ds-row">
+        <div class="ds-box corner-accent" style="max-width:260px;">
+          <div style="font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px;">Card Title</div>
+          <div style="font-size:13px;color:#B79F77;">Secondary info and metadata.</div>
+        </div>
+        <div class="ds-box corner-accent vignette-demo" style="max-width:260px;border-color:#D4AF37;">
+          <div style="font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px;color:#D4AF37;">Featured Card</div>
+          <div style="font-size:13px;color:#B79F77;">Gold border + vignette overlay.</div>
+        </div>
+      </div>
+
+      <p class="frame-label">Pills & badges</p>
+      <div class="ds-flair">
+        <span class="ds-pill">Bluray-1080p</span>
+        <span class="ds-pill">H.264</span>
+        <span class="ds-badge">NEW</span>
+        <span class="ds-badge" style="background:transparent;color:#D4AF37;border:1px solid #D4AF37;">★ TOP 100</span>
+      </div>
+
+      <p class="frame-label">Dividers</p>
+      <div class="ds-divider-demo">
+        <hr class="hr-demo">
+      </div>
+      <div class="ds-divider-demo">
+        <hr class="hr-demo hr-double">
+      </div>
+      <div class="ds-divider-demo">
+        <div class="hr-diamond" style="color:#D4AF37;font-size:10px;letter-spacing:.4em;padding:4px 0;">◆ ◆ ◆</div>
+      </div>
+
+      <p class="frame-label">Form inputs</p>
+      <div style="margin:8px 0 18px;">
+        <input class="ds-input ds-input-demo" placeholder="Search movies…" style="max-width:280px;">
+      </div>
+
+      <p class="frame-label">Alerts</p>
+      <div class="ds-alert ds-alert-ok">Disk space adequate — 3.5 TB free.</div>
+      <div class="ds-alert ds-alert-warn">Disk gate active — downloads paused.</div>
+
+      <p class="frame-label">Visual flair elements</p>
+      <div class="ds-flair">
+        <div class="ds-flair-item"><span class="glyph flair-diamond"></span><span class="label">Diamond</span></div>
+        <div class="ds-flair-item"><span class="glyph gilded-text" style="font-size:20px;font-family:var(--script);">Gold</span><span class="label">Gilded text</span></div>
+        <div class="ds-flair-item"><span class="glyph flair-chevron"></span><span class="label">Chevron</span></div>
+        <div class="ds-flair-item"><span class="glyph flair-sunburst"></span><span class="label">Sunburst</span></div>
+        <div class="ds-flair-item"><span class="glyph" style="display:block;width:50px;height:1px;background:linear-gradient(90deg,transparent,#D4AF37,transparent);"></span><span class="label">Hairline rule</span></div>
+      </div>
+
+      <p class="frame-label">Status dot</p>
+      <div class="ds-flair" style="gap:20px;">
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:3px;background:#D4AF37;box-shadow:0 0 6px rgba(212,175,55,.3);"></span><span style="color:#B79F77;font-size:13px;">Service up</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:3px;background:#8B1A1A;"></span><span style="color:#B79F77;font-size:13px;">Service down</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:3px;background:#8F6B2E;"></span><span style="color:#B79F77;font-size:13px;">Unknown</span></div>
+      </div>
     </div>
   </section>
 

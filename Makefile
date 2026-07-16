@@ -1,5 +1,5 @@
 .PHONY: bootstrap deploy provision up down eject clean destroy validate ps logs mdns resize-data remount \
-        search profiles history querylogs diagnose test why vpn-up vpn-off vpn-status
+        search profiles history querylogs diagnose test why vpn-up vpn-off vpn-status check-themes
 bootstrap:  ## one-time host prep (dirs, cap, .env, hook)
 	./scripts/bootstrap.sh
 deploy:     ## validate + pull + start (make deploy s=jellyfin for one)
@@ -70,3 +70,5 @@ vpn-status: ## show tunnel state: exit IP, location, forwarded port (via the con
 	  || echo "controller or gluetun not reachable — is the VPN stack up? (make vpn-up)"
 ps4ify:     ## convert a title's files to add AC3 compat track for PS4, quality untouched (make ps4ify q="Mormon Wives" [app=radarr])
 	./scripts/ps4ify.sh $(if $(filter radarr,$(app)),--radarr) "$(q)"
+check-themes:  ## validate theme token sync across Android XML + Jellyfin Web JS/CSS
+	./scripts/check-theme-sync.sh

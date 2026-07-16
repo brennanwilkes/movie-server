@@ -292,47 +292,6 @@ else
   ok "keyframe-only trickplay enabled"
 fi
 
-# 6. Apply custom CSS — Movie Night "Canyon" web theme (scyfin base + identity overrides,
-#     script wordmark embedded as data URI, drawer prune). Source of truth:
-#     scripts/provision/jellyfin-custom.css; see docs/branding/SPEC.md §7.
-#
-#     The Branding API POST silently discards CustomCss payloads >~35KB in Jellyfin 10.11
-#     (returns 204 but doesn't persist — in-memory cache served, disk never written). Workaround:
-#     write branding.xml directly into the container and let the §7 restart pick it up.
-log "  ensuring custom CSS theme is applied"
-CUSTOM_CSS_FILE="$(dirname "${BASH_SOURCE[0]}")/jellyfin-custom.css"
-if [[ ! -f "$CUSTOM_CSS_FILE" ]]; then
-  warn "jellyfin-custom.css missing next to jellyfin.sh — skipping custom CSS"
-else
-  live_css=$(docker exec jellyfin python3 -c "
-import xml.etree.ElementTree as ET
-try:
-    tree = ET.parse('/config/branding.xml')
-    print(tree.find('CustomCss').text or '', end='')
-except Exception:
-    pass
-" 2>/dev/null || echo "")
-  src_css=$(cat "$CUSTOM_CSS_FILE")
-  if [[ "$live_css" == "$src_css" ]]; then
-    ok "custom CSS theme already applied"
-  else
-    python3 -c "
-import html, sys
-css = open(sys.argv[1]).read()
-xml = '''<?xml version=\"1.0\" encoding=\"utf-8\"?>
-<BrandingOptions xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">
-  <CustomCss>{}</CustomCss>
-  <SplashscreenEnabled>true</SplashscreenEnabled>
-  <SplashscreenLocation>/config/data/data/splashscreen-upload.png</SplashscreenLocation>
-</BrandingOptions>'''.format(html.escape(css))
-open(sys.argv[2], 'w').write(xml)
-" "$CUSTOM_CSS_FILE" /tmp/jellyfin-branding.xml
-    docker cp /tmp/jellyfin-branding.xml jellyfin:/config/branding.xml
-    rm -f /tmp/jellyfin-branding.xml
-    ok "custom CSS theme written to branding.xml (picked up by restart in §7)"
-  fi
-fi
-
 # 6a2. Branded login splashscreen (Movie Night wordmark on teal). Uploaded once; the branding
 #      option enables it as the login page background. Asset: scripts/provision/movienight-splash.png.
 SPLASH_PNG="$(dirname "${BASH_SOURCE[0]}")/movienight-splash.png"
@@ -348,6 +307,35 @@ if [[ -f "$SPLASH_PNG" ]]; then
     | curl -fsS -X POST "$JF/Branding/Splashscreen" \
         -H "X-Emby-Token: $token" -H 'Content-Type: image/png' --data-binary @- >/dev/null \
     && ok "branded splashscreen uploaded" || warn "splashscreen upload failed (non-fatal)"
+fi
+
+# 6. Apply custom CSS — Movie Night "Canyon" web theme (scyfin base + identity overrides,
+#     script wordmark embedded as data URI, drawer prune). Source of truth:
+#     scripts/provision/jellyfin-custom.css; see docs/branding/SPEC.md §7.
+#
+#     IMPORTANT: This MUST run AFTER §6a2 (splashscreen POST) because the POST reads the
+#     in-memory CustomCss and writes the entire config back to disk — overwriting whatever
+#     docker cp put there. By writing LAST, we guarantee branding.xml has the fresh CSS.
+#     See docs/branding/PLAN-branding-css-deploy.md for the full bug analysis.
+log "  ensuring custom CSS theme is applied"
+CUSTOM_CSS_FILE="$(dirname "${BASH_SOURCE[0]}")/jellyfin-custom.css"
+if [[ ! -f "$CUSTOM_CSS_FILE" ]]; then
+  warn "jellyfin-custom.css missing next to jellyfin.sh — skipping custom CSS"
+else
+  python3 -c "
+import html, sys
+css = open(sys.argv[1]).read()
+xml = '''<?xml version=\"1.0\" encoding=\"utf-8\"?>
+<BrandingOptions xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">
+  <CustomCss>{}</CustomCss>
+  <SplashscreenEnabled>true</SplashscreenEnabled>
+  <SplashscreenLocation>/config/data/data/splashscreen-upload.png</SplashscreenLocation>
+</BrandingOptions>'''.format(html.escape(css))
+open(sys.argv[2], 'w').write(xml)
+" "$CUSTOM_CSS_FILE" /tmp/jellyfin-branding.xml
+  docker cp /tmp/jellyfin-branding.xml jellyfin:/config/branding.xml
+  rm -f /tmp/jellyfin-branding.xml
+  ok "custom CSS theme written to branding.xml (LAST write before §7 restart — survives §6a2 POST)"
 fi
 
 # 6a3. Boot loading splash: jellyfin-web's index.html shows .splashLogo (banner-light.*.png)
@@ -554,6 +542,23 @@ for i in $(seq 1 30); do
 done
 [[ -n "$token" && "$token" != "null" ]] || die "auth failed after restart"
 
+# 7a. Post-restart verification: confirm the served CSS matches our source file.
+#     If this warns, the deployment bug (PLAN-branding-css-deploy.md) may have regressed.
+CUSTOM_CSS_FILE="${CUSTOM_CSS_FILE:-$(dirname "${BASH_SOURCE[0]}")/jellyfin-custom.css}"
+if [[ -f "$CUSTOM_CSS_FILE" ]]; then
+  # Strict content check (not just byte-count): the served CSS must be byte-identical to
+  # source. Same size but different content would slip past a size-only compare — and the
+  # whole point of this repo's IaC guarantee is that `make provision` + refresh reflects the
+  # exact source. sha256 makes any drift fail loudly here rather than silently in the browser.
+  live_hash=$(curl -s "$JF/Branding/Css" 2>/dev/null | sha256sum | cut -d' ' -f1)
+  src_hash=$(sha256sum < "$CUSTOM_CSS_FILE" | cut -d' ' -f1)
+  if [[ "$live_hash" == "$src_hash" ]]; then
+    ok "branding CSS verified (served content byte-identical to source, sha256 ${src_hash:0:12}…)"
+  else
+    warn "branding CSS mismatch: source sha256=${src_hash:0:12}… served=${live_hash:0:12}… — check §6 ordering"
+  fi
+fi
+
 # 8. Home Screen Sections — declared section layout + integrations (IaC). Runs after the
 #    restart so the plugin is loaded. Schema discovered from the plugin's OpenAPI:
 #    SectionSettings = {SectionId, Enabled, AllowUserOverride, LowerLimit, UpperLimit,
@@ -630,6 +635,25 @@ else
   fi
 fi
 
+# 8b. Trigger collection build + shelf registration now (event-driven, not waiting for the 30-min
+#     timer). The controller rebuilds BoxSets and re-registers HSS shelves synchronously.
+ctrl_url="http://${NUC_IP:-localhost}:8088"
+if curl -fsS -o /dev/null --max-time 3 "$ctrl_url/api/status" 2>/dev/null; then
+  # Best-effort: a curl timeout (exit 28) or network drop must NOT abort provision under
+  # `set -euo pipefail` — this whole step is optional ("catch up on next timer" below).
+  # `|| echo 000` turns any curl failure into a non-200 code that lands in the warn branch.
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$ctrl_url/api/collections/build" --max-time 300 2>/dev/null || echo "000")
+  if [[ "$code" == "200" ]]; then
+    ok "Collections built + shelves registered on controller"
+  elif [[ "$code" == "409" ]]; then
+    ok "Controller sweep already running — shelves will register when it finishes"
+  else
+    warn "Controller collections/build returned HTTP $code (will catch up on next timer)"
+  fi
+else
+  warn "Controller not reachable at $ctrl_url — skipping collection build (will catch up on boot)"
+fi
+
 # 9. Web curated-list flair — push our custom web JS into the JavaScript Injector plugin (installed
 #    in §6d3, activated by the §7 restart). It surfaces the Top 100 rank pills + Watchlist bookmarks
 #    on movie posters AND the Top 100 / Watchlist sidebar entries — the web counterpart to the
@@ -637,10 +661,13 @@ fi
 #    /JavaScriptInjector/public.js and injects a loader into index.html via File Transformation's
 #    runtime path (coexists with HSS). Config applies LIVE — no restart needed. Script source is
 #    jellyfin-web-flair.js next to this file. In-app playlist edits stay the source of truth.
-#    NOTE: browsers cache the web assets via a service worker — hard-refresh once after a change.
-#    See DESIGN-PLAYLISTS.md.
+#    CACHING: there is NO service worker (serviceworker.js is 404). The JS Injector serves
+#    public.js at a versioned URL (public.js?v=<ticks>) that bumps whenever this flair JS
+#    changes, and index.html is Cache-Control:no-cache, so a normal refresh picks up new JS.
+#    CSS is additionally re-fetched with ?v=Date.now() by refreshBrandingCss() on every load.
+#    See docs/branding/PLAN-branding-css-deploy.md (Caching Re-Verification 2026-07-16).
 FLAIR_JS="$(dirname "${BASH_SOURCE[0]}")/jellyfin-web-flair.js"
-js_id=$(curl -fsS "$JF/Plugins" -H "X-Emby-Token: $token" | jq -r '.[]|select(.Name=="JavaScript Injector" and .Status=="Active").Id // empty')
+js_id=$(curl -fsS --max-time 30 "$JF/Plugins" -H "X-Emby-Token: $token" | jq -r '.[]|select(.Name=="JavaScript Injector" and .Status=="Active").Id // empty')
 if [[ -z "$js_id" ]]; then
   warn "JavaScript Injector not active — skipping web flair (re-run make provision s=jellyfin)"
 elif [[ ! -f "$FLAIR_JS" ]]; then
@@ -652,7 +679,7 @@ else
   # the plugin concatenates into public.js. Drop all prior "Curated List Flair" entries,
   # then append exactly one.
   flair_name="Curated List Flair"
-  js_cur=$(curl -fsS "$JF/Plugins/$js_id/Configuration" -H "X-Emby-Token: $token")
+  js_cur=$(curl -fsS --max-time 30 "$JF/Plugins/$js_id/Configuration" -H "X-Emby-Token: $token")
   js_desired=$(jq --rawfile js "$FLAIR_JS" --arg name "$flair_name" '
     .PluginJavaScripts = (.PluginJavaScripts // []) |
     .CustomJavaScripts = (((.CustomJavaScripts // []) | map(select(.Name != $name))) + [{
@@ -661,7 +688,7 @@ else
   if [[ "$(jq -S . <<<"$js_cur")" == "$(jq -S . <<<"$js_desired")" ]]; then
     ok "web flair script already up to date in JavaScript Injector"
   else
-    curl -fsS -X POST "$JF/Plugins/$js_id/Configuration" -H "X-Emby-Token: $token" \
+    curl -fsS --max-time 30 -X POST "$JF/Plugins/$js_id/Configuration" -H "X-Emby-Token: $token" \
       -H 'Content-Type: application/json' -d "$js_desired" >/dev/null
     ok "web flair script pushed to JavaScript Injector (served at /JavaScriptInjector/public.js; hard-refresh browser)"
   fi
