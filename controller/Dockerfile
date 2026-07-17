@@ -9,7 +9,8 @@ COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --no-audit --no-fund
 
 COPY server.js metrics.js ./
-COPY oscar-winners.json ./
+COPY lib ./lib
+COPY oscar-winners.json film-awards.json person-awards.json intl-languages.json ./
 COPY web ./web
 
 ENV CONTROLLER_PORT=8088

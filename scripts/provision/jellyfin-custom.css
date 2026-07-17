@@ -5,6 +5,23 @@
    change class names/geometry and break our overrides (a suspected cause of past regressions).
    Verified byte-identical to the @latest we were already serving, so pinning is a no-op visually.
    To bump: pick a new tag at github.com/loof2736/scyfin/releases, diff, re-verify overrides. */
+/* ── HOW THIS FILE IS DEPLOYED & THEMED (see docs/branding/PIPELINE.md) ─────────────────────────
+   Deploy: jellyfin.sh §6 HTML-escapes this whole file into branding.xml's <CustomCss> and
+   docker-cp's it into the container — it must be the LAST branding write before restart (the
+   splashscreen POST rewrites branding.xml from memory and would clobber it). §7a verifies the
+   live /Branding/Css sha256 against this file, so ANY edit here requires re-provisioning.
+   Caching: clients inject CustomCss from a JSON response, so normal URL cache-busting doesn't
+   apply — jellyfin-web-flair.js refreshBrandingCss() re-fetches /Branding/Css?v=<now> per load.
+   Theming model: this file defines STRUCTURE + fallbacks only. Per-theme values arrive at
+   runtime — themeRoulette() in jellyfin-web-flair.js sets the --mn-* custom properties and the
+   [mn-*] attribute gates (mn-glow-text, mn-gilded-text, mn-cut-geometry, mn-litho-offset-x,
+   mn-texture-grain, mn-texture-crosshatch) on <html> from its THEMES table, whose source of
+   truth is docs/branding/THEME-TOKENS.json (`make check-themes` guards the sync).
+   Fonts: @font-face here must reference SELF-HOSTED /web/fonts/ files (bind-mounted; see
+   jellyfin.sh) — remote @imports and CustomCss-inlined fonts don't load reliably.
+   Layout: :root token block first, then wordmark/drawer/global theming, flair effects gated by
+   [mn-*] attrs, the Top 100 showcase styles, and the numbered §2–§15 per-theme component
+   sections. Search the "── … ──" banners; line numbers drift. ── */
 @import url('https://cdn.jsdelivr.net/gh/loof2736/scyfin@v1.5.5/CSS/scyfin-theme.css');
 @import url('https://cdn.jsdelivr.net/gh/loof2736/scyfin@v1.5.5/CSS/theme-oled.css');
 /* Poppins is SELF-HOSTED: provision copies poppins.ttf into the container's jellyfin-web dir
@@ -125,13 +142,7 @@ html, :root {
   width: 100% !important;
   height: auto !important;
 }
-@media (max-width: 600px) {
-  .headerLeft { padding-left: 0 !important; }
-  #mn-wordmark {
-    width: auto !important;
-    max-width: calc(100% - 80px) !important;
-  }
-}
+/* Mobile wordmark/header rules live in the consolidated "Mobile overrides" block below. */
 
 /* Drawer prune: flat nav only — no groups, no admin, no secondary nav */
 .sidebarHeader, .sidebarGroup, .sidebarMenuHeader,
@@ -318,6 +329,12 @@ body, h1, h2, h3, h4, p, span, div, .mainDrawer, .emby-button, .headerTabs, .sec
 .headerTop {
   background: transparent !important;
 }
+/* #18: header-right controls (search/cast/syncplay/player/settings) are mirrored into the
+   left drawer by flair JS (addControlEntries). Hide the top-right cluster, but keep it in
+   the DOM — flair JS forwards drawer clicks to these real buttons to trigger native behavior. */
+.skinHeader .headerRight {
+  display: none !important;
+}
 .mainDrawer .navMenuOption:not(.navMenuOption-selected) {
   background: transparent !important;
 }
@@ -353,23 +370,60 @@ body, h1, h2, h3, h4, p, span, div, .mainDrawer, .emby-button, .headerTabs, .sec
 /* Hide nav icons entirely — curated drawer entries don't use them */
 .mainDrawer .navMenuOptionIcon { display: none !important; }
 
-/* ── Mobile overrides ── */
-@media (max-width: 600px) {
-  /* Wordmark: shift right to clear the hamburger menu button */
-  #mn-wordmark {
-    left: 56px !important;
-    top: 12px !important;
-    transform: scale(0.75) !important;
-    transform-origin: left center !important;
-  }
-  /* Sidebar: add top margin so nav items aren't hidden behind the wordmark */
-  .mainDrawer-scrollContainer {
-    padding-top: 48px !important;
-  }
-  /* Back arrow: no left padding needed on mobile (hamburger replaces it) */
-  .headerLeft {
-    padding-left: 0 !important;
-  }
+/* ── Mobile & TABLET overrides — keyed on html.layout-mobile, NOT a width query.
+   Jellyfin decides drawer behavior by UA/touch (layoutManager): an iPad at any
+   width (even 1440px landscape) gets the hamburger overlay + layout-mobile,
+   while a desktop browser squeezed to 601px still docks the drawer and stays
+   layout-desktop. So layout-mobile is exactly "the drawer isn't docked" —
+   phones AND tablets — and can never touch real desktop. ── */
+
+/* Header becomes a solid themed bar so scrolling content passes under the
+   wordmark cleanly instead of colliding with it (the wordmark is fixed).
+   Doubled class: scyfin's `.layout-mobile .headroom--top { background:
+   transparent !important }` is (0,2,0) — a bare .skinHeader loses on
+   specificity regardless of source order (verified via CDP matched-rules). */
+html.layout-mobile .skinHeader.skinHeader {
+  background: var(--secondary-background-color, #0e2a30) !important;
+  border-bottom: 1px solid var(--mn-divider-color, rgba(255,255,255,0.08)) !important;
+}
+/* Wordmark docks INSIDE the header bar: right of the hamburger/home button,
+   small enough to fit the bar. fitWm() in the flair JS scales the text to
+   ~140px under layout-mobile (222px is the docked-drawer desktop target). */
+html.layout-mobile #mn-wordmark {
+  left: 52px !important;
+  top: 7px !important;
+  width: auto !important;
+  max-width: calc(100vw - 150px) !important;
+  transition: transform 0.25s ease, opacity 0.25s ease !important;
+}
+/* When Jellyfin's headroom hides the header on scroll-down, slide the fixed
+   wordmark away with it (otherwise it floats alone over content). */
+html.layout-mobile body:has(.skinHeader.headroom--unpinned) #mn-wordmark {
+  transform: translateY(-64px) !important;
+  opacity: 0 !important;
+}
+/* …but always show it while the drawer is open (it doubles as the drawer's
+   brand header — the drawer pads 48px for it). Later in source, same
+   specificity as the unpinned rule above, so it wins when both match. */
+html.layout-mobile body:has(.mainDrawer.drawer-open) #mn-wordmark {
+  transform: none !important;
+  opacity: 0.9 !important;
+}
+/* Sidebar: add top margin so nav items aren't hidden behind the wordmark */
+html.layout-mobile .mainDrawer-scrollContainer {
+  padding-top: 48px !important;
+}
+/* Back arrow: no left padding needed (hamburger/home lives at the far left) */
+html.layout-mobile .headerLeft {
+  padding-left: 0 !important;
+}
+/* Top 100 playlist page: the play/shuffle action pill collides with the
+   in-bar wordmark wherever the drawer is an overlay (phone + tablet) */
+html.layout-mobile .mn-top100 .mainDetailButtons,
+html.layout-mobile .playlistHeader,
+html.layout-mobile .playlistSelectionToolbar,
+html.layout-mobile .selectionToolbar {
+  display: none !important;
 }
 
 /* Card hover: themed accent outline + subtle glow — scoped to the image container only.
@@ -679,11 +733,13 @@ body, h1, h2, h3, h4, p, span, div, .mainDrawer, .emby-button, .headerTabs, .sec
 
 /* ── Mobile Top 100 overrides ── */
 @media (max-width: 600px) {
-  /* Hide the stray play/shuffle/action bar that Jellyfin renders on playlist pages */
+  /* Hide the stray play/shuffle/action bar that Jellyfin renders on playlist pages.
+     .mainDetailButtons is the pill that collides with the wordmark at 390px. */
   .playlistHeader,
   .playlistSelectionToolbar,
   .selectionToolbar,
-  #playlistSelectionToolbar {
+  #playlistSelectionToolbar,
+  .mn-top100 .mainDetailButtons {
     display: none !important;
   }
 
@@ -693,31 +749,52 @@ body, h1, h2, h3, h4, p, span, div, .mainDrawer, .emby-button, .headerTabs, .sec
     gap: 8px !important;
   }
 
-  /* Tier 1 (Pantheon): show poster image prominently, reduce height */
+  /* Showcase header: desktop 42px/4px tracking is oversized at 390px, and the
+     page top sits close to the fixed header bar — clear the wordmark. */
+  .mn-header {
+    padding: 34px 0 6px !important;
+  }
+  .mn-header h2 {
+    font-size: 28px !important;
+    letter-spacing: 3px !important;
+    padding: 0 12px !important;
+  }
+
+  /* Tier 1 (Pantheon): cinematic full-bleed backdrop card. The ::before backdrop
+     carries the art, so the poster (which duplicates it at this width) is dropped;
+     the body gets a bottom scrim for text, the rank becomes a corner numeral. */
   .mn-top100 .mn-t1 {
-    min-height: auto !important;
+    min-height: 230px !important;
     flex-direction: column !important;
+    justify-content: flex-end !important;
     padding: 0 !important;
   }
   .mn-t1 .listItemImage {
-    height: 280px !important;
-    width: 100% !important;
-    border-radius: 4px 4px 0 0 !important;
-    align-self: stretch !important;
+    display: none !important;
   }
   .mn-t1 .mn-rank {
-    font-size: 48px !important;
+    position: absolute !important;
+    top: 12px !important;
+    left: 16px !important;
     width: auto !important;
+    font-size: 44px !important;
+    line-height: 1 !important;
     text-align: left !important;
-    padding: 8px 16px 0 !important;
+    padding: 0 !important;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85) !important;
   }
   .mn-t1 .listItemBody {
-    padding: 8px 16px 24px !important;
+    align-self: stretch !important;
+    padding: 56px 16px 16px !important;
+    background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.72)) !important;
   }
   .mn-t1 .mn-logo {
-    max-height: 40px !important;
-    max-width: 200px !important;
+    max-height: 44px !important;
+    max-width: 60% !important;
   }
+  /* Deco frames: desktop insets eat too much of the small card */
+  .mn-t1[data-mn-motif="deco"] .mn-deco1 { inset: 12px !important; }
+  .mn-t1[data-mn-motif="deco"] .mn-deco2 { inset: 18px !important; }
 
   /* Tier 2 (Gallery): show poster, single column */
   .mn-t2 {
@@ -764,9 +841,6 @@ body, h1, h2, h3, h4, p, span, div, .mainDrawer, .emby-button, .headerTabs, .sec
     box-shadow: 0 0 8px var(--primary-accent-color) !important;
   }
   /* Ensure card radius token is used on mobile too */
-  .mn-t1 .listItemImage {
-    border-radius: var(--mn-card-radius) !important;
-  }
   .mn-t2 .listItemImage {
     border-radius: var(--mn-card-radius) !important;
   }
@@ -923,13 +997,29 @@ body, h1, h2, h3, h4, p, span, div, .mainDrawer, .emby-button, .headerTabs, .sec
 }
 
 /* ── §6: Buttons per-theme ── */
-[mn-glow-text="1"] .button-submit,
+/* Canyon: a solid-teal fill on EVERY emby-button (actionsheet items, settings menu links,
+   section-title / MORE buttons) read as heavy and cheap. Give secondary buttons the nav
+   aesthetic instead — transparent with dusty-gold (--mn-muted) text, subtle wash on hover —
+   and reserve the teal fill for genuine primary CTAs (.button-submit: Save / OK). The detail
+   page's own buttons keep their §6b ghost styling (more specific), so the Play pill is
+   unaffected. Other themes keep their filled look below. */
 [mn-glow-text="1"] .emby-button {
+  background: transparent !important;
+  color: var(--mn-muted, #C9B99A) !important;
+  box-shadow: none !important;
+}
+[mn-glow-text="1"] .emby-button:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--mn-text, #F5EEDC) !important;
+  box-shadow: none !important;
+}
+[mn-glow-text="1"] .button-submit,
+[mn-glow-text="1"] .button-submit.emby-button {
   background: #47C4B8 !important;
   color: #0c2429 !important;
 }
 [mn-glow-text="1"] .button-submit:hover,
-[mn-glow-text="1"] .emby-button:hover {
+[mn-glow-text="1"] .button-submit.emby-button:hover {
   box-shadow: 0 0 4px #47C4B8, 0 0 12px #47C4B8, 0 0 24px rgba(71, 196, 184, 0.5), 0 0 48px rgba(71, 196, 184, 0.25) !important;
 }
 [mn-litho-offset-x="3"] .button-submit,
@@ -1196,18 +1286,46 @@ body, h1, h2, h3, h4, p, span, div, .mainDrawer, .emby-button, .headerTabs, .sec
   background: rgba(14, 11, 6, 0.85) !important;
 }
 
-/* ── Detail page backdrop scrim per-theme ── */
-[mn-glow-text="1"] .itemBackdrop {
+/* ── Detail page backdrop scrim per-theme ──
+   NOTE: these use the `background` SHORTHAND, which replaces Jellyfin's inline
+   backdrop image. That's the desktop look (flat themed hero). On mobile the
+   .itemBackdrop is the whole hero, so the media block below keeps the IMAGE and
+   lays a vertical scrim over it instead — hence the min-width guard here. */
+/* Desktop (docked-drawer layouts): unchanged flat themed hero. Keyed on
+   :not(.layout-mobile) rather than a width query — see the layout-mobile note
+   in the Mobile & TABLET overrides section. */
+html:not(.layout-mobile) [mn-glow-text="1"] .itemBackdrop {
   background: linear-gradient(to right, rgba(9,29,34,0.95) 0%, rgba(9,29,34,0.6) 50%, rgba(9,29,34,0.3) 100%) !important;
 }
-[mn-litho-offset-x="3"] .itemBackdrop {
+html:not(.layout-mobile) [mn-litho-offset-x="3"] .itemBackdrop {
   background: linear-gradient(to right, rgba(22,13,6,0.95) 0%, rgba(22,13,6,0.6) 50%, rgba(22,13,6,0.3) 100%) !important;
 }
-[mn-cut-geometry="1"] .itemBackdrop {
+html:not(.layout-mobile) [mn-cut-geometry="1"] .itemBackdrop {
   background: linear-gradient(to right, rgba(11,11,11,0.95) 0%, rgba(11,11,11,0.6) 50%, rgba(11,11,11,0.3) 100%) !important;
 }
-[mn-gilded-text="1"] .itemBackdrop {
+html:not(.layout-mobile) [mn-gilded-text="1"] .itemBackdrop {
   background: linear-gradient(to right, rgba(14,11,6,0.95) 0%, rgba(14,11,6,0.6) 50%, rgba(14,11,6,0.3) 100%) !important;
+}
+/* Phone + tablet: keep the backdrop image (it's the hero) and fade it into the
+   page background with a vertical per-theme scrim overlay. */
+html.layout-mobile .itemBackdrop { position: relative !important; }
+html.layout-mobile .itemBackdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+html.layout-mobile [mn-glow-text="1"] .itemBackdrop::after {
+  background: linear-gradient(to bottom, rgba(9,29,34,0.25) 0%, rgba(9,29,34,0.5) 55%, rgba(9,29,34,0.97) 100%);
+}
+html.layout-mobile [mn-litho-offset-x="3"] .itemBackdrop::after {
+  background: linear-gradient(to bottom, rgba(22,13,6,0.25) 0%, rgba(22,13,6,0.5) 55%, rgba(22,13,6,0.97) 100%);
+}
+html.layout-mobile [mn-cut-geometry="1"] .itemBackdrop::after {
+  background: linear-gradient(to bottom, rgba(11,11,11,0.25) 0%, rgba(11,11,11,0.5) 55%, rgba(11,11,11,0.97) 100%);
+}
+html.layout-mobile [mn-gilded-text="1"] .itemBackdrop::after {
+  background: linear-gradient(to bottom, rgba(14,11,6,0.25) 0%, rgba(14,11,6,0.5) 55%, rgba(14,11,6,0.97) 100%);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -1437,4 +1555,107 @@ body, h1, h2, h3, h4, p, span, div, .mainDrawer, .emby-button, .headerTabs, .sec
   filter: brightness(1.35) !important;
   background: transparent !important;
   box-shadow: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Mobile polish (2026-07-16 mobile study) — EVERYTHING here is ≤600px only.
+   Desktop rendering must not change (user constraint).
+   ══════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+  /* Section titles: avoid orphan-word wraps from wide tracking at 390px */
+  .sectionTitle {
+    text-wrap: balance;
+  }
+
+  /* Captions/metadata: desktop tracking (0.15–0.2em at 11px) is below the phone
+     legibility floor. Same voice, tighter tracking, +1px. Overrides §3 per-theme. */
+  [mn-glow-text="1"] .itemMiscInfo, [mn-glow-text="1"] .secondary, [mn-glow-text="1"] .cardText-secondary,
+  [mn-litho-offset-x="3"] .itemMiscInfo, [mn-litho-offset-x="3"] .secondary, [mn-litho-offset-x="3"] .cardText-secondary,
+  [mn-cut-geometry="1"] .itemMiscInfo, [mn-cut-geometry="1"] .secondary, [mn-cut-geometry="1"] .cardText-secondary,
+  [mn-gilded-text="1"] .itemMiscInfo, [mn-gilded-text="1"] .secondary, [mn-gilded-text="1"] .cardText-secondary {
+    font-size: 12px !important;
+    letter-spacing: 0.08em !important;
+  }
+
+  /* Marquee: the 135° gilded gradient spans the heading width, so trailing words
+     go dark at phone sizes. Vertical gradient = every glyph gets the same gold
+     (matches the wordmark treatment). Tracking eased for 390px. */
+  [mn-gilded-text="1"] .sectionTitle,
+  [mn-gilded-text="1"] .itemName {
+    background: linear-gradient(180deg, #FCF6BA, #C9A227 55%, #8F6F14);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  [mn-gilded-text="1"] .sectionTitle {
+    letter-spacing: 0.12em !important;
+  }
+
+  /* Detail page: metadata row wraps ragged right-aligned — center it as a group */
+  .itemMiscInfo-primary,
+  .itemMiscInfo-secondary {
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    row-gap: 4px !important;
+  }
+
+  /* Matinee: litho offset shadows make adjacent tag/genre pill rows collide */
+  [mn-litho-offset-x="3"] .itemGenres,
+  [mn-litho-offset-x="3"] .itemTags {
+    line-height: 2.2 !important;
+  }
+
+  /* Chrome icons (hamburger, home, search magnifier) were default grey — theme them */
+  .headerButton,
+  .headerButton .material-icons {
+    color: var(--mn-text, #F5EEDC) !important;
+  }
+
+  /* Theme-token corner geometry on count/rank badges (reelone=square, canyon=pill).
+     Desktop keeps the stock look; on mobile these badges sit on much smaller cards. */
+  .childCountIndicator {
+    border-radius: var(--mn-pill-radius, 99px) !important;
+  }
+
+  /* ── Library pages (Movies / TV) ── */
+  /* Two cards per row instead of one full-width card (654-item library at one
+     card/row is a scroll marathon). vertical-wrap only — home scrollers untouched. */
+  .libraryPage .itemsContainer.vertical-wrap .backdropCard {
+    width: 50% !important;
+  }
+  /* Paging/sort/filter toolbar: compact to one row and speak the theme */
+  .libraryPage .pageTabContent > .flex.align-items-center.flex-wrap-wrap {
+    padding: 4px 6px !important;
+  }
+  .libraryPage .paging .listPaging {
+    font-size: 13px !important;
+    font-family: var(--mn-nav-font, sans-serif) !important;
+    color: var(--mn-muted, #7fa8a4) !important;
+  }
+  .libraryPage .pageTabContent > .flex .paper-icon-button-light {
+    color: var(--mn-muted, #7fa8a4) !important;
+    padding: 0.35em !important;
+    margin: 0 0.1em !important;
+  }
+  /* A–Z jump strip: themed letters + a reserved gutter so it stops colliding
+     with card edges and rank badges */
+  .alphaPickerButton {
+    color: var(--mn-muted, #7fa8a4) !important;
+    font-family: var(--mn-nav-font, sans-serif) !important;
+    font-size: 13px !important;
+  }
+  .alphaPickerButton-selected,
+  .alphaPickerButton:focus {
+    color: var(--primary-accent-color, #47c4b8) !important;
+  }
+  .padded-right-withalphapicker {
+    padding-right: 30px !important;
+  }
+
+  /* ── Drawer scrim ── Jellyfin's .tmla-mask dims at rgba(0,0,0,.3), too subtle
+     to read as a modal layer on poster-bright pages. */
+  .tmla-mask {
+    background-color: rgba(0, 0, 0, 0.55) !important;
+  }
 }

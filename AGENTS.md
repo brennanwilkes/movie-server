@@ -11,7 +11,7 @@ findings + what's already fixed + open recommendations).
 
 ## System Overview
 
-Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loopback image cap (disabled). Services run as Docker containers via `docker compose`. The controller (`controller/server.js`) is the brain — it polls every service every 5s, builds a unified download view, and runs 7 background sweeps.
+Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loopback image cap (disabled). Services run as Docker containers via `docker compose`. The controller (`controller/server.js` + `controller/lib/`, see `controller/README.md`) is the brain — it polls every service every 5s, builds a unified download view, and runs the background sweeps.
 
 ## File Map
 
@@ -22,9 +22,10 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `Makefile` | Top-level ops: `deploy`, `provision`, `logs`, `ps`, `up`, `down` |
 | `.env` | Runtime config: credentials, NUC_IP, paths, MDNS_NAME |
 | `docker-compose.yml` | Service definitions, volumes, networking, iGPU passthrough |
-| `controller/server.js` | **Core**: aggregation API + 6 background sweeps (1830+ lines) |
-| `controller/web/app.js` | SPA frontend (Vue/Petite + interactive-search modal) |
-| `controller/web/index.html` | Dashboard shell |
+| `controller/server.js` | **Core** entrypoint (thin) — subsystems live in `controller/lib/*.js`; module map in `controller/README.md` |
+| `controller/lib/` | The controller's subsystems (clients, state, downloads, importer, sweeps, search engine, routes) — behavior-preserving 2026-07 split of the old monolith |
+| `controller/web/js/` | Dashboard frontend — plain scripts loaded in order by index.html (no framework, no build step; split of the former app.js) |
+| `controller/web/index.html` | Dashboard shell (script load order matters) |
 | `controller/web/style.css` | Dark theme (custom accent colors) |
 | `controller/Dockerfile` | Node 20 slim image |
 | `controller/metrics.js` | Time-series metrics + event log writer/reader (JSONL, zero deps) |
@@ -78,26 +79,29 @@ All ports: `docker-compose.yml:104`
 
 **Auth**: `brennan/brennan` everywhere (LAN-only, no inbound exposure). *arr keys auto-discovered via `arr_apikey()` from config.xml.
 
-## Controller Sweeps (server.js)
+## Controller Sweeps (controller/lib/)
 
-The controller runs 7 background sweeps. Each is independent and has its own interval.
+The controller runs its background sweeps from the lib/ modules (started
+explicitly by server.js — full loop table incl. first-run delays in
+`controller/README.md`). Each is independent, has its own interval, and pauses
+under Movie Mode (`isMasterPaused()`).
 
-| Sweep | Interval | File Lines | What it does |
+| Sweep | Interval | Module | What it does |
 |-------|----------|------------|-------------|
-| `buildDownloads` / `refreshDownloads` | 5s | `628-640` | Polls all services → builds unified `_dl` snapshot |
-| `importWatchdog` | 60s | search `importWatchdog` | Manual Import for completed-but-not-imported torrents. **Pre-pass** first handles force-grabs (`sonarr-force`): imports only when complete, via `importViaGrab` (multi-episode ranges, correct-series-only). Generic recover path also runs `importViaSeasonRemap` for merged-series season mismatches. See the force-grab subsystem section. |
-| `forceGrabVerifySweep` | 60s | search `forceGrabVerifySweep` | ~2.5 min after a force-grab imports, cross-checks Sonarr + Jellyfin and emits `fg_verify` (PASS/FAIL). The manual-import safety net. |
-| `stallRecovery` | 5min | `837-881` | Reannounce stalling torrents; blocklist+research dead ones |
-| `diskGate` | 8s | `1291-1387` | Tear down torrents that would exceed disk cap |
-| `orphanSweep` | 5min | `1393-1445` | Delete torrents whose *arr item is gone |
-| `seerrSweep` | 15min | `1458-1486` | Delete Jellyseerr entries for deleted *arr items |
-| `arrSweep` | 5min | `1520-1685` | Remove stuck queue items, dedup duplicates, trigger searches for missing items |
-| `requestGate` | 1min | `1786-1779` | Flag Jellyseerr requests stuck on disk space |
-| `jfLibraryRefresh` | event + 2min watchdog | `1787-1816` | Trigger Jellyfin library scan after imports |
-| `gpuVerifySweep` | 10min | search `gpuVerifySweep` | Post-import ground truth, ZERO-GAP: a movie imported <48h ago whose mediaInfo is 10-bit/HDR/AV1/VP9 gets a strictly-better H.264 release grabbed (search-first, playstate-guarded); the OLD FILE STAYS until the replacement completes (`gpuPending` persisted), then swap+import. Once per movie ever (`gpuSwapped`); UI labels the download "Auto-upgrade". Log prefix `gpuVerify:` |
-| `collectionsSweep` | 12h + boot | search `collectionsSweep` | Maintains native auto-collections from library metadata: decades, top-8 + curated genres, Critically Loved, Short & Sweet, Epic Runtimes, and 8 Oscar-winner categories (Best Picture/Director/Acting/Editing/Cinematography, drawn from `data/oscars/build.sh` via `controller/oscar-winners.json`). Vibes shuffle at random; Oscar collections sort year-descending (newest first). Auto-sets each collection's poster from its best-rated member. Pure Jellyfin Collections API. Log prefix `collectionsSweep:`. **Boot:** `bootSequence()` (search it) waits for Jellyfin to answer, then runs the sweep BEFORE the first `registerHssShelf` so the home shelves have box sets to show on first load — no cold-start empty-home gap. **Manual:** `POST /api/collections/build` runs the sweep + shelf re-register on demand (409 if already running). |
+| `buildDownloads` / `refreshDownloads` | 5s | `lib/downloads.js` | Polls all services → builds unified `_dl` snapshot |
+| `importWatchdog` | 60s | `lib/importer.js` | Manual Import for completed-but-not-imported torrents. **Pre-pass** first handles force-grabs (`sonarr-force`): imports only when complete, via `importViaGrab` (multi-episode ranges, correct-series-only). Generic recover path also runs `importViaSeasonRemap` for merged-series season mismatches. See the force-grab subsystem section. |
+| `forceGrabVerifySweep` | 60s | `lib/importer.js` | ~2.5 min after a force-grab imports, cross-checks Sonarr + Jellyfin and emits `fg_verify` (PASS/FAIL). The manual-import safety net. |
+| `stallRecovery` | 5min | `lib/stall-recovery.js` | Reannounce stalling torrents; blocklist+research dead ones |
+| `diskGate` | 30s | `lib/sweeps.js` | Tear down torrents that would exceed disk cap |
+| `orphanSweep` | 5min | `lib/sweeps.js` | Delete torrents whose *arr item is gone |
+| `seerrSweep` | 15min | `lib/sweeps.js` | Delete Jellyseerr entries for deleted *arr items |
+| `arrSweep` | 5min | `lib/search-engine.js` | Remove stuck queue items, dedup duplicates, trigger searches for missing items |
+| `requestGate` | 5min | `lib/sweeps.js` | Flag Jellyseerr requests stuck on disk space |
+| `jfLibraryRefresh` | event + 5min safety net | `lib/jf-scan.js` | Trigger Jellyfin library scan after imports (trickplay-aware) |
+| `gpuVerifySweep` | 15min | `lib/gpu-verify.js` | Post-import ground truth, ZERO-GAP: a movie imported <48h ago whose mediaInfo is 10-bit/HDR/AV1/VP9 gets a strictly-better H.264 release grabbed (search-first, playstate-guarded); the OLD FILE STAYS until the replacement completes (`gpuPending` persisted), then swap+import. Once per movie ever (`gpuSwapped`); UI labels the download "Auto-upgrade". Log prefix `gpuVerify:` |
+| `collectionsSweep` | 6h + boot | `lib/collections.js` | Maintains native auto-collections from library metadata: decades, top-8 + curated genres, Critically Loved, Short & Sweet, Epic Runtimes, and 8 Oscar-winner categories (Best Picture/Director/Acting/Editing/Cinematography, drawn from `data/oscars/build.sh` via `controller/oscar-winners.json`). Vibes shuffle at random; Oscar collections sort year-descending (newest first). Auto-sets each collection's poster from its best-rated member. Pure Jellyfin Collections API. Log prefix `collectionsSweep:`. **Boot:** `bootSequence()` (search it) waits for Jellyfin to answer, then runs the sweep BEFORE the first `registerHssShelf` so the home shelves have box sets to show on first load — no cold-start empty-home gap. **Manual:** `POST /api/collections/build` runs the sweep + shelf re-register on demand (409 if already running). |
 
-(Line numbers drift — prefer grepping the sweep name in `controller/server.js`. Other cleanups
+(Grep the sweep name in `controller/lib/` to find it. Other cleanups
 living inside the sweeps above: `arrSweep` also removes+blocklists terminal import rejections
 ("not an upgrade"/"sample"); `orphanSweep` also drops zombie `missingFiles` torrents >48h old;
 `stallRecovery` also rescues *arr-orphaned dead downloads (torrent exists, queue record gone) by
@@ -358,7 +362,7 @@ At 10s sampling: ~2 MB/day, ~700 MB/year. 35 GB free on the SSD (root) where met
 Sonarr's on-add / `SeriesSearch` only looks for whole-season **packs**. A currently-airing show
 usually has no pack, so those seasons come back empty and never fill in on their own.
 - The controller's `arrSweep` recovers this by firing `EpisodeSearch` on the specific missing
-  **monitored, aired** episode IDs (see `missingEpisodeIds` in `controller/server.js`) — per-episode
+  **monitored, aired** episode IDs (see `missingEpisodeIds` in `controller/lib/search-engine.js`) — per-episode
   search finds the individual releases that packs-only search misses. Respects per-season monitoring,
   so requesting one season still grabs only that season.
 - Manual kick: `curl -X POST .../api/v3/command -d '{"name":"EpisodeSearch","episodeIds":[...]}'`
@@ -583,7 +587,7 @@ to live installs on every provision, so edit the script, never the *arr UI.
 ## Making Changes
 
 1. **Profile changes**: edit `scripts/provision/_arr_common.sh`, then `make provision s=radarr` (or sonarr)
-2. **Sweep timing/constants**: edit `controller/server.js` constants, rebuild: `make up` or `make deploy s=controller`
+2. **Sweep timing/constants**: edit the constants in the owning `controller/lib/` module (see controller/README.md), rebuild: `make up` or `make deploy s=controller`
 3. **New service**: add to `docker-compose.yml`, add provision script, add API key discovery to `controller.sh`, add status check to `server.js:STATUS_SERVICES`
 4. **Logging**: all sweeps use `console.log()` (→ docker logs). New diagnostics should use the `INFO/WARN/ERROR` helpers that add log level prefixes.
 5. **Library fallback**: the `isErrored` branch in `buildDownloads` (server.js:498-520) now has a title-based fallback when the history cache misses. The `getHasFileMap` function returns `{ hasFile, nameIds }` — both Maps. `hasFile[id]` is the authoritative "in library" check. `nameIds[normTitle]` maps normalized *arr titles to ids. If adding a new fallback, make sure to pre-populate `nameIds` for both `norm(title)` and `norm(title + year)`.

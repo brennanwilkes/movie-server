@@ -134,6 +134,16 @@
     </button>
   </nav>
 
-  <script src="app.js"></script>
+  <!-- Split of the former app.js — classic scripts sharing global scope, so
+       LOAD ORDER MATTERS: helpers first, feature modules, then main.js boots. -->
+  <script src="js/config.js"></script>
+  <script src="js/util.js"></script>
+  <script src="js/net.js"></script>
+  <script src="js/tabs.js"></script>
+  <script src="js/home.js"></script>
+  <script src="js/downloads.js"></script>
+  <script src="js/library.js"></script>
+  <script src="js/sheets.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>

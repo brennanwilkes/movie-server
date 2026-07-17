@@ -532,15 +532,23 @@ fi
 #     to disk but server caches config in memory until restart).
 log "  restarting Jellyfin to apply changes"
 docker restart jellyfin
-for i in $(seq 1 30); do
-  token=$(curl -fsS -X POST "$JF/Users/AuthenticateByName" \
-    -H "X-Emby-Authorization: $AUTHHDR" -H 'Content-Type: application/json' \
-    -d "$(jq -n --arg n "$JELLYFIN_ADMIN_USER" --arg p "$JELLYFIN_ADMIN_PASS" '{Username:$n,Pw:$p}')" \
-    2>/dev/null | jq -r '.AccessToken' 2>/dev/null) || true
-  [[ -n "$token" && "$token" != "null" ]] && break
+# Wait for Jellyfin to finish booting before authenticating. A bare restart+auth RACES the
+# server's startup: /Users/AuthenticateByName 500s (or connection-refuses) until the DB and
+# plugins finish loading, so auth can fail purely because we asked too early — which then dies
+# before §9 pushes the web flair JS. Gate on the lightweight public health endpoint first, then
+# attempt auth, and give it ~120s (this NUC's cold restart sat right at the old 60s boundary).
+token=""
+for i in $(seq 1 60); do
+  if curl -fsS -o /dev/null --max-time 5 "$JF/System/Info/Public" 2>/dev/null; then
+    token=$(curl -fsS -X POST "$JF/Users/AuthenticateByName" \
+      -H "X-Emby-Authorization: $AUTHHDR" -H 'Content-Type: application/json' \
+      -d "$(jq -n --arg n "$JELLYFIN_ADMIN_USER" --arg p "$JELLYFIN_ADMIN_PASS" '{Username:$n,Pw:$p}')" \
+      2>/dev/null | jq -r '.AccessToken' 2>/dev/null) || true
+    [[ -n "$token" && "$token" != "null" ]] && break
+  fi
   sleep 2
 done
-[[ -n "$token" && "$token" != "null" ]] || die "auth failed after restart"
+[[ -n "$token" && "$token" != "null" ]] || die "auth failed after restart (Jellyfin not ready within ~120s)"
 
 # 7a. Post-restart verification: confirm the served CSS matches our source file.
 #     If this warns, the deployment bug (PLAN-branding-css-deploy.md) may have regressed.
@@ -587,7 +595,7 @@ else
     | .Radarr.Url=("http://"+$ip+":7878") | .Radarr.ApiKey=$rk
     | .Sonarr.Url=("http://"+$ip+":8989") | .Sonarr.ApiKey=$nk
     | .SectionSettings=[
-        row("MyMedia";                1; true;  false; 1; "Landscape"),
+        row("MyMedia";                1; false; false; 1; "Landscape"),
         row("ContinueWatchingNextUp"; 2; true;  false; 1; "Landscape"),
         row("ShelfA";                 4; true;  false; 10; "Landscape"),
         row("ShelfB";                 4; true;  false; 10; "Landscape"),
@@ -610,15 +618,15 @@ else
         row("ShelfR";                 6; true;  false; 10; "Landscape"),
         row("ShelfS";                 6; true;  false; 10; "Landscape"),
         row("ShelfT";                 6; true;  false; 10; "Landscape"),
-        row("RecentlyAddedMovies";    7; true;  true;  1; "Landscape"),
-        row("RecentlyAddedShows";     7; true;  true;  1; "Landscape"),
+        row("RecentlyAddedMovies";    7; false; true;  1; "Landscape"),
+        row("RecentlyAddedShows";     7; false; true;  1; "Landscape"),
         row("Genre";                  8; true;  true;  3; "Landscape"),
         row("TopTen";                 8; true;  false; 1; "Landscape"),
         row("WatchAgain";             8; true;  false; 1; "Landscape"),
-        row("DiscoverMovies";        11; true;  false; 1; "Portrait"),
-        row("DiscoverTv";            11; true;  false; 1; "Portrait"),
-        row("UpcomingMovies";        11; true;  false; 1; "Portrait"),
-        row("UpcomingShows";         11; true;  false; 1; "Portrait"),
+        row("DiscoverMovies";        11; false; false; 1; "Portrait"),
+        row("DiscoverTv";            11; false; false; 1; "Portrait"),
+        row("UpcomingMovies";        11; false; false; 1; "Portrait"),
+        row("UpcomingShows";         11; false; false; 1; "Portrait"),
         row("MyRequests";            15; true;  false; 1; "Landscape"),
         row("ContinueWatching";     999; false; false; 1; "Landscape"),
         row("LatestMovies";         999; false; false; 1; "Landscape"),

@@ -67,6 +67,18 @@ specificity math → write the minimal higher-specificity rule. A reusable probe
 - CSS/JS changes ship ONLY via `make provision s=jellyfin`, **never** `make deploy` (deploy just pulls+restarts).
 - There is NO service worker (`serviceworker.js` → 404). `index.html` is `Cache-Control:no-cache`. A normal refresh picks up new CSS/JS.
 
+**Two-phase deploy — CSS and flair JS ship at DIFFERENT points of the provision (2026-07-16 landmine):**
+- CSS is written to `branding.xml` **before** the §7 restart. The flair JS is pushed to the JS Injector **after**, in **§9** (which needs a working post-restart auth token). So *the two can get out of sync if provision aborts mid-run.*
+- Real failure hit this session: §7 re-authenticated immediately after `docker restart jellyfin` with only a 60s window and no health gate; the NUC's cold restart sat right at that boundary → `die "auth failed after restart"` → **provision exited before §9, so CSS updated but flair JS did NOT.** Symptom: your CSS change is live but your JS change isn't, with a *successful-looking* earlier part of the log. Fixed by health-gating the auth loop on `/System/Info/Public` (~120s) — but the lesson stands: **a provision that doesn't print `✓ Provisioning complete.` may have shipped CSS without JS.**
+- **ALWAYS verify BOTH are actually served after a provision**, don't trust the log alone:
+  ```bash
+  curl -s http://localhost:8096/Branding/Css | grep -c 'your-new-css-token'
+  curl -s http://localhost:8096/JavaScriptInjector/public.js | grep -c 'yourNewJsFunction'
+  ```
+  Zero for the JS check while CSS is present = provision aborted before §9. Re-run it.
+
+**Before blaming scyfin, grep our OWN css (2026-07-16):** the "everything is a solid accent-colored block" eyesore (actionsheet items, settings menu links, section-title/MORE buttons all filled teal in canyon) was **self-inflicted** — our own §6 rule `[mn-glow-text="1"] .emby-button { background: <accent> }` paints *every* emby-button. It was NOT scyfin. `grep -n 'emby-button' jellyfin-custom.css` first. To exempt a subset, add a second class for higher specificity (e.g. `.emby-button.button-link`, `.button-submit.emby-button`) rather than a new global rule.
+
 **Why our overrides lose (the #1 time-sink) — specificity + source order:**
 - scyfin is loaded via `@import` of a cross-origin jsDelivr URL. Its rules are **invisible to JS/DevTools rule inspectors** (CORS blocks `.cssRules`, and `@import`ed sheets aren't in top-level `document.styleSheets`). So a matched-rules probe will show OUR rules + Jellyfin's bundles, and scyfin is the culprit *by elimination* when computed ≠ any visible rule.
 - Our CSS is injected as an inline `<style>`, so on **equal specificity we win by source order** — but scyfin often uses higher-specificity selectors, so a plain `.foo{...!important}` loses. Fix by raising specificity (add an ancestor class / an `[mn-*]` theme-attr prefix), not by adding more `!important`.
@@ -82,6 +94,12 @@ Reelone (`[mn-cut-geometry="1"]`) sets card/btn radius to **0** (angular theme) 
 - Card indicators (`.playedIndicator`) get a solid colored circle from Jellyfin `theme.css` + scyfin. Override to transparent bg + `var(--primary-accent-color)`.
 - Card hover overlay (`.cardOverlayContainer`) insets inside `.cardImageContainer`'s per-theme border (reelone 2px), so at `inset:0` it's border-width smaller than the poster → grow it with negative `inset`.
 - Nav "selected" highlight: the flair JS applies it via inline styles for the Home route (no `.navMenuOption-selected` class), so hover handlers must guard on our own `data-mn-selected` flag or leaving the item wipes the highlight.
+
+### Landmines: drawer/nav DOM manipulation (2026-07-16, #18 header-controls → side nav)
+- **Jellyfin destroys & rebuilds the drawer nav on every open/close.** Anything we inject (Top 100 / Watchlist / Search / Settings entries, inline styles, reorder) MUST be re-applied every `scan()` and be **idempotent** (no-op when already present). A one-shot/boolean guard makes injected entries vanish after the first rebuild.
+- **Header-right buttons live in the persistent `.skinHeader`; the drawer is transient.** To surface a header action in the drawer, DON'T move the real button (the rebuild would wipe it). Clone a nav-link template and either (a) `href` it to the real route (Settings → `#/mypreferencesmenu`, what Jellyfin's own `onSettingsClick` navigates to) or (b) forward its click: `header.querySelector(sel).click()`. Forwarding preserves all native behavior with zero re-wiring.
+- **A popup anchored to a `display:none` button renders at 0,0.** Cast/SyncPlay opened their pickers in the top-left corner because we hid `.headerRight` but forwarded clicks to those buttons. If a forwarded action shows a positioned popup, prefer a direct route/href over click-forwarding (or don't surface it). Search is fine (it navigates, no anchored popup).
+- **Reordering the drawer every scan will infinite-loop the MutationObserver.** The observer watches `{childList:true, subtree:true}` — `appendChild`/`insertBefore` (childList) re-fire it → `scan` → reorder → … every 500ms. Guard: compute the desired element sequence, compare to the current one, and only touch the DOM when they differ (see `orderDrawer()`). Note **attribute/style changes do NOT trigger the observer** (not watching `attributes`), which is why `themeDrawer()`'s inline-style writes are safe to run every scan but reordering is not.
 
 **Recurring issue types to expect:** (1) an override that "should work" but loses to scyfin specificity; (2) a fix scoped too narrowly (e.g. `.itemDetailPage`-only) that misses cards/home/search; (3) `@import scyfin@latest` is UNPINNED — a scyfin update can silently change class names/geometry and break overrides (candidate pin: `@v1.5.5`); (4) something that renders differently per theme because a rule hardcodes one theme's value instead of a token.
 
