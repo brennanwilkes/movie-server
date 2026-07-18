@@ -6,6 +6,7 @@
 
 const { cfg, HOST } = require('./config');
 const { tfetch } = require('./clients');
+const { isMasterPaused } = require('./state');
 
 // ---- JellyfReady refresh (event-driven + self-healing periodic sweep) ----
 let _scanning = false;
@@ -63,6 +64,7 @@ function startJfScanTimers() {
 // notification missed.
 setInterval(() => {
   if (!cfg.JELLYFIN_KEY) return;
+  if (isMasterPaused()) { return; }   // Movie Mode: scans hammer the USB drive mid-playback
   if (Date.now() - _lastScan > 600000) {
     isTrickplayBusy().then(busy => {
       if (busy) { console.log('jfScan: trickplay running — deferring scan'); return; }

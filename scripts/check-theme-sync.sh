@@ -83,6 +83,33 @@ for theme in canyon matinee reelone marquee; do
   check "dividerAccent"      "$divider_accent" "$(grep -oP 'dividerAccent">[^<]+' "$xml_file" | head -1)"
   check "dividerColor"       "$divider_color"  "$(grep -oP 'dividerColor">[^<]+' "$xml_file" | head -1)"
   check "lithoShadowColor"   "$litho_color"    "$(grep -oP 'lithoShadowColor">[^<]+' "$xml_file" | head -1)"
+
+  # Additional Android attrs: text, textOnAccent, cardRounding, buttonRounding
+  text_color=$(jq -r ".[\"$theme\"].text" "$TOKENS")
+  text_on_accent=$(jq -r ".[\"$theme\"].textOnAccent" "$TOKENS")
+  card_round=$(jq -r ".[\"$theme\"].cardRadius" "$TOKENS" | tr -d 'px' | sed 's/$/dp/')
+  btn_round=$(jq -r ".[\"$theme\"].btnRadius" "$TOKENS" | tr -d 'px' | sed 's/$/dp/')
+  # headerTextColor uses direct hex (no @color/ indirection)
+  check "headerTextColor"    "$text_color"     "$(grep -oP 'headerTextColor">[^<]+' "$xml_file" | head -1)"
+  check "cardRounding"       "$card_round"     "$(grep -oP 'cardRounding">[^<]+' "$xml_file" | head -1)"
+  check "buttonRounding"     "$btn_round"      "$(grep -oP 'buttonRounding">[^<]+' "$xml_file" | head -1)"
+
+  # Popup / button / input text attrs (derived: text + textOnAccent tokens)
+  check "popupMenuTextColor"     "$text_color"     "$(grep -oP 'popupMenuTextColor">[^<]+' "$xml_file" | head -1)"
+  check "buttonTextColor"        "$text_color"     "$(grep -oP 'buttonTextColor">[^<]+' "$xml_file" | head -1)"
+  check "buttonTextColorFocused" "$text_on_accent" "$(grep -oP 'buttonTextColorFocused">[^<]+' "$xml_file" | head -1)"
+  check "inputTextColor"         "$text_color"     "$(grep -oP 'inputTextColor">[^<]+' "$xml_file" | head -1)"
+
+  # Compose ColorScheme attrs (derived: bg2/text/accent/textOnAccent tokens)
+  check "composeBackground"     "$bg2"            "$(grep -oP 'composeBackground">[^<]+' "$xml_file" | head -1)"
+  check "composeOnBackground"   "$text_color"     "$(grep -oP 'composeOnBackground">[^<]+' "$xml_file" | head -1)"
+  check "composeButton"         "$accent"         "$(grep -oP 'composeButton">[^<]+' "$xml_file" | head -1)"
+  check "composeOnButton"       "$text_on_accent" "$(grep -oP 'composeOnButton">[^<]+' "$xml_file" | head -1)"
+  check "composeInput"          "$accent"         "$(grep -oP 'composeInput">[^<]+' "$xml_file" | head -1)"
+  check "composeOnInput"        "$text_color"     "$(grep -oP 'composeOnInput">[^<]+' "$xml_file" | head -1)"
+  check "composeInputFocused"   "$text_color"     "$(grep -oP 'composeInputFocused">[^<]+' "$xml_file" | head -1)"
+  check "composeOnInputFocused" "$text_on_accent" "$(grep -oP 'composeOnInputFocused">[^<]+' "$xml_file" | head -1)"
+  check "composePopover"        "$bg2"            "$(grep -oP 'composePopover">[^<]+' "$xml_file" | head -1)"
   echo ""
 done
 
@@ -102,15 +129,26 @@ done
 if [[ -z "$flair_js" ]]; then
   echo "  SKIP  jellyfin-web-flair.js (not found)"
 else
-  for theme in canyon matinee reelone marquee; do
-    accent=$(jq -r ".[\"$theme\"].accent" "$TOKENS" | tr '[:upper:]' '[:lower:]')
-    accent2=$(jq -r ".[\"$theme\"].accent2" "$TOKENS" | tr '[:upper:]' '[:lower:]')
-    font=$(jq -r ".[\"$theme\"].fontFamily" "$TOKENS")
+  # JS color tokens to validate (hex colors, case-insensitive match in THEMES object)
+  js_hex_tokens=(accent accent2 bg bg2 text muted textOnAccent)
+  # JS dimension/rgba tokens (exact string match)
+  js_raw_tokens=(glowColor glowSpread dividerColor scrollbarColor)
 
+  for theme in canyon matinee reelone marquee; do
+    font=$(jq -r ".[\"$theme\"].fontFamily" "$TOKENS")
     echo "  [$theme]"
-    # Check accent color exists in the THEMES object (case-insensitive)
-    found=$(grep -i "$accent" "$flair_js" | head -1 || true)
-    check "accent" "$accent" "$found"
+
+    for tok in "${js_hex_tokens[@]}"; do
+      val=$(jq -r ".[\"$theme\"].$tok" "$TOKENS" | tr '[:upper:]' '[:lower:]')
+      # Grep case-insensitive in the flair JS — the THEMES object line contains the value
+      found=$(grep -i "$val" "$flair_js" | head -1 || true)
+      check "$tok" "$val" "$found"
+    done
+    for tok in "${js_raw_tokens[@]}"; do
+      val=$(jq -r ".[\"$theme\"].$tok" "$TOKENS")
+      found=$(grep -F "$val" "$flair_js" | head -1 || true)
+      check "$tok" "$val" "$found"
+    done
     found=$(grep -i "$font" "$flair_js" | head -1 || true)
     check "fontFamily" "$font" "$found"
   done

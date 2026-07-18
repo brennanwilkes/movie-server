@@ -375,12 +375,17 @@ async function collectionsSweep() {
         continue;
       }
       await ensureMeta(setId, desc);
-      // Full rewrite in shuffled order: reconciles membership AND re-rolls the browse order.
       const cq = new URLSearchParams({ ParentId: setId, Limit: '5000' });
       const have = (((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 15000)).json()).Items) || []).map((i) => i.Id);
-      if (have.length) await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${have.join(',')}`, { method: 'DELETE', headers: h }, 30000);
-      await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${shuffle([...want]).join(',')}`, { method: 'POST', headers: h }, 30000);
-      updated++;
+      // Only rewrite when membership actually changed: the DELETE+POST churn
+      // leaves a partial-collection window and fires LibraryChanged storms
+      // (clients page mid-rewrite → duplicate rows). Browse-order shuffle is
+      // handled client-side by the TV/HSS rows, so a stale order is fine.
+      if (have.length !== want.size || have.some((id) => !want.has(id))) {
+        if (have.length) await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${have.join(',')}`, { method: 'DELETE', headers: h }, 30000);
+        await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${shuffle([...want]).join(',')}`, { method: 'POST', headers: h }, 30000);
+        updated++;
+      }
       const pick = posterPick(want);
       if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
     }

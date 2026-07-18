@@ -81,9 +81,143 @@
 	var idByName = {}; // playlist name -> playlist id (for the sidebar entries)
 	var playlistsViewId = null; // the "Playlists" library-view id, to locate its drawer entry
 	var loaded = false;
-	var top100Items = new Map(); // id -> enriched item (People, ImageTags, ProductionYear, RunTimeTicks)
+	var top100Items = new Map(); // id -> playlist item (ImageTags, ProductionYear, RunTimeTicks — NO People; see top100PeopleById)
+	var top100PeopleById = new Map(); // id -> People[] — lazy, fetched only while the Top 100 page is open
+	var _top100PeopleFetch = 0; // 0=idle, 1=in flight, 2=done (per page lifetime)
 	var _drawerCssCache = null;  // cached scyfin CSS-var reads for themeDrawer (theme is fixed per tab)
 	var _currentNavCurId = '';   // live page ID for nav hover guards (updated each themeDrawer call)
+
+	// ---- theme tokens (module scope: used by the splash, the roulette IIFE AND showcaseTop100) --
+	// SOURCE OF TRUTH: docs/branding/THEME-TOKENS.json — this object hand-mirrors it (the
+	// Android TV fork's theme_movienight_*.xml files are the third copy). If you change a
+	// value here, change the JSON (and the XMLs) too, then run `make check-themes`
+	// (scripts/check-theme-sync.sh greps this file for each theme's accent + fontFamily).
+	// One block per theme: canyon / matinee / reelone / marquee.
+	var THEMES = {
+		canyon:  { accent: '#47c4b8', accent2: '#f26d3d', bg: '#091d22', bg2: '#0e2a30', muted: '#7fa8a4', text: '#f5eedc', textOnAccent: '#0c2429', r: 71,  g: 196, b: 184, btnRound: '999px', navFont: 'Poppins, "Segoe UI", sans-serif', navCase: 'uppercase', navTrack: '.02em',
+			cardRadius: '8px', btnRadius: '999px', inputRadius: '6px', pillRadius: '99px', sheetRadius: '8px',
+			glowColor: 'rgba(71,196,184,0.6)', glowSpread: '24px',
+			lithoX: '0px', lithoY: '0px', lithoColor: 'transparent',
+			glowText: 1, gildedText: 0, cutGeometry: 0, lithoOffsetX: 0, textureGrain: 0, textureCrosshatch: 0,
+			dividerColor: 'rgba(255,255,255,0.06)', dividerAccent: '#47C4B8',
+			scrollbarColor: 'rgba(71,196,184,0.35)' },
+		matinee: { accent: '#d98e32', accent2: '#b52a1a', bg: '#160d06', bg2: '#191009', muted: '#b3946a', text: '#e8d5b0', textOnAccent: '#1c120a', r: 217, g: 142, b: 50, btnRound: '2px', navFont: '"Oswald", "Segoe UI", sans-serif', navCase: 'uppercase', navTrack: '.09em',
+			cardRadius: '3px', btnRadius: '2px', inputRadius: '0px', pillRadius: '2px', sheetRadius: '3px',
+			glowColor: 'transparent', glowSpread: '0px',
+			lithoX: '3px', lithoY: '3px', lithoColor: '#B52A1A',
+			glowText: 0, gildedText: 0, cutGeometry: 0, lithoOffsetX: 3, textureGrain: 1, textureCrosshatch: 1,
+			dividerColor: 'rgba(181,42,26,0.2)', dividerAccent: '#B52A1A',
+			scrollbarColor: 'rgba(217,142,50,0.35)' },
+		reelone: { accent: '#e8442e', accent2: '#e34234', bg: '#0b0b0b', bg2: '#0B0B0B', muted: '#8d8a80', text: '#f2efe6', textOnAccent: '#ffffff', r: 232, g: 68,  b: 46, btnRound: '0px', navFont: '"Archivo", "Segoe UI", sans-serif', navCase: 'uppercase', navTrack: '.06em',
+			cardRadius: '0px', btnRadius: '0px', inputRadius: '0px', pillRadius: '0px', sheetRadius: '0px',
+			glowColor: 'transparent', glowSpread: '0px',
+			lithoX: '0px', lithoY: '0px', lithoColor: 'transparent',
+			glowText: 0, gildedText: 0, cutGeometry: 1, lithoOffsetX: 0, textureGrain: 0, textureCrosshatch: 0,
+			dividerColor: '#333333', dividerAccent: '#E8442E',
+			scrollbarColor: 'rgba(232,68,46,0.35)' },
+		marquee: { accent: '#c9a227', accent2: '#d4af37', bg: '#0d0a05', bg2: '#0e0b06', muted: '#9a8c6e', text: '#f2e6cb', textOnAccent: '#1a1406', r: 201, g: 162, b: 39, btnRound: '2px', navFont: '"Jost", "Segoe UI", sans-serif', navCase: 'uppercase', navTrack: '.2em',
+			cardRadius: '3px', btnRadius: '2px', inputRadius: '2px', pillRadius: '3px', sheetRadius: '3px',
+			glowColor: 'rgba(201,162,39,0.3)', glowSpread: '16px',
+			lithoX: '0px', lithoY: '0px', lithoColor: 'transparent',
+			glowText: 0, gildedText: 1, cutGeometry: 0, lithoOffsetX: 0, textureGrain: 0, textureCrosshatch: 1,
+			dividerColor: 'rgba(143,107,46,0.25)', dividerAccent: '#D4AF37',
+			scrollbarColor: 'rgba(201,162,39,0.35)' },
+	};
+
+	// ---- branded splash (DESIGN-PERF-LOADING.md Task 4.1) --------------------------------------
+	// Injected SYNCHRONOUSLY at script-execute time (this whole IIFE runs before app boot), so
+	// it takes over from the stock boot logo. Removed when the first populated .itemsContainer
+	// gains cards (tiny dedicated observer) or after a hard 8s timeout, whichever comes first.
+	// CSS lives in an inline <style> created here — jellyfin-custom.css loads too late.
+	(function splash() {
+		try {
+			var th = THEMES[sessionStorage.getItem('mnTheme')] || THEMES.canyon;
+			var st = document.createElement('style');
+			st.id = 'mn-splash-style';
+			st.textContent =
+				// Wordmark font — duplicated from the roulette's mn-wordmark-style @font-face on
+				// purpose: the splash must be self-sufficient before anything else runs. The
+				// browser dedupes identical @font-face sources, so there is no double download.
+				'@font-face{font-family:"Palm Canyon Drive";src:url("/web/fonts/palm-canyon-drive.otf") format("opentype");font-weight:400;font-display:swap;}' +
+				'#mn-splash{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;' +
+				'align-items:center;justify-content:center;background:' + th.bg + ';' +
+				'opacity:1;transition:opacity .3s ease;pointer-events:none;}' +
+				'#mn-splash.mn-splash-out{opacity:0;}' +
+				// font-family MUST be !important: jellyfin-custom.css's global UI-face rule
+				// (`body, span, div, ... { font-family: var(--mn-nav-font) !important }`) matches
+				// this div and silently beat the plain declaration — the wordmark rendered in the
+				// theme nav font (Jost/Poppins/...) forever. Same-!important, higher specificity
+				// (#id .class vs bare `div`) makes this rule win deterministically.
+				'#mn-splash .mn-splash-wm{font-family:"Palm Canyon Drive",cursive,sans-serif!important;font-weight:400;' +
+				'font-size:44px;color:' + th.text + ';text-shadow:0 0 14px ' + th.accent + ';}' +
+				'#mn-splash .mn-splash-bar{margin-top:26px;width:120px;height:4px;border-radius:2px;' +
+				'background:' + th.accent + ';animation:mn-splash-pulse 2.4s ease-in-out infinite;}' +
+				// opacity only — compositor-friendly, and deliberately calm (no size pulsing)
+				'@keyframes mn-splash-pulse{0%,100%{opacity:.35;}50%{opacity:.7;}}' +
+				// Stock boot chrome (spinner + splash logo) stays hidden while our splash owns the
+				// screen; this style node is removed on dismiss, so visibility auto-restores.
+				'.docspinner,.mdl-spinner,.splashLogo{visibility:hidden!important;}';
+			(document.head || document.documentElement).appendChild(st);
+			// FontFace preload (root-cause fix for the mid-boot font revert): the @font-face above
+			// is CSS-connected — it dies the instant its <style> node is detached by jellyfin-web's
+			// boot head/body rebuild, and every observer re-attach re-creates the face and restarts
+			// its load, during which font-display:swap paints the fallback. A FontFace added to
+			// document.fonts via JS is document-scoped and immune to DOM churn, so the family always
+			// resolves for the splash wordmark no matter what boot does to our style nodes.
+			// UNCONDITIONAL (no document.fonts.check() guard): check() returns true whenever ANY
+			// matching face exists — even an unloaded CSS-connected one — so the guard skipped
+			// this preload exactly when it was needed. The browser dedupes the download by URL.
+			try {
+				if (document.fonts) {
+					var pcd = new FontFace('Palm Canyon Drive', 'url(/web/fonts/palm-canyon-drive.otf)', { weight: '400' });
+					document.fonts.add(pcd);
+					pcd.load().catch(function () {});
+				}
+			} catch (e2) { /* @font-face in st still covers browsers without FontFace */ }
+			var ov = document.createElement('div');
+			ov.id = 'mn-splash';
+			ov.innerHTML = '<div class="mn-splash-wm">Movie Night</div><div class="mn-splash-bar"></div>';
+			// documentElement, NOT body: jellyfin-web wipes document.body when its bundle boots,
+			// which killed a body-mounted overlay and re-exposed the stock splash mid-boot.
+			document.documentElement.appendChild(ov);
+			var done = false;
+			function dismiss() {
+				if (done) return;
+				done = true;
+				try { so.disconnect(); } catch (e) {}
+				ov.classList.add('mn-splash-out');
+				setTimeout(function () { ov.remove(); st.remove(); }, 320); // fade 300ms, then drop the nodes
+			}
+			// Home readiness predicate: on the home screen require TWO itemsContainers with real
+			// cards (one row alone still means a wall of row-spinners behind the splash); any
+			// other view (deep link to details, lists, login) keeps the old first-row rule so the
+			// splash never overstays where a second row will never come. 8s hard cap unchanged.
+			function splashReady() {
+				var conts = document.querySelectorAll('.itemsContainer');
+				var n = 0;
+				for (var i = 0; i < conts.length; i++) {
+					if (conts[i].querySelector('.card, .listItem')) { n++; if (n >= 2) break; }
+				}
+				if (!n) return false;
+				var h = location.hash || '';
+				var isHome = h === '' || h === '#/' || h === '#' || h.indexOf('/home') !== -1;
+				return isHome ? n >= 2 : true;
+			}
+			// The same observer also re-mounts the overlay/style if anything (boot wipe, head
+			// rebuild) detaches them before dismissal.
+			var so = new MutationObserver(function () {
+				if (!done) {
+					if (!ov.isConnected) document.documentElement.appendChild(ov);
+					if (!st.isConnected) (document.head || document.documentElement).appendChild(st);
+				}
+				if (splashReady()) dismiss();
+			});
+			so.observe(document.documentElement, { childList: true, subtree: true });
+			// Injected late (script re-run / app already booted)? Don't flash a splash at all.
+			if (splashReady()) dismiss();
+			setTimeout(dismiss, 8000); // hard cap — never trap the user behind the overlay
+		} catch (e) { /* best-effort: a splash failure must never block the app */ }
+	})();
 
 	// ---- helpers (Top 100 enrichment) -------------------------------------------------------
 	function rtText(ticks) {
@@ -103,11 +237,102 @@
 		for (var i = 0; i < p.length; i++) if (p[i].Type === 'Director') return p[i].Name;
 		return null;
 	}
+	function dirPerson(item) {
+		var p = item && item.People; if (!p) return null;
+		for (var i = 0; i < p.length; i++) if (p[i].Type === 'Director') return p[i];
+		return null;
+	}
 	function topCast(item, n) {
 		var p = item && item.People; if (!p) return [];
 		var r = [];
 		for (var i = 0; i < p.length && r.length < (n || 3); i++) if (p[i].Type === 'Actor') r.push(p[i].Name);
 		return r;
+	}
+	// ---- fact-line curation (Pantheon rows) ----------------------------------------------------
+	// Blanket credits read as noise: a Pantheon fact line should only name people worth naming.
+	// "Notable" = the Person carries oscar-* tags (fetched into oscarByIdOnDemand by
+	// fetchTop100People's person-tags pass) OR the name hits the hardcoded famous list below
+	// (lowercase substring match, so 'coppola' covers Francis Ford Coppola).
+	var FAMOUS_PEOPLE = [
+		// directors
+		'coppola', 'kubrick', 'hitchcock', 'spielberg', 'scorsese', 'tarantino',
+		'david lean', 'villeneuve', 'bong joon', 'fincher', 'nolan', 'curtiz',
+		'howard hawks', 'huston', 'billy wilder', 'orson welles', 'kurosawa',
+		'sergio leone', 'george lucas', 'zemeckis', 'sam mendes', 'sidney lumet',
+		'ridley scott', 'cameron crowe', 'james cameron', 'de palma', 'pakula', 'polanski',
+		// actors
+		'bogart', 'ingrid bergman', 'brando', 'de niro', 'pacino', 'pesci',
+		'harrison ford', 'samuel l. jackson', 'travolta', 'uma thurman', 'gosling',
+		'cary grant', 'sean connery', 'daniel craig', 'denzel washington', 'tom hanks',
+		'dicaprio', 'brad pitt', 'morgan freeman', 'paul newman', 'redford',
+		'dustin hoffman', 'nicholson', 'streep', 'lauren bacall', 'james stewart',
+		'audrey hepburn', 'katharine hepburn', 'peter o\'toole', 'alec guinness',
+		'liam neeson', 'ralph fiennes', 'judi dench', 'javier bardem', 'christoph waltz',
+		'kevin spacey', 'gary oldman', 'adrien brody', 'song kang', 'ray liotta',
+		'martin sheen', 'robert duvall', 'gene hackman', 'sigourney weaver',
+		'keanu reeves', 'laurence fishburne', 'johnny depp', 'geoffrey rush',
+	];
+	function isFamous(name) {
+		if (!name) return false;
+		var n = name.toLowerCase();
+		for (var i = 0; i < FAMOUS_PEOPLE.length; i++) if (n.indexOf(FAMOUS_PEOPLE[i]) !== -1) return true;
+		return false;
+	}
+	function isNotable(p) {
+		return !!(p && (isFamous(p.Name) || (p.Id && oscarFor(p.Id))));
+	}
+	// Cast picks (up to n): oscar-tagged/famous names first (billing order, scanned within the
+	// top 8 billed so a deep-credits cameo can't hijack the line); if none qualify, fall back
+	// to plain top billing.
+	function curatedCast(item, n) {
+		var p = item && item.People; if (!p) return [];
+		var actors = [];
+		for (var i = 0; i < p.length && actors.length < 8; i++) if (p[i].Type === 'Actor') actors.push(p[i]);
+		var pick = [];
+		for (i = 0; i < actors.length && pick.length < (n || 3); i++) if (isNotable(actors[i])) pick.push(actors[i].Name);
+		if (!pick.length) for (i = 0; i < actors.length && pick.length < (n || 3); i++) pick.push(actors[i].Name);
+		return pick;
+	}
+	// ---- per-title motif map (Pantheon rows) ---------------------------------------------------
+	// Keyed by normalized title (lowercase, alphanumerics only). Vocab: 'blinds' (noir/crime
+	// venetian slats), 'deco' (gilded double frame — prestige/epic/adventure), 'scan' (sci-fi
+	// scanlines), 'spy' (crosshair iris rings), 'none'. Unmapped tier-1 titles keep the old
+	// rank-rotation fallback.
+	var MOTIF_BY_TITLE = {
+		'casablanca': 'blinds',
+		'apocalypsenow': 'none',
+		'goodfellas': 'blinds',
+		'raidersofthelostark': 'deco',
+		'pulpfiction': 'blinds',
+		'lawrenceofarabia': 'deco',
+		'bladerunner2049': 'scan',
+		'cityofgod': 'blinds',
+		'thegodfather': 'deco',
+		'americangraffiti': 'none',
+		'theusualsuspects': 'blinds',
+		'piratesofthecaribbeanthecurseoftheblackpearl': 'deco',
+		'jackiebrown': 'blinds',
+		'indianajonesandthelastcrusade': 'deco',
+		'northbynorthwest': 'spy',
+		'parasite': 'blinds',
+		'starwars': 'scan',
+		'skyfall': 'spy',
+		'thebigsleep': 'blinds',
+		'allthepresidentsmen': 'blinds',
+		'themanfromuncle': 'spy',
+		'2001aspaceodyssey': 'scan',
+		'thegodfatherpartii': 'deco',
+		'moneyball': 'none',
+		'treasureplanet': 'scan',
+		'thematrix': 'scan',
+		'inglouriousbasterds': 'blinds',
+		'schindlerslist': 'none',
+		'thebrutalist': 'deco',
+		'themaltesefalcon': 'blinds',
+	};
+	function motifForTitle(name) {
+		if (!name) return null;
+		return MOTIF_BY_TITLE[name.toLowerCase().replace(/[^a-z0-9]+/g, '')] || null;
 	}
 
 	// ---- styles (injected once) --------------------------------------------------------------
@@ -121,18 +346,25 @@
 	// the latest code. One extra local HTTP request per page load (~70KB, <1ms on LAN).
 	function refreshBrandingCss() {
 		var id = 'mn-branding-cache-bust';
-		if (document.getElementById(id)) return;
 		fetch('/Branding/Css?v=' + Date.now())
 			.then(function (r) { return r.ok ? r.text() : ''; })
 			.then(function (css) {
 				if (!css) return;
 				var el = document.getElementById(id);
+				// If a stock <style> already carries identical CSS, don't add a second ~70KB copy.
+				var dup = null;
+				document.head.querySelectorAll('style').forEach(function (n) {
+					if (n.id !== id && n.textContent === css) dup = n;
+				});
+				if (dup) { if (el) el.remove(); return; }
+				// Stale/absent stock CSS: disable stock link nodes and inject the fresh copy once.
+				document.head.querySelectorAll('link[href*="Branding/Css"]').forEach(function (n) { n.disabled = true; });
 				if (!el) {
 					el = document.createElement('style');
 					el.id = id;
 					document.head.appendChild(el);
 				}
-				el.textContent = css;
+				if (el.textContent !== css) el.textContent = css;
 			})
 			.catch(function () {});
 	}
@@ -236,6 +468,75 @@
 			typeof a.accessToken === 'function' && a.accessToken();
 	}
 
+	// ---- localStorage cache (DESIGN-PERF-LOADING.md Task 3.2) ----------------------------------
+	// The four bulk maps hydrate from localStorage the moment the userId is known — decoration
+	// starts from (possibly slightly stale) cached data immediately instead of waiting ~seconds
+	// for the API rebuilds. Each loader persists its fresh map after every network rebuild.
+	// All access is try/catch'd: quota errors / private-mode just degrade to network-only.
+	// (requestOscar's per-person on-demand cache is deliberately NOT persisted — bulk maps only.)
+	var _hydrated = false;
+	function lsGet(key) {
+		try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; }
+	}
+	function lsSet(key, val) {
+		try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* quota/private mode */ }
+	}
+	function cacheKey(base) { return base + '_' + api().getCurrentUserId(); }
+	function hydrateFromCache() {
+		if (_hydrated || !ready()) return;
+		_hydrated = true;
+		var r = lsGet(cacheKey('mn_ranks'));
+		if (r && r.ranks) {
+			rankById = new Map(r.ranks);
+			if (r.idByName) idByName = r.idByName;
+			if (r.playlistsViewId) playlistsViewId = r.playlistsViewId;
+		}
+		var w = lsGet(cacheKey('mn_watchlist'));
+		if (w) watchSet = new Set(w);
+		var o = lsGet(cacheKey('mn_oscars'));
+		if (o) oscarById = new Map(o);
+		var n = lsGet(cacheKey('mn_nations'));
+		if (n) nationById = new Map(n);
+		if (r || w || o || n) loaded = true; // decoration may proceed from cache right away
+	}
+
+	// Diff helper: which keys changed/appeared/disappeared between two Maps (values compared by
+	// JSON — they're tiny: ints, iso strings, {w,l} objects).
+	function diffMapKeys(oldMap, newMap) {
+		var changed = new Set();
+		oldMap.forEach(function (v, k) {
+			var nv = newMap.get(k);
+			if (nv === undefined || JSON.stringify(nv) !== JSON.stringify(v)) changed.add(k);
+		});
+		newMap.forEach(function (v, k) { if (!oldMap.has(k)) changed.add(k); });
+		return changed;
+	}
+	function diffSetKeys(oldSet, newSet) {
+		var changed = new Set();
+		oldSet.forEach(function (k) { if (!newSet.has(k)) changed.add(k); });
+		newSet.forEach(function (k) { if (!oldSet.has(k)) changed.add(k); });
+		return changed;
+	}
+	// Re-decorate ONLY the on-screen elements whose item data changed: clear their MARK (and any
+	// now-stale flair DOM — decorateItem early-returns before applyFlair when an id has no data,
+	// so applyFlair's own cleanup wouldn't run for removals), then let the next scan repaint them.
+	// Replaces the old wholesale document-wide marker nuke after every loader tick.
+	var STALE_FLAIR_SEL = '.curated-rank, .curated-bookmark, .oscar-stack, .oscar-plaque, .mn-oscar-text, .nation-flag';
+	function redecorateChanged(changedIds) {
+		if (!changedIds || !changedIds.size) return false;
+		var norm = new Set();
+		changedIds.forEach(function (k) { norm.add(normalize(k)); });
+		var touched = false;
+		document.querySelectorAll('[data-curated-flair-id]').forEach(function (c) {
+			var id = c.dataset[MARK];
+			if (!id || !norm.has(normalize(id))) return;
+			delete c.dataset[MARK];
+			c.querySelectorAll(STALE_FLAIR_SEL).forEach(function (n) { n.remove(); });
+			touched = true;
+		});
+		return touched;
+	}
+
 	function loadLists() {
 		if (!ready()) return Promise.resolve();
 		var a = api();
@@ -263,8 +564,10 @@
 				}
 				// Playlist order matters for rank -> use /Playlists/{id}/Items, NOT getItems(ParentId).
 			if (top100Id) {
+				// No 100 cap: freshly added items land PAST position 100 and must stay visible
+				// (and reorderable) on the showcase page so they can be ranked up.
 				jobs.push(a.getJSON(a.getUrl('Playlists/' + top100Id + '/Items', {
-					UserId: userId, Fields: 'People,Studios', Limit: 100
+					UserId: userId, Limit: 500
 				})).then(function (r) {
 					((r && r.Items) || []).forEach(function (it, i) {
 						if (it.Id && !nextRank.has(it.Id)) {
@@ -281,15 +584,30 @@
 					}));
 			}
 			return Promise.all(jobs).then(function () {
+				var rankChanged = diffMapKeys(rankById, nextRank);
+				var watchChanged = diffSetKeys(watchSet, nextWatch);
+				// top100Items only ever comes from the network (not cached), so "was empty, now
+				// isn't" means showcase rows painted without clearlogos/fact lines and need a redo.
+				var enrichArrived = top100Items.size === 0 && nextTop100Items.size > 0;
 				rankById = nextRank;
 				top100Items = nextTop100Items;
 				watchSet = nextWatch;
 				loaded = true;
-				// Clear markers so everything on screen re-decorates with the fresh data.
-				document.querySelectorAll('[data-curated-flair-id]').forEach(function (c) { delete c.dataset[MARK]; });
-				// Clear showcase markers too — top100Items may now be populated, so rows need
-				// re-enrichment with clearlogos/fact lines that weren't available on first paint.
-				document.querySelectorAll('[data-mn-showcase]').forEach(function (el) { delete el.dataset.mnShowcase; });
+				lsSet(cacheKey('mn_ranks'), {
+					ranks: Array.from(rankById.entries()),
+					idByName: idByName,
+					playlistsViewId: playlistsViewId || null,
+				});
+				lsSet(cacheKey('mn_watchlist'), Array.from(watchSet));
+				// DIFF instead of the old wholesale marker nuke: only ids whose rank/watch data
+				// actually changed get their marker cleared and flair repainted.
+				var union = new Set(rankChanged);
+				watchChanged.forEach(function (k) { union.add(k); });
+				redecorateChanged(union);
+				// Showcase markers: only reset rows when rank order changed or enrichment arrived.
+				if (rankChanged.size || enrichArrived) {
+					document.querySelectorAll('[data-mn-showcase]').forEach(function (el) { delete el.dataset.mnShowcase; });
+				}
 				scan();
 			});
 		})
@@ -317,25 +635,33 @@
 		oscarFetchTimer = null;
 		if (!ready() || !oscarFetchPending.size) return;
 		var a = api();
-		var userId = a.getCurrentUserId();
-		var ids = Array.prototype.slice.call(oscarFetchPending);
+		// Array.from, NOT Array.prototype.slice.call: a Set isn't array-like (no .length), so
+		// slice.call(set) silently returned [] — every person/on-demand fetch fired with ZERO
+		// ids, then cleared the queue. Cast cards looped forever unfetched (bug 2026-07-17).
+		var ids = Array.from(oscarFetchPending);
 		oscarFetchPending.clear();
 		var jobs = [];
 		for (var s = 0; s < ids.length; s += 60) {  // chunk to keep the query string sane
-			var chunk = ids.slice(s, s + 60);
-			jobs.push(a.getItems(userId, { Ids: chunk.join(','), Fields: 'Tags' })
-				.then(function (res) {
-					((res && res.Items) || []).forEach(function (it) {
-						if (it.Id) oscarByIdOnDemand.set(normalize(it.Id), parseOscarTags(it.Tags));
-					});
-				}).catch(function () { /* ignore chunk */ }));
-			// Mark every requested id as fetched even if Jellyfin omits some from the response,
-			// so we never spin re-requesting the same id forever.
-			chunk.forEach(function (rid) { if (!oscarByIdOnDemand.has(normalize(rid))) oscarByIdOnDemand.set(normalize(rid), null); });
+			(function (chunk) {
+				// System /Items?Ids=, NOT /Users/{id}/Items — the user-items endpoint never returns
+				// Person items, so person Oscar tags silently came back empty. (/Persons ignores
+				// its Ids param entirely — verified 2026-07-17 — so it can't be used here either.)
+				jobs.push(a.getJSON(a.getUrl('Items', { Ids: chunk.join(','), Fields: 'Tags' }))
+					.then(function (res) {
+						((res && res.Items) || []).forEach(function (it) {
+							if (it.Id) oscarByIdOnDemand.set(normalize(it.Id), parseOscarTags(it.Tags));
+						});
+						// Only on SUCCESS: mark every requested id in this chunk as fetched (even if
+						// Jellyfin omitted it from the response) so we never spin re-requesting it.
+						// Failed chunks stay unmarked so transient errors retry on the next scan.
+						chunk.forEach(function (rid) { if (!oscarByIdOnDemand.has(normalize(rid))) oscarByIdOnDemand.set(normalize(rid), null); });
+					}).catch(function () { /* ignore chunk — unmarked ids retry later */ }));
+			})(ids.slice(s, s + 60));
 		}
 		Promise.all(jobs).then(function () {
-			// Re-key any that DID come back with data (overwrites the provisional null above).
-			document.querySelectorAll('[data-curated-flair-id]').forEach(function (c) { delete c.dataset[MARK]; });
+			// Only the ids fetched in THIS flush can have new data — clear just their markers
+			// (detail-page hosts get marked pre-fetch); unmarked person cards re-decorate via scan.
+			redecorateChanged(new Set(ids));
 			scan();
 		});
 	}
@@ -366,10 +692,11 @@
 				var aw = parseOscarTags(it.Tags);
 				if (aw && it.Id) { next.set(it.Id, aw); next.set(normalize(it.Id), aw); }
 			});
+			var changed = diffMapKeys(oscarById, next);
 			oscarById = next;
-			// Re-decorate on-screen cards with the fresh data (mirrors loadLists()).
-			document.querySelectorAll('[data-curated-flair-id]').forEach(function (c) { delete c.dataset[MARK]; });
-			scan();
+			lsSet(cacheKey('mn_oscars'), Array.from(next.entries()));
+			// Diffed re-decoration (mirrors loadLists()) — untouched cards keep their MARK.
+			if (redecorateChanged(changed)) scan();
 		}
 		// Primary: server-side Tags filter (verified filtering on this build). Fallback: if it comes
 		// back empty (older server that ignores/rejects Tags), scan the whole library and filter here
@@ -425,41 +752,8 @@
 			'</defs></svg>';
 		document.body.appendChild(holder);
 	}
-	// The container has aspect-ratio:1 (height == its own width W), so `top`/`right` percentages
-	// both resolve against W. Icon height = 2W, hence the ×2 on the vertical (height-based) terms.
-	function oscarStackHtml(wins, losses) {
-		var kinds = [];
-		var i;
-		for (i = 0; i < wins; i++) kinds.push('oscar-win');
-		for (i = 0; i < losses; i++) kinds.push('oscar-nom');
-		if (!kinds.length) return '';
-		// Mobile (≤600px, matches the flair CSS breakpoint): cap to a single column so the
-		// stack never outgrows the short landscape cards. Wins are pushed first, so the gold
-		// stays. Deliberate deviation from the TV/desktop full cascade — space, not style.
-		if (window.matchMedia && window.matchMedia('(max-width: 600px)').matches && kinds.length > OSCAR_PERCOL) {
-			kinds = kinds.slice(0, OSCAR_PERCOL);
-		}
-		var ncol = Math.ceil(kinds.length / OSCAR_PERCOL);
-		// The right-edge spill transform is inlined with !important: theme hover rules (scyfin
-		// applies transforms on card hover) otherwise override the class transform and the whole
-		// stack visibly jumps left on mouseover. Mobile tucks the stack inside instead (matches
-		// the ≤600px CSS block).
-		var isMobile = window.matchMedia && window.matchMedia('(max-width: 600px)').matches;
-		var stackStyle = isMobile ? 'transform:none !important;' : 'transform:translateX(55%) !important;';
-		var svgs = kinds.map(function (cls, idx) {
-			var col = Math.floor(idx / OSCAR_PERCOL);
-			var row = idx % OSCAR_PERCOL;
-			var top = (col * OSCAR_COLDY + row * OSCAR_ROWSTEP) * 2 * 100;   // % of W
-			var right = (col * OSCAR_COLDX + row * OSCAR_ROWDX) * 100;       // % of W
-			var z = (ncol - col) * 100 + row;   // front column + lower rows on top
-			var grad = cls === 'oscar-win' ? 'mnOscGold' : 'mnOscSilver';
-			// fill lives in the inline style (not CSS) so the gradient can't be overridden.
-			return '<svg class="' + cls + '" viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg" ' +
-				'style="top:' + top.toFixed(1) + '%;right:' + right.toFixed(1) + '%;z-index:' + z + ';">' +
-				'<path style="fill:url(#' + grad + ')" d="' + STATUETTE_PATH + '"/></svg>';
-		});
-		return '<div class="oscar-stack" style="' + stackStyle + '">' + svgs.join('') + '</div>';
-	}
+	// (oscarStackHtml — the fanned statuette cascade — was removed 2026-07-17; narrow MOBILE
+	// cards get a compact text badge (.mn-oscar-text). Desktop always uses the plaque below.)
 
 	// Large-format alternative to the cascade: themed corner plaque with count lines —
 	// "5 OSCAR WINS" / "8 NOMINATIONS" — each led by a tiny solid statuette. `large` picks the
@@ -471,8 +765,8 @@
 		}
 		var lines = [];
 		if (wins > 0) lines.push('<div class="opl-w">' + mini('#E6B94C') + wins + ' OSCAR WIN' + (wins > 1 ? 'S' : '') + '</div>');
-		if (losses > 0) lines.push('<div class="opl-n">' + mini('#C9CDD3') + losses +
-			(wins > 0 ? ' NOMINATION' : ' OSCAR NOMINATION') + (losses > 1 ? 'S' : '') + '</div>');
+		if (losses > 0) { var totalNoms = wins + losses; lines.push('<div class="opl-n">' + mini('#C9CDD3') + totalNoms +
+			(wins > 0 ? ' NOMINATION' : ' OSCAR NOMINATION') + (totalNoms > 1 ? 'S' : '') + '</div>'); }
 		if (!lines.length) return '';
 		return '<div class="oscar-plaque' + (large ? '' : ' oscar-plaque-sm') + '">' + lines.join('') + '</div>';
 	}
@@ -710,9 +1004,10 @@
 					var iso = parseNationTag(it.Tags);
 					if (iso && it.Id) { next.set(it.Id, iso); next.set(normalize(it.Id), iso); }
 				});
+				var changed = diffMapKeys(nationById, next);
 				nationById = next;
-				document.querySelectorAll('[data-curated-flair-id]').forEach(function (c) { delete c.dataset[MARK]; });
-				scan();
+				lsSet(cacheKey('mn_nations'), Array.from(next.entries()));
+				if (redecorateChanged(changed)) scan();
 			})
 			.catch(function () { /* ignore — retry on the next refresh tick */ });
 	}
@@ -721,7 +1016,8 @@
 	// host = the positioned element that bounds the poster image; id = the movie's item id.
 	function applyFlair(host, id, isDetail) {
 		if (!host) return;
-		if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+		// position:relative comes statically from jellyfin-custom.css (:where(...) host rule) —
+		// no per-card getComputedStyle probe here (it forced style/layout flushes on every card).
 		if (isDetail) host.classList.add('curated-host-detail');
 		// The Oscar fan spills past the right edge, so it must live on an ancestor that doesn't
 		// clip. Grid cards clip on .cardImageContainer (border-radius + overflow:hidden) but their
@@ -730,12 +1026,9 @@
 		var spillHost = host;
 		var scal = host.classList && host.classList.contains('cardImageContainer') && host.parentElement &&
 			host.parentElement.classList.contains('cardScalable') ? host.parentElement : null;
-		if (scal) {
-			if (getComputedStyle(scal).position === 'static') scal.style.position = 'relative';
-			spillHost = scal;
-		}
+		if (scal) spillHost = scal; // .cardScalable is position:relative via jellyfin-custom.css
 		// Clear any prior flair on this host (recycled nodes / data refresh).
-		host.querySelectorAll(':scope > .curated-rank, :scope > .curated-bookmark, :scope > .oscar-stack, :scope > .oscar-plaque, :scope > .nation-flag').forEach(function (n) { n.remove(); });
+		host.querySelectorAll(':scope > .curated-rank, :scope > .curated-bookmark, :scope > .oscar-stack, :scope > .oscar-plaque, :scope > .mn-oscar-text, :scope > .nation-flag').forEach(function (n) { n.remove(); });
 		if (spillHost !== host) spillHost.querySelectorAll(':scope > .oscar-stack').forEach(function (n) { n.remove(); });
 		var rank = rankFor(id);
 		if (rank) {
@@ -745,18 +1038,35 @@
 			host.appendChild(pill);
 		}
 		if (isWatch(id)) host.insertAdjacentHTML('beforeend', bookmarkSvg());
-		// Oscars: textual corner plaque anywhere the artwork is LARGE-format (detail posters, wide
-		// list thumbnails, big grid cards); the statuette cascade only on small posters, where it
-		// reads well (Brennan 2026-07-17: "anywhere that's not small format" gets the plaque).
-		// 180px rendered width is the cutover; a 0 width (not laid out yet) falls to the cascade
-		// and self-corrects on the next scan tick once layout exists.
+		// Oscars: DESKTOP (html NOT .layout-mobile) ALWAYS gets the two-line typed-out plaque —
+		// tiny statuette icons + branded border box, the exact home-card treatment (the Top 100
+		// posters measured <180px pre-layout and wrongly fell to the text pill). The compact
+		// .mn-oscar-text pill is MOBILE-ONLY (html.layout-mobile is THE mobile/tablet signal —
+		// width queries lie: an iPad at 1180px is layout-mobile, a 601px desktop window isn't);
+		// within mobile, wide hosts (>=180px) still get the plaque, roomier pill hosts (>=150px)
+		// keep the long form and only tight ones go compact.
 		var osc = oscarFor(id);
 		if (osc) {
 			var hostW = host.getBoundingClientRect ? host.getBoundingClientRect().width : 0;
-			if (isDetail || hostW >= 180) {
+			var oscarMobile = document.documentElement.classList.contains('layout-mobile');
+			if (isDetail || !oscarMobile || hostW >= 180) {
 				host.insertAdjacentHTML('beforeend', oscarPlaqueHtml(osc.w, osc.l, isDetail || hostW >= 300));
 			} else {
-				spillHost.insertAdjacentHTML('beforeend', oscarStackHtml(osc.w, osc.l));
+				// Bottom-right corner pill (mobile only): gold when there are wins, silver
+				// (mn-oscar-silver) for noms-only.
+				var oscarText;
+				if (hostW >= 150) {
+					oscarText = osc.w > 0
+						? '\uD83C\uDFC6 ' + osc.w + ' win' + (osc.w > 1 ? 's' : '') +
+							(osc.l > 0 ? ' · ' + osc.l + ' nom' + (osc.l > 1 ? 's' : '') : '')
+						: '\uD83C\uDFC6 ' + osc.l + ' nom' + (osc.l > 1 ? 's' : '');
+				} else {
+					oscarText = osc.w > 0
+						? '\uD83C\uDFC6 ' + osc.w + 'W' + (osc.l > 0 ? ' · ' + osc.l + 'N' : '')
+						: '\uD83C\uDFC6 ' + osc.l + 'N';
+				}
+				host.insertAdjacentHTML('beforeend', '<div class="mn-oscar-text' +
+					(osc.w === 0 ? ' mn-oscar-silver' : '') + '">' + oscarText + '</div>');
 			}
 		}
 		// Nation flag — bottom-left retro sticker (fully inside the poster, no spill).
@@ -773,7 +1083,7 @@
 		// People get Oscar badges too (directors/actors — e.g. Scorsese). Their counts aren't
 		// bulk-loaded, so request a batched tag fetch the first time we see one; don't set MARK
 		// yet, so the card re-decorates once the fetch lands.
-		if (type === 'Person') {
+		if (type === 'Person' || type === 'Actor' || type === 'Director') {
 			if (!oscarFetched(id)) { requestOscar(id); return; }
 			el.dataset[MARK] = id;
 			if (!oscarFor(id)) return;
@@ -1037,8 +1347,8 @@
 	// ---- Top 100 web showcase (NEXT-STEPS §6) --------------------------------------------------
 	// Decorates the Top 100 playlist page IN PLACE — the stock rows (and their drag handles for
 	// re-ranking, which web keeps unlike the TV app) stay intact; we add tier classes, rank
-	// numerals and backdrop row-backgrounds, and hide the genre/runtime header junk. Ranks 1-10
-	// get tall hero rows, 11-50 medium, 51+ stay compact. Idempotent per row via a dataset marker.
+	// numerals and backdrop row-backgrounds, and hide the genre/runtime header junk. Ranks 1-25
+	// get tall hero rows, 26-50 medium, 51+ stay compact. Idempotent per row via a dataset marker.
 	// ---- Web theme roulette (parity with the Fire Stick launch roulette) ----------------------
 	// Each page load draws one of the four Movie Night palettes (never repeating the previous
 	// draw — sessionStorage remembers it) and overrides scyfin's CSS variables inline.
@@ -1046,41 +1356,8 @@
 	// the Firestick app's one-theme-per-launch behavior). Only re-randomizes on new tab/window.
 	(function themeRoulette() {
 		try {
-		// SOURCE OF TRUTH: docs/branding/THEME-TOKENS.json — this object hand-mirrors it (the
-		// Android TV fork's theme_movienight_*.xml files are the third copy). If you change a
-		// value here, change the JSON (and the XMLs) too, then run `make check-themes`
-		// (scripts/check-theme-sync.sh greps this file for each theme's accent + fontFamily).
-		// One block per theme: canyon / matinee / reelone / marquee.
-		var THEMES = {
-			canyon:  { accent: '#47c4b8', accent2: '#f26d3d', bg: '#091d22', bg2: '#0e2a30', muted: '#C9B99A', text: '#F5EEDC', textOnAccent: '#0c2429', r: 71,  g: 196, b: 184, btnRound: '999px', navFont: 'Poppins, "Segoe UI", sans-serif', navCase: 'uppercase', navTrack: '.02em',
-				cardRadius: '8px', btnRadius: '999px', inputRadius: '6px', pillRadius: '99px', sheetRadius: '8px',
-				glowColor: 'rgba(71,196,184,0.6)', glowSpread: '24px',
-				lithoX: '0px', lithoY: '0px', lithoColor: 'transparent',
-				glowText: 1, gildedText: 0, cutGeometry: 0, lithoOffsetX: 0, textureGrain: 0, textureCrosshatch: 0,
-				dividerColor: 'rgba(255,255,255,0.06)', dividerAccent: '#47C4B8',
-				scrollbarColor: 'rgba(71,196,184,0.35)' },
-			matinee: { accent: '#d98e32', accent2: '#a62b1f', bg: '#160d06', bg2: '#191009', muted: '#7A6B5A', text: '#e8d5b0', textOnAccent: '#1c120a', r: 217, g: 142, b: 50, btnRound: '2px', navFont: '"Oswald", "Segoe UI", sans-serif', navCase: 'uppercase', navTrack: '.09em',
-				cardRadius: '3px', btnRadius: '2px', inputRadius: '0px', pillRadius: '2px', sheetRadius: '3px',
-				glowColor: 'transparent', glowSpread: '0px',
-				lithoX: '3px', lithoY: '3px', lithoColor: '#B52A1A',
-				glowText: 0, gildedText: 0, cutGeometry: 0, lithoOffsetX: 3, textureGrain: 1, textureCrosshatch: 1,
-				dividerColor: 'rgba(181,42,26,0.2)', dividerAccent: '#B52A1A',
-				scrollbarColor: 'rgba(217,142,50,0.35)' },
-			reelone: { accent: '#e8442e', accent2: '#E34234', bg: '#0b0b0b', bg2: '#101010', muted: '#8d8a80', text: '#f2efe6', textOnAccent: '#ffffff', r: 232, g: 68,  b: 46, btnRound: '0px', navFont: '"Archivo", "Segoe UI", sans-serif', navCase: 'uppercase', navTrack: '.06em',
-				cardRadius: '0px', btnRadius: '0px', inputRadius: '0px', pillRadius: '0px', sheetRadius: '0px',
-				glowColor: 'transparent', glowSpread: '0px',
-				lithoX: '0px', lithoY: '0px', lithoColor: 'transparent',
-				glowText: 0, gildedText: 0, cutGeometry: 1, lithoOffsetX: 0, textureGrain: 0, textureCrosshatch: 0,
-				dividerColor: '#333333', dividerAccent: '#E8442E',
-				scrollbarColor: 'rgba(232,68,46,0.35)' },
-			marquee: { accent: '#c9a227', accent2: '#7a1e1e', bg: '#0d0a05', bg2: '#0e0b06', muted: '#9a8c6e', text: '#f2e6cb', textOnAccent: '#1a1406', r: 201, g: 162, b: 39, btnRound: '2px', navFont: '"Jost", "Segoe UI", sans-serif', navCase: 'uppercase', navTrack: '.2em',
-				cardRadius: '3px', btnRadius: '2px', inputRadius: '2px', pillRadius: '3px', sheetRadius: '3px',
-				glowColor: 'rgba(201,162,39,0.3)', glowSpread: '16px',
-				lithoX: '0px', lithoY: '0px', lithoColor: 'transparent',
-				glowText: 0, gildedText: 1, cutGeometry: 0, lithoOffsetX: 0, textureGrain: 0, textureCrosshatch: 1,
-				dividerColor: 'rgba(143,107,46,0.25)', dividerAccent: '#D4AF37',
-				scrollbarColor: 'rgba(201,162,39,0.35)' },
-		};
+			// THEMES itself is defined at module scope (top of this IIFE) — it's shared with the
+			// splash overlay and showcaseTop100. Source-of-truth notes live next to it up there.
 			var names = Object.keys(THEMES);
 			var stored = sessionStorage.getItem('mnTheme');
 			var pick = stored && THEMES[stored] ? stored : names[Math.floor(Math.random() * names.length)];
@@ -1188,7 +1465,8 @@
 					try {
 						el.style.setProperty('text-align', 'center', 'important');
 						el.style.setProperty('white-space', 'nowrap', 'important');
-						el.style.setProperty('overflow', 'visible', 'important');
+						// Don't force overflow:visible — it prevents per-theme CSS from clipping
+						// wordmark overflow (Marquee's Palm Canyon Drive bleeds past the 226px box).
 						var nodes = function () { return [el].concat(Array.prototype.slice.call(el.querySelectorAll('*'))); };
 						// ITERATIVE fit: em-based letter-spacing (marquee .2em, etc.) scales with the
 						// font-size, so a single-pass scale overshoots and the wordmark overflows the nav.
@@ -1201,7 +1479,10 @@
 						// Desktop (docked 250px drawer) keeps the 222px fit. Width queries are
 						// wrong here: an iPad at 1180px is layout-mobile, a desktop window at
 						// 601px is layout-desktop.
-						var TARGET = document.documentElement.classList.contains('layout-mobile') ? 140 : 222;
+						// Marquee's Palm Canyon Drive script renders wider than the other fonts at the
+						// same target, so give it a tighter fit to avoid slight overflow.
+						var DESKTOP_TARGETS = { marquee: 224 };
+						var TARGET = document.documentElement.classList.contains('layout-mobile') ? 140 : (DESKTOP_TARGETS[pick] || 222);
 						for (var pass = 0; pass < 4; pass++) {
 							var range = document.createRange();
 							range.selectNodeContents(el);
@@ -1241,6 +1522,118 @@
 	})();
 
 	function apiBase() { return (window.ApiClient && ApiClient.serverAddress && ApiClient.serverAddress()) || ''; }
+
+	// Shared lazy-backdrop observer (Task 4.2): the Top 100 page has 100+ rows, and eagerly
+	// setting --mn-bg fired ~100 Backdrop image requests on entry. Rows now get their backdrop
+	// only when they approach the viewport (600px lookahead); ranks 1-10 stay eager
+	// since it's above the fold anyway. The pending URL rides a plain JS property (__mnBg) —
+	// no attribute churn, and nothing for other stylesheets/scripts to trip over.
+	var _bgIO;
+	function bgObserver() {
+		if (_bgIO !== undefined) return _bgIO;
+		if (!('IntersectionObserver' in window)) { _bgIO = null; return _bgIO; } // fallback: eager
+		_bgIO = new IntersectionObserver(function (entries) {
+			entries.forEach(function (en) {
+				if (!en.isIntersecting) return;
+				var row = en.target;
+				if (row.__mnBg) { row.style.setProperty('--mn-bg', row.__mnBg); row.__mnBg = null; }
+				_bgIO.unobserve(row); // one-shot per row
+			});
+		}, { rootMargin: '600px' });
+		return _bgIO;
+	}
+	// Full-page Top 100 loading overlay (see showcaseTop100): theme-colored cover that hides the
+	// semi-styled stock rows until showcase decoration completes. Removed with a fade on success,
+	// instantly on the HARD 12s cap / navigation away — rows can never stay hidden behind it.
+	var _top100OverlayTimer = null;
+	function removeTop100Overlay(fade) {
+		if (_top100OverlayTimer) { clearTimeout(_top100OverlayTimer); _top100OverlayTimer = null; }
+		var ovl = document.getElementById('mn-top100-overlay');
+		if (!ovl) return;
+		var ost = document.getElementById('mn-top100-overlay-style');
+		if (fade) {
+			ovl.classList.add('mn-top100-overlay-out');
+			setTimeout(function () { ovl.remove(); if (ost) ost.remove(); }, 320); // fade 300ms, then drop the nodes
+		} else {
+			ovl.remove();
+			if (ost) ost.remove();
+		}
+	}
+
+	// Lazy People enrichment for the showcase fact lines (DIRECTED BY … / cast).
+	// ROOT CAUSE of the missing-forever detail text: loadLists' Playlists/{id}/Items call never
+	// requests Fields=People (deliberately — with People it is a ~1MB, >10s query on this box,
+	// see docs/DESIGN-PERF-LOADING.md), so item.People was ALWAYS undefined and dirName/topCast
+	// returned nothing. Fix: fetch People here, only while the Top 100 page is actually open, in
+	// two progressive batches — ranks 1-25 first (Pantheon facts appear fast), then 26-50
+	// (tier 3 renders no fact lines, so 51+ are never fetched). Results live in
+	// top100PeopleById, which survives loadLists refresh ticks replacing top100Items.
+	// A third pass fetches the Pantheon PERSONS' oscar tags (Tags-only /Items?Ids= call, tiny
+	// payload — same endpoint flushOscarFetch uses) into oscarByIdOnDemand so isNotable() can
+	// curate the fact lines, then repaints.
+	function fetchTop100People() {
+		if (_top100PeopleFetch || !ready()) return;
+		var ordered = Array.from(top100Items.keys()); // insertion order == playlist rank order
+		if (!ordered.length) return; // loadLists hasn't filled top100Items yet — retry next pass
+		_top100PeopleFetch = 1;
+		var a = api();
+		var userId = a.getCurrentUserId();
+		function repaint() {
+			// Repaint rows that decorated before this data arrived (only if still on the page).
+			if ((location.hash || '').indexOf('/details') !== -1) {
+				document.querySelectorAll('[data-mn-showcase]').forEach(function (el) { delete el.dataset.mnShowcase; });
+				showcaseTop100();
+			}
+		}
+		var batches = [ordered.slice(0, 25), ordered.slice(25, 50)].filter(function (b) { return b.length; });
+		var chain = Promise.resolve();
+		batches.forEach(function (ids) {
+			chain = chain.then(function () {
+				return a.getJSON(a.getUrl('Items', {
+					UserId: userId, Ids: ids.join(','), Fields: 'People'
+				})).then(function (r) {
+					((r && r.Items) || []).forEach(function (it) {
+						if (it.Id && it.People) top100PeopleById.set(it.Id, it.People);
+					});
+					repaint();
+				});
+			});
+		});
+		// Person-tags pass: director + top-8 cast of each Pantheon film, minus already-known ids.
+		chain = chain.then(function () {
+			var pids = [];
+			var seen = {};
+			ordered.slice(0, 25).forEach(function (mid) {
+				var people = top100PeopleById.get(mid) || [];
+				var actors = 0;
+				for (var i = 0; i < people.length; i++) {
+					var p = people[i];
+					if (p.Type === 'Actor') { if (actors >= 8) continue; actors++; }
+					else if (p.Type !== 'Director') continue;
+					if (!p.Id || seen[p.Id] || oscarFetched(p.Id)) continue;
+					seen[p.Id] = 1;
+					pids.push(p.Id);
+				}
+			});
+			if (!pids.length) return;
+			var jobs = [];
+			for (var s = 0; s < pids.length; s += 60) { // chunked like flushOscarFetch
+				(function (chunk) {
+					jobs.push(a.getJSON(a.getUrl('Items', { Ids: chunk.join(','), Fields: 'Tags' }))
+						.then(function (res) {
+							((res && res.Items) || []).forEach(function (it) {
+								if (it.Id) oscarByIdOnDemand.set(normalize(it.Id), parseOscarTags(it.Tags));
+							});
+							chunk.forEach(function (rid) { if (!oscarByIdOnDemand.has(normalize(rid))) oscarByIdOnDemand.set(normalize(rid), null); });
+						}));
+				})(pids.slice(s, s + 60));
+			}
+			return Promise.all(jobs).then(repaint);
+		});
+		chain.then(function () { _top100PeopleFetch = 2; })
+			.catch(function () { _top100PeopleFetch = 0; }); // network hiccup — retry on next pass
+	}
+
 	function showcaseTop100() {
 		var topId = idByName[TOP_100];
 		if (!topId) return;
@@ -1252,16 +1645,18 @@
 		try { id = new URLSearchParams(q).get('id'); } catch (e) { return; }
 		if (!id || normalize(id) !== normalize(topId)) return;
 
-		// ---- inject stylesheet (once) --------------------------------------------------------
-		if (!document.getElementById('mn-top100-style')) {
+		// ---- inject stylesheet (remove-then-insert so theme changes never serve a stale copy) --
+		var existing = document.getElementById('mn-top100-style');
+		if (existing) existing.remove();
+		{
 			var st = document.createElement('style');
 			st.id = 'mn-top100-style';
 			st.textContent = [
 				// ---- common ----
 				'.mn-rank { flex: none; text-align: center; font-weight: 800;',
 				'  color: var(--primary-accent-color, #47c4b8); z-index: 3; }',
-			'.mn-top100 .listViewDragHandle { order: 99; margin-left: auto; margin-right: 10px;',
-			'  z-index: 3; position: relative; align-self: center; opacity: 0.4; }',
+		'.mn-top100 .listViewDragHandle { order: 99; margin-left: auto; margin-right: 10px;',
+		'  z-index: 3; position: relative; align-self: center; opacity: 0.4; }',
 				// ---- header ----
 				'.mn-header { text-align: center; padding: 32px 0 8px; margin-bottom: 4px;',
 				'  border-bottom: 1px solid rgba(255,255,255,0.06); }',
@@ -1273,11 +1668,11 @@
 				'    var(--secondary-accent-color, #f26d3d)); -webkit-background-clip: text;',
 				'  -webkit-text-fill-color: transparent; background-clip: text;',
 				'  padding: 0 22px; }',
-				// ---- tier 1: Pantheon (1-10) ----
+				// ---- tier 1: Pantheon (1-25) ----
 			'.mn-t1 { min-height: 450px !important; position: relative;',
 			'  overflow: hidden; margin-bottom: 8px; display: flex !important; flex-direction: row;',
 			'  align-items: stretch !important;',
-			'  background: linear-gradient(135deg, #091d22, #0e2a30); }',
+			'  background: linear-gradient(135deg, var(--mn-tier-bg, #091d22), var(--mn-tier-bg2, #0e2a30)); }',
 				'.mn-t1::before { content: ""; position: absolute; inset: 0;',
 				'  background-image: var(--mn-bg); background-size: cover; background-position: center 25%;',
 				'  z-index: 0; pointer-events: none; }',
@@ -1315,49 +1710,89 @@
 				'.mn-t1[data-mn-motif="deco"] .mn-deco2 { position: absolute;',
 				'  inset: 26px; border: 1.5px solid rgba(242,206,107,0.15);',
 				'  pointer-events: none; z-index: 2; }',
-			// ---- tier 2: Gallery (11-50) — two-column grid ----
-			'.mn-t2 { min-height: 160px !important; border-radius: 6px; position: relative;',
+				// scan motif — sci-fi scanlines wash over the backdrop
+				'.mn-t1[data-mn-motif="scan"] .mn-scan { position: absolute; inset: 0;',
+				'  background: repeating-linear-gradient(180deg, rgba(0,0,0,0.16) 0px,',
+				'    rgba(0,0,0,0.16) 2px, transparent 2px, transparent 7px);',
+				'  pointer-events: none; z-index: 1; }',
+				// spy motif — crosshair iris rings, right of center
+				'.mn-t1[data-mn-motif="spy"] .mn-spy1 { position: absolute; top: 50%; right: 9%;',
+				'  width: 200px; height: 200px; margin-top: -100px; border-radius: 50%;',
+				'  border: 1.5px solid rgba(255,255,255,0.22); pointer-events: none; z-index: 1; }',
+				'.mn-t1[data-mn-motif="spy"] .mn-spy1::before { content: ""; position: absolute;',
+				'  top: 50%; left: -16px; right: -16px; height: 1px; background: rgba(255,255,255,0.18); }',
+				'.mn-t1[data-mn-motif="spy"] .mn-spy1::after { content: ""; position: absolute;',
+				'  left: 50%; top: -16px; bottom: -16px; width: 1px; background: rgba(255,255,255,0.18); }',
+				'.mn-t1[data-mn-motif="spy"] .mn-spy2 { position: absolute; top: 50%; right: 9%;',
+				'  width: 120px; height: 120px; margin: -60px 40px 0 0; border-radius: 50%;',
+				'  border: 1px solid rgba(255,255,255,0.14); pointer-events: none; z-index: 1; }',
+			// ---- tier 2: Gallery (26-50) — card with backdrop, no poster ----
+			'.mn-t2 { min-height: 100px !important; border-radius: 6px; position: relative;',
 			'  overflow: hidden; margin-bottom: 4px;',
-			'  background: linear-gradient(135deg, #091d22, #0e2a30); }',
+			'  background: linear-gradient(135deg, var(--mn-tier-bg, #091d22), var(--mn-tier-bg2, #0e2a30)); }',
 			'.mn-t2::before { content: ""; position: absolute; inset: 0;',
 			'  background-image: var(--mn-bg); background-size: cover; background-position: center 25%;',
 			'  z-index: 0; pointer-events: none; }',
 			'.mn-t2 > * { z-index: 1; }',
-			'.mn-t2 .mn-rank { font-size: 36px; width: 70px; }',
+			'.mn-t2 .mn-rank { font-size: 28px; width: 60px; text-shadow: 0 1px 4px rgba(0,0,0,.7); }',
 			'.mn-t2 .listItemImage { display: none !important; }',
 			'.mn-t2 .listItemBody { text-shadow: 0 1px 6px rgba(0,0,0,.8);',
-			'  padding: 12px; display: flex; flex-direction: column; justify-content: center; }',
-			'.mn-t2 .listItemBodyText:first-child { font-size: 1.2em; font-weight: 700; }',
-			'.mn-t2 .mn-logo { max-height: 34px; max-width: 200px; object-fit: contain;',
+			'  padding: 10px 14px !important; display: flex; flex-direction: column; justify-content: center;',
+			'  flex: 1 !important; }',
+			'.mn-t2 .listItemBodyText:first-child { font-size: 1em; font-weight: 600; }',
+			'.mn-t2 .mn-logo { max-height: 30px; max-width: 200px; object-fit: contain;',
 			'  object-position: left center; margin-bottom: 4px; }',
-			'.mn-t2 .mn-fact { font-size: 10px; letter-spacing: 2px;',
-			'  color: rgba(255,255,255,0.6); text-transform: uppercase; margin-top: 2px; }',
+			'.mn-t2 .mn-fact { display: none; }',
 			'.mn-t2 .mn-meta-line { margin-top: 4px; display: flex; align-items: baseline; }',
-			'.mn-t2 .mn-year { font-weight: 700; font-size: 15px; letter-spacing: 2px;',
+			'.mn-t2 .mn-year { font-weight: 700; font-size: 14px; letter-spacing: 1.5px;',
 			'  color: var(--primary-accent-color, #47c4b8); }',
 			'.mn-t2 .mn-runtime { font-size: 11px; letter-spacing: 1.5px;',
-			'  color: rgba(255,255,255,0.6); margin-left: 6px; }',
-			// Tier 2 two-column layout — handled by flex-wrap in jellyfin-custom.css
-				// ---- tier 3: Ledger (51+) ----
-				'.mn-t3 .mn-rank { font-size: 22px; width: 56px; text-shadow: 0 1px 4px rgba(0,0,0,.7); }',
-				'.mn-t3 .listItemBody { padding: 0 8px !important; }',
-				'.mn-t3 .mn-meta-line { display: inline; margin-left: 8px; }',
-				'.mn-t3 .mn-year { font-size: 13px; color: rgba(255,255,255,0.5); }',
-				'.mn-t3 .mn-runtime { font-size: 13px; color: rgba(255,255,255,0.35); margin-left: 6px; }',
+			'  color: rgba(255,255,255,0.5); margin-left: 6px; }',
+			// ---- tier 3: Ledger (51+) — identical to tier 2 ----
+			'.mn-t3 { min-height: 100px !important; height: auto !important; border-radius: 6px; position: relative;',
+			'  overflow: hidden; margin-bottom: 4px;',
+			'  background: linear-gradient(135deg, var(--mn-tier-bg, #091d22), var(--mn-tier-bg2, #0e2a30)); }',
+			'.mn-t3::before { content: ""; position: absolute; inset: 0;',
+			'  background-image: var(--mn-bg); background-size: cover; background-position: center 25%;',
+			'  z-index: 0; pointer-events: none; }',
+			'.mn-t3 > * { z-index: 1; }',
+			'.mn-t3 .mn-rank { font-size: 28px; width: 60px; text-shadow: 0 1px 4px rgba(0,0,0,.7); }',
+			'.mn-t3 .listItemImage { display: none !important; }',
+			'.mn-t3 .listItemBody { text-shadow: 0 1px 6px rgba(0,0,0,.8);',
+			'  padding: 10px 14px !important; display: flex; flex-direction: column; justify-content: center;',
+			'  flex: 1 !important; }',
+			'.mn-t3 .listItemBodyText:first-child { font-size: 1em; font-weight: 600; }',
+			'.mn-t3 .mn-logo { max-height: 30px; max-width: 200px; object-fit: contain;',
+			'  object-position: left center; margin-bottom: 4px; }',
+			'.mn-t3 .mn-fact { display: none; }',
+			'.mn-t3 .mn-meta-line { margin-top: 4px; display: flex; align-items: baseline; }',
+			'.mn-t3 .mn-year { font-weight: 700; font-size: 14px; letter-spacing: 1.5px;',
+			'  color: var(--primary-accent-color, #47c4b8); }',
+			'.mn-t3 .mn-runtime { font-size: 11px; letter-spacing: 1.5px;',
+			'  color: rgba(255,255,255,0.5); margin-left: 6px; }',
 			].join('\n');
 			document.head.appendChild(st);
 		}
-	var container = document.querySelector('#childrenContent .itemsContainer');
+	// Resolve the VISIBLE detail page FIRST and scope every query to it. Jellyfin's
+	// viewManager keeps the previous details page in the DOM (display:none) with its OWN
+	// #childrenContent — a document-wide querySelector returned the STALE page's container,
+	// so decoration (and .mn-ready) landed on the hidden page while the visible one sat
+	// behind the CSS opacity:0 gate forever = blank page after the overlay's 12s cap.
+	var page = document.querySelector('.itemDetailPage:not(.hide)');
+	if (!page) return;
+	var container = page.querySelector('#childrenContent .itemsContainer');
 	if (!container) return;
 
-	var page = document.querySelector('.itemDetailPage:not(.hide)') || document.body;
+	// Kick off (or retry) the lazy People fetch — no-op once done or while in flight.
+	fetchTop100People();
+
 	page.classList.add('mn-top100');
 
 	// ---- hide clutter via JS (beats scyfin's !important CSS) ----------------------------
 	var clutter =
 		'.itemDetailsGroup, .detailSectionContent, .cardImageContainer.coveredImage,' +
 		'.detailImageContainer, .itemBackdrop, .itemName, .infoWrapper .nameContainer,' +
-		'.infoWrapper .itemMiscInfo-primary';
+		'.infoWrapper .itemMiscInfo-primary, #similarCollapsible, .relatedItems';
 	page.querySelectorAll(clutter).forEach(function (el) { el.style.display = 'none'; });
 
 	// Hide secondary nav tabs (Home / Favourites bar)
@@ -1369,19 +1804,51 @@
 		var playlistBar = page.querySelector('.playlistActions, .playlistSelectionToolbar, .selectionCommandsPanel');
 		if (playlistBar) playlistBar.style.display = 'none';
 
-		// ---- loading spinner (shows while showcase builds) -----------------------------------
+		// ---- full-page loading overlay (shows while showcase builds) -------------------------
+		// Mounted on documentElement so nothing on the page shows through; themed bg straight
+		// from THEMES (the --mn-tier-bg vars are only set further down this function).
 		if (!container.querySelector('.mn-t1') && !container.querySelector('.mn-t2')) {
-			if (!document.getElementById('mn-top100-spinner')) {
-				var sp = document.createElement('div');
-				sp.id = 'mn-top100-spinner';
-				sp.className = 'mn-top100-spinner';
-				sp.textContent = 'Loading showcase\u2026';
-				container.parentNode.insertBefore(sp, container);
+			if (!document.getElementById('mn-top100-overlay')) {
+				var thOv = THEMES[sessionStorage.getItem('mnTheme')] || THEMES.canyon;
+				// Self-sufficient inline style (mirrors the boot splash): own @font-face + the
+				// same wordmark/pulsing-underline look, so the overlay never depends on branding
+				// CSS timing (the old CSS-only wordmark rendered in the fallback font whenever
+				// CustomCss hadn't landed yet). The 'Loading showcase\u2026' text-spinner is gone \u2014
+				// the calm pulsing bar is the loading affordance, exactly like the splash.
+				if (!document.getElementById('mn-top100-overlay-style')) {
+					var ovlSt = document.createElement('style');
+					ovlSt.id = 'mn-top100-overlay-style';
+					ovlSt.textContent =
+						'@font-face{font-family:"Palm Canyon Drive";src:url("/web/fonts/palm-canyon-drive.otf") format("opentype");font-weight:400;font-display:swap;}' +
+						'#mn-top100-overlay{position:fixed;inset:0;z-index:999998;display:flex;flex-direction:column;' +
+						'align-items:center;justify-content:center;opacity:1;transition:opacity .3s ease;pointer-events:none;}' +
+						'#mn-top100-overlay.mn-top100-overlay-out{opacity:0;}' +
+						// !important: the branding CSS global UI-face rule (`div { font-family:
+						// var(--mn-nav-font) !important }`) beats a plain declaration here (same
+						// bug as the boot splash wordmark).
+						'#mn-top100-overlay .mn-top100-overlay-wm{font-family:"Palm Canyon Drive",cursive,sans-serif!important;' +
+						'font-weight:400;font-size:44px;color:' + thOv.text + ';text-shadow:0 0 14px ' + thOv.accent + ';}' +
+						'#mn-top100-overlay .mn-top100-overlay-bar{margin-top:26px;width:120px;height:4px;border-radius:2px;' +
+						'background:' + thOv.accent + ';animation:mn-top100-ovl-pulse 2.4s ease-in-out infinite;}' +
+						'@keyframes mn-top100-ovl-pulse{0%,100%{opacity:.35;}50%{opacity:.7;}}';
+					document.head.appendChild(ovlSt);
+				}
+				var ovl = document.createElement('div');
+				ovl.id = 'mn-top100-overlay';
+				ovl.style.background = 'linear-gradient(135deg,' + thOv.bg + ',' + thOv.bg2 + ')';
+				ovl.innerHTML = '<div class="mn-top100-overlay-wm">Movie Night</div>' +
+					'<div class="mn-top100-overlay-bar"></div>';
+				document.documentElement.appendChild(ovl);
+				// HARD failure cap: whatever happens, the overlay drops and the rows show.
+				_top100OverlayTimer = setTimeout(function () { removeTop100Overlay(false); }, 12000);
+				// Navigating away before decoration completes also drops it immediately.
+				window.addEventListener('hashchange', function () { removeTop100Overlay(false); }, { once: true });
 			}
 		}
 
-		// ---- inject styled header (once) -----------------------------------------------------
-		if (!document.getElementById('mn-top100-header')) {
+		// ---- inject styled header (once per page node — scoped: a stale cached details page
+		// may still hold its own copy, which must not suppress this page's header) -------------
+		if (!page.querySelector('#mn-top100-header')) {
 			var hdr = document.createElement('div');
 			hdr.id = 'mn-top100-header';
 			hdr.className = 'mn-header';
@@ -1394,13 +1861,25 @@
 			container.parentNode.insertBefore(hdr, container);
 		}
 
+		// ---- theme-aware tier backgrounds (style block reads the vars; Canyon fallback) -------
+		var thName = sessionStorage.getItem('mnTheme');
+		var th = THEMES[thName] || null;
+		var tierBg = th ? th.bg : '#091d22';
+		var tierBg2 = th ? th.bg2 : '#0e2a30';
+		document.documentElement.style.setProperty('--mn-tier-bg', tierBg);
+		document.documentElement.style.setProperty('--mn-tier-bg2', tierBg2);
+		var bgm = /^#(..)(..)(..)$/.exec(tierBg);
+		var scrimRgb = bgm
+			? parseInt(bgm[1], 16) + ',' + parseInt(bgm[2], 16) + ',' + parseInt(bgm[3], 16)
+			: '9,29,34';
+
 		// ---- decorate rows -------------------------------------------------------------------
 		var rows = container.querySelectorAll(':scope > .listItem');
 		rows.forEach(function (row, i) {
 			if (row.dataset.mnShowcase) return;
 			row.dataset.mnShowcase = '1';
 			var rank = i + 1;
-			var tier = rank <= 10 ? 'mn-t1' : rank <= 50 ? 'mn-t2' : 'mn-t3';
+			var tier = rank <= 25 ? 'mn-t1' : rank <= 50 ? 'mn-t2' : 'mn-t3';
 			row.classList.add(tier);
 
 			// rank badge (remove any prior one from an earlier pass)
@@ -1412,19 +1891,31 @@
 
 			var mid = row.getAttribute('data-id');
 			var item = mid ? top100Items.get(mid) : null;
+			// Attach lazily-fetched People (loadLists refresh ticks replace top100Items entries,
+			// so re-attach at decoration time — dirName/topCast read item.People).
+			if (item && !item.People && top100PeopleById.has(mid)) item.People = top100PeopleById.get(mid);
 
 			// backdrop gradient — the 90deg left-heavy scrim suits the desktop row layout
 			// (text on the left); layout-mobile tier-1 anchors text at the BOTTOM with its
 			// own CSS scrim, so a light even wash keeps the art visible there instead of
 			// stacking two dark gradients.
-			if (tier !== 'mn-t3' && mid) {
-				var w = rank <= 10 ? 780 : 480;
+			if (mid) {
+				var w = rank <= 25 ? 780 : 480;
 				var scrim = document.documentElement.classList.contains('layout-mobile')
-					? 'linear-gradient(rgba(9,29,34,.30), rgba(9,29,34,.30)),'
-					: 'linear-gradient(90deg, rgba(9,29,34,.92), rgba(9,29,34,.45) 55%, rgba(9,29,34,.2)),';
-				row.style.setProperty('--mn-bg',
-					scrim +
-					'url("' + apiBase() + '/Items/' + mid + '/Images/Backdrop?maxWidth=' + w + '")');
+					? 'linear-gradient(rgba(' + scrimRgb + ',.30), rgba(' + scrimRgb + ',.30)),'
+					: 'linear-gradient(90deg, rgba(' + scrimRgb + ',.92), rgba(' + scrimRgb + ',.45) 55%, rgba(' + scrimRgb + ',.2)),';
+				var bgVal = scrim +
+					'url("' + apiBase() + '/Items/' + mid + '/Images/Backdrop?maxWidth=' + w + '")';
+				// Ranks 11-25 are tier-1 now but stay LAZY: --mn-bg is a CSS var the ::before
+				// backdrop reads whenever it lands, so tier-1 styling is indifferent to timing,
+				// and 25 eager 780px backdrops would hammer first paint.
+				var io = rank > 10 && bgObserver();
+				if (io) { // lazy: set --mn-bg only when the row nears the viewport (Task 4.2)
+					row.__mnBg = bgVal;
+					io.observe(row);
+				} else { // ranks 1-10, or no IntersectionObserver support: eager as before
+					row.style.setProperty('--mn-bg', bgVal);
+				}
 			}
 
 			// era border (tier 1 only)
@@ -1432,13 +1923,13 @@
 				row.style.setProperty('--mn-era', eraColor(item.ProductionYear));
 			}
 
-			// motif overlay (tier 1 — blinds or deco, assigned randomly per title)
+			// motif overlay (tier 1 — per-title map first, rank rotation for unmapped titles)
 			if (tier === 'mn-t1') {
 				// Clear prior motif elements
-				row.querySelectorAll('.mn-blinds,.mn-deco1,.mn-deco2').forEach(function (n) { n.remove(); });
+				row.querySelectorAll('.mn-blinds,.mn-deco1,.mn-deco2,.mn-scan,.mn-spy1,.mn-spy2').forEach(function (n) { n.remove(); });
 				if (!row.dataset.mnMotif) {
 					var motifs = ['blinds', 'deco', 'none'];
-					var motif = motifs[rank % motifs.length];
+					var motif = (item && motifForTitle(item.Name)) || motifs[rank % motifs.length];
 				if (motif === 'blinds') {
 					row.dataset.mnMotif = 'blinds';
 					var blindEl = document.createElement('div');
@@ -1457,12 +1948,25 @@
 					var d2 = document.createElement('div');
 					d2.className = 'mn-deco2';
 					row.appendChild(d2);
+				} else if (motif === 'scan') {
+					row.dataset.mnMotif = 'scan';
+					var sc = document.createElement('div');
+					sc.className = 'mn-scan';
+					row.appendChild(sc);
+				} else if (motif === 'spy') {
+					row.dataset.mnMotif = 'spy';
+					var sp1 = document.createElement('div');
+					sp1.className = 'mn-spy1';
+					row.appendChild(sp1);
+					var sp2 = document.createElement('div');
+					sp2.className = 'mn-spy2';
+					row.appendChild(sp2);
 			}
 			}
 		}
 
-		// ---- body enrichment (tier 1 & 2) ------------------------------------------------
-		if (tier !== 'mn-t3') {
+		// ---- body enrichment (all tiers) ---------------------------------------------------
+		{
 			var body = row.querySelector('.listItemBody');
 			if (!body) return;
 			var titleEl = body.querySelector('.listItemBodyText');
@@ -1479,7 +1983,7 @@
 				// clearlogo: if the item has a Logo image, insert an <img> and hide the text title
 				if (item && item.ImageTags && item.ImageTags.Logo && titleEl) {
 					var logoUrl = apiBase() + '/Items/' + mid + '/Images/Logo?maxWidth=' +
-						(rank <= 10 ? 380 : 200);
+						(rank <= 25 ? 380 : 200);
 					var logo = document.createElement('img');
 					logo.className = 'mn-logo';
 					logo.src = logoUrl;
@@ -1489,16 +1993,18 @@
 				}
 
 				// fact/flair lines (multi-line, each on its own div)
-				if (item && rank <= 10) {
-					// Tier 1 (Pantheon): director + cast
-					var dir = dirName(item);
-					if (dir) {
+				if (item && rank <= 25) {
+					// Tier 1 (Pantheon): CURATED director + cast — the director line only earns
+					// its place when the name means something (oscar-tagged Person or the famous
+					// list); cast prefers notable names over blanket top billing.
+					var dp = dirPerson(item);
+					if (dp && isNotable(dp)) {
 						var fDir = document.createElement('div');
 						fDir.className = 'mn-fact mn-first';
-						fDir.textContent = 'DIRECTED BY ' + dir.toUpperCase();
+						fDir.textContent = 'DIRECTED BY ' + dp.Name.toUpperCase();
 						body.appendChild(fDir);
 					}
-					var cast = topCast(item, 3);
+					var cast = curatedCast(item, 3);
 					if (cast.length) {
 						var fCast = document.createElement('div');
 						fCast.className = 'mn-fact';
@@ -1529,32 +2035,14 @@
 					if (rt) {
 						meta.innerHTML += '<span class="mn-runtime">  ·  ' + rt + '</span>';
 					}
-					body.appendChild(meta);
-				}
+				body.appendChild(meta);
 			}
+		}
 
-			// ---- body enrichment (tier 3: ledger) --------------------------------------------
-			if (tier === 'mn-t3' && item) {
-				var body3 = row.querySelector('.listItemBody');
-				if (!body3) return;
-				// Clear prior enrichment
-				body3.querySelectorAll('.mn-meta-line').forEach(function (n) { n.remove(); });
-				// hide stock elements via JS
-				row.querySelectorAll('.listItemMediaInfo, .listViewUserDataButtons').forEach(function (el) {
-					el.style.display = 'none';
-				});
-				// append year + runtime inline after the title
-				var meta3 = document.createElement('span');
-				meta3.className = 'mn-meta-line';
-				var y3 = item.ProductionYear ? '<span class="mn-year">' + item.ProductionYear + '</span>' : '';
-				var r3 = rtText(item.RunTimeTicks);
-				meta3.innerHTML = y3 + (r3 ? '<span class="mn-runtime">  ·  ' + r3 + '</span>' : '');
-				body3.appendChild(meta3);
-			}
 		});
 
 		// ---- poster size upgrade (every scan — lazy loader may reset backgrounds) -------------
-		container.querySelectorAll('.mn-t1 .listItemImage, .mn-t2 .listItemImage').forEach(function (img) {
+		container.querySelectorAll('.mn-t1 .listItemImage, .mn-t2 .listItemImage, .mn-t3 .listItemImage').forEach(function (img) {
 			var bg = img.style.backgroundImage || '';
 			if (!bg || bg.indexOf('fillWidth=200') !== -1) return;
 			var m = bg.match(/url\("?([^")]+)"?\)/);
@@ -1564,10 +2052,11 @@
 				.replace(/fillHeight=\d+/, 'fillHeight=300') + '")';
 		});
 
-		// ---- mark container ready (removes opacity:0 from CSS, removes spinner) --------------
+		// ---- mark container ready (removes opacity:0 from CSS) -------------------------------
 		container.classList.add('mn-ready');
-		var spinner = document.getElementById('mn-top100-spinner');
-		if (spinner) spinner.remove();
+		// Overlay fades only once decoration actually painted rows — an early pass with an
+		// empty container keeps it up (the 12s cap above still guarantees removal).
+		if (rows.length) removeTop100Overlay(true);
 	}
 
 	// ---- sidebar drawer: apply inline styles directly (beats all imported CSS) ----------------
@@ -1720,32 +2209,115 @@
 			scope.querySelectorAll('.listItem[data-id]').forEach(decorateItem);
 			decorateDetails();
 		}
-		playlistClicksToDetails();
-		shuffleWatchlist();
-		showcaseTop100();
-		// MUST run every scan: Jellyfin destroys & rebuilds the drawer nav on open/close, wiping
-		// our injected entries and inline styles. Both are cheap+idempotent — addSidebarEntries()
-		// no-ops when the entries already exist, and themeDrawer() now reads its CSS vars from
-		// _drawerCssCache (the one genuinely expensive part, cached once). A boolean/hash guard
-		// here makes Top 100/Watchlist vanish after the first drawer rebuild (regression fixed).
-		addSidebarEntries();
-		addControlEntries(); // mirror header-right controls into the drawer (#18)
-		orderDrawer(); // enforce nav order + divider; rename TV → TV Shows (#18)
-		themeDrawer(); // apply inline styles to sidebar drawer (beats all imported CSS)
+		// Route-gate the details-page-only tasks (Task 3.3): playlist row retargeting, Watchlist
+		// shuffle and the Top 100 showcase can only ever apply on #/details views. Each still has
+		// its own internal id/hash check — this outer gate just skips the work everywhere else.
+		if ((location.hash || '').indexOf('/details') !== -1) {
+			playlistClicksToDetails();
+			shuffleWatchlist();
+			showcaseTop100();
+		}
+		// Drawer tasks: MUST run whenever the drawer exists — Jellyfin destroys & rebuilds the
+		// drawer nav on open/close, wiping our injected entries and inline styles. All four are
+		// cheap+idempotent (addSidebarEntries no-ops when entries exist, orderDrawer has a churn
+		// guard, themeDrawer reads its CSS vars from _drawerCssCache). A boolean/hash guard here
+		// makes Top 100/Watchlist vanish after the first drawer rebuild (regression fixed) — the
+		// only safe outer gate is container existence.
+		if (document.querySelector('.libraryMenuOptions')) {
+			addSidebarEntries();
+			addControlEntries(); // mirror header-right controls into the drawer (#18)
+			orderDrawer(); // enforce nav order + divider; rename TV → TV Shows (#18)
+			themeDrawer(); // apply inline styles to sidebar drawer (beats all imported CSS)
+		}
+	}
+
+	// ---- observer pipeline (DESIGN-PERF-LOADING.md Task 3.1) -----------------------------------
+	// Cards are decorated the same frame their nodes are added — no silence-debounce. (The old
+	// 500ms trailing-reset debounce never fired during progressive loading on slow CPUs, so
+	// badges lagged 30+ seconds.) A throttled full scan() still runs for the non-card chrome
+	// (drawer entries, details page, showcase), at most once per 150ms of mutation activity.
+	var CARD_SEL = '.card[data-id], .listItem[data-id]';
+	// Our own injected DOM — mutations inside these must never trigger decoration walks.
+	var OWN_SEL = '.curated-rank, .curated-bookmark, .oscar-stack, .oscar-plaque, .mn-oscar-text,' +
+		' .nation-flag, .mn-rank, .mn-blinds, .mn-deco1, .mn-deco2, .mn-logo, .mn-fact,' +
+		' .mn-meta-line, [data-curated], #mn-wordmark, #mn-splash, #mn-top100-header, .mn-top100-overlay-bar,' +
+		' #mn-top100-overlay';
+	function isOwnFlair(el) {
+		return !!(el && el.nodeType === 1 && el.closest && el.closest(OWN_SEL));
+	}
+	var _scanTimer = null;
+	function scheduleScan() {
+		// Throttle, NOT a trailing-reset debounce: guarantees scan() runs within 150ms even when
+		// the DOM never goes quiet (the exact failure mode of the old 500ms debounce).
+		if (_scanTimer) return;
+		_scanTimer = setTimeout(function () { _scanTimer = null; scan(); }, 150);
+	}
+	function onMutations(muts) {
+		var sawForeign = false;
+		for (var i = 0; i < muts.length; i++) {
+			var m = muts[i];
+			if (isOwnFlair(m.target)) continue; // self-mutation guard: our flair being (re)built
+			for (var j = 0; j < m.addedNodes.length; j++) {
+				var n = m.addedNodes[j];
+				if (n.nodeType !== 1 || isOwnFlair(n)) continue;
+				sawForeign = true;
+				if (!loaded) continue;
+				// Same-frame decoration: the node itself, then matching descendants.
+				if (n.matches && n.matches(CARD_SEL)) decorateItem(n);
+				if (n.querySelectorAll) n.querySelectorAll(CARD_SEL).forEach(decorateItem);
+			}
+			// Removals matter too (view teardown → drawer/details rebuild follows), but ignore
+			// our own flair being cleaned up (detached nodes: closest() is gone, matches() works).
+			if (!sawForeign) {
+				for (var k = 0; k < m.removedNodes.length; k++) {
+					var rn = m.removedNodes[k];
+					if (rn.nodeType === 1 && !(rn.matches && rn.matches(OWN_SEL))) { sawForeign = true; break; }
+				}
+			}
+		}
+		if (sawForeign) scheduleScan(); // chrome tasks (drawer/details/showcase) ride the throttle
 	}
 
 	function start() {
 		injectStyles();
-		var t;
-		var obs = new MutationObserver(function () { clearTimeout(t); t = setTimeout(scan, 500); });
+		hydrateFromCache(); // Task 3.2: decorate from localStorage immediately, network refines later
+		var obs = new MutationObserver(onMutations);
+		// document.body (not a content container): the drawer, dialogs and the details page all
+		// live outside .mainContent — per-mutation work above is cheap and self-guarded enough.
 		obs.observe(document.body, { childList: true, subtree: true });
 		window.addEventListener('hashchange', function () { setTimeout(scan, 150); });
+		// ---- mobile nav drawer auto-close (html.layout-mobile is THE mobile signal) ------------
+		// On phone/tablet the drawer is an overlay that stays open after tapping a nav link.
+		// Delegated capture listener on document (survives body wipes): after a navigation click
+		// inside .mainDrawer, close the drawer the way its library does — click the visible mask
+		// (div.tmla-mask, created by the touch-menu-la lib; its own click handler runs the animated
+		// close) — falling back to stripping the drawer-open class. 50ms delay so the link's own
+		// navigation handler fires first. Desktop (no .layout-mobile) is a no-op.
+		document.addEventListener('click', function (e) {
+			if (!document.documentElement.classList.contains('layout-mobile')) return;
+			var t = e.target && e.target.closest
+				? e.target.closest('.mainDrawer a[href], .mainDrawer .navMenuOption, .mainDrawer .lnkMediaFolder, .mainDrawer [data-action]')
+				: null;
+			if (!t) return;
+			setTimeout(function () {
+				var drawer = document.querySelector('.mainDrawer');
+				if (!drawer || !drawer.classList.contains('drawer-open')) return;
+				var mask = document.querySelector('.tmla-mask:not(.hide), .mainDrawer-scrim:not(.hide)');
+				if (mask) mask.click();
+				else drawer.classList.remove('drawer-open');
+			}, 50);
+		}, true);
+		scan(); // initial pass over whatever already rendered (cache-hydrated data ready)
+		// ONE hidden-aware refresh interval for all three loaders (was 3 separate intervals).
 		loadLists();
-		setInterval(loadLists, REFRESH_MS);
 		loadOscars();
-		setInterval(loadOscars, REFRESH_MS);
 		loadNations();
-		setInterval(loadNations, REFRESH_MS);
+		setInterval(function () {
+			if (document.hidden) return; // background tabs skip the rebuild entirely
+			loadLists();
+			loadOscars();
+			loadNations();
+		}, REFRESH_MS);
 	}
 
 	function waitForApi() {

@@ -608,19 +608,19 @@ else
         row("ShelfI";                 4; true;  false; 10; "Landscape"),
         row("ShelfJ";                 4; true;  false; 10; "Landscape"),
         row("BecauseYouWatched";      5; true;  true;  4; "Landscape"),
-        row("ShelfK";                 6; true;  false; 10; "Landscape"),
-        row("ShelfL";                 6; true;  false; 10; "Landscape"),
-        row("ShelfM";                 6; true;  false; 10; "Landscape"),
-        row("ShelfN";                 6; true;  false; 10; "Landscape"),
-        row("ShelfO";                 6; true;  false; 10; "Landscape"),
-        row("ShelfP";                 6; true;  false; 10; "Landscape"),
-        row("ShelfQ";                 6; true;  false; 10; "Landscape"),
-        row("ShelfR";                 6; true;  false; 10; "Landscape"),
-        row("ShelfS";                 6; true;  false; 10; "Landscape"),
-        row("ShelfT";                 6; true;  false; 10; "Landscape"),
+        row("ShelfK";                 6; false;  false; 10; "Landscape"),
+        row("ShelfL";                 6; false;  false; 10; "Landscape"),
+        row("ShelfM";                 6; false;  false; 10; "Landscape"),
+        row("ShelfN";                 6; false;  false; 10; "Landscape"),
+        row("ShelfO";                 6; false;  false; 10; "Landscape"),
+        row("ShelfP";                 6; false;  false; 10; "Landscape"),
+        row("ShelfQ";                 6; false;  false; 10; "Landscape"),
+        row("ShelfR";                 6; false;  false; 10; "Landscape"),
+        row("ShelfS";                 6; false;  false; 10; "Landscape"),
+        row("ShelfT";                 6; false;  false; 10; "Landscape"),
         row("RecentlyAddedMovies";    7; false; true;  1; "Landscape"),
         row("RecentlyAddedShows";     7; false; true;  1; "Landscape"),
-        row("Genre";                  8; true;  true;  3; "Landscape"),
+        row("Genre";                  8; false;  true;  3; "Landscape"),
         row("TopTen";                 8; true;  false; 1; "Landscape"),
         row("WatchAgain";             8; true;  false; 1; "Landscape"),
         row("DiscoverMovies";        11; false; false; 1; "Portrait"),
@@ -696,8 +696,12 @@ else
   if [[ "$(jq -S . <<<"$js_cur")" == "$(jq -S . <<<"$js_desired")" ]]; then
     ok "web flair script already up to date in JavaScript Injector"
   else
+    # --data-binary @file: flair.js grew past the exec single-arg limit ("Argument list too long" with -d "$json")
+    js_tmp=$(mktemp)
+    printf '%s' "$js_desired" > "$js_tmp"
     curl -fsS --max-time 30 -X POST "$JF/Plugins/$js_id/Configuration" -H "X-Emby-Token: $token" \
-      -H 'Content-Type: application/json' -d "$js_desired" >/dev/null
+      -H 'Content-Type: application/json' --data-binary @"$js_tmp" >/dev/null
+    rm -f "$js_tmp"
     ok "web flair script pushed to JavaScript Injector (served at /JavaScriptInjector/public.js; hard-refresh browser)"
   fi
 fi
