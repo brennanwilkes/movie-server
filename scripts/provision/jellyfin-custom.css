@@ -168,6 +168,11 @@ progress::-webkit-progress-value {
 .layout-desktop .hideMainDrawer .mainDrawer {
     left: -320px !important;
 }
+/* Hide the Movie Night wordmark when the video player is active (body gets hide-scroll during playback) */
+body.hide-scroll #mn-wordmark,
+body.hideMainDrawer #mn-wordmark {
+    display: none !important;
+}
 /* Fix for collection items misalignment */
 .layout-desktop .collectionItems .collectionItemsContainer {
     padding-left: 0% !important;
@@ -237,7 +242,7 @@ progress::-webkit-progress-value {
     background-color: none !important;
 }
 .innerCardFooter .cardText {
-    padding: 0 0 0 10px !important
+    padding: 0 0 0 10px !important;
 }
 .cardImageContainer .innerCardFooter .itemProgressBar .itemProgressBarForeground {
     background: var(--primary-accent-color) !important;
@@ -337,7 +342,7 @@ html,
     padding: 20px 10px !important;
 }
 /* Move left header back up */
-.layout-desktop .headerLeft
+.layout-desktop .headerLeft,
 .layout-tv .headerLeft {
     position: relative !important;
     top: -17px !important;
@@ -1552,7 +1557,7 @@ body, h1, h2, h3, h4, p, span, div, .mainDrawer, .emby-button, .headerTabs, .sec
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--mn-scrollbar-color); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--mn-scrollbar-color) 150%, transparent); }
+::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--mn-scrollbar-color) 70%, white 30%); }
 
 /* ── Divider styling ── */
 .listItem-border {
@@ -1695,12 +1700,21 @@ html.layout-mobile .selectionToolbar {
   display: none !important;
 }
 
-/* Mobile: let section/detail titles wrap instead of truncating/clipping (stock jellyfin-web
-   applies nowrap/ellipsis constraints we can't see here — conservative override, UNVERIFIED). */
-html.layout-mobile .detailPagePrimaryContainer .itemName,
-html.layout-mobile .sectionTitle {
+/* Mobile: detail page item names wrap normally (can be long); section row
+   headers stay single-line with ellipsis truncation. */
+html.layout-mobile .detailPagePrimaryContainer .itemName {
   white-space: normal;
   overflow-wrap: break-word;
+}
+html.layout-mobile .sectionTitleContainer {
+  width: auto !important;
+  max-width: none !important;
+  flex: 1 !important;
+}
+html.layout-mobile .sectionTitle {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
 /* Text-only Oscar badge — MOBILE-ONLY (html.layout-mobile): the flair JS inserts
@@ -1728,27 +1742,23 @@ html.layout-mobile .sectionTitle {
   border-color: rgba(192, 192, 196, .35);
 }
 
-/* Card hover: themed accent outline + subtle glow — CONTAINMENT-PRESERVING (task 8.1 / perf D2).
-   Jellyfin gives .listItem overflow:hidden and .cardImageContainer contain:strict; that paint
-   containment is load-bearing on 200-card grids, so we no longer strip it (the old
-   overflow:visible/contain:none overrides defeated containment for the whole row on hover).
-   Instead the glow box-shadow lives on the OUTER element itself: an element's own box-shadow
-   is not clipped by its own overflow/contain — only descendants' painting is. The accent
-   border stays on the image container (borders paint inside the border box, nothing escapes).
+/* List-row hover: themed accent outline + glow on the THUMBNAIL only.
+   The glow used to sit on .listItem itself, which wrapped the whole row (thumbnail + title +
+   metadata + padding) in a giant accent ring — the same oversized-border bug as the cards.
+   .listItem is `overflow: hidden` in core CSS, so a descendant's box-shadow is clipped; we
+   lift that on the hovered row ONLY (a single element at a time, so the 200-card grid keeps
+   its containment — this is not the blanket override that caused the old perf regression).
    Glow is gated: only themes with --mn-glow-color != transparent get the shadow. */
+.listItem:not(.mn-t1):not(.mn-t2):not(.mn-t3):hover {
+  overflow: visible;
+}
 .listItem:not(.mn-t1):not(.mn-t2):not(.mn-t3):hover .cardImageContainer,
 .listItem:not(.mn-t1):not(.mn-t2):not(.mn-t3):hover .listItemImage {
   border-radius: var(--mn-card-radius) !important;
-}
-[mn-glow-color]:not([mn-glow-color="transparent"]) .listItem:not(.mn-t1):not(.mn-t2):not(.mn-t3):hover {
-  border-radius: var(--mn-card-radius);
+  border: 1px solid var(--primary-accent-color) !important;
   box-shadow:
     0 0 8px var(--primary-accent-color),
     0 0 var(--mn-glow-spread) var(--mn-glow-color) !important;
-}
-[mn-glow-color]:not([mn-glow-color="transparent"]) .listItem:not(.mn-t1):not(.mn-t2):not(.mn-t3):hover .cardImageContainer,
-[mn-glow-color]:not([mn-glow-color="transparent"]) .listItem:not(.mn-t1):not(.mn-t2):not(.mn-t3):hover .listItemImage {
-  border: 1px solid var(--primary-accent-color) !important;
 }
 .card:hover {
   transform: scale(1.02) !important;
@@ -1762,28 +1772,28 @@ html.layout-mobile .sectionTitle {
   transform: none !important;
 }
 
-/* Subtle hover glow on home page cards — CONTAINMENT-PRESERVING (task 8.1 / perf D2).
-   .card has `contain: layout style paint` in Jellyfin main CSS; contain:paint clips
-   DESCENDANTS' painting to the card's bounds, but never the card's OWN box-shadow.
-   So the glow goes on .card itself and all of Jellyfin's containment stays intact
-   (.card, .cardContent contain:strict, .cardImageContainer contain:strict — none touched).
-   Visual delta vs the old contain:none approach: the glow hugs the full card box
-   (image + text footer) instead of just the image — acceptable for the perf win. */
+/* Subtle hover glow on home page cards — POSTER-HUGGING and containment-preserving.
+   The glow rides on .cardScalable, which wraps ONLY the poster box (.cardText is its
+   sibling inside .cardBox, not a child). Putting it on .card instead made the ring
+   enclose the title/year footer and the card margin, which reads as a broken oversized
+   border — the bug this replaces.
+   Safe for containment: in this Jellyfin build .card has no containment at all,
+   .cardScalable is `contain: layout style` and .cardBox is `contain: style` — none of
+   them is `contain: paint`, so an element's own box-shadow is never clipped here and we
+   do not have to relax containment on any element to let the glow escape. */
 .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) {
   position: relative;
   z-index: 10;
 }
-/* .cardImageContainer keeps its containment; radius so the image matches the theme shape. */
-.card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardImageContainer {
-  border-radius: var(--mn-card-radius) !important;
-}
-[mn-glow-color]:not([mn-glow-color="transparent"]) .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) {
+.card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardScalable {
   border-radius: var(--mn-card-radius);
   box-shadow:
     0 0 8px var(--primary-accent-color),
     0 0 var(--mn-glow-spread) var(--mn-glow-color) !important;
 }
-[mn-glow-color]:not([mn-glow-color="transparent"]) .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardImageContainer {
+/* .cardImageContainer keeps its containment; radius so the image matches the theme shape. */
+.card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardImageContainer {
+  border-radius: var(--mn-card-radius) !important;
   border: 1px solid var(--primary-accent-color) !important;
 }
 
@@ -2123,9 +2133,7 @@ html[mn-texture-crosshatch="1"]:not(.layout-mobile) body::before {
   }
   .mn-t2 { min-height: 80px !important; }
   .mn-t3 { min-height: 80px !important; height: auto !important; }
-  .mn-t3::before {
-    display: none !important;
-  }
+
   .mn-t2 .listItemImage, .mn-t3 .listItemImage {
     display: none !important;
   }
@@ -2179,8 +2187,8 @@ html[mn-texture-crosshatch="1"]:not(.layout-mobile) body::before {
   [mn-glow-text="1"] .itemName {
     text-shadow: none !important;
   }
-  [mn-glow-color]:not([mn-glow-color="transparent"]) .listItem:hover .cardImageContainer,
-  [mn-glow-color]:not([mn-glow-color="transparent"]) .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardImageContainer {
+  .listItem:hover .cardImageContainer,
+  .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardImageContainer {
     box-shadow: 0 0 8px var(--primary-accent-color) !important;
   }
   /* Ensure card radius token is used on mobile too */
@@ -2910,9 +2918,7 @@ html.layout-mobile [mn-gilded-text="1"] .itemBackdrop::after {
    ══════════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 600px) {
   /* Section titles: avoid orphan-word wraps from wide tracking at 390px */
-  .sectionTitle {
-    text-wrap: balance;
-  }
+
 
   /* Captions/metadata: desktop tracking (0.15–0.2em at 11px) is below the phone
      legibility floor. Same voice, tighter tracking, +1px. Overrides §3 per-theme. */

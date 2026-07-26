@@ -65,10 +65,10 @@ async function stallRecovery() {
     const stalled = (t.state === 'stalledDL' || t.state === 'metaDL') && (t.progress || 0) < 1;
     if (!stalled) { _stallSince.delete(h); continue; }
     if (now - (_lastReannounce.get(h) || 0) > REANNOUNCE_EVERY) { _lastReannounce.set(h, now); qbitReannounce(h); }  // tier 1
-    // A stalledDL WITH seeds is recoverable — reannounce reconnects it, so don't abandon. But
+    // A stalledDL WITH active seeds is recoverable — reannounce reconnects it, so don't abandon. But
     // metaDL (can't even fetch the torrent's metadata) or a 0-seed stall is dead even if it claims
-    // a seed (an unresponsive one), so let those escalate to blocklist+research below.
-    if (t.state !== 'metaDL' && (t.num_complete || 0) > 0) { _stallSince.delete(h); continue; }
+    // a complete peer (num_complete is historical, not current), so let those escalate.
+    if (t.state !== 'metaDL' && (t.num_seeds || 0) > 0) { _stallSince.delete(h); continue; }
     if (!_stallSince.has(h)) _stallSince.set(h, now);
     if (now - _stallSince.get(h) < STALL_DEAD) continue;                                 // give a 0-seed swarm time to appear
     const app = torrentApp(t); const qrec = app && queues[app].get(h);

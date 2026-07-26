@@ -1,12 +1,12 @@
 /*
  * Curated-list flair for the Jellyfin WEB client (movies.local:8096/web/).
  *
- * Mirrors the Firestick fork. Two features, both driven by the native "Top 100" / "Watchlist"
- * playlists (in-app editing of those playlists is the source of truth):
- *   1. On every movie poster/thumbnail — a "#rank" pill (Top 100) and a bookmark (Watchlist).
+ * Mirrors the Firestick fork. One feature, driven by the native "Top 100" playlist (in-app
+ * editing of that playlist is the source of truth):
+ *   1. On every movie poster/thumbnail — a "#rank" pill (Top 100).
  *      Covers card grids, list rows, AND the item details page.
- *   2. Two navigation-drawer entries — "Top 100" and "Watchlist" — that open each playlist,
- *      replacing the generic "Playlists" entry.
+ *   2. A navigation-drawer entry — "Top 100" — that opens the playlist, replacing the generic
+ *      "Playlists" entry.
  *
  * (Hiding clutter auto-collections is NOT done here — it's server-side via a tag + the user's
  * BlockedTags policy, reconciled by sort-collections.sh. Client-side hiding flashed the card and
@@ -25,12 +25,12 @@
  * ── TABLE OF CONTENTS (search the "// ----" banner text; line numbers drift) ──────────────────
  *   IIFE 1  Pacific timezone patch (Date.prototype.toLocale*String)
  *   IIFE 2  main flair app:
- *     · config/state             — playlist names, ACCENT, REFRESH_MS, rank/watch caches
+ *     · config/state             — playlist names, ACCENT, REFRESH_MS, rank caches
  *     · helpers (Top 100 enrichment) — rtText / eraColor / dirName / topCast
  *     · styles (injected once)   — refreshBrandingCss() cache-buster + injectStyles()
  *     · data                     — ApiClient reads, loadLists() playlist membership
- *     · flair overlay            — rank pill + watchlist bookmark on posters/details
- *     · sidebar (navigation drawer) entries — Top 100 / Watchlist replace "Playlists"
+ *     · flair overlay            — rank pill on posters/details
+ *     · sidebar (navigation drawer) entries — Top 100 replaces "Playlists"
  *     · scan / observe           — MutationObserver + hashchange lifecycle
  *     · Top 100 web showcase     — Pantheon/Gallery/Ledger tiered playlist page
  *     · web theme roulette       — nested IIFE; per-tab palette from THEMES (see below)
@@ -64,13 +64,11 @@
 	'use strict';
 
 	var TOP_100 = 'Top 100';
-	var WATCHLIST = 'Watchlist';
 	var ACCENT = '#00a4dc'; // jellyfin_blue, matches the app theme + the Firestick badges
 	var REFRESH_MS = 5 * 60 * 1000; // re-pull playlist membership every 5 min
 	var MARK = 'curatedFlairId'; // dataset key: which item id an element was last decorated for
 
 	var rankById = new Map(); // itemId -> 1-based rank in Top 100
-	var watchSet = new Set(); // itemIds in Watchlist
 	var oscarById = new Map(); // MOVIE id -> {w:wins, l:losses} from oscar-* Tags (bulk-loaded)
 	var oscarByIdOnDemand = new Map(); // any id -> {w,l} or null — on-demand cache for PEOPLE (the
 	// /Persons endpoint ignores the Tags filter and has 22k rows, so people can't be bulk-loaded;
@@ -370,7 +368,6 @@
 	}
 
 	function injectStyles() {
-		ensureOscarDefs();   // idempotent; gradients must exist before any stack renders
 		if (document.getElementById('curated-flair-styles')) return;
 		// @font-face for Poppins — standalone CSS file in /web/fonts/ (not in CustomCss which may
 		// strip @font-face, not inline <style> which may not trigger font loading after paint).
@@ -387,15 +384,12 @@
 		// Bust the Branding CSS cache — must run every page load.
 		refreshBrandingCss();
 		var css =
-			'.curated-rank,.curated-bookmark{position:absolute;z-index:3;pointer-events:none;}' +
+			'.curated-rank{position:absolute;z-index:3;pointer-events:none;}' +
 			'.curated-rank{top:4px;right:4px;padding:0 5px;border-radius:4px;' +
 			'font:700 12px/1.5 "Noto Sans",sans-serif;color:#fff;background:rgba(0,0,0,.62);' +
 			'border:1px solid var(--primary-accent-color, ' + ACCENT + ');white-space:nowrap;}' +
-			'.curated-bookmark{top:2px;left:4px;width:20px;height:20px;' +
-			'filter:drop-shadow(0 0 1px rgba(0,0,0,.7));}' +
 			// larger pill on the details page's big poster
 			'.curated-host-detail .curated-rank{top:8px;right:8px;padding:1px 8px;font-size:15px;}' +
-			'.curated-host-detail .curated-bookmark{top:6px;left:8px;width:28px;height:28px;}' +
 			// ---- Oscar plaque (LARGE-format surfaces: detail posters) ----
 			// The statuette cascade reads well at card size but looks busy on a big poster (Brennan
 			// 2026-07-17). Details get a themed corner plaque instead — same visual family as the
@@ -412,22 +406,9 @@
 			// compact variant for wide-but-not-huge artwork (list-row thumbnails)
 			'.oscar-plaque-sm{bottom:4px;right:4px;padding:2px 7px;font-size:10px;line-height:1.4;}' +
 			'.oscar-plaque-sm svg{width:7px;height:14px;vertical-align:-3px;margin-right:3px;}' +
-			// ---- Oscar statuette badges (gold = wins, silver = losing noms) ----
-			// Fanned cascade hanging off the poster's right edge, starting 22% down. 50% of each
-			// icon spills past the edge (translateX(50%)). aspect-ratio:1 makes the container's
-			// height equal its own width, so per-icon top/right % (set inline by oscarStackHtml)
-			// resolve against a single unit W. z-index:2 keeps the whole stack UNDER the #53
-			// corner motifs (.curated-rank / .curated-bookmark are z-index:3).
-			'.oscar-stack{position:absolute;top:11%;right:0;transform:translateX(55%);width:17%;' +
-			'min-width:14px;max-width:26px;aspect-ratio:1;z-index:2;pointer-events:none;' +
-			'filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));}' +
-			'.oscar-stack svg{position:absolute;width:100%;height:auto;display:block;overflow:visible;}' +
-			// fill comes from the inline metallic gradient (see oscarStackHtml) — CSS only strokes.
-			'.oscar-win path{stroke:#8A6B1F;stroke-width:1;}' +
-			'.oscar-nom path{stroke:#6D7278;stroke-width:1;}' +
-			'.curated-host-detail .oscar-stack{max-width:40px;}' +
+
 			// ---- Nation flags (retro "luggage sticker" — see nation-tags.js sweep) ----
-			// Bottom-left corner (watchlist owns top-left, rank+oscars own the right side).
+			// Bottom-left corner (rank+oscars own the right side).
 			// z-index:2 like the oscar stack: under the #53 corner motifs. The tiny tilt is
 			// deliberate — sells the vintage-sticker look.
 			'.nation-flag{position:absolute;left:4px;bottom:4px;width:24%;min-width:20px;max-width:34px;' +
@@ -435,12 +416,7 @@
 			'filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));}' +
 			'.nation-flag svg{display:block;width:100%;height:auto;}' +
 			'.curated-host-detail .nation-flag{max-width:52px;left:8px;bottom:8px;}' +
-			// Mobile: cards are small and often landscape (short) — the half-off-the-edge fan
-			// clips at the viewport/card edge and can outgrow the card. Tuck the stack fully
-			// inside the poster and shrink it (oscarStackHtml also caps it to one column ≤600px).
 			'@media (max-width:600px){' +
-			'.oscar-stack{transform:none;right:3px;top:10%;width:13%;min-width:12px;max-width:20px;}' +
-			'.curated-host-detail .oscar-stack{max-width:28px;}' +
 			// theme-token corner geometry on the rank pill (reelone=square, canyon=pill);
 			// desktop keeps the stock 4px look
 			'.curated-rank{border-radius:var(--mn-pill-radius,4px);}' +
@@ -451,12 +427,6 @@
 		style.id = 'curated-flair-styles';
 		style.textContent = css;
 		document.head.appendChild(style);
-	}
-
-	function bookmarkSvg() {
-		return '<svg class="curated-bookmark" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
-			'<path fill="' + ACCENT + '" stroke="rgba(0,0,0,.5)" stroke-width="1" ' +
-			'd="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1z"/></svg>';
 	}
 
 	// ---- data --------------------------------------------------------------------------------
@@ -491,13 +461,11 @@
 			if (r.idByName) idByName = r.idByName;
 			if (r.playlistsViewId) playlistsViewId = r.playlistsViewId;
 		}
-		var w = lsGet(cacheKey('mn_watchlist'));
-		if (w) watchSet = new Set(w);
 		var o = lsGet(cacheKey('mn_oscars'));
 		if (o) oscarById = new Map(o);
 		var n = lsGet(cacheKey('mn_nations'));
 		if (n) nationById = new Map(n);
-		if (r || w || o || n) loaded = true; // decoration may proceed from cache right away
+		if (r || o || n) loaded = true; // decoration may proceed from cache right away
 	}
 
 	// Diff helper: which keys changed/appeared/disappeared between two Maps (values compared by
@@ -521,7 +489,7 @@
 	// now-stale flair DOM — decorateItem early-returns before applyFlair when an id has no data,
 	// so applyFlair's own cleanup wouldn't run for removals), then let the next scan repaint them.
 	// Replaces the old wholesale document-wide marker nuke after every loader tick.
-	var STALE_FLAIR_SEL = '.curated-rank, .curated-bookmark, .oscar-stack, .oscar-plaque, .mn-oscar-text, .nation-flag';
+	var STALE_FLAIR_SEL = '.curated-rank, .oscar-stack, .oscar-plaque, .mn-oscar-text, .nation-flag';
 	function redecorateChanged(changedIds) {
 		if (!changedIds || !changedIds.size) return false;
 		var norm = new Set();
@@ -549,10 +517,8 @@
 				idByName = nextIds;
 				var jobs = [];
 				var nextRank = new Map();
-				var nextWatch = new Set();
 				var nextTop100Items = new Map();
 				var top100Id = nextIds[TOP_100];
-				var watchId = nextIds[WATCHLIST];
 				// Resolve the "Playlists" library view id so we can locate its drawer entry
 				// language-independently (its href has no collectionType marker in this build).
 				if (typeof a.getUserViews === 'function') {
@@ -577,32 +543,22 @@
 					});
 				}));
 			}
-			if (watchId) {
-				jobs.push(a.getJSON(a.getUrl('Playlists/' + watchId + '/Items', { UserId: userId }))
-					.then(function (r) {
-						((r && r.Items) || []).forEach(function (it) { if (it.Id) nextWatch.add(it.Id); });
-					}));
-			}
 			return Promise.all(jobs).then(function () {
 				var rankChanged = diffMapKeys(rankById, nextRank);
-				var watchChanged = diffSetKeys(watchSet, nextWatch);
 				// top100Items only ever comes from the network (not cached), so "was empty, now
 				// isn't" means showcase rows painted without clearlogos/fact lines and need a redo.
 				var enrichArrived = top100Items.size === 0 && nextTop100Items.size > 0;
 				rankById = nextRank;
 				top100Items = nextTop100Items;
-				watchSet = nextWatch;
 				loaded = true;
 				lsSet(cacheKey('mn_ranks'), {
 					ranks: Array.from(rankById.entries()),
 					idByName: idByName,
 					playlistsViewId: playlistsViewId || null,
 				});
-				lsSet(cacheKey('mn_watchlist'), Array.from(watchSet));
-				// DIFF instead of the old wholesale marker nuke: only ids whose rank/watch data
+				// DIFF instead of the old wholesale marker nuke: only ids whose rank data
 				// actually changed get their marker cleared and flair repainted.
 				var union = new Set(rankChanged);
-				watchChanged.forEach(function (k) { union.add(k); });
 				redecorateChanged(union);
 				// Showcase markers: only reset rows when rank order changed or enrichment arrived.
 				if (rankChanged.size || enrichArrived) {
@@ -616,7 +572,6 @@
 
 	function normalize(id) { return id ? id.replace(/-/g, '').toLowerCase() : id; }
 	function rankFor(id) { return rankById.get(id) || rankById.get(normalize(id)); }
-	function isWatch(id) { return watchSet.has(id) || watchSet.has(normalize(id)); }
 	// Oscar counts for any id: bulk movie map first, then the on-demand (people) cache. Returns a
 	// {w,l} object, or a falsy value when there are no awards / nothing is known yet.
 	function oscarFor(id) { return oscarById.get(id) || oscarById.get(normalize(id)) || oscarByIdOnDemand.get(normalize(id)); }
@@ -669,7 +624,7 @@
 	// ---- Oscar badges (see DESIGN-OSCAR-BADGES.md) --------------------------------------------
 	// The controller's oscarTagsSweep writes oscar-wins-N / oscar-noms-N Tags onto every Academy
 	// Award movie (noms here = LOSING nominations; wins are separate). We pull those items and
-	// parse the counts into oscarById, keyed by both GUID forms like rankById/watchSet.
+	// parse the counts into oscarById, keyed by both GUID forms like rankById.
 	var OSCAR_TAG_RE = /^oscar-(wins|noms)-(\d+)$/;
 	function parseOscarTags(tags) {
 		if (!tags || !tags.length) return null;
@@ -731,27 +686,6 @@
 	var OSCAR_ROWDX = 0.16;    // per-ROW leftward slide, as a fraction of icon WIDTH (the jitter)
 	var OSCAR_COLDX = 0.55;    // per-column leftward shift, as a fraction of icon WIDTH
 	var OSCAR_COLDY = 0.20;    // per-column downward shift, as a fraction of icon HEIGHT
-	// Metallic depth: horizontal gradients (lit left edge → deep shadow right) referenced by
-	// url(#…). The defs live in ONE persistent hidden svg on <body> (ensureOscarDefs): url()
-	// resolves document-wide to the FIRST matching id, so if the defs rode inside a stack that
-	// happened to be hidden or recycled, every other stack lost its fill and rendered as
-	// transparent outlines (the "outline-only statuettes" bug).
-	function ensureOscarDefs() {
-		if (document.getElementById('mn-oscar-defs')) return;
-		var holder = document.createElement('div');
-		holder.id = 'mn-oscar-defs';
-		// NOT display:none — some engines skip resource resolution inside display:none subtrees.
-		holder.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;';
-		holder.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg"><defs>' +
-			'<linearGradient id="mnOscGold" x1="0" y1="0" x2="1" y2="0">' +
-			'<stop offset="0" stop-color="#f9e6a0"/><stop offset=".45" stop-color="#e2b54e"/>' +
-			'<stop offset=".8" stop-color="#b3822a"/><stop offset="1" stop-color="#8a6b1f"/></linearGradient>' +
-			'<linearGradient id="mnOscSilver" x1="0" y1="0" x2="1" y2="0">' +
-			'<stop offset="0" stop-color="#f4f6f8"/><stop offset=".45" stop-color="#c3c8cf"/>' +
-			'<stop offset=".8" stop-color="#9aa0a8"/><stop offset="1" stop-color="#6d7278"/></linearGradient>' +
-			'</defs></svg>';
-		document.body.appendChild(holder);
-	}
 	// (oscarStackHtml — the fanned statuette cascade — was removed 2026-07-17; narrow MOBILE
 	// cards get a compact text badge (.mn-oscar-text). Desktop always uses the plaque below.)
 
@@ -1028,7 +962,7 @@
 			host.parentElement.classList.contains('cardScalable') ? host.parentElement : null;
 		if (scal) spillHost = scal; // .cardScalable is position:relative via jellyfin-custom.css
 		// Clear any prior flair on this host (recycled nodes / data refresh).
-		host.querySelectorAll(':scope > .curated-rank, :scope > .curated-bookmark, :scope > .oscar-stack, :scope > .oscar-plaque, :scope > .mn-oscar-text, :scope > .nation-flag').forEach(function (n) { n.remove(); });
+		host.querySelectorAll(':scope > .curated-rank, :scope > .oscar-stack, :scope > .oscar-plaque, :scope > .mn-oscar-text, :scope > .nation-flag').forEach(function (n) { n.remove(); });
 		if (spillHost !== host) spillHost.querySelectorAll(':scope > .oscar-stack').forEach(function (n) { n.remove(); });
 		var rank = rankFor(id);
 		if (rank) {
@@ -1037,7 +971,6 @@
 			pill.textContent = '#' + rank;
 			host.appendChild(pill);
 		}
-		if (isWatch(id)) host.insertAdjacentHTML('beforeend', bookmarkSvg());
 		// Oscars: DESKTOP (html NOT .layout-mobile) ALWAYS gets the two-line typed-out plaque —
 		// tiny statuette icons + branded border box, the exact home-card treatment (the Top 100
 		// posters measured <180px pre-layout and wrongly fell to the text pill). The compact
@@ -1094,7 +1027,7 @@
 		el.dataset[MARK] = id;
 		// Movies only otherwise (rank is a movie concept). Still mark, so we don't re-scan it.
 		if (type !== 'Movie') return;
-		if (!rankFor(id) && !isWatch(id) && !oscarFor(id) && !nationFor(id)) return;
+		if (!rankFor(id) && !oscarFor(id) && !nationFor(id)) return;
 		var host = el.querySelector('.cardImageContainer') || el.querySelector('.cardScalable') ||
 			el.querySelector('.listItemImage') || el.querySelector('.cardImage') || el;
 		applyFlair(host, id, false);
@@ -1123,7 +1056,7 @@
 	}
 
 	// ---- sidebar (navigation drawer) entries -------------------------------------------------
-	// Clone the native "Playlists" drawer link into "Top 100" and "Watchlist", then hide it.
+	// Clone the native "Playlists" drawer link into "Top 100", then hide it.
 	function findPlaylistsLink(container) {
 		// Prefer matching by the Playlists library-view id (language-independent).
 		if (playlistsViewId) {
@@ -1158,12 +1091,11 @@
 			playlistsLink.after(link);
 		}
 		// Insert in reverse so both land immediately after the original, in order.
-		ensureEntry('watchlist', WATCHLIST, idByName[WATCHLIST]);
 		ensureEntry('top100', TOP_100, idByName[TOP_100]);
 		// Hide the generic Playlists entry (re-applied every pass, since the drawer rebuilds).
 		// Use an !important inline style — the .hide class alone doesn't stick on the
 		// emby-linkbutton custom element in this build.
-		if (idByName[TOP_100] || idByName[WATCHLIST]) {
+		if (idByName[TOP_100]) {
 			playlistsLink.classList.add('hide');
 			playlistsLink.style.setProperty('display', 'none', 'important');
 		}
@@ -1231,7 +1163,7 @@
 
 	// ---- drawer ordering (#18) ---------------------------------------------------------------
 	// Desired visible order (Home lives OUTSIDE .libraryMenuOptions, always first, untouched):
-	//   Top 100 · All Movies · All TV Shows — divider — Search · Collections · Watchlist · Settings
+	//   Top 100 · All Movies · All TV Shows — divider — Search · Collections · Settings
 	// A thin divider separates the primary browse links from the low-priority Settings tail.
 	function navText(a) {
 		var t = a.querySelector('.navMenuOptionText, .sectionName');
@@ -1240,7 +1172,6 @@
 	function orderPriority(el) {
 		var cur = el.getAttribute('data-curated');
 		if (cur === 'top100') return 20;
-		if (cur === 'watchlist') return 87; // below Search in the tail
 		if (cur === 'ctrl-search') return 85; // Search — tail, above Settings
 		if (cur === 'ctrl-user') return 90;   // Settings — bottom of the tail
 		var txt = navText(el).toLowerCase();
@@ -1313,34 +1244,6 @@
 				el.removeAttribute('data-action');
 			});
 		});
-	}
-
-	// Shuffle the Watchlist detail page's rows on each visit, so it feels fresh — mirroring how
-	// the curated collection rows randomize (ItemSortBy.RANDOM) elsewhere. Scoped to the Watchlist
-	// playlist id ONLY: Top 100 keeps its hand-ranked order (Brennan's source of truth). Display
-	// only — we reorder DOM nodes, never the stored playlist. Shuffles once per rendered list
-	// (a dataset marker on the container), so a fresh visit (new container) reshuffles but scroll/
-	// mutations don't; our own reorder doesn't re-trigger since the marker is already set.
-	function shuffleWatchlist() {
-		var watchId = idByName[WATCHLIST];
-		if (!watchId) return;
-		var hash = location.hash || '';
-		if (hash.indexOf('/details') === -1) return;
-		var q = hash.split('?')[1];
-		if (!q) return;
-		var id;
-		try { id = new URLSearchParams(q).get('id'); } catch (e) { return; }
-		if (!id || normalize(id) !== normalize(watchId)) return; // only the Watchlist page
-		var container = document.querySelector('#childrenContent .itemsContainer');
-		if (!container || container.dataset.curatedShuffled) return;
-		var rows = Array.prototype.slice.call(container.querySelectorAll(':scope > .listItem'));
-		if (rows.length < 2) return; // nothing to shuffle (or not rendered yet — retry next tick)
-		container.dataset.curatedShuffled = '1';
-		for (var i = rows.length - 1; i > 0; i--) { // Fisher-Yates
-			var j = Math.floor(Math.random() * (i + 1));
-			var tmp = rows[i]; rows[i] = rows[j]; rows[j] = tmp;
-		}
-		rows.forEach(function (r) { container.appendChild(r); }); // re-append in shuffled order
 	}
 
 
@@ -1502,10 +1405,12 @@
 					if (!wmEl) {
 						wmEl = document.createElement('div');
 						wmEl.id = 'mn-wordmark';
-						document.body.appendChild(wmEl);
 					}
 					applyWm(wmEl);
 					fitWm(wmEl);
+					if (wmEl.parentNode) return;
+					if (document.body) document.body.appendChild(wmEl);
+					else document.addEventListener('DOMContentLoaded', function () { document.body.appendChild(wmEl); });
 				}
 				var fontPromises = Object.keys(FONT_URLS).map(function (name) {
 					if (document.fonts.check('400 14px ' + name)) return Promise.resolve();
@@ -1540,6 +1445,18 @@
 				_bgIO.unobserve(row); // one-shot per row
 			});
 		}, { rootMargin: '600px' });
+		// Safety net: after 2s, force-set --mn-bg for any row that still hasn't intersected.
+		if (!_bgIO._mnFallbackScheduled) {
+			_bgIO._mnFallbackScheduled = 1;
+			setTimeout(function () {
+				document.querySelectorAll('[data-mn-showcase]').forEach(function (row) {
+					if (row.__mnBg) {
+						row.style.setProperty('--mn-bg', row.__mnBg);
+						row.__mnBg = null;
+					}
+				});
+			}, 2000);
+		}
 		return _bgIO;
 	}
 	// Full-page Top 100 loading overlay (see showcaseTop100): theme-colored cover that hides the
@@ -2209,19 +2126,18 @@
 			scope.querySelectorAll('.listItem[data-id]').forEach(decorateItem);
 			decorateDetails();
 		}
-		// Route-gate the details-page-only tasks (Task 3.3): playlist row retargeting, Watchlist
-		// shuffle and the Top 100 showcase can only ever apply on #/details views. Each still has
-		// its own internal id/hash check — this outer gate just skips the work everywhere else.
+		// Route-gate the details-page-only tasks (Task 3.3): playlist row retargeting and the
+		// Top 100 showcase can only ever apply on #/details views. Each still has its own
+		// internal id/hash check — this outer gate just skips the work everywhere else.
 		if ((location.hash || '').indexOf('/details') !== -1) {
 			playlistClicksToDetails();
-			shuffleWatchlist();
 			showcaseTop100();
 		}
 		// Drawer tasks: MUST run whenever the drawer exists — Jellyfin destroys & rebuilds the
 		// drawer nav on open/close, wiping our injected entries and inline styles. All four are
 		// cheap+idempotent (addSidebarEntries no-ops when entries exist, orderDrawer has a churn
 		// guard, themeDrawer reads its CSS vars from _drawerCssCache). A boolean/hash guard here
-		// makes Top 100/Watchlist vanish after the first drawer rebuild (regression fixed) — the
+		// makes Top 100 vanish after the first drawer rebuild (regression fixed) — the
 		// only safe outer gate is container existence.
 		if (document.querySelector('.libraryMenuOptions')) {
 			addSidebarEntries();
@@ -2238,7 +2154,7 @@
 	// (drawer entries, details page, showcase), at most once per 150ms of mutation activity.
 	var CARD_SEL = '.card[data-id], .listItem[data-id]';
 	// Our own injected DOM — mutations inside these must never trigger decoration walks.
-	var OWN_SEL = '.curated-rank, .curated-bookmark, .oscar-stack, .oscar-plaque, .mn-oscar-text,' +
+	var OWN_SEL = '.curated-rank, .oscar-stack, .oscar-plaque, .mn-oscar-text,' +
 		' .nation-flag, .mn-rank, .mn-blinds, .mn-deco1, .mn-deco2, .mn-logo, .mn-fact,' +
 		' .mn-meta-line, [data-curated], #mn-wordmark, #mn-splash, #mn-top100-header, .mn-top100-overlay-bar,' +
 		' #mn-top100-overlay';

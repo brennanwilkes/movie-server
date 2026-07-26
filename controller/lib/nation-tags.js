@@ -84,6 +84,40 @@ const LANG_ISO = {
   filipino: 'ph', malay: 'my',
 };
 
+// ISO 639-1 spoken_languages code → ISO 3166-1 alpha-2 country. Used to override a bad Radarr
+// originalLanguage when the spoken_languages data from TMDB disagrees.
+const ISO_639_1_TO_COUNTRY = {
+  ja: 'jp', ko: 'kr', fr: 'fr', it: 'it', de: 'de', es: 'es',
+  pt: 'br', zh: 'cn', hi: 'in', ta: 'in', te: 'in', bn: 'in',
+  pa: 'in', mr: 'in', ml: 'in', kn: 'in',
+  da: 'dk', no: 'no', sv: 'se', fi: 'fi', is: 'is',
+  ru: 'ru', pl: 'pl', nl: 'nl', th: 'th', tr: 'tr',
+  ar: 'eg', fa: 'ir', he: 'il', el: 'gr', cs: 'cz',
+  hu: 'hu', ro: 'ro', vi: 'vn', id: 'id', uk: 'ua',
+  sr: 'rs', hr: 'hr', bg: 'bg', sk: 'sk',
+  lv: 'lv', lt: 'lt', et: 'ee', ka: 'ge', hy: 'am',
+  sw: 'ke', zu: 'za', af: 'za', am: 'et', wo: 'sn', ur: 'pk',
+  ne: 'np', si: 'lk', km: 'kh', lo: 'la', my: 'mm', mn: 'mn',
+  kk: 'kz', az: 'az', eu: 'es', ca: 'es', gl: 'es', tl: 'ph',
+};
+
+// Radarr originalLanguage.name (lowercase) → ISO 639-1 code. Reverse lookup so we can compare
+// the Radarr language against TMDB's spoken_languages array.
+const LANG_NAME_TO_ISO639_1 = {
+  english: 'en', french: 'fr', spanish: 'es', italian: 'it', german: 'de',
+  japanese: 'ja', korean: 'ko', chinese: 'zh', mandarin: 'zh', cantonese: 'zh',
+  hindi: 'hi', tamil: 'ta', telugu: 'te', portuguese: 'pt',
+  russian: 'ru', polish: 'pl', dutch: 'nl', danish: 'da', norwegian: 'no',
+  swedish: 'sv', finnish: 'fi', icelandic: 'is', turkish: 'tr', arabic: 'ar',
+  persian: 'fa', farsi: 'fa', hebrew: 'he', greek: 'el', czech: 'cs',
+  hungarian: 'hu', romanian: 'ro', vietnamese: 'vi', indonesian: 'id', ukrainian: 'uk',
+  thai: 'th', serbian: 'sr', croatian: 'hr', bulgarian: 'bg', slovak: 'sk',
+  latvian: 'lv', lithuanian: 'lt', estonian: 'ee', georgian: 'ka', armenian: 'hy',
+  swahili: 'sw', urdu: 'ur', nepali: 'ne', khmer: 'km', burmese: 'my',
+  mongolian: 'mn', kazakh: 'kk', tagalog: 'tl', filipino: 'tl', malay: 'ms',
+  catalan: 'ca', basque: 'eu', galician: 'gl',
+};
+
 const unmappedLogged = new Set();
 function locToIso(name) {
   const key = String(name || '').trim().toLowerCase();
@@ -95,6 +129,11 @@ function locToIso(name) {
   return iso || null;
 }
 
+// English-speaking production countries: prefer these over non-English co-production partners
+// when the original language is English (fixes e.g. Hot Fuzz FR→GB — TMDB lists France first
+// due to a Working Title co-production credit, but the movie is British).
+const ENGLISH_SPEAKING = new Set(['gb', 'ca', 'au', 'nz', 'ie']);
+
 // Decide the flag country for one movie: iso2 string, or null for no flag (Hollywood).
 function resolveNation(locations, langName) {
   const locs = (locations || []).map(locToIso).filter(Boolean);
@@ -105,7 +144,10 @@ function resolveNation(locations, langName) {
     if (langIso && locs.includes(langIso)) return langIso;   // co-productions: language beats TMDB order
     return nonUS[0] || langIso || null;
   }
-  if (locs.length && !locs.includes('us')) return locs[0];
+  if (locs.length && !locs.includes('us')) {
+    const engMatch = nonUS.find((c) => ENGLISH_SPEAKING.has(c));
+    return engMatch || nonUS[0];
+  }
   return null;
 }
 
@@ -137,12 +179,14 @@ async function reconcileTags(uid, h, item, iso) {
   } catch (e) { console.log(`nationTagsSweep: write failed for "${item.Name}" — ${e.message || e}`); return 'failed'; }
 }
 
-// imdbId/tmdbId → originalLanguage name, from Radarr's movie list (one call). Empty map on failure
-// — the sweep then falls back to the ProductionLocations rule alone rather than skipping.
+// imdbId/tmdbId → originalLanguage name, from Radarr's movie list (one call). Returns
+// { langBy: Map, movies: Array } so callers can cross-check against TMDB without a second fetch.
+// Empty map + empty array on failure — the sweep falls back to ProductionLocations alone.
 async function radarrLanguageMap() {
   const map = new Map();
+  let movies = [];
   try {
-    const movies = await arrGet('radarr', '/movie', 30000);
+    movies = await arrGet('radarr', '/movie', 30000);
     for (const m of movies) {
       const lang = m.originalLanguage && m.originalLanguage.name;
       if (!lang) continue;
@@ -150,7 +194,44 @@ async function radarrLanguageMap() {
       if (m.tmdbId) map.set(`tmdb:${m.tmdbId}`, lang);
     }
   } catch (e) { console.log(`nationTagsSweep: radarr language fetch failed (${e.message || e}) — using locations only`); }
-  return map;
+  return { langBy: map, movies };
+}
+
+// Build a map: tmdbId (string) → { spoken: Set<iso639_1>, countries: Set<iso3166> }. Cross-checks
+// Radarr's originalLanguage against TMDB's ground-truth spoken languages + production countries.
+// Only fetches for non-English movies (English needs no override). Returns empty Map on missing
+// API key or total failure.
+async function tmdbSpokenLangMap(radarrMovies) {
+  const key = cfg.TMDB_API_KEY;
+  if (!key) { console.log('nationTagsSweep: no TMDB_API_KEY — skipping spoken_languages cross-check'); return new Map(); }
+
+  // Only fetch for non-English Radarr movies that have a tmdbId
+  const toFetch = radarrMovies.filter((m) => {
+    if (!m.tmdbId) return false;
+    const lang = m.originalLanguage && m.originalLanguage.name;
+    return lang && !/^english$/i.test(lang);
+  });
+  if (!toFetch.length) return new Map();
+
+  console.log(`nationTagsSweep: cross-checking ${toFetch.length} non-English movies against TMDB spoken_languages`);
+  const result = new Map();
+  const BATCH = 10;
+  for (let i = 0; i < toFetch.length; i += BATCH) {
+    const batch = toFetch.slice(i, i + BATCH);
+    await Promise.all(batch.map(async (m) => {
+      try {
+        const r = await fetch(`https://api.themoviedb.org/3/movie/${m.tmdbId}?api_key=${key}`, { signal: AbortSignal.timeout(10000) });
+        if (!r.ok) return;
+        const data = await r.json();
+        const spoken = new Set((data.spoken_languages || []).map((l) => l.iso_639_1).filter(Boolean));
+        const countries = new Set((data.production_countries || []).map((c) => c.iso_3166_1).filter(Boolean).map((c) => c.toLowerCase()));
+        if (spoken.size) result.set(String(m.tmdbId), { spoken, countries });
+      } catch { /* skip — fall back to existing logic */ }
+    }));
+    if (i + BATCH < toFetch.length) await new Promise((r) => setTimeout(r, 50));
+  }
+  console.log(`nationTagsSweep: TMDB spoken_languages fetched for ${result.size}/${toFetch.length} movies`);
+  return result;
 }
 
 let nationTagsBusy = false;
@@ -163,18 +244,61 @@ async function nationTagsSweep() {
   try {
     const uid = await jellyfinUserId();
     const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
-    const langBy = await radarrLanguageMap();
+    const { langBy, movies: radarrMovies } = await radarrLanguageMap();
+    const spokenBy = await tmdbSpokenLangMap(radarrMovies);
     const q = new URLSearchParams({
       IncludeItemTypes: 'Movie', Recursive: 'true',
       Fields: 'ProviderIds,ProductionLocations,Tags', Limit: '5000',
     });
     const movies = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 120000)).Items) || [];
-    let flagged = 0, written = 0, removed = 0, failed = 0;
+    let flagged = 0, written = 0, removed = 0, failed = 0, overrides = 0;
     const byCountry = {};
     for (const m of movies) {
       const pid = m.ProviderIds || {};
-      const lang = (pid.Imdb && langBy.get(pid.Imdb)) || (pid.Tmdb && langBy.get(`tmdb:${pid.Tmdb}`)) || null;
-      const iso = resolveNation(m.ProductionLocations, lang);
+      let lang = (pid.Imdb && langBy.get(pid.Imdb)) || (pid.Tmdb && langBy.get(`tmdb:${pid.Tmdb}`)) || null;
+      let iso = null;
+      let overridden = false;
+
+      // TMDB spoken_languages cross-check: if Radarr's language isn't in TMDB's spoken_languages,
+      // the Radarr metadata is likely wrong. Use the spoken language's country directly.
+      // When multiple spoken languages exist, prefer the one matching a TMDB production country.
+      if (lang && pid.Tmdb) {
+        const tmdbData = spokenBy.get(String(pid.Tmdb));
+        if (tmdbData && tmdbData.spoken.size > 0 && !tmdbData.spoken.has('xx')) {
+          const radarrIso = LANG_NAME_TO_ISO639_1[String(lang).toLowerCase()];
+          if (radarrIso && !tmdbData.spoken.has(radarrIso)) {
+            // Find best spoken language: prefer one whose country is in production_countries
+            for (const code of tmdbData.spoken) {
+              const country = ISO_639_1_TO_COUNTRY[code];
+              if (country && tmdbData.countries.has(country)) {
+                console.log(`nationTagsSweep: tmdb override "${m.Name}": ol=${lang} → spoken=${code} (country=${country}, matched production)`);
+                iso = country;
+                overridden = true;
+                overrides++;
+                break;
+              }
+            }
+            // Fallback: no spoken language matched a production country — pick first mappable one
+            if (!overridden) {
+              for (const code of tmdbData.spoken) {
+                const country = ISO_639_1_TO_COUNTRY[code];
+                if (country) {
+                  console.log(`nationTagsSweep: tmdb override "${m.Name}": ol=${lang} → spoken=${code} (country=${country}, no prod match)`);
+                  iso = country;
+                  overridden = true;
+                  overrides++;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (!overridden) {
+        iso = resolveNation(m.ProductionLocations, lang);
+      }
+
       if (iso) { flagged++; byCountry[iso] = (byCountry[iso] || 0) + 1; }
       const res = await reconcileTags(uid, h, m, iso);
       if (res === 'written') { written++; if (!iso) removed++; }
@@ -183,6 +307,7 @@ async function nationTagsSweep() {
     const top = Object.entries(byCountry).sort((a, b) => b[1] - a[1]).slice(0, 12)
       .map(([k, v]) => `${k}:${v}`).join(' ');
     console.log(`nationTagsSweep: ${flagged}/${movies.length} flagged, ${written} written, ${removed} removed`
+      + (overrides ? `, ${overrides} tmdb overrides` : '')
       + (failed ? `, ${failed} failed` : '') + (top ? ` — ${top}` : ''));
   } catch (e) { console.log(`nationTagsSweep: failed — ${e.message || e}`); }
   finally { nationTagsBusy = false; }

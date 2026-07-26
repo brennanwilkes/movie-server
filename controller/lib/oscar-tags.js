@@ -87,6 +87,60 @@ async function fetchAllPersons(uid, h) {
   } catch (e) { console.log(`oscarTagsSweep: /Persons fetch failed — ${e.message || e}`); return []; }
 }
 
+// ---- Person oscar index (served to the Fire Stick fork) ----------------------------------
+// The TV app cannot build this itself: it authenticates with a USER token, so the SDK sends
+// userId on /Items, and user-scoped /Items excludes Person items entirely (returns 0 rows).
+// /Persons does work but ignores StartIndex/Tags/EnableImages filters, so the app's only option
+// there is one ~9.7 MB, 30-50s response — far too heavy to parse on a 1 GB Fire Stick.
+// We already resolve every person→award here, so serve the answer directly: ~1.5k rows, ~50 KB.
+// Shape mirrors the TAG semantics the client already parses: n = LOSING noms, not total.
+let personOscarRows = null;
+let personOscarBuiltAt = 0;
+const PERSON_OSCAR_TTL_MS = 24 * 3600000;
+
+function awardRow(id, award) {
+  const wins = award.wins || 0;
+  const losses = Math.max(0, (award.noms || 0) - wins);
+  if (wins <= 0 && losses <= 0) return null;
+  return { id, w: wins, n: losses };
+}
+
+// Build from a person list we already have in hand (the sweep's people pass).
+function setPersonOscarIndex(people) {
+  const rows = [];
+  for (const p of people) {
+    const award = personAwards[normName(p.Name)];
+    if (!award || !p.Id) continue;
+    const row = awardRow(p.Id, award);
+    if (row) rows.push(row);
+  }
+  personOscarRows = rows;
+  personOscarBuiltAt = Date.now();
+  console.log(`personOscarIndex: ${rows.length} awarded people indexed`);
+}
+
+let personOscarBusy = false;
+// Cached accessor for the API route. Rebuilds on demand (one /Persons call) when cold or stale,
+// so the endpoint still works if it is hit before the first sweep completes.
+async function getPersonOscarIndex() {
+  const fresh = personOscarRows && (Date.now() - personOscarBuiltAt) < PERSON_OSCAR_TTL_MS;
+  if (fresh || personOscarBusy) return personOscarRows || [];
+  if (!cfg.JELLYFIN_KEY || !personAwards || !Object.keys(personAwards).length) return personOscarRows || [];
+  personOscarBusy = true;
+  try {
+    const uid = await jellyfinUserId();
+    const people = await fetchAllPersons(uid, { 'X-Emby-Token': cfg.JELLYFIN_KEY });
+    if (people.length) setPersonOscarIndex(people);
+  } catch (e) {
+    console.log(`personOscarIndex: build failed — ${e.message || e}`);
+  } finally { personOscarBusy = false; }
+  return personOscarRows || [];
+}
+
+function personOscarIndexAge() {
+  return personOscarBuiltAt ? Date.now() - personOscarBuiltAt : null;
+}
+
 let oscarTagsBusy = false;
 async function oscarTagsSweep() {
   if (isMasterPaused() || oscarTagsBusy || !cfg.JELLYFIN_KEY) {
@@ -122,6 +176,8 @@ async function oscarTagsSweep() {
     // ---- People pass (match by normalized Name) ----
     if (havePeople) {
       const people = await fetchAllPersons(uid, h);
+      // Feed the Fire Stick's index off the list we already paid for.
+      if (people.length) setPersonOscarIndex(people);
       let matched = 0, written = 0, removed = 0, failed = 0;
       for (const p of people) {
         const award = personAwards[normName(p.Name)] || null;
@@ -145,4 +201,4 @@ function startOscarTagsTimer() {
   setInterval(oscarTagsSweep, 24 * 3600000);   // yearly-changing data — daily is plenty
 }
 
-module.exports = { oscarTagsSweep, startOscarTagsTimer };
+module.exports = { oscarTagsSweep, startOscarTagsTimer, getPersonOscarIndex, personOscarIndexAge };

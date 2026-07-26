@@ -28,6 +28,18 @@ const {
 const { _stallSince, STALL_DEAD } = require('./stall-recovery');
 const { triggerJellyfinScan } = require('./jf-scan');
 
+// Pause/resume a single torrent (or 'all'). Mirrors the route-actions helper so downloads.js
+// doesn't cross-import from routes-actions. Uses the v5 verb with legacy fallback.
+async function qbitPauseResume(hash, resume) {
+  const verbs = resume ? ['start', 'resume'] : ['stop', 'pause'];
+  let r;
+  for (const v of verbs) {
+    r = await qbit.fetch(`/api/v2/torrents/${v}`, { method: 'POST', body: new URLSearchParams({ hashes: hash }), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+    if (r.status !== 404) break;
+  }
+  return r;
+}
+
 // Downloads — qBittorrent torrents (live progress) merged with *arr queue extras.
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 function parseTimeleft(s) {
@@ -308,7 +320,7 @@ async function buildDownloads() {
       // "Stalled" mirrors stallRecovery's own give-up clock (STALL_DEAD after first seen at 0
       // seeds) so the UI can say when it'll blocklist-and-research instead of sitting silent.
       const stallGiveUpAt = state === 'Stalled' && _stallSince.has(h) ? (_stallSince.get(h) + STALL_DEAD) * 1000 : null;
-      const item = { title: t.name, progress: displayProg, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || (hi && hi.size) || (qrec && qrec.size) || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash, seeds, stallGiveUpAt };
+      const item = { title: t.name, progress: displayProg, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || (hi && hi.size) || (qrec && qrec.size) || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash, seeds, stallGiveUpAt, category: t.category };
       // An auto-upgrade the user didn't request must explain itself in the UI.
       if (app === 'radarr' && qrec && qrec.movieId != null && gpuPending.has(qrec.movieId)) {
         item.note = 'Auto-upgrade: fetching a GPU-friendly copy — your current file stays watchable until this finishes';
@@ -534,6 +546,12 @@ async function refreshDownloads() {
     const summary = await downloadSummary(served);
     _dl = { served, raw, summary, ts: Date.now() };
 
+    // Snapshot currently known hashes BEFORE the transition loop so the Movie Mode
+    // new-grab pause block below can distinguish genuinely new torrents from ones we
+    // just recorded — without this, every hash was JUST set by the loop above and
+    // `!prev` was always false (dead code).
+    const knownBefore = new Set(_knownDownloads.keys());
+
     // Download transition events (grab / dl_done / import_ok)
     const nowSec = Date.now() / 1000;
     for (const it of raw) {
@@ -555,6 +573,24 @@ async function refreshDownloads() {
         metrics.emitEvent('grab', { ti: it.title, ap: it.source, sB: it.sizeBytes || 0 });
       }
       _knownDownloads.set(h, { prog: it.progress, state: it.state, ts: prev ? prev.ts : nowSec, title: it.title, app: it.source });
+    }
+
+    // Movie Mode new-grab gap: pause torrents that *arr added while we were paused.
+    // Uses the knownBefore snapshot so "new" means "wasn't in _knownDownloads at the
+    // START of this cycle" — the transition loop just set every hash, so checking
+    // _knownDownloads.get(h) here would always find it (dead code before this fix).
+    if (isMasterPaused()) {
+      for (const t of raw) {
+        if (!t.hash || String(t.hash).startsWith('missing:')) continue;
+        const h = t.hash;
+        if (!knownBefore.has(h) && t.state !== 'Paused' && t.state !== 'Seeding') {
+          // New hash, not yet tracked, actively downloading → check category
+          const cat = (t.category || '').toLowerCase();
+          if (cat !== 'sonarr-force') {
+            qbitPauseResume(h, false).catch(() => {});
+          }
+        }
+      }
     }
   } catch (e) { console.log('refreshDownloads failed (keeping last snapshot):', e.message || e); }
   finally { _dlRefreshing = false; }

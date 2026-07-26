@@ -9,6 +9,7 @@ const { cfg, HOST, linkFor } = require('./config');
 const { tfetch, tfetchJson } = require('./clients');
 const { getCpuPct, readMemPct, readTempC } = require('./system-stats');
 const { getIndexerSnapshot } = require('./arr-data');
+const { getPersonOscarIndex, personOscarIndexAge } = require('./oscar-tags');
 
 // Status — probe each service in parallel. up = the HTTP request resolved at all
 // (any status code, even 401 from a missing key); only a network error/timeout is
@@ -103,6 +104,19 @@ app.get('/api/disk', async (_req, res) => {
 });
 app.get('/api/system', (_req, res) => {
   res.json({ cpuPct: getCpuPct(), memPct: readMemPct(), tempC: readTempC() });
+});
+// Person → Oscar awards, for the Movie Night Fire Stick fork's cast/crew badges.
+// The TV app cannot derive this from Jellyfin itself: it holds a USER token, so the SDK sends
+// userId and user-scoped /Items returns zero Person rows; /Persons ignores every narrowing
+// filter and answers with ~9.7 MB in 30-50s, which a 1 GB stick cannot afford to parse.
+// We already resolve person→award in oscarTagsSweep, so hand back the compact table (~1.5k rows).
+// `n` is LOSING nominations (noms - wins), matching the oscar-noms-{N} tag the client parses.
+app.get('/api/person-oscars', async (_req, res) => {
+  try {
+    const rows = await getPersonOscarIndex();
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.json({ builtAgeMs: personOscarIndexAge(), count: rows.length, rows });
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 // Reports each indexer's enable/disable state, recent failures, and an approximate
 // degradation percentage weighted by query volume, so a high-value indexer down (TPB,
