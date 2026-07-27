@@ -1417,13 +1417,33 @@ html, :root {
 .headerLeft [title="Back"],
 .headerLeft .btnBack+NavigateBack { display: none !important; }
 
-/* UI face: JS sets --mn-nav-font per theme (Canyon=Poppins, Matinee=Oswald, Reel One=Archivo, Marquee=Jost) */
-body, h1, h2, h3, h4, p, span, div, .mainDrawer, .emby-button, .headerTabs, .sectionTitle,
+/* UI face: JS sets --mn-nav-font per theme (Canyon=Poppins, Matinee=Oswald, Reel One=Archivo, Marquee=Jost)
+   The bare `span`/`div` arms are a sledgehammer, so icon elements are excluded IN THE SELECTOR
+   rather than only clawed back by a later exception. Jellyfin 10.11 draws every icon as a
+   `::before { content: "\eXXX" }` private-use codepoint on a `.material-icons` span, so the moment
+   this rule wins the element renders a hex-in-a-box tofu instead of a glyph — the state Brennan hit
+   on Matinee 2026-07-26. Belt AND braces: the exception below is kept too, at higher specificity
+   than any of the [mn-*] per-theme blocks further down (those are (0,1,1) and would otherwise beat
+   a bare (0,1,0) class rule on source order). */
+body, h1, h2, h3, h4, p,
+span:not([class*="material-icons"]),
+div:not([class*="material-icons"]),
+.mainDrawer, .emby-button, .headerTabs, .sectionTitle,
 .listItemBodyText, .cardText, .navMenuOptionText, .formDialogHeaderTitle {
   font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;
 }
-/* Exception: Material Icons must keep their own font — the span override above kills them */
-.material-icons, .material-icons-outlined { font-family: 'Material Icons' !important; }
+/* Exception: Material Icons must keep their own font — the span override above kills them.
+   `[class*=]` also catches .material-icons-outlined and any future variant; the ::before arm
+   matters because that pseudo-element is what actually carries the glyph. */
+html [class*="material-icons"],
+html [class*="material-icons"]::before {
+  font-family: 'Material Icons' !important;
+  /* Per-theme text treatments (Matinee's uppercase + .15em litho tracking, Marquee's gilded
+     gradient fill) must never reach a glyph codepoint. */
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  -webkit-text-fill-color: currentColor;
+}
 .navMenuOptionText { font-size: 1.02em; letter-spacing: .02em; }
 
 /* ── Home page + detail page theming ──
@@ -1777,13 +1797,22 @@ html.layout-mobile .sectionTitle {
    sibling inside .cardBox, not a child). Putting it on .card instead made the ring
    enclose the title/year footer and the card margin, which reads as a broken oversized
    border — the bug this replaces.
-   Safe for containment: in this Jellyfin build .card has no containment at all,
-   .cardScalable is `contain: layout style` and .cardBox is `contain: style` — none of
-   them is `contain: paint`, so an element's own box-shadow is never clipped here and we
-   do not have to relax containment on any element to let the glow escape. */
+
+   CONTAINMENT (the "glow is cut off, worst on the left edge" bug, fixed 2026-07-26):
+   Jellyfin's own main.css carries `.card:not(.show-animation){contain:layout style paint}`.
+   PAINT containment clips a subtree's painting to the element's own box, and the glow is
+   painted by .cardScalable — a DESCENDANT of .card — so every card was clipping its own
+   glow at the card boundary. It looked worst on the left because .cardBox's .6em margin
+   leaves barely any room there. A console dump settled it: no ancestor was clipping
+   (`clip: []`) while the card's own computed `contain` read `content` — which is exactly
+   how Chrome serializes `layout style paint`. Earlier theories (a .scrollX gutter, a stale
+   stylesheet) were both wrong because they only ever looked at ANCESTORS.
+   Relaxed to `layout style` on HOVER ONLY: cards keep the paint-containment rendering win
+   at rest, which is what matters on a page holding hundreds of them. */
 .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) {
   position: relative;
   z-index: 10;
+  contain: layout style !important;
 }
 .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardScalable {
   border-radius: var(--mn-card-radius);
@@ -2031,13 +2060,11 @@ html[mn-texture-crosshatch="1"]:not(.layout-mobile) body::before {
   opacity: 0;
 }
 #mn-top100-overlay .mn-top100-overlay-wm {
-  /* !important: the global UI-face rule above (`body, span, div, ... { font-family:
-     var(--mn-nav-font) !important }`) matches this div and beats a plain declaration. */
-  font-family: 'Palm Canyon Drive', cursive, sans-serif !important;
-  font-weight: 400;
+  /* Font/size/colour are set by the flair JS from OVERLAY_WM[theme] — deliberately NOT declared
+     here. This block used to hardcode Palm Canyon Drive, which is Canyon's script face, so an
+     ordering flip between this stylesheet and the JS style node showed Canyon's wordmark on
+     Matinee (Brennan 2026-07-26). Only the layout-ish leftovers stay. */
   font-size: 44px;
-  color: var(--mn-text, #f5eedc);
-  text-shadow: 0 0 14px var(--primary-accent-color, #47c4b8);
 }
 #mn-top100-overlay .mn-top100-overlay-bar {
   margin-top: 26px;
@@ -2711,6 +2738,60 @@ html.layout-mobile [mn-gilded-text="1"] .itemBackdrop::after {
   /* Themed, visible text — without this the link inherited a near-black color and vanished on
      dark themes (marquee/canyon). Accent color reads as a link and is visible on all 4 themes. */
   color: var(--primary-accent-color, #47c4b8) !important;
+}
+
+/* ── Nested link-wrapping-a-button (the "More" control on person/actor pages) ──
+   Jellyfin renders it as
+     <a is="emby-linkbutton" class="clearLink emby-button"><button is="emby-button"
+        class="raised more raised-mini emby-button">More</button></a>
+   i.e. BOTH elements carry .emby-button, so all of our button branding (padding, raised
+   background, litho offset, radius, min-height) applies twice — nested — and the control
+   inflates into an oversized slab (Brennan 2026-07-26). `.clearLink` is Jellyfin's own marker
+   for "this anchor is a transparent wrapper", so strip the outer chrome and let the INNER
+   button be the button. Applies wherever the pattern appears, not just actor pages. */
+a.clearLink.emby-button {
+  background: none !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  padding: 0 !important;
+  margin-left: 0.5em !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  line-height: normal !important;
+}
+
+/* ── Breathing room in dense control clusters ──
+   Jellyfin packs these flush: `.button-flat{margin:0}` and `.listItem{padding:.25em .25em .25em
+   .5em}`. With Matinee's condensed Oswald face and 2px corners the result reads as one squashed
+   slab instead of a row/column of separate controls (Brennan 2026-07-26). Applied to all four
+   themes — none of them wants its controls touching; Matinee just showed it worst. */
+
+/* Library toolbar: "1-17 of 17 · Play All · Shuffle · Sort by … · Filter".
+   `gap` (not margins) so the flex-wrap-wrap rows also get spacing when it wraps, and so the
+   autohidden text/icon button pairs never contribute spacing while hidden. */
+.itemsViewSettingsContainer {
+  gap: 0.3em 0.7em !important;
+}
+.itemsViewSettingsContainer .paging {
+  margin-right: 0.5em !important;
+}
+
+/* Action sheet ("More" / right-click popup): SEPARATION ONLY, not bigger rows.
+   A first attempt added inner padding-top/bottom, which just made every button taller without
+   actually separating them (Brennan 2026-07-26). The rows keep Jellyfin's stock height
+   (.listItem padding .25em .25em .25em .5em, untouched) and get a small margin between them
+   instead — that is the gap the eye was asking for. */
+.actionSheetContent .actionSheetMenuItem {
+  margin-bottom: 0.25em !important;
+}
+.actionSheetContent .actionSheetMenuItem:last-child {
+  margin-bottom: 0 !important;
+}
+.actionSheetContent .actionsheetDivider {
+  margin-top: 0.4em !important;
+  margin-bottom: 0.4em !important;
 }
 
 /* Watched checkmark / played indicator on cards+posters: scyfin (via @import) and

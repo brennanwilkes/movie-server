@@ -66,27 +66,50 @@ const COUNTRY_ISO = {
   'north korea': 'kp', "korea, north": 'kp', 'macao': 'mo', 'macau': 'mo',
 };
 
-// Radarr originalLanguage.name → country, used ONLY for non-English movies with no
-// ProductionLocations metadata (rare). Best-guess for ambiguous languages.
-const LANG_ISO = {
-  japanese: 'jp', korean: 'kr', french: 'fr', italian: 'it', german: 'de', spanish: 'es',
-  portuguese: 'br', chinese: 'cn', mandarin: 'cn', cantonese: 'hk', hindi: 'in', tamil: 'in',
-  telugu: 'in', bengali: 'in', punjabi: 'in', marathi: 'in', malayalam: 'in', kannada: 'in',
-  danish: 'dk', norwegian: 'no', swedish: 'se', finnish: 'fi', icelandic: 'is',
-  russian: 'ru', polish: 'pl', dutch: 'nl', flemish: 'be', thai: 'th', turkish: 'tr',
-  arabic: 'eg', persian: 'ir', farsi: 'ir', hebrew: 'il', greek: 'gr', czech: 'cz',
-  hungarian: 'hu', romanian: 'ro', vietnamese: 'vn', indonesian: 'id', ukrainian: 'ua',
-  serbian: 'rs', 'serbo-croatian': 'rs', croatian: 'hr', bulgarian: 'bg', slovak: 'sk',
-  estonian: 'ee', latvian: 'lv', lithuanian: 'lt', georgian: 'ge', armenian: 'am',
-  swahili: 'ke', zulu: 'za', afrikaans: 'za', amharic: 'et', wolof: 'sn', urdu: 'pk',
-  nepali: 'np', sinhala: 'lk', khmer: 'kh', lao: 'la', burmese: 'mm', mongolian: 'mn',
-  kazakh: 'kz', catalan: 'es', basque: 'es', galician: 'es', quechua: 'pe', tagalog: 'ph',
-  filipino: 'ph', malay: 'my',
+// Radarr originalLanguage.name → the countries where that language is a primary language, in
+// rough "most likely to be the production home" order. Used to pick WHICH production country a
+// non-English movie belongs to (see resolveNation).
+//
+// This is a LIST, not a single country, on purpose. A one-country-per-language table gets
+// co-productions wrong in both directions: arabic→'eg' missed Lebanon on Capernaum (France was
+// listed first, so it flagged French), and chinese→'cn' missed Hong Kong on In the Mood for Love.
+// Matching the language against every production country and taking the earliest hit resolves
+// both, and also fixes Incendies (Quebec — ca is in the French list) and The Secret in Their Eyes
+// (Argentina, listed ahead of Spain). Brennan 2026-07-26.
+const LANG_COUNTRIES = {
+  japanese: ['jp'], korean: ['kr', 'kp'],
+  french: ['fr', 'be', 'ca', 'ch', 'lu', 'sn', 'ma', 'dz', 'tn'],
+  italian: ['it', 'ch'],
+  german: ['de', 'at', 'ch'],
+  spanish: ['es', 'mx', 'ar', 'cl', 'co', 'pe', 'uy', 've', 'cu', 'bo', 'ec', 'cr', 'pa', 'do', 'gt'],
+  portuguese: ['br', 'pt'],
+  chinese: ['cn', 'tw', 'hk', 'sg'], mandarin: ['cn', 'tw', 'sg'], cantonese: ['hk', 'cn'],
+  hindi: ['in'], tamil: ['in', 'lk'], telugu: ['in'], bengali: ['in', 'bd'], punjabi: ['in', 'pk'],
+  marathi: ['in'], malayalam: ['in'], kannada: ['in'],
+  danish: ['dk'], norwegian: ['no'], swedish: ['se', 'fi'], finnish: ['fi'], icelandic: ['is'],
+  russian: ['ru', 'by', 'kz', 'ua'], polish: ['pl'], dutch: ['nl', 'be'], flemish: ['be'],
+  thai: ['th'], turkish: ['tr', 'cy'],
+  arabic: ['eg', 'lb', 'ma', 'tn', 'dz', 'sa', 'ae', 'qa', 'jo', 'iq'],
+  persian: ['ir', 'af'], farsi: ['ir', 'af'], hebrew: ['il'], greek: ['gr', 'cy'],
+  czech: ['cz'], hungarian: ['hu'], romanian: ['ro', 'md'], vietnamese: ['vn'],
+  indonesian: ['id'], ukrainian: ['ua'],
+  serbian: ['rs', 'ba'], 'serbo-croatian': ['rs', 'hr', 'ba'], croatian: ['hr', 'ba'],
+  bulgarian: ['bg'], slovak: ['sk'], estonian: ['ee'], latvian: ['lv'], lithuanian: ['lt'],
+  georgian: ['ge'], armenian: ['am'],
+  swahili: ['ke', 'tz'], zulu: ['za'], afrikaans: ['za', 'na'], amharic: ['et'], wolof: ['sn'],
+  urdu: ['pk', 'in'], nepali: ['np'], sinhala: ['lk'], khmer: ['kh'], lao: ['la'],
+  burmese: ['mm'], mongolian: ['mn'], kazakh: ['kz'],
+  catalan: ['es'], basque: ['es'], galician: ['es'], quechua: ['pe', 'bo'],
+  tagalog: ['ph'], filipino: ['ph'], malay: ['my', 'sg'],
 };
 
 // ISO 639-1 spoken_languages code → ISO 3166-1 alpha-2 country. Used to override a bad Radarr
 // originalLanguage when the spoken_languages data from TMDB disagrees.
 const ISO_639_1_TO_COUNTRY = {
+  // TMDB spells Cantonese 'cn' (not an ISO 639-1 code) and Mandarin 'zh'. Without the 'cn' entry
+  // a Cantonese film's only spoken language was unmappable and the loop fell through to whatever
+  // European co-production language came next — that is how In the Mood for Love became French.
+  cn: 'hk', yue: 'hk',
   ja: 'jp', ko: 'kr', fr: 'fr', it: 'it', de: 'de', es: 'es',
   pt: 'br', zh: 'cn', hi: 'in', ta: 'in', te: 'in', bn: 'in',
   pa: 'in', mr: 'in', ml: 'in', kn: 'in',
@@ -118,6 +141,37 @@ const LANG_NAME_TO_ISO639_1 = {
   catalan: 'ca', basque: 'eu', galician: 'gl',
 };
 
+// Last-resort manual overrides, keyed by IMDb id (stable across TMDB re-scrapes; Jellyfin's own
+// item ids are not). ONLY add an entry when every queryable source is demonstrably wrong — if the
+// right answer is derivable from ProductionLocations, spoken_languages or production_countries,
+// fix resolveNation instead so the whole library benefits.
+const NATION_OVERRIDES = {
+  // Roma (2018) — Cuaron's Mexico City film, flagged GB. Verified against TMDB 2026-07-26:
+  // production_countries = [GB, US], origin_country = [US], and Cuaron's own Mexican company
+  // Esperanto Filmoj is tagged origin GB. Jellyfin's ProductionLocations mirror that. The
+  // spoken_languages cross-check can't help either: it only fires when Radarr's language is
+  // absent from TMDB's spoken list, and Roma's 'es' is present. Nothing we can query says Mexico.
+  tt6155172: 'mx',
+  // Paris, Texas (1984) — Wenders' West German/French production, flagged GB. It IS an
+  // English-language film with a British co-producer (Channel 4), which is exactly what the
+  // ENGLISH_SPEAKING preference is designed to pick up (it's what correctly makes Hot Fuzz
+  // British). Here that heuristic misfires: the film is German by any normal reckoning.
+  tt0087884: 'de',
+  // It Was Just an Accident (2025) — Panahi's Iranian film. Both Radarr and TMDB record the
+  // original language as French; TMDB's spoken_languages ([az, fa]) shows no French at all, and
+  // Iran is the first production country. The spoken-language cross-check does reach 'ir' here,
+  // but only when it is allowed to fire — and it cannot be, because "Last Tango in Paris" is
+  // structurally identical (claimed Italian, no Italian dialogue, France listed first) and the
+  // same rule turns that one French. The two are indistinguishable from metadata alone.
+  tt36491653: 'ir',
+  // Incendies (2010) — Villeneuve's Quebec film. France co-produced, and French is French's home
+  // country, so every language-based rule lands on France. Canadian by production and director.
+  tt1255953: 'ca',
+  // The Secret in Their Eyes (2009) — Campanella's Argentine film (won Argentina the foreign-film
+  // Oscar). Spain co-produced and Spain is Spanish's home country, so the same rule applies.
+  tt1305806: 'ar',
+};
+
 const unmappedLogged = new Set();
 function locToIso(name) {
   const key = String(name || '').trim().toLowerCase();
@@ -135,20 +189,37 @@ function locToIso(name) {
 const ENGLISH_SPEAKING = new Set(['gb', 'ca', 'au', 'nz', 'ie']);
 
 // Decide the flag country for one movie: iso2 string, or null for no flag (Hollywood).
+// Returns { iso, matchedLanguage } — matchedLanguage tells the sweep whether the production
+// countries actually corroborated the original language, which gates the TMDB override.
 function resolveNation(locations, langName) {
   const locs = (locations || []).map(locToIso).filter(Boolean);
   const english = !langName || /^english$/i.test(langName);
   const nonUS = locs.filter((c) => c !== 'us');
   if (!english) {
-    const langIso = LANG_ISO[String(langName).toLowerCase()];
-    if (langIso && locs.includes(langIso)) return langIso;   // co-productions: language beats TMDB order
-    return nonUS[0] || langIso || null;
+    // Prefer the language's HOME country when it co-produced (family[0] — 'de' for German, 'fr'
+    // for French); only then fall back to the earliest listed country that also speaks it.
+    //
+    // The order matters. Ranking purely by production-location order instead looked tempting but
+    // regressed real tags: Downfall lists Austria before Germany (→ Austrian), and The Taste of
+    // Things lists Belgium before France (→ Belgian). TMDB's location order carries no signal
+    // about which partner is the film's home. Checking the home country first is the safe read,
+    // and the earliest-other-speaker fallback still catches the cases where the home country
+    // isn't involved at all: Capernaum (Arabic, no Egypt → Lebanon) and In the Mood for Love
+    // (Cantonese/Chinese, no mainland → Hong Kong). Brennan 2026-07-26.
+    const family = LANG_COUNTRIES[String(langName).toLowerCase()] || [];
+    if (family.length && locs.includes(family[0])) return { iso: family[0], matchedLanguage: true };
+    const hit = locs.find((c) => family.includes(c));
+    if (hit) return { iso: hit, matchedLanguage: true };
+    // No production country speaks it — fall back to the first non-US partner, else the
+    // language's home country (the only option for movies with no ProductionLocations at all).
+    return { iso: nonUS[0] || family[0] || null, matchedLanguage: false };
   }
   if (locs.length && !locs.includes('us')) {
     const engMatch = nonUS.find((c) => ENGLISH_SPEAKING.has(c));
-    return engMatch || nonUS[0];
+    // matchedLanguage: an English-speaking co-production partner corroborates "English film".
+    return { iso: engMatch || nonUS[0], matchedLanguage: !!engMatch };
   }
-  return null;
+  return { iso: null, matchedLanguage: true };   // Hollywood — nothing to second-guess
 }
 
 function desiredTags(current, iso) {
@@ -224,7 +295,11 @@ async function tmdbSpokenLangMap(radarrMovies) {
         if (!r.ok) return;
         const data = await r.json();
         const spoken = new Set((data.spoken_languages || []).map((l) => l.iso_639_1).filter(Boolean));
-        const countries = new Set((data.production_countries || []).map((c) => c.iso_3166_1).filter(Boolean).map((c) => c.toLowerCase()));
+        // 'su' (Soviet Union) is a historic code TMDB still uses for Tarkovsky/Klimov et al.
+        // Normalise to 'ru' so it matches ISO_639_1_TO_COUNTRY['ru'] in the cross-check below —
+        // otherwise a Soviet film's production countries look like they speak nothing at all.
+        const countries = new Set((data.production_countries || []).map((c) => c.iso_3166_1).filter(Boolean)
+          .map((c) => c.toLowerCase()).map((c) => (c === 'su' ? 'ru' : c)));
         if (spoken.size) result.set(String(m.tmdbId), { spoken, countries });
       } catch { /* skip — fall back to existing logic */ }
     }));
@@ -259,10 +334,26 @@ async function nationTagsSweep() {
       let iso = null;
       let overridden = false;
 
+      // Manual override wins over every derived signal — see NATION_OVERRIDES.
+      const manual = pid.Imdb && NATION_OVERRIDES[pid.Imdb];
+      if (manual) { iso = manual; overridden = true; }
+
+      // Derive from production locations + original language first, so the TMDB cross-check below
+      // knows whether that already produced a corroborated answer.
+      const resolved = resolveNation(m.ProductionLocations, lang);
+
       // TMDB spoken_languages cross-check: if Radarr's language isn't in TMDB's spoken_languages,
       // the Radarr metadata is likely wrong. Use the spoken language's country directly.
       // When multiple spoken languages exist, prefer the one matching a TMDB production country.
-      if (lang && pid.Tmdb) {
+      //
+      // GATED on resolved.matchedLanguage (2026-07-26). Ungated, this fired whenever the claimed
+      // language merely went unlisted in spoken_languages and wrecked two correct tags: "In the
+      // Mood for Love" (Radarr "Chinese"→zh, but TMDB spells Cantonese 'cn', so zh looked absent)
+      // became French, and "Last Tango in Paris" (Italian production, dialogue in English/French)
+      // became French. Both had a production country that speaks the claimed language, so
+      // resolveNation already had a corroborated answer and there was nothing to correct. Only
+      // consult TMDB when resolveNation was reduced to guessing.
+      if (!overridden && !resolved.matchedLanguage && lang && pid.Tmdb) {
         const tmdbData = spokenBy.get(String(pid.Tmdb));
         if (tmdbData && tmdbData.spoken.size > 0 && !tmdbData.spoken.has('xx')) {
           const radarrIso = LANG_NAME_TO_ISO639_1[String(lang).toLowerCase()];
@@ -295,9 +386,7 @@ async function nationTagsSweep() {
         }
       }
 
-      if (!overridden) {
-        iso = resolveNation(m.ProductionLocations, lang);
-      }
+      if (!overridden) iso = resolved.iso;
 
       if (iso) { flagged++; byCountry[iso] = (byCountry[iso] || 0) + 1; }
       const res = await reconcileTags(uid, h, m, iso);

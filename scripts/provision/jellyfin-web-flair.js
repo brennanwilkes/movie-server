@@ -122,6 +122,56 @@
 			scrollbarColor: 'rgba(201,162,39,0.35)' },
 	};
 
+	// ---- per-theme wordmark for the FULL-SCREEN overlays (boot splash + Top 100 overlay) -------
+	// These used to hardcode Palm Canyon Drive for every theme, so Matinee — whose identity is the
+	// boxy Oswald litho lockup — booted into a script face that belongs to Canyon (Brennan
+	// 2026-07-26). Kept deliberately in sync with THEMES_WM (the top-left nav wordmark) further
+	// down; that one can't be reused verbatim because it also does layout (fixed position, the
+	// Reel One disc, the drawer-width fit) which makes no sense centred on a splash.
+	// `face` is a self-contained @font-face: these overlays run before any other stylesheet.
+	var FONT_FACES = {
+		'Palm Canyon Drive': '@font-face{font-family:"Palm Canyon Drive";src:url("/web/fonts/palm-canyon-drive.otf") format("opentype");font-weight:400;font-display:swap;}',
+		Oswald: '@font-face{font-family:"Oswald";src:url("/web/fonts/oswald-latin-700-normal.woff2") format("woff2");font-weight:700;font-display:swap;}',
+	};
+	var FONT_URLS_WM = {
+		'Palm Canyon Drive': '/web/fonts/palm-canyon-drive.otf',
+		Oswald: '/web/fonts/oswald-latin-700-normal.woff2',
+	};
+	var OVERLAY_WM = {
+		canyon: { font: 'Palm Canyon Drive', family: '"Palm Canyon Drive",cursive,sans-serif', weight: 400,
+			text: 'Movie Night', size: 44, track: '.02em', color: '#F5EEDC',
+			extra: 'text-shadow:0 0 14px rgba(71,196,184,.85),0 0 30px rgba(71,196,184,.4);' },
+		matinee: { font: 'Oswald', family: '"Oswald","Segoe UI",sans-serif', weight: 800,
+			text: 'MOVIE NIGHT', size: 40, track: '.04em', color: '#D98E32',
+			extra: 'text-transform:uppercase;text-shadow:5px 5px 0 #a62b1f;' },
+		reelone: { font: 'Palm Canyon Drive', family: '"Palm Canyon Drive",cursive,sans-serif', weight: 400,
+			text: 'Movie Night', size: 46, track: 'normal', color: '#F2EFE6', extra: '' },
+		marquee: { font: 'Palm Canyon Drive', family: '"Palm Canyon Drive",cursive,sans-serif', weight: 400,
+			text: 'Movie Night', size: 44, track: 'normal', color: 'transparent',
+			extra: 'background:linear-gradient(180deg,#E8C96A,#C9A227 55%,#8F6F14);' +
+				'-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;' },
+	};
+	/** Inline CSS body for an overlay wordmark, minus the selector. */
+	function overlayWmCss(wm) {
+		return 'font-family:' + wm.family + '!important;font-weight:' + wm.weight + ';' +
+			'font-size:' + wm.size + 'px;letter-spacing:' + wm.track + ';color:' + wm.color + ';' + wm.extra;
+	}
+	/**
+	 * Register a wordmark font with document.fonts. A JS-added FontFace is document-scoped and so
+	 * survives jellyfin-web's boot head/body rebuild, unlike a CSS-connected @font-face, which
+	 * dies with its <style> node and repaints in the fallback face on every re-attach.
+	 * Unconditional: document.fonts.check() returns true for a merely-declared, unloaded face, so
+	 * guarding on it skipped the preload in exactly the case that needed it. Downloads dedupe by URL.
+	 */
+	function preloadWmFont(name) {
+		try {
+			if (!document.fonts || !FONT_URLS_WM[name]) return;
+			var ff = new FontFace(name, 'url(' + FONT_URLS_WM[name] + ')', { weight: '100 900' });
+			document.fonts.add(ff);
+			ff.load().catch(function () {});
+		} catch (e) { /* @font-face fallback still covers browsers without FontFace */ }
+	}
+
 	// ---- branded splash (DESIGN-PERF-LOADING.md Task 4.1) --------------------------------------
 	// Injected SYNCHRONOUSLY at script-execute time (this whole IIFE runs before app boot), so
 	// it takes over from the stock boot logo. Removed when the first populated .itemsContainer
@@ -129,14 +179,16 @@
 	// CSS lives in an inline <style> created here — jellyfin-custom.css loads too late.
 	(function splash() {
 		try {
-			var th = THEMES[sessionStorage.getItem('mnTheme')] || THEMES.canyon;
+			var pickSplash = sessionStorage.getItem('mnTheme');
+			var th = THEMES[pickSplash] || THEMES.canyon;
+			var swm = OVERLAY_WM[pickSplash] || OVERLAY_WM.canyon;
 			var st = document.createElement('style');
 			st.id = 'mn-splash-style';
 			st.textContent =
 				// Wordmark font — duplicated from the roulette's mn-wordmark-style @font-face on
 				// purpose: the splash must be self-sufficient before anything else runs. The
 				// browser dedupes identical @font-face sources, so there is no double download.
-				'@font-face{font-family:"Palm Canyon Drive";src:url("/web/fonts/palm-canyon-drive.otf") format("opentype");font-weight:400;font-display:swap;}' +
+				FONT_FACES[swm.font] +
 				'#mn-splash{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;' +
 				'align-items:center;justify-content:center;background:' + th.bg + ';' +
 				'opacity:1;transition:opacity .3s ease;pointer-events:none;}' +
@@ -146,8 +198,7 @@
 				// this div and silently beat the plain declaration — the wordmark rendered in the
 				// theme nav font (Jost/Poppins/...) forever. Same-!important, higher specificity
 				// (#id .class vs bare `div`) makes this rule win deterministically.
-				'#mn-splash .mn-splash-wm{font-family:"Palm Canyon Drive",cursive,sans-serif!important;font-weight:400;' +
-				'font-size:44px;color:' + th.text + ';text-shadow:0 0 14px ' + th.accent + ';}' +
+				'#mn-splash .mn-splash-wm{' + overlayWmCss(swm) + '}' +
 				'#mn-splash .mn-splash-bar{margin-top:26px;width:120px;height:4px;border-radius:2px;' +
 				'background:' + th.accent + ';animation:mn-splash-pulse 2.4s ease-in-out infinite;}' +
 				// opacity only — compositor-friendly, and deliberately calm (no size pulsing)
@@ -165,16 +216,12 @@
 			// UNCONDITIONAL (no document.fonts.check() guard): check() returns true whenever ANY
 			// matching face exists — even an unloaded CSS-connected one — so the guard skipped
 			// this preload exactly when it was needed. The browser dedupes the download by URL.
-			try {
-				if (document.fonts) {
-					var pcd = new FontFace('Palm Canyon Drive', 'url(/web/fonts/palm-canyon-drive.otf)', { weight: '400' });
-					document.fonts.add(pcd);
-					pcd.load().catch(function () {});
-				}
-			} catch (e2) { /* @font-face in st still covers browsers without FontFace */ }
+			preloadWmFont(swm.font);
 			var ov = document.createElement('div');
 			ov.id = 'mn-splash';
-			ov.innerHTML = '<div class="mn-splash-wm">Movie Night</div><div class="mn-splash-bar"></div>';
+			ov.innerHTML = '<div class="mn-splash-wm"></div><div class="mn-splash-bar"></div>';
+			// textContent, not innerHTML — the wordmark string is theme data, not markup.
+			ov.firstChild.textContent = swm.text;
 			// documentElement, NOT body: jellyfin-web wipes document.body when its bundle boots,
 			// which killed a body-mounted overlay and re-exposed the stock splash mid-boot.
 			document.documentElement.appendChild(ov);
@@ -408,14 +455,18 @@
 			'.oscar-plaque-sm svg{width:7px;height:14px;vertical-align:-3px;margin-right:3px;}' +
 
 			// ---- Nation flags (retro "luggage sticker" — see nation-tags.js sweep) ----
-			// Bottom-left corner (rank+oscars own the right side).
+			// TOP-left corner (rank+oscars own the right side). Moved from bottom-left
+			// 2026-07-26 (Brennan) — must stay in step with the Fire Stick, where the same
+			// sticker lives in view_card_legacy_image.xml / view_row_details.xml /
+			// GenreGridFragment.
 			// z-index:2 like the oscar stack: under the #53 corner motifs. The tiny tilt is
-			// deliberate — sells the vintage-sticker look.
-			'.nation-flag{position:absolute;left:4px;bottom:4px;width:24%;min-width:20px;max-width:34px;' +
-			'z-index:2;pointer-events:none;transform:rotate(-2deg);transform-origin:bottom left;' +
+			// deliberate — sells the vintage-sticker look; origin follows the anchored corner
+			// so the rotation never pushes the sticker off the poster.
+			'.nation-flag{position:absolute;left:4px;top:4px;width:24%;min-width:20px;max-width:34px;' +
+			'z-index:2;pointer-events:none;transform:rotate(-2deg);transform-origin:top left;' +
 			'filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));}' +
 			'.nation-flag svg{display:block;width:100%;height:auto;}' +
-			'.curated-host-detail .nation-flag{max-width:52px;left:8px;bottom:8px;}' +
+			'.curated-host-detail .nation-flag{max-width:52px;left:8px;top:8px;}' +
 			'@media (max-width:600px){' +
 			// theme-token corner geometry on the rank pill (reelone=square, canyon=pill);
 			// desktop keeps the stock 4px look
@@ -1726,7 +1777,10 @@
 		// from THEMES (the --mn-tier-bg vars are only set further down this function).
 		if (!container.querySelector('.mn-t1') && !container.querySelector('.mn-t2')) {
 			if (!document.getElementById('mn-top100-overlay')) {
-				var thOv = THEMES[sessionStorage.getItem('mnTheme')] || THEMES.canyon;
+				var pickOv = sessionStorage.getItem('mnTheme');
+				var thOv = THEMES[pickOv] || THEMES.canyon;
+				var owm = OVERLAY_WM[pickOv] || OVERLAY_WM.canyon;
+				preloadWmFont(owm.font);
 				// Self-sufficient inline style (mirrors the boot splash): own @font-face + the
 				// same wordmark/pulsing-underline look, so the overlay never depends on branding
 				// CSS timing (the old CSS-only wordmark rendered in the fallback font whenever
@@ -1736,15 +1790,14 @@
 					var ovlSt = document.createElement('style');
 					ovlSt.id = 'mn-top100-overlay-style';
 					ovlSt.textContent =
-						'@font-face{font-family:"Palm Canyon Drive";src:url("/web/fonts/palm-canyon-drive.otf") format("opentype");font-weight:400;font-display:swap;}' +
+						FONT_FACES[owm.font] +
 						'#mn-top100-overlay{position:fixed;inset:0;z-index:999998;display:flex;flex-direction:column;' +
 						'align-items:center;justify-content:center;opacity:1;transition:opacity .3s ease;pointer-events:none;}' +
 						'#mn-top100-overlay.mn-top100-overlay-out{opacity:0;}' +
 						// !important: the branding CSS global UI-face rule (`div { font-family:
 						// var(--mn-nav-font) !important }`) beats a plain declaration here (same
 						// bug as the boot splash wordmark).
-						'#mn-top100-overlay .mn-top100-overlay-wm{font-family:"Palm Canyon Drive",cursive,sans-serif!important;' +
-						'font-weight:400;font-size:44px;color:' + thOv.text + ';text-shadow:0 0 14px ' + thOv.accent + ';}' +
+						'#mn-top100-overlay .mn-top100-overlay-wm{' + overlayWmCss(owm) + '}' +
 						'#mn-top100-overlay .mn-top100-overlay-bar{margin-top:26px;width:120px;height:4px;border-radius:2px;' +
 						'background:' + thOv.accent + ';animation:mn-top100-ovl-pulse 2.4s ease-in-out infinite;}' +
 						'@keyframes mn-top100-ovl-pulse{0%,100%{opacity:.35;}50%{opacity:.7;}}';
@@ -1753,8 +1806,9 @@
 				var ovl = document.createElement('div');
 				ovl.id = 'mn-top100-overlay';
 				ovl.style.background = 'linear-gradient(135deg,' + thOv.bg + ',' + thOv.bg2 + ')';
-				ovl.innerHTML = '<div class="mn-top100-overlay-wm">Movie Night</div>' +
+				ovl.innerHTML = '<div class="mn-top100-overlay-wm"></div>' +
 					'<div class="mn-top100-overlay-bar"></div>';
+				ovl.firstChild.textContent = owm.text;
 				document.documentElement.appendChild(ovl);
 				// HARD failure cap: whatever happens, the overlay drops and the rows show.
 				_top100OverlayTimer = setTimeout(function () { removeTop100Overlay(false); }, 12000);
