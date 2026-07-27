@@ -94,12 +94,13 @@ else
   ok "Movies library now auto-adds to TMDb collections (box sets)"
 fi
 
-# 3c. Curated ordered playlists (Top 100, Watchlist). IaC only CREATES them empty — it
-#     NEVER touches membership or order. In-app editing (web/mobile drag-reorder) is the
-#     source of truth for contents; a reconcile here would fight manual edits. Once a
-#     playlist exists, Jellyfin surfaces a "Playlists" entry in the web sidebar drawer,
-#     and the Firestick fork's toolbar buttons open each list by name. See DESIGN-PLAYLISTS.md.
+# 3c. Curated ordered playlist (Top 100). IaC only CREATES it empty — it NEVER touches
+#     membership or order. In-app editing (web/mobile drag-reorder) is the source of truth
+#     for contents; a reconcile here would fight manual edits. Once a playlist exists,
+#     Jellyfin surfaces a "Playlists" entry in the web sidebar drawer, and the Firestick
+#     fork's toolbar buttons open each list by name.
 #     Playlists are user-scoped, so create them under the admin user we authenticated as.
+#     (Watchlist was retired 2026-07-26 — see docs/DESIGN-USER-LESLIE.md §4b.)
 jf_uid=$(curl -fsS "$JF/Users/Me" -H "X-Emby-Token: $token" | jq -r '.Id')
 [[ -n "$jf_uid" && "$jf_uid" != "null" ]] || die "could not resolve Jellyfin user id for playlists"
 existing_playlists=$(curl -fsS "$JF/Items?userId=$jf_uid&IncludeItemTypes=Playlist&Recursive=true" \
@@ -115,7 +116,6 @@ jf_ensure_playlist() {  # name — create an EMPTY video playlist if none with t
     || warn "  failed to create playlist '$1'"
 }
 jf_ensure_playlist "Top 100"
-jf_ensure_playlist "Watchlist"
 
 # Rebuild each curated playlist's cover as a 2x2 poster mosaic from its CURRENT items.
 # We build it OURSELVES rather than letting Jellyfin regenerate: Jellyfin's collage generator
@@ -156,9 +156,87 @@ jf_refresh_playlist_cover() {  # name
   rm -rf "$tmp"
 }
 jf_refresh_playlist_cover "Top 100"
-jf_refresh_playlist_cover "Watchlist"
 
-# 3d. Reconcile auto-created (TMDB) collections: HIDE tiny ones (<3 films) server-side via a
+# 3d. Second household account (leslie) — watch + request only. See docs/DESIGN-USER-LESLIE.md.
+#     Placed here because it needs $token, $jf_uid and the Top 100 playlist that §3c resolved.
+#     Skipped entirely when JELLYFIN_USER_2 is empty, so a box that doesn't want a second user
+#     still provisions cleanly.
+if [[ -n "${JELLYFIN_USER_2:-}" ]]; then
+  # a. Create idempotently. The password is set ONLY on creation — a re-run must never clobber
+  #    a password she changed in-app.
+  leslie_id=$(curl -fsS "$JF/Users" -H "X-Emby-Token: $token" \
+    | jq -r --arg n "$JELLYFIN_USER_2" '.[]|select(.Name==$n).Id // empty')
+  if [[ -z "$leslie_id" ]]; then
+    leslie_id=$(curl -fsS -X POST "$JF/Users/New" -H "X-Emby-Token: $token" \
+      -H 'Content-Type: application/json' \
+      -d "$(jq -n --arg n "$JELLYFIN_USER_2" --arg p "${JELLYFIN_PASS_2:-}" '{Name:$n, Password:$p}')" \
+      | jq -r '.Id // empty')
+    [[ -n "$leslie_id" ]] && ok "user '$JELLYFIN_USER_2' created" \
+                          || warn "  could not create user '$JELLYFIN_USER_2'"
+  else
+    ok "user '$JELLYFIN_USER_2' already exists (password left untouched)"
+  fi
+
+  if [[ -n "$leslie_id" ]]; then
+    # b. Assert the policy EVERY run: read the user, patch .Policy, POST the whole object back
+    #    (same full-object pattern sort-collections.sh uses — Jellyfin rejects partial policies).
+    #    BlockedTags is the non-obvious one: it gives her parity with brennan's steady state, so
+    #    she doesn't see the tiny franchise collections we hide server-side. sort-collections.sh
+    #    temporarily UNBLOCKS that tag on the admin during its run; leslie's stays blocked always.
+    pol=$(curl -fsS "$JF/Users/$leslie_id" -H "X-Emby-Token: $token" | jq -c '.Policy')
+    if [[ -n "$pol" && "$pol" != "null" ]]; then
+      jq -c '
+        .IsAdministrator = false
+        | .EnableContentDeletion = false
+        | .EnableContentDeletionFromFolders = []
+        | .EnableCollectionManagement = false
+        | .EnableSubtitleManagement = false
+        | .EnableLyricManagement = false
+        | .EnableMediaConversion = false
+        | .EnableLiveTvManagement = false
+        | .EnableRemoteControlOfOtherUsers = false
+        | .EnableAllFolders = true
+        | .EnableMediaPlayback = true
+        | .EnableVideoPlaybackTranscoding = true
+        | .EnableAudioPlaybackTranscoding = true
+        | .EnablePlaybackRemuxing = true
+        | .EnableRemoteAccess = true
+        | .EnableUserPreferenceAccess = true
+        | .EnableContentDownloading = true
+        | .BlockedTags = ["hidden-collection"]
+      ' <<<"$pol" \
+        | curl -fsS -X POST "$JF/Users/$leslie_id/Policy" -H "X-Emby-Token: $token" \
+            -H 'Content-Type: application/json' -d @- >/dev/null \
+        && ok "user '$JELLYFIN_USER_2' policy asserted (non-admin, no deletion, hidden-collection blocked)" \
+        || warn "  could not apply policy for '$JELLYFIN_USER_2'"
+    else
+      warn "  could not read policy for '$JELLYFIN_USER_2'"
+    fi
+
+    # c. Top 100 stays visible + read-only for her. This is belt-and-braces, NOT load-bearing:
+    #    playlists are open-access by default and non-owners already get 403 on every write
+    #    (add/remove/reorder/rename/self-promote) with no share record at all — verified live on
+    #    10.11.11. Pinning IsPublic stops a stray UI toggle hiding it; the explicit CanEdit:false
+    #    record makes the intent declarative instead of implicit in a default.
+    #    NB: POST /Playlists/{id}/Users/{userId} only UPDATES an existing share and 500s otherwise
+    #    — creation must go through POST /Playlists/{id} with a Users array, as below.
+    #    NB: Users:[…] REPLACES the whole share list. Fine with exactly one non-owner; revisit if
+    #    a third account ever appears.
+    top100_id=$(curl -fsS "$JF/Items?userId=$jf_uid&IncludeItemTypes=Playlist&Recursive=true" \
+      -H "X-Emby-Token: $token" | jq -r '.Items[]|select(.Name=="Top 100").Id // empty')
+    if [[ -n "$top100_id" ]]; then
+      curl -fsS -X POST "$JF/Playlists/$top100_id" -H "X-Emby-Token: $token" \
+        -H 'Content-Type: application/json' \
+        -d "$(jq -n --arg u "$leslie_id" '{IsPublic:true, Users:[{UserId:$u, CanEdit:false}]}')" >/dev/null \
+        && ok "Top 100 shared read-only with '$JELLYFIN_USER_2'" \
+        || warn "  could not share Top 100 with '$JELLYFIN_USER_2'"
+    else
+      warn "  Top 100 playlist not found — skipping share for '$JELLYFIN_USER_2'"
+    fi
+  fi
+fi
+
+# 3e. Reconcile auto-created (TMDB) collections: HIDE tiny ones (<3 films) server-side via a
 #     tag + the user's BlockedTags policy, and ORDER franchise ones chronologically
 #     (DisplayOrder=PremiereDate). sort-collections.sh does both. It also runs once per boot
 #     via collection-sort.service (installed by bootstrap.sh) to catch collections created
@@ -485,12 +563,12 @@ else
 fi
 
 # 6d3. JavaScript Injector plugin (n00bcodr) — delivery vehicle for our custom WEB JS (curated-list
-#      flair: Top 100 rank pills + Watchlist bookmarks on posters, and the Top 100 / Watchlist
-#      sidebar entries). It registers via File Transformation's RUNTIME path — the same mechanism
+#      flair: Top 100 rank pills, Oscar plaques and nation flags on posters, plus the Top 100
+#      sidebar entry). It registers via File Transformation's RUNTIME path — the same mechanism
 #      HSS uses — so it COEXISTS with HSS's index.html transform. (FT's config-based search/replace
 #      does NOT: HSS's runtime transform wins on index.html, and config transforms don't reach the
 #      static JS bundles — verified on-box 2026-07-10.) The script itself is pushed as this plugin's
-#      config in §9, after the §7 restart activates the plugin. See DESIGN-PLAYLISTS.md.
+#      config in §9, after the §7 restart activates the plugin.
 jsinj_repo="https://raw.githubusercontent.com/n00bcodr/jellyfin-plugins/main/10.11/manifest.json"
 repos=$(curl -fsS "$JF/Repositories" -H "X-Emby-Token: $token")
 if ! jq -e --arg u "$jsinj_repo" '.[]|select(.Url==$u)' <<<"$repos" >/dev/null 2>&1; then
@@ -663,8 +741,8 @@ else
 fi
 
 # 9. Web curated-list flair — push our custom web JS into the JavaScript Injector plugin (installed
-#    in §6d3, activated by the §7 restart). It surfaces the Top 100 rank pills + Watchlist bookmarks
-#    on movie posters AND the Top 100 / Watchlist sidebar entries — the web counterpart to the
+#    in §6d3, activated by the §7 restart). It surfaces the Top 100 rank pills, Oscar plaques and
+#    nation flags on movie posters AND the Top 100 sidebar entry — the web counterpart to the
 #    Firestick fork's card badges + toolbar buttons. JS Injector serves the script at
 #    /JavaScriptInjector/public.js and injects a loader into index.html via File Transformation's
 #    runtime path (coexists with HSS). Config applies LIVE — no restart needed. Script source is

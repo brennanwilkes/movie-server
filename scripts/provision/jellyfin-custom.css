@@ -1478,6 +1478,14 @@ html [class*="material-icons"]::before {
   color: var(--mn-muted, #8b93a7) !important;
 }
 
+/* Runtime appended to a card's year line by jellyfin-web-flair.js (#47) — "2022 · 2h 19m".
+   Jellyfin's cardBuilder has no runtime option, so the flair JS injects this span into the
+   existing .cardText-secondary. It inherits that line's font/colour; the only job here is to
+   stop it wrapping onto its own line on narrow cards. */
+.cardText-secondary .mn-card-rt {
+  white-space: nowrap;
+}
+
 /* Tertiary card text (year/dates on detail page cards) */
 .cardText-tertiary {
   font-family: var(--mn-nav-font, 'Poppins', 'Segoe UI', sans-serif) !important;

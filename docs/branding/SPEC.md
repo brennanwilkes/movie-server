@@ -13,7 +13,7 @@ This is the complete, self-contained specification for rebranding the "Movie Nig
 | Deploy target | Amazon Fire TV Stick — **old, slow hardware**: home page takes ~5 s to settle. Every design decision is perf-gated. Sideload via adb. |
 | Server | Jellyfin on a NUC (`haleiwa-movies`), movie-server repo (this repo) is IaC for it (`jellyfin.sh` provisions) |
 | Web client | Stock Jellyfin web + **JavaScript Injector plugin** (already in use for playlist flair) + Dashboard → Branding Custom CSS |
-| Curated playlists | Native Jellyfin playlists "Top 100" (ranked) and "Watchlist" (unranked), created by `jellyfin.sh`, surfaced in the fork via `CuratedListsRepository` — see `DESIGN-PLAYLISTS.md` |
+| Curated playlists | Native Jellyfin playlist "Top 100" (ranked), created by `jellyfin.sh`, surfaced in the fork via `CuratedListsRepository`. (A second, unranked "Watchlist" existed until 2026-07-26 — retired, see `docs/DESIGN-USER-LESLIE.md` §4b.) |
 | Font asset | `PalmCanyonDrive.otf` (in this directory) — 1950s retro script, **display-only**, commercial license (Mika Melvas/Fenotype) |
 
 ### Hard invariants (violating any of these is a failed implementation)
@@ -114,7 +114,7 @@ Visual reference for every one of these: `brand-studies.html` tabs 1–4.
 - Optional motion (Phase 6, perf-gated): single beat ≤600 ms — Canyon: neon flicker-on (2 alpha dips then hold); Reel One: disc translates in from left then script fades over (~500 ms); Matinee: wordmark scales 1.03→1.00 with alpha ("stamp"); Marquee: hairline rules scaleX 0→1 from center. One animated view each; must not delay `StartupActivity` navigation.
 
 ### 5.2 Toolbar (`ui/shared/toolbar/Toolbar.kt`, `MainToolbar.kt`)
-- Real structure (do not change structure): start = `Logo()` (wordmark, small); center = text buttons **Home / Search / Top 100 / Watchlist** (curated buttons appear when `CuratedListsRepository` resolves ids); end = settings icon + clock.
+- Real structure (do not change structure): start = `Logo()` (wordmark, small); center = text buttons **Home / Search / Top 100** (curated buttons appear when `CuratedListsRepository` resolves ids); end = settings icon + clock.
 - Theming: buttons in `brandFontFamily` with the theme's header case/tracking; **active** button = accent fill + text-on-accent color in the theme's shape (Canyon glowing pill / Matinee amber slab / Reel One flat vermilion block / Marquee gold fill, tracked caps). Inactive = muted text, transparent. `activeButtonColors` in `MainToolbar.kt` currently carries this — point it at theme tokens.
 - Clock: muted color, tabular numerals.
 
@@ -132,7 +132,7 @@ Visual reference for every one of these: `brand-studies.html` tabs 1–4.
 - Change: tint color `R.color.background_filter` → theme attr `backdropDimColor` (§1 last row). Fallback `AppThemeBackground` already reads `defaultBackground` — set per theme (Canyon/Marquee may use their subtle gradients via drawable; flat color is fine too).
 
 ### 5.6 Row headers (home rows)
-- Text in `brandFontFamily` + theme case/tracking; ornament glyph before curated rows ("Top 100", "Watchlist") only — ✶ / ▸ / ■ / ◆ colored per §1. Implemented in the row header presenter/style (`Widget.Jellyfin.Row.Header` in `values/styles.xml`). Don't ornament every row — curated rows only.
+- Text in `brandFontFamily` + theme case/tracking; ornament glyph before curated rows ("Top 100") only — ✶ / ▸ / ■ / ◆ colored per §1. Implemented in the row header presenter/style (`Widget.Jellyfin.Row.Header` in `values/styles.xml`). Don't ornament every row — curated rows only.
 
 ## 6. Top 100 showcase page (TV) — the flagship
 
@@ -183,7 +183,7 @@ Priority: franchise (TMDB collection) beats genre. Unknown → no motif (fine).
 All motifs are Compose Canvas draws or simple drawables — no bitmaps.
 
 ### 6.6 Playlist cover
-Generated covers are replaced: `jellyfin.sh` (this repo) uploads branded **square** covers for Top 100 / Watchlist via the playlist image API — script "100" mark / bookmark mark on Canyon teal (produce via §4 pipeline → PNG 720×720). Shows in TV list headers, web, search.
+Generated covers are replaced: `jellyfin.sh` (this repo) uploads a branded **square** cover for Top 100 via the playlist image API — script "100" mark on Canyon teal (produce via §4 pipeline → PNG 720×720). Shows in TV list headers, web, search.
 
 ### 6.7 Loading & perf budget (the stick is slow — this section is binding)
 - `LazyColumn`; every tier item is lazy.
@@ -193,8 +193,8 @@ Generated covers are replaced: `jellyfin.sh` (this repo) uploads branded **squar
 - No parallax, no Ken Burns, no scroll-linked effects. Crossfade image placeholders (ground color) only.
 - Scroll must stay smooth end-to-end on the Fire Stick; if not, reduce pantheon image height/count before touching the design.
 
-### 6.8 Watchlist variant
-Same screen component, `ranked = false`: **no pantheon** — gallery cards + ledger only, no rank numerals (no ceremony for an unranked list). Ordering = playlist order.
+### 6.8 Unranked variant (not built — Watchlist retired 2026-07-26)
+The showcase component was specced to take `ranked = false`: **no pantheon** — gallery cards + ledger only, no rank numerals (no ceremony for an unranked list), ordering = playlist order. Its only consumer was Watchlist, which no longer exists (`docs/DESIGN-USER-LESLIE.md` §4b). Kept here as the design to follow if a second curated list is ever added.
 
 ## 7. Web client (Canyon, fixed — no roulette)
 
@@ -205,7 +205,7 @@ Mechanisms: (a) Dashboard → Branding → **Custom CSS** (+ logo/splash image u
 - Ground → `#0E2A30`-family; text → cream/sage per §1 Canyon column.
 - `@font-face` PalmCanyonDrive (served asset) for the login header + page titles **only**; Josefin Sans for headings if easy; body text stays the web client's default stack.
 - Login page: wordmark above the form (styled per prototype tab 6), pill turquoise Sign In with soft glow.
-- **Sidebar prune** (CSS `display:none`): Dashboard/admin links, metadata manager, syncplay, and other non-family items. Keep: Home, library entries (Movies, Shows), Top 100, Watchlist, user/sign-out. Admin remains reachable by direct URL. Sidebar visual: dark teal panel `#0A2026`, cream items, turquoise active pill, script wordmark at top.
+- **Sidebar prune** (CSS `display:none`): Dashboard/admin links, metadata manager, syncplay, and other non-family items. Keep: Home, library entries (Movies, Shows), Top 100, user/sign-out. Admin remains reachable by direct URL. Sidebar visual: dark teal panel `#0A2026`, cream items, turquoise active pill, script wordmark at top.
 - Keep CSS to accents/fonts/visibility — **no layout surgery** (selector churn across Jellyfin upgrades).
 
 ### 7.2 Top 100 showcase on web (JS injector)
@@ -213,7 +213,7 @@ Mechanisms: (a) Dashboard → Branding → **Custom CSS** (+ logo/splash image u
 - Accepted risk: DOM selectors churn across Jellyfin upgrades; this is already the accepted pattern for playlist flair.
 
 ### 7.3 Convergence principle
-Web mirrors the Fire Stick nav set (Home / Movies / Shows / Top 100 / Watchlist), palette, fonts, wordmark, and showcase. When in doubt, make web look like the TV app, not vice versa.
+Web mirrors the Fire Stick nav set (Home / Movies / Shows / Top 100), palette, fonts, wordmark, and showcase. When in doubt, make web look like the TV app, not vice versa.
 
 ## 8. Strings de-Jellyfin (`values/strings.xml`, English only)
 Rewrite residual "Jellyfin" user-visible strings (~14): `welcome_title` ("Welcome to Movie Night"), `searchable_hint` ("Search Movie Night"), about/licenses screen labels, etc. Grep `values/strings.xml` for `Jellyfin`; lines ~338, 351, 354, 388, 408, 457–487, 543–545 at v0.19.9. Leave the 65 translated locales untouched (family uses English). Leave license/attribution texts factually intact where they genuinely refer to the Jellyfin project.
@@ -225,7 +225,7 @@ Rewrite residual "Jellyfin" user-visible strings (~14): `welcome_title` ("Welcom
 | 1 | Canyon wordmark vector → `app_logo`/`brandWordmark`; launcher icon + banner; splash cleanup | Fire Stick home shows MN icon + neon banner legible at 160×90; splash = teal + neon wordmark; screensaver logo swapped; zero Jellyfin marks visible in normal use |
 | 2 | Theme system: `Theme.MovieNight` ×4, attrs, fonts in `res/font/`, roulette + pin pref, delete stock themes, recolor `colors.xml` | Launch app 8×: all four themes appear; pinning works; no jellyfin_blue anywhere; stock theme XMLs gone |
 | 3 | Component dialects: toolbar active states, hero scrim/button, rank pills ×4 (+details parity), row-header ornaments, card fonts, `backdropDimColor` | Each theme's toolbar/hero/pill matches prototype tabs 1–4; browsing backdrop art unchanged in brightness |
-| 4 | Top 100 showcase screen (TV) + Watchlist variant + playlist covers | Tab-5 fidelity; opens on №1; smooth scroll on the stick; billing/motifs/era all from real metadata; missing-data fallbacks exercised |
+| 4 | Top 100 showcase screen (TV) + playlist cover | Tab-5 fidelity; opens on №1; smooth scroll on the stick; billing/motifs/era all from real metadata; missing-data fallbacks exercised |
 | 5 | Strings; web CSS + sidebar prune + login + JS-injector showcase, provisioned via `jellyfin.sh` | Web login + sidebar match tab 6; Top 100 web page renders tiers; all provisioned by IaC, survives container recreate |
 | 6 | Optional splash beats (§5.1), stretch focus-glow (§6.3) | Each ≤600 ms, single-view, no startup delay, no dropped frames — else cut |
 

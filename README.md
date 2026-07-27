@@ -53,6 +53,19 @@ in .env, migrate the data, then `make bootstrap && make deploy`.
 8096 Jellyfin · 8080 qBittorrent · 9696 Prowlarr · 7878 Radarr · 8989 Sonarr
 6767 Bazarr · 5055 Jellyseerr · 8088 Controller (dashboard)
 
+## Who can log in where
+| Account | Jellyfin (8096) | Jellyseerr (5055) | *arr / qBittorrent | Controller (80/8088) |
+| --- | --- | --- | --- | --- |
+| `brennan` / `brennan` | admin | owner | admin | no auth |
+| `leslie` / `leslie` | watch only — non-admin, can't delete media or edit collections | request, **auto-approved**, unlimited | no account | no auth |
+
+Leslie is a watch-and-request household account, provisioned by IaC from `JELLYFIN_USER_2` /
+`JELLYFIN_PASS_2` in `.env` (leave the username empty to skip creating her). Her watch history,
+Continue Watching and Next Up are separate from brennan's automatically — Jellyfin stores playstate
+per user. The Fire Stick stays signed in as brennan, so anything watched **on the TV** lands in
+brennan's history; she's web-only for now. The controller dashboard is unauthenticated by design,
+so if she uses it her actions run as brennan. See `docs/DESIGN-USER-LESLIE.md`.
+
 ## Controller dashboard (`http://movies.local`)
 Mobile-friendly web controller for the whole stack, served from the NUC on **port 80**
 (and `:8088`). On the wifi just open **`http://movies.local`** / **`http://movie.local`**

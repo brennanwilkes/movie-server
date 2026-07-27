@@ -56,8 +56,8 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `scripts/provision/prowlarr.sh` | Prowlarr provisioning (indexers, download client) |
 | `scripts/provision/bazarr.sh` | Bazarr provisioning (languages, providers) |
 | `scripts/provision/qbittorrent.sh` | qBit config: speed, ratio, queueing, categories |
-| `scripts/provision/jellyfin.sh` | Jellyfin user policy, library scan, API key |
-| `scripts/provision/jellyseerr.sh` | Jellyseerr settings, services |
+| `scripts/provision/jellyfin.sh` | Jellyfin user policy, library scan, API key, playlists, second household user (§3d) |
+| `scripts/provision/jellyseerr.sh` | Jellyseerr settings, services, users (suggestarr + the second household account) |
 | `scripts/provision/controller.sh` | Writes all API keys into controller container |
 | `scripts/provision/custom_tpb_definition.yml` | Custom TPB indexer definition for Prowlarr |
 | `data/oscars/build.sh` | Build script: downloads json-nominations dataset → generates `controller/oscar-winners.json` |
@@ -78,6 +78,10 @@ All ports: `docker-compose.yml:104`
 **Network**: Host networking for Jellyfin (PS4 DLNA/SSDP). Bridge for everything else. Controller reaches all services by container name.
 
 **Auth**: `brennan/brennan` everywhere (LAN-only, no inbound exposure). *arr keys auto-discovered via `arr_apikey()` from config.xml.
+A second Jellyfin + Jellyseerr account, `leslie/leslie` (`JELLYFIN_USER_2`/`JELLYFIN_PASS_2` in `.env`), can **watch and request only** —
+non-admin, no deletion, no collection editing, auto-approved requests. She exists in **Jellyfin and Jellyseerr only**; there is no
+*arr, qBittorrent or controller account, and the controller dashboard stays unauthenticated (her actions there run as brennan, by design).
+See `docs/DESIGN-USER-LESLIE.md`.
 
 ## Controller Sweeps (controller/lib/)
 
@@ -578,6 +582,7 @@ to live installs on every provision, so edit the script, never the *arr UI.
 ## Credentials & Config
 
 - **All services**: `brennan` / `brennan`
+- **Second household account**: `leslie` / `leslie` — Jellyfin + Jellyseerr only, watch + request (see `docs/DESIGN-USER-LESLIE.md`)
 - **API keys**: written to `controller:/config/keys.env` by `provision/controller.sh`; never committed
 - **Config root**: `/opt/appdata` (SSD)
 - **Media root**: `/data` (7.3 TB USB drive)

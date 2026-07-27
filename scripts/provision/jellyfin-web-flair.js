@@ -14,7 +14,7 @@
  *
  * Delivered by the JavaScript Injector plugin (served at /JavaScriptInjector/public.js and loaded
  * from index.html). Wired up idempotently from scripts/provision/jellyfin.sh §6d3+§9.
- * See DESIGN-PLAYLISTS.md. Pure vanilla JS, no build step; everything is best-effort and swallows
+ * Pure vanilla JS, no build step; everything is best-effort and swallows
  * its own errors so a jellyfin-web change can never break the app.
  *
  * Also pins all locale-formatted clock times (e.g. the playback "Ends at" readout) to Pacific —
@@ -75,6 +75,11 @@
 	// we batch-fetch tags for exactly the person ids on screen instead). null = fetched, no awards.
 	var oscarFetchPending = new Set(); // raw ids awaiting a batch fetch
 	var oscarFetchTimer = null;
+	var runtimeById = new Map(); // normalized MOVIE id -> RunTimeTicks (or null = fetched, no runtime).
+	// On-demand + batched like the person Oscar cache, but PERSISTED: a film's runtime never
+	// changes, so a hydrated cache means zero network for every card the user has already seen.
+	var runtimeFetchPending = new Set();
+	var runtimeFetchTimer = null;
 	var nationById = new Map(); // MOVIE id -> iso2 country code from nation-* Tags (bulk-loaded)
 	var idByName = {}; // playlist name -> playlist id (for the sidebar entries)
 	var playlistsViewId = null; // the "Playlists" library-view id, to locate its drawer entry
@@ -516,6 +521,10 @@
 		if (o) oscarById = new Map(o);
 		var n = lsGet(cacheKey('mn_nations'));
 		if (n) nationById = new Map(n);
+		// Runtimes are immutable, so this cache is purely additive — no loader ever rebuilds it,
+		// and a warm cache means card runtimes paint with zero network.
+		var rt = lsGet(cacheKey('mn_runtimes'));
+		if (rt) runtimeById = new Map(rt);
 		if (r || o || n) loaded = true; // decoration may proceed from cache right away
 	}
 
@@ -540,7 +549,8 @@
 	// now-stale flair DOM — decorateItem early-returns before applyFlair when an id has no data,
 	// so applyFlair's own cleanup wouldn't run for removals), then let the next scan repaint them.
 	// Replaces the old wholesale document-wide marker nuke after every loader tick.
-	var STALE_FLAIR_SEL = '.curated-rank, .oscar-stack, .oscar-plaque, .mn-oscar-text, .nation-flag';
+	var STALE_FLAIR_SEL = '.curated-rank, .oscar-stack, .oscar-plaque, .mn-oscar-text, .nation-flag,' +
+		' .mn-card-rt';
 	function redecorateChanged(changedIds) {
 		if (!changedIds || !changedIds.size) return false;
 		var norm = new Set();
@@ -672,6 +682,73 @@
 		});
 	}
 
+	// ---- Card runtime (#47) --------------------------------------------------------------------
+	// Jellyfin's cardBuilder renders exactly two text lines under a poster — .cardText-first
+	// (title) and .cardText-secondary (year) — and offers no way to add runtime from a theme.
+	// The Fire Stick fork shows "year · runtime" (CardPresenter.buildYearRuntime), so we append
+	// the runtime to the existing year line to bring web to parity.
+	//
+	// RunTimeTicks is a DEFAULT field on /Items (verified against 10.11.11 — no Fields= needed),
+	// so this is a plain id lookup. We deliberately do NOT bulk-load every movie: the home page
+	// only ever shows a few dozen cards, and this box is already sensitive to wide library
+	// queries (see DESIGN-PERF-LOADING.md). Batched + cached, it costs one request per screenful
+	// on a cold cache and nothing at all afterwards.
+	function runtimeFor(id) { return runtimeById.get(normalize(id)); }
+	function requestRuntime(rawId) {
+		if (!rawId || runtimeById.has(normalize(rawId))) return;
+		runtimeFetchPending.add(rawId);
+		if (runtimeFetchTimer) return;
+		runtimeFetchTimer = setTimeout(flushRuntimeFetch, 250);
+	}
+	function flushRuntimeFetch() {
+		runtimeFetchTimer = null;
+		if (!ready() || !runtimeFetchPending.size) return;
+		var a = api();
+		var ids = Array.from(runtimeFetchPending); // Array.from, not slice.call — a Set isn't array-like
+		runtimeFetchPending.clear();
+		var jobs = [];
+		for (var s = 0; s < ids.length; s += 60) { // chunk to keep the query string sane
+			(function (chunk) {
+				jobs.push(a.getJSON(a.getUrl('Items', { Ids: chunk.join(',') }))
+					.then(function (res) {
+						((res && res.Items) || []).forEach(function (it) {
+							if (it.Id) runtimeById.set(normalize(it.Id), it.RunTimeTicks || null);
+						});
+						// Only on SUCCESS: mark every requested id as fetched (even ones Jellyfin
+						// omitted) so we never spin re-requesting. Failed chunks stay unmarked and
+						// retry on a later scan.
+						chunk.forEach(function (rid) {
+							if (!runtimeById.has(normalize(rid))) runtimeById.set(normalize(rid), null);
+						});
+					}).catch(function () { /* ignore chunk — unmarked ids retry later */ }));
+			})(ids.slice(s, s + 60));
+		}
+		Promise.all(jobs).then(function () {
+			lsSet(cacheKey('mn_runtimes'), Array.from(runtimeById.entries()));
+			redecorateChanged(new Set(ids));
+			scan();
+		});
+	}
+	// Append " · 1h 39m" to a card's year line. Always clears any previous .mn-card-rt first:
+	// Jellyfin recycles card nodes between items, and the MARK guard would otherwise let a
+	// recycled card keep the PREVIOUS film's runtime forever.
+	function addRuntimeText(el, id) {
+		var sec = el.querySelector('.cardText-secondary');
+		if (!sec) return;
+		var old = sec.querySelector('.mn-card-rt');
+		if (old) old.remove();
+		var ticks = runtimeFor(id);
+		if (ticks === undefined) { requestRuntime(id); return; } // not fetched yet — repaints on flush
+		var rt = rtText(ticks);
+		if (!rt) return;
+		// cardBuilder writes a literal &nbsp; when it has no year; trim() treats U+00A0 as
+		// whitespace, so an "empty" year line reads as '' and we drop the separator.
+		var year = sec.textContent.trim();
+		if (!year) sec.textContent = '';
+		sec.insertAdjacentHTML('beforeend',
+			'<span class="mn-card-rt">' + (year ? '  ·  ' : '') + rt + '</span>');
+	}
+
 	// ---- Oscar badges (see DESIGN-OSCAR-BADGES.md) --------------------------------------------
 	// The controller's oscarTagsSweep writes oscar-wins-N / oscar-noms-N Tags onto every Academy
 	// Award movie (noms here = LOSING nominations; wins are separate). We pull those items and
@@ -758,7 +835,7 @@
 
 	// ---- Nation flags (retro luggage-sticker vibe) ---------------------------------------------
 	// The controller's nationTagsSweep tags every "reasonably non-USA" movie with `nation` +
-	// `nation-{iso2}`. We bulk-load those and draw a small desaturated retro flag bottom-left.
+	// `nation-{iso2}`. We bulk-load those and draw a small desaturated retro flag top-left.
 	// Flags are built from a tiny spec DSL (stripes / nordic cross / disc / star / canton /
 	// specials) in a muted vintage palette — NOT emoji, NOT true flag colors. The palette and
 	// per-country specs MUST stay in sync with the Fire Stick fork's NationFlags.kt.
@@ -1053,7 +1130,7 @@
 					(osc.w === 0 ? ' mn-oscar-silver' : '') + '">' + oscarText + '</div>');
 			}
 		}
-		// Nation flag — bottom-left retro sticker (fully inside the poster, no spill).
+		// Nation flag — top-left retro sticker (fully inside the poster, no spill).
 		var iso = nationFor(id);
 		if (iso) host.insertAdjacentHTML('beforeend', flagSvgHtml(iso));
 	}
@@ -1078,6 +1155,9 @@
 		el.dataset[MARK] = id;
 		// Movies only otherwise (rank is a movie concept). Still mark, so we don't re-scan it.
 		if (type !== 'Movie') return;
+		// Runtime goes on EVERY movie card, so it must run before the flair early-return below
+		// (which bails for the majority of films — those with no rank, Oscars or nation tag).
+		addRuntimeText(el, id);
 		if (!rankFor(id) && !oscarFor(id) && !nationFor(id)) return;
 		var host = el.querySelector('.cardImageContainer') || el.querySelector('.cardScalable') ||
 			el.querySelector('.listItemImage') || el.querySelector('.cardImage') || el;
@@ -2208,7 +2288,7 @@
 	// (drawer entries, details page, showcase), at most once per 150ms of mutation activity.
 	var CARD_SEL = '.card[data-id], .listItem[data-id]';
 	// Our own injected DOM — mutations inside these must never trigger decoration walks.
-	var OWN_SEL = '.curated-rank, .oscar-stack, .oscar-plaque, .mn-oscar-text,' +
+	var OWN_SEL = '.curated-rank, .oscar-stack, .oscar-plaque, .mn-oscar-text, .mn-card-rt,' +
 		' .nation-flag, .mn-rank, .mn-blinds, .mn-deco1, .mn-deco2, .mn-logo, .mn-fact,' +
 		' .mn-meta-line, [data-curated], #mn-wordmark, #mn-splash, #mn-top100-header, .mn-top100-overlay-bar,' +
 		' #mn-top100-overlay';

@@ -24,7 +24,7 @@ untouched.
 - **Hide** any of these: one CSS rule (`.headerRight .headerSearchButton{display:none}`
   etc.), fully reversible, ships instantly. Trivial.
 - **Move to the side nav**: the drawer (`.navMenuOption` list) is destroyed and
-  rebuilt by Jellyfin every open/close — that's why our Top 100 / Watchlist
+  rebuilt by Jellyfin every open/close — that's why our Top 100
   entries are *re-cloned every scan* in `addSidebarEntries()`. We could clone a
   "Search" entry the same way and wire its click to `Emby.Page.showSearch()` or a
   hash route. That's MODERATE, not trivial, and it fights the rebuild loop.

@@ -16,6 +16,57 @@ const { isMasterPaused } = require('./state');
 // library metadata and reconciles membership every pass, so they grow with the library and
 // survive Jellyfin upgrades. Distinct names ("90s Movies", "Comedy Movies") can't collide
 // with TMDb franchise box sets ("James Bond Collection"). Thin buckets (<5 titles) skipped.
+// The sweep needs People and Studios (person/studio collections are built from them), so the
+// payload can't be slimmed — but it does NOT need to arrive in one request. Asking for all ~724
+// movies with People attached in a single 120s call is what made the sweep fail outright three
+// times on 2026-07-27: against a Jellyfin busy scanning, the one request never returned and the
+// ENTIRE sweep aborted, so no collection was reconciled and "Nature & Cosmos" was never created.
+//
+// Paged + retried instead: a slow page costs one retry, not the whole run. SortBy is pinned so
+// paging is stable — without an explicit sort, page boundaries can shift between requests and
+// silently drop or duplicate items.
+const MOVIE_FIELDS = 'ProductionYear,Genres,CommunityRating,RunTimeTicks,ProviderIds,People,Studios,Tags';
+// 75, not 150. With People attached these pages are fat, and at 150 the page at StartIndex=300
+// still timed out 3x against a Jellyfin busy importing (2026-07-27) — halving the page and
+// giving it 90s buys a lot of headroom for what is a background sweep with no deadline.
+const MOVIE_PAGE = 75;
+const MOVIE_PAGE_TIMEOUT = 90000;
+const MOVIE_PAGE_TRIES = 5;
+// Returns { items, complete }. `complete` MUST be honoured: the sweep rewrites collection
+// membership wholesale, so running it on a partial library would delete every member that simply
+// wasn't fetched. A short read has to abort the run, not quietly shrink the collections.
+async function fetchAllMovies(uid, h) {
+  const out = [];
+  let expected = null;
+  for (let start = 0; start < 20000; start += MOVIE_PAGE) {
+    const q = new URLSearchParams({
+      IncludeItemTypes: 'Movie', Recursive: 'true', Fields: MOVIE_FIELDS,
+      SortBy: 'SortName', StartIndex: String(start), Limit: String(MOVIE_PAGE),
+    });
+    let page = null;
+    for (let attempt = 0; attempt < MOVIE_PAGE_TRIES && page === null; attempt++) {
+      try {
+        const res = await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, MOVIE_PAGE_TIMEOUT);
+        page = res.Items || [];
+        if (expected === null && typeof res.TotalRecordCount === 'number') expected = res.TotalRecordCount;
+      } catch (e) {
+        if (attempt === MOVIE_PAGE_TRIES - 1) {
+          console.log(`collectionsSweep: page at ${start} failed ${MOVIE_PAGE_TRIES}x (${e.message || e}) — ${out.length} movies fetched, treating run as INCOMPLETE`);
+          return { items: out, complete: false };
+        }
+        // Linear backoff up to ~15s: the usual cause is Jellyfin mid-scan, which clears in
+        // seconds-to-minutes, so waiting is far cheaper than failing the whole sweep.
+        await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+      }
+    }
+    out.push(...page);
+    if (page.length < MOVIE_PAGE) break;
+  }
+  const complete = expected === null ? out.length > 0 : out.length >= expected;
+  if (!complete) console.log(`collectionsSweep: fetched ${out.length} of ${expected} movies — INCOMPLETE`);
+  return { items: out, complete };
+}
+
 let collSweepBusy = false;
 async function collectionsSweep() {
   if (isMasterPaused() || collSweepBusy || !cfg.JELLYFIN_KEY) { console.log(`collectionsSweep: skipped (masterPaused=${isMasterPaused()} busy=${collSweepBusy} key=${!!cfg.JELLYFIN_KEY})`); return; }
@@ -24,9 +75,13 @@ async function collectionsSweep() {
   try {
     const uid = await jellyfinUserId();
     const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
-    const q = new URLSearchParams({ IncludeItemTypes: 'Movie', Recursive: 'true', Fields: 'ProductionYear,Genres,CommunityRating,RunTimeTicks,ProviderIds,People,Studios,Tags', Limit: '5000' });
-    const movies = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 120000)).Items) || [];
-    if (movies.length < 20) return;                       // tiny library — don't spam collections
+    const { items: movies, complete } = await fetchAllMovies(uid, h);
+    // Abort on a partial read. Membership is rewritten wholesale further down, so rebuilding from
+    // an incomplete fetch would silently delete every title that just failed to come back.
+    if (!complete || movies.length < 20) {
+      console.log(`collectionsSweep: aborting — ${movies.length} movies fetched, complete=${complete}. Refusing to rebuild collections from a partial library.`);
+      return;
+    }
     const buckets = new Map();                            // collection name -> { ids:Set, desc }
     const add = (name, desc, id) => { if (!buckets.has(name)) buckets.set(name, { ids: new Set(), desc }); buckets.get(name).ids.add(id); };
     const oscarBuckets = new Map();                        // collection name -> { items: Map<jfId, year>, desc }
@@ -296,7 +351,29 @@ async function collectionsSweep() {
     }
     // Poster per collection: a RANDOM pick from its five best-rated members, re-rolled every
     // sweep — shelves get fresh faces twice a day instead of a frozen thumbnail.
-    const byId = new Map(movies.map((m) => [m.Id, m]));
+    // The ONLY collection built from TV series rather than movies. Every landmark nature/science
+    // documentary in the library is a series (Planet Earth I–III, Blue Planet I–II, Frozen Planet
+    // I–II, Human Planet, Cosmos), so a movies-only sweep could never surface them — and the six
+    // Documentary MOVIES are not nature at all (Navalny, Senna, 20 Days in Mariupol), so this is
+    // deliberately series-only rather than "everything tagged Documentary".
+    // Content-derived, not person-derived: Attenborough narrates most but not Cosmos, and the
+    // narrator is not reliably in Jellyfin's People metadata.
+    let docSeries = [];
+    try {
+      const dq = new URLSearchParams({
+        IncludeItemTypes: 'Series', Recursive: 'true', Genres: 'Documentary',
+        Fields: 'ProductionYear,Genres,CommunityRating', Limit: '200',
+      });
+      docSeries = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${dq}`, { headers: h }, 30000)).Items) || [];
+    } catch (e) { console.log(`collectionsSweep: doc-series fetch failed — ${e.message || e}`); }
+    if (docSeries.length >= 5) {
+      for (const s of docSeries) {
+        add('Nature & Cosmos', 'Landmark nature and science series — the planet, and everything beyond it.', s.Id);
+      }
+    }
+
+    // Series are in here too so posterPick can choose a poster for the Nature & Cosmos shelf.
+    const byId = new Map([...movies, ...docSeries].map((m) => [m.Id, m]));
     const posterPick = (want) => {
       const top = [...want].map((x) => byId.get(x)).filter(Boolean)
         .sort((a, b) => (b.CommunityRating || 0) - (a.CommunityRating || 0)).slice(0, 5);

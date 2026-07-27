@@ -141,6 +141,54 @@ else
   fi
 fi
 
+# Second household account (leslie) — watch + request, auto-approved. See
+# docs/DESIGN-USER-LESLIE.md §3. Skipped when JELLYFIN_USER_2 is empty.
+#
+# We IMPORT her Jellyfin identity rather than creating a local Jellyseerr user, so she signs in
+# with the same credentials she uses for Jellyfin. /user/import-from-jellyfin is present in 3.3.0
+# (gated on MANAGE_USERS, which our API key holds) and is idempotent — it skips any Jellyfin id
+# that already maps to a Jellyseerr user.
+if [[ -n "${JELLYFIN_USER_2:-}" ]]; then
+  jf_url="http://${NUC_IP:-jellyfin}:8096"
+  jf_key=$(jellyfin_apikey jellyseerr-import 2>/dev/null || true)
+  leslie_jf_id=""
+  [[ -n "$jf_key" ]] && leslie_jf_id=$(curl -fsS "$jf_url/Users" -H "X-Emby-Token: $jf_key" 2>/dev/null \
+    | jq -r --arg n "$JELLYFIN_USER_2" '.[]|select(.Name==$n).Id // empty')
+
+  if [[ -z "$leslie_jf_id" ]]; then
+    warn "jellyseerr: '$JELLYFIN_USER_2' not found in Jellyfin — run 'make provision s=jellyfin' first"
+  else
+    js -o /dev/null -X POST "$JS/user/import-from-jellyfin" -H 'Content-Type: application/json' \
+      -d "$(jq -n --arg i "$leslie_jf_id" '{jellyfinUserIds:[$i]}')"
+    # Match on the Jellyfin id, NOT the username: the import names the account from Jellyfin and
+    # we must not collide with the local 'suggestarr' user or the owner.
+    leslie_js_id=$(js "$JS/user?take=200" \
+      | jq -r --arg n "$JELLYFIN_USER_2" \
+          '.results[]|select((.jellyfinUsername // .username // .displayName)==$n).id // empty' | head -1)
+    if [[ -z "$leslie_js_id" ]]; then
+      warn "jellyseerr: could not resolve imported user '$JELLYFIN_USER_2'"
+    else
+      # 32 REQUEST | 8192 REQUEST_ADVANCED | 128 AUTO_APPROVE | 256 AUTO_APPROVE_MOVIE
+      # | 512 AUTO_APPROVE_TV = 9120. That's defaultPermissions (8224) plus auto-approve.
+      # 128 should cover both media types alone; the movie/TV bits go in anyway because a request
+      # silently landing in Pending is the exact failure mode this account must never hit.
+      js -o /dev/null -X PUT "$JS/user/$leslie_js_id" -H 'Content-Type: application/json' \
+        -d '{"permissions":9120}'
+      got=$(js "$JS/user/$leslie_js_id" | jq -r '.permissions // empty')
+      [[ "$got" == "9120" ]] \
+        && ok "jellyseerr: '$JELLYFIN_USER_2' imported with auto-approve (permissions 9120)" \
+        || warn "jellyseerr: '$JELLYFIN_USER_2' permissions did not persist (got ${got:-none}, want 9120)"
+
+      # Quotas must be explicitly unlimited: a quota rejects a request BEFORE auto-approve ever
+      # runs, so "always approved" is only true with these at 0.
+      js -o /dev/null -X POST "$JS/user/$leslie_js_id/settings/main" -H 'Content-Type: application/json' \
+        -d '{"movieQuotaLimit":0,"movieQuotaDays":0,"tvQuotaLimit":0,"tvQuotaDays":0}' 2>/dev/null \
+        && ok "jellyseerr: '$JELLYFIN_USER_2' quotas set unlimited" \
+        || warn "jellyseerr: could not set quotas for '$JELLYFIN_USER_2' (check they are 0 in the UI)"
+    fi
+  fi
+fi
+
 sliders_changed=false
 slider_ensure "Comedy Picks"   35
 slider_ensure "Sci-Fi Picks"   878

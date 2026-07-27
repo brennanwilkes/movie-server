@@ -1,7 +1,7 @@
 'use strict';
 // Nation flag tags sweep. Writes a country-of-origin tag onto every "reasonably non-USA" movie,
 // which BOTH clients (web flair JS + the Movie Night Fire Stick fork) read to draw a small retro
-// flag in the BOTTOM-LEFT poster corner (watchlist=top-left, rank/oscars=top-right). Same
+// flag in the TOP-LEFT poster corner (rank/oscars=top-right). Same
 // tags-as-shared-source-of-truth recipe as oscar-tags.js. Owns: nationTagsBusy.
 // Timers: startNationTagsTimer() → every 24h (boot run sequenced by server.js bootSequence()).
 //
@@ -9,6 +9,8 @@
 //   nation            presence marker (lets the web client bulk-load all flagged movies in one
 //                     Tags= query — per-country queries would be dozens of round trips)
 //   nation-{iso2}     lowercase ISO 3166-1 alpha-2 country code, exactly one per flagged movie
+//   foreign-language  original language (per Radarr) is not English. NOT a flag tag and NOT in the
+//                     nation* namespace — see LANG_TAG below. Drives the Fire Stick mood tiles.
 //
 // WHAT GETS A FLAG (per Brennan 2026-07-16):
 //   • Original language ≠ English → ALWAYS flagged. Country = the production location matching
@@ -21,7 +23,8 @@
 //   fall back to the ProductionLocations rule alone.
 //
 // SAFETY (memory: storm 2026-07-07): metadata Tags only. Never deletes items, triggers searches/
-// grabs, or touches user policies. nation* tags must NEVER be added to any BlockedTags.
+// grabs, or touches user policies. nation* / foreign-language tags must NEVER be added to any
+// BlockedTags.
 // GOTCHA (memory: jellyfin-dto-write-gotchas): strip .Trickplay before POST /Items or movies
 // with trickplay images 500.
 
@@ -31,6 +34,14 @@ const { jellyfinUserId } = require('./jellyfin');
 const { isMasterPaused } = require('./state');
 
 const NATION_TAG_RE = /^nation(-[a-z]{2})?$/;
+
+// Original-language marker, written alongside the nation tags because this is the only sweep that
+// has Radarr's originalLanguage in hand. Deliberately OUTSIDE the nation* namespace: `nation` is
+// not "foreign language" (an English film from the UK gets a flag), and the clients' flag-badge
+// parsing keys off NATION_TAG_RE, which this must not match. Consumed by the Fire Stick fork's
+// "Foreign" mood tile and by the English-only mood filters (docs/DESIGN-GENRE-MOODS.md).
+const LANG_TAG = 'foreign-language';
+const LANG_TAG_RE = /^foreign-language$/;
 
 // Jellyfin ProductionLocations names (TMDB-sourced) → ISO 3166-1 alpha-2. Covers everything a
 // movie library plausibly contains; the sweep logs any name it can't map so this table can grow.
@@ -222,9 +233,10 @@ function resolveNation(locations, langName) {
   return { iso: null, matchedLanguage: true };   // Hollywood — nothing to second-guess
 }
 
-function desiredTags(current, iso) {
-  const base = (current || []).filter((t) => !NATION_TAG_RE.test(t));
+function desiredTags(current, iso, foreignLang) {
+  const base = (current || []).filter((t) => !NATION_TAG_RE.test(t) && !LANG_TAG_RE.test(t));
   if (iso) base.push('nation', `nation-${iso}`);
+  if (foreignLang) base.push(LANG_TAG);
   return base;
 }
 
@@ -235,9 +247,9 @@ function sameTags(a, b) {
 }
 
 // Full-DTO fetch→patch→POST (same recipe + Trickplay gotcha as oscar-tags.js reconcileTags).
-async function reconcileTags(uid, h, item, iso) {
+async function reconcileTags(uid, h, item, iso, foreignLang) {
   const current = item.Tags || [];
-  const want = desiredTags(current, iso);
+  const want = desiredTags(current, iso, foreignLang);
   if (sameTags(current, want)) return 'skip';
   try {
     const dto = await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items/${item.Id}`, { headers: h }, 15000);
@@ -326,7 +338,7 @@ async function nationTagsSweep() {
       Fields: 'ProviderIds,ProductionLocations,Tags', Limit: '5000',
     });
     const movies = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 120000)).Items) || [];
-    let flagged = 0, written = 0, removed = 0, failed = 0, overrides = 0;
+    let flagged = 0, written = 0, removed = 0, failed = 0, overrides = 0, foreign = 0;
     const byCountry = {};
     for (const m of movies) {
       const pid = m.ProviderIds || {};
@@ -388,14 +400,22 @@ async function nationTagsSweep() {
 
       if (!overridden) iso = resolved.iso;
 
+      // Original-language marker, independent of the flag. Only Radarr knows the language, so a
+      // movie Radarr has never heard of gets no tag rather than a guessed one — the mood tiles
+      // treat "untagged" as English, which is the right default for this library. The TMDB
+      // cross-check above only ever corrects one non-English language to another, so it can't
+      // flip this boolean.
+      const foreignLang = !!lang && !/^english$/i.test(lang);
+      if (foreignLang) foreign++;
+
       if (iso) { flagged++; byCountry[iso] = (byCountry[iso] || 0) + 1; }
-      const res = await reconcileTags(uid, h, m, iso);
-      if (res === 'written') { written++; if (!iso) removed++; }
+      const res = await reconcileTags(uid, h, m, iso, foreignLang);
+      if (res === 'written') { written++; if (!iso && !foreignLang) removed++; }
       else if (res === 'failed') failed++;
     }
     const top = Object.entries(byCountry).sort((a, b) => b[1] - a[1]).slice(0, 12)
       .map(([k, v]) => `${k}:${v}`).join(' ');
-    console.log(`nationTagsSweep: ${flagged}/${movies.length} flagged, ${written} written, ${removed} removed`
+    console.log(`nationTagsSweep: ${flagged}/${movies.length} flagged, ${foreign} foreign-language, ${written} written, ${removed} removed`
       + (overrides ? `, ${overrides} tmdb overrides` : '')
       + (failed ? `, ${failed} failed` : '') + (top ? ` — ${top}` : ''));
   } catch (e) { console.log(`nationTagsSweep: failed — ${e.message || e}`); }

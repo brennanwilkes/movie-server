@@ -42,6 +42,7 @@ const gpuVerify = require('./lib/gpu-verify');
 const { collectionsSweep, startCollectionsTimer } = require('./lib/collections');
 const { oscarTagsSweep, startOscarTagsTimer } = require('./lib/oscar-tags');
 const { nationTagsSweep, startNationTagsTimer } = require('./lib/nation-tags');
+const { startTop100ExportTimer } = require('./lib/top100-export');
 const sweeps = require('./lib/sweeps');
 const searchEngine = require('./lib/search-engine');
 const jfScan = require('./lib/jf-scan');
@@ -85,6 +86,7 @@ gpuVerify.startGpuVerify();
 startCollectionsTimer();
 startOscarTagsTimer();
 startNationTagsTimer();
+startTop100ExportTimer();   // weekly TXT snapshot of the hand-ranked Top 100 (no other copy exists)
 setTimeout(bootSequence, 15000);   // let the container settle, then self-heal the home page
 metricsRecorders.startRecorders();
 sweeps.startSweeps();

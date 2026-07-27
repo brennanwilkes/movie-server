@@ -70,6 +70,18 @@ if [[ -n "$JFKEY" ]]; then
   chk "Playback Reporting plugin active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -e 'any(.[]; .Name==\"Playback Reporting\" and .Status==\"Active\")'"
   chk "Home Screen Sections + File Transformation active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -e '[.[]|select(.Name==\"Home Screen Sections\" or .Name==\"File Transformation\")|select(.Status==\"Active\")]|length == 2'"
   chk "HSS home layout configured (13+ rows declared)" sh -c "PID=\$(curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -r '.[]|select(.Name==\"Home Screen Sections\").Id'); curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins/\$PID/Configuration | jq -e '.SectionSettings|length >= 13'"
+  chk "Watchlist playlist stays retired (not recreated by provision)" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' 'http://${NUC_IP}:8096/Items?IncludeItemTypes=Playlist&Recursive=true' | jq -e '[.Items[]|select(.Name==\"Watchlist\")]|length == 0'"
+fi
+
+# Second household account (docs/DESIGN-USER-LESLIE.md). Skipped when JELLYFIN_USER_2 is unset.
+if [[ -n "${JELLYFIN_USER_2:-}" && -n "$JFKEY" ]]; then
+  echo "=== jellyfin: $JELLYFIN_USER_2 ==="
+  chk "'$JELLYFIN_USER_2' can authenticate" sh -c "curl -sf --max-time 8 -X POST 'http://${NUC_IP}:8096/Users/AuthenticateByName' -H 'Content-Type: application/json' -H 'X-Emby-Authorization: MediaBrowser Client=\"smoke\", Device=\"smoke\", DeviceId=\"smoke\", Version=\"1\"' -d '{\"Username\":\"${JELLYFIN_USER_2}\",\"Pw\":\"${JELLYFIN_PASS_2:-}\"}' | jq -e '.AccessToken'"
+  # Policy: non-admin, cannot delete media or edit collections, and hides the tiny franchise
+  # collections exactly like brennan's steady state.
+  chk "'$JELLYFIN_USER_2' policy locked down (no admin/delete/collections, hidden-collection blocked)" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Users | jq -e --arg n '$JELLYFIN_USER_2' '.[]|select(.Name==\$n).Policy | (.IsAdministrator|not) and (.EnableContentDeletion|not) and (.EnableCollectionManagement|not) and (.BlockedTags|index(\"hidden-collection\") != null)'"
+  chk "'$JELLYFIN_USER_2' can play media" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Users | jq -e --arg n '$JELLYFIN_USER_2' '.[]|select(.Name==\$n).Policy | .EnableMediaPlayback and .EnableAllFolders'"
+  chk "Top 100 shared read-only with '$JELLYFIN_USER_2'" sh -c "TID=\$(curl -sf -H 'X-Emby-Token: $JFKEY' 'http://${NUC_IP}:8096/Items?IncludeItemTypes=Playlist&Recursive=true' | jq -r '.Items[]|select(.Name==\"Top 100\").Id'); UID=\$(curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Users | jq -r --arg n '$JELLYFIN_USER_2' '.[]|select(.Name==\$n).Id'); curl -sf -H 'X-Emby-Token: $JFKEY' \"http://${NUC_IP}:8096/Playlists/\$TID/Users\" | jq -e --arg u \"\$UID\" 'any(.[]; .UserId==\$u and (.CanEdit|not))'"
 fi
 
 echo "=== jellyseerr ==="
@@ -77,6 +89,13 @@ SEERRKEY=$(jq -r '.main.apiKey' "${CONFIG:-/opt/appdata}/jellyseerr/settings.jso
 if [[ -n "$SEERRKEY" ]]; then
   chk "custom discovery sliders present + enabled" sh -c "curl -sf -H 'X-Api-Key: $SEERRKEY' http://localhost:5055/api/v1/settings/discover | jq -e '[.[]|select(.isBuiltIn|not)] | length >= 4 and all(.[]; .enabled)'"
   chk "'suggestarr' request-only user exists (approval gate)" sh -c "curl -sf -H 'X-Api-Key: $SEERRKEY' 'http://localhost:5055/api/v1/user?take=200' | jq -e '.results[]|select((.username // .displayName // .email)|test(\"suggestarr\";\"i\"))'"
+  if [[ -n "${JELLYFIN_USER_2:-}" ]]; then
+    # 9120 = REQUEST|REQUEST_ADVANCED|AUTO_APPROVE|AUTO_APPROVE_MOVIE|AUTO_APPROVE_TV. Anything
+    # less and her requests land in Pending instead of going straight through.
+    chk "'$JELLYFIN_USER_2' imported with auto-approve (permissions 9120)" sh -c "curl -sf -H 'X-Api-Key: $SEERRKEY' 'http://localhost:5055/api/v1/user?take=200' | jq -e --arg n '$JELLYFIN_USER_2' 'any(.results[]; ((.jellyfinUsername // .username // .displayName)==\$n) and .permissions==9120)'"
+    # A quota rejects a request BEFORE auto-approve runs, so unlimited is load-bearing here.
+    chk "'$JELLYFIN_USER_2' has unlimited request quotas" sh -c "UID=\$(curl -sf -H 'X-Api-Key: $SEERRKEY' 'http://localhost:5055/api/v1/user?take=200' | jq -r --arg n '$JELLYFIN_USER_2' '.results[]|select((.jellyfinUsername // .username // .displayName)==\$n).id'); curl -sf -H 'X-Api-Key: $SEERRKEY' \"http://localhost:5055/api/v1/user/\$UID/settings/main\" | jq -e '((.movieQuotaLimit // 0) == 0) and ((.tvQuotaLimit // 0) == 0)'"
+  fi
 fi
 
 echo
