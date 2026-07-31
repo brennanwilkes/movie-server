@@ -30,6 +30,12 @@ const MOVIE_FIELDS = 'ProductionYear,Genres,CommunityRating,RunTimeTicks,Provide
 // still timed out 3x against a Jellyfin busy importing (2026-07-27) — halving the page and
 // giving it 90s buys a lot of headroom for what is a background sweep with no deadline.
 const MOVIE_PAGE = 75;
+// Single-year shelves ("2013 Movies") sit alongside the decade ones. The threshold is
+// deliberately lower than you'd guess: at 15+ only 13 years qualify and they're all
+// post-2000, which reads as a bug rather than a feature. 10 yields ~32 years and still
+// skips the long tail of years holding two or three films. Recent-biased on purpose —
+// that IS the shape of the library.
+const MIN_YEAR_ITEMS = 10;
 const MOVIE_PAGE_TIMEOUT = 90000;
 const MOVIE_PAGE_TRIES = 5;
 // Returns { items, complete }. `complete` MUST be honoured: the sweep rewrites collection
@@ -84,6 +90,10 @@ async function collectionsSweep() {
     }
     const buckets = new Map();                            // collection name -> { ids:Set, desc }
     const add = (name, desc, id) => { if (!buckets.has(name)) buckets.set(name, { ids: new Set(), desc }); buckets.get(name).ids.add(id); };
+    // Year shelves are counted separately from `buckets` because they use their own,
+    // higher floor (MIN_YEAR_ITEMS vs the generic 5) — a year with six films is a stub,
+    // whereas six films is a perfectly good vibe. Merged into `buckets` once counted.
+    const yearBuckets = new Map();                         // year (number) -> Set<jfId>
     const oscarBuckets = new Map();                        // collection name -> { items: Map<jfId, year>, desc }
     const OSCAR_DESC = {
       'Oscar: Best Picture (Winners)': 'The Academy Award for Best Picture — the year\'s finest film, as voted by the industry.',
@@ -294,6 +304,12 @@ async function collectionsSweep() {
         const label = d >= 2000 ? `${d}s` : `${String(d).slice(2)}s`;
         add(`${label} Movies`, `The library’s ${label} time capsule — everything we have from the decade.`, m.Id);
       }
+      // No era gate here (unlike the decade above): MIN_YEAR_ITEMS already prunes the thin
+      // years, so a 1939 with ten films would earn its shelf on merit.
+      if (y > 0) {
+        if (!yearBuckets.has(y)) yearBuckets.set(y, new Set());
+        yearBuckets.get(y).add(m.Id);
+      }
       if (r >= 7.5) add('Critically Loved', 'The highest-rated films on the shelf. No duds allowed.', m.Id);
       if (mins > 0 && mins <= 100) add('Short & Sweet', 'Ninety-odd minutes, zero commitment.', m.Id);
       if (mins >= 150) add('Epics', 'Settle in — sagas that take their time and earn it.', m.Id);
@@ -334,6 +350,13 @@ async function collectionsSweep() {
       }
     }
     for (const [name, b] of [...buckets]) if (b.ids.size < 5) buckets.delete(name);
+    // Merge the year shelves in AFTER the generic <5 prune so they keep their own floor.
+    // "<year> Movies" mirrors the decade naming and can't collide with a TMDb franchise box
+    // set (those are "<Title> Collection"), including for films literally named for a year.
+    for (const [y, ids] of yearBuckets) {
+      if (ids.size < MIN_YEAR_ITEMS) continue;
+      buckets.set(`${y} Movies`, { ids, desc: `Everything on the shelf from ${y} — the year in one place.` });
+    }
     // Per-person Jellyfin queries for cinematographers and editors (not in People field)
     for (const person of CINEMATOGRAPHERS) {
       try {

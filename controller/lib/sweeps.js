@@ -1,17 +1,23 @@
 'use strict';
 // Housekeeping sweeps: diskGate (decline downloads that can't fit), orphanSweep
-// (torrents whose *arr item is gone + missingFiles zombies), seerrSweep
-// (Jellyseerr rows whose *arr counterpart is gone), and requestGate (surface
-// requests the *arrs rejected for disk space). Owns: each sweep's busy flag.
+// (torrents whose *arr item is gone + missingFiles zombies), datalessSweep
+// (complete torrents whose payload is gone from disk), seerrSweep (Jellyseerr
+// rows whose *arr counterpart is gone), and requestGate (surface requests the
+// *arrs rejected for disk space). Owns: each sweep's busy flag.
 // Timers: startSweeps() → diskGate 30s/6s, orphanSweep 5m/15s, seerrSweep
-// 15m/30s, requestGate 5m/15s.
+// 15m/30s, requestGate 5m/15s, datalessSweep 1h/90s.
+// NOTE: /data is mounted READ-ONLY here, so every fs call below is a stat/read.
+// Deletion is always qBittorrent's job via its API, never our own unlink.
 
 const fs = require('fs');
+const path = require('path');
 const metrics = require('../metrics');
 const { cfg } = require('./config');
 const { qbit, arrGet, seerr } = require('./clients');
 const { getQbitTorrents, torrentApp, arrIdForHash } = require('./arr-data');
-const { declined, blocked, persistState, isMasterPaused } = require('./state');
+const {
+  declined, blocked, persistState, isMasterPaused, isSwapHash, forceGrabImport,
+} = require('./state');
 const { buildDeletePlan, executeDelete } = require('./delete-plan');
 const { freeUnderCap, arrTitle, arrHasActivity, diagnose } = require('./arr-inspect');
 
@@ -204,6 +210,85 @@ async function orphanSweep() {
     }
   } finally { orphanBusy = false; }
 }
+// ---- Dataless sweep: bring qBittorrent back in sync with the disk ----------------------------
+// A torrent whose payload is GONE but which qBittorrent still lists as complete and seeding. The
+// zombie rule in orphanSweep cannot see these: it keys on state 'missingFiles', and qBittorrent only
+// discovers absent files on a recheck — until then it happily reports 'uploading' at 100%.
+//
+// Where they come from: importMode 'auto' resolves to MOVE, which walks the files out of the download
+// folder. That was fixed for Audit swaps on 2026-07-28 and for force-grabs on 2026-07-30 (#94), so
+// this set should not grow — but it left 18 behind, ~170 GB of *reported* size holding 0 real bytes
+// (Wire S01/S02/S04/S05, Twin Peaks, Fringe, From, White Lotus, Silicon Valley, 1923, Landman,
+// Das Boot, Joyland, Zodiac, Never Say Never Again).
+//
+// This does NOT reverse #58's rejection of auto-retention. That decision was about torrents holding
+// REAL bytes, where "is this safe to delete" is a judgement call the human makes on the Stale tab.
+// Here there is provably nothing to lose: the test is that the data is already missing. Deleting the
+// entry frees no space and destroys no content — it only stops qBittorrent lying about what it holds.
+// The Stale tab keeps every byte-bearing orphan (26 files, 90.1 GB today) behind its manual Reclaim.
+//
+// EMPTINESS IS MEASURED AS A RATIO, not an absolute. "No file over 50 MB" would be wrong for a
+// legitimately tiny torrent — that reads as dataless while actually holding all of its content. So we
+// compare bytes ON DISK against the size qBittorrent expects: below DATALESS_RATIO of expected means
+// the payload is gone, and MIN_EXPECTED_BYTES keeps small torrents out of scope entirely.
+const DATALESS_RATIO = 0.05;
+const MIN_EXPECTED_BYTES = 100 * 1024 * 1024;
+// States where content_path is legitimately in flux — a 'moving' torrent has its files mid-transit,
+// and a checking one has not yet reported truth. Never judge either.
+const UNSETTLED = new Set(['moving', 'checkingUP', 'checkingDL', 'checkingResumeData', 'allocating']);
+function bytesUnder(p) {
+  let st; try { st = fs.statSync(p); } catch { return 0; }
+  if (st.isFile()) return st.size;
+  let total = 0;
+  const walk = (d, depth = 0) => {
+    if (depth > 8) return;
+    let ents; try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const e of ents) {
+      const q = path.join(d, e.name);
+      if (e.isDirectory()) walk(q, depth + 1);
+      else { try { total += fs.statSync(q).size; } catch { /* vanished mid-walk */ } }
+    }
+  };
+  walk(p);
+  return total;
+}
+let datalessBusy = false;
+async function datalessSweep() {
+  if (isMasterPaused()) return;                               // Movie Mode — no cleanup churn
+  if (datalessBusy) return;
+  datalessBusy = true;
+  try {
+    let torrents; try { torrents = await getQbitTorrents(); } catch { return; }
+    for (const t of torrents) {
+      const h = (t.hash || '').toLowerCase();
+      if (!h) continue;
+      if ((t.progress || 0) < 1) continue;                    // still downloading — of course it has no data yet
+      if (UNSETTLED.has(t.state)) continue;
+      if ((t.size || 0) < MIN_EXPECTED_BYTES) continue;       // too small to judge by ratio
+      const cp = String(t.content_path || '');
+      if (!cp || !cp.startsWith('/data/')) continue;          // unknown location — never guess
+      if (cp.includes('/torrents/incomplete/')) continue;     // defence: the incomplete tree is not ours to tidy
+      if (isSwapHash(h)) continue;                            // in-flight audit swap — hands off (see /api/torrent/delete)
+      if (forceGrabImport.has(h)) continue;                   // the import watchdog still owns this one
+      // Measured at DELETE time, never from a cached scan — the same rule /api/audit/stale/reclaim
+      // follows, so a stale reading can never authorise a removal.
+      const onDisk = bytesUnder(cp);
+      if (onDisk >= (t.size || 0) * DATALESS_RATIO) continue; // real data present → not our business
+      try {
+        await qbit.fetch('/api/v2/torrents/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ hashes: t.hash, deleteFiles: 'true' }),
+        });
+        console.log(`datalessSweep: removed "${t.name}" — qBittorrent expected `
+          + `${((t.size || 0) / 1e9).toFixed(2)} GB but only ${(onDisk / 1e6).toFixed(0)} MB is on disk`);
+        metrics.emitEvent('dataless_torrent', { ti: String(t.name || '').slice(0, 80),
+          hash: h.slice(0, 12), expectedGb: +((t.size || 0) / 1e9).toFixed(2), onDiskMb: Math.round(onDisk / 1e6), cat: t.category || null });
+      } catch (e) { console.log(`datalessSweep: could not remove "${t.name}" — ${String(e.message || e)}`); }
+    }
+  } finally { datalessBusy = false; }
+}
+
 // ---- Seerr orphan sweep: remove media entries whose *arr counterpart is gone ----
 let seerrSweepBusy = false;
 async function seerrSweep() {
@@ -296,6 +381,12 @@ setInterval(seerrSweep, 900000); // every 15 min (was 5min); orphan cleanup does
 setTimeout(seerrSweep, 30000);   // first run after 30s
 setInterval(requestGate, 300000);   // every 5 min (was 60s); stuck Jellyseerr requests stay stuck for hours, not seconds
 setTimeout(requestGate, 15000);
+// Hourly, and late on first boot. A dataless torrent is pure bookkeeping drift — it costs nothing
+// while it sits, so this walks the disk rarely rather than competing with the useful sweeps. The
+// 90s first run is deliberately AFTER the import watchdog's recover pass (importer.js, 4s), so a
+// force-grab whose bookkeeping is still being rebuilt cannot be judged mid-restore.
+setInterval(datalessSweep, 3600000);
+setTimeout(datalessSweep, 90000);
 }
 
-module.exports = { diskGate, orphanSweep, seerrSweep, requestGate, startSweeps };
+module.exports = { diskGate, orphanSweep, datalessSweep, seerrSweep, requestGate, startSweeps };

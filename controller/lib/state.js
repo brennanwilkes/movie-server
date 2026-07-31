@@ -31,6 +31,27 @@ const gpuPending = new Map();
 // version, wiped on every reboot, is what let a restart re-trigger the full search/grab storm).
 // Key `app:id` -> { ts: last auto-search ms, fails: consecutive fruitless searches, blockedUntil }.
 const searchState = new Map();
+// Audit tab verdicts: `tv:<seriesId>:<season>` | `mv:<movieId>` -> { ts, state, best, reason }.
+// state is 'improvable' | 'none' (searched, nothing better) | 'error'. Persisted because a
+// full enrich is ~114 indexer searches (~25 min) — losing it on every restart would mean the
+// tab is never warm and would hammer public indexers on each reboot. Entries expire on a TTL
+// (see audit.js) since release availability drifts.
+const auditVerdicts = new Map();
+// In-flight ZERO-GAP replacements started from the Audit tab.
+// `${app}:${id}:${season|'-'}` -> { app, id, season, key, title, oldFileIds, guid, ts }.
+// The OLD FILES STAY PLAYABLE until the replacement finishes downloading; auditReplaceSweep
+// only then removes them and imports. Persisted so a controller restart cannot strand a swap
+// half-done (which would leave the title with two copies, or none).
+const auditPending = new Map();
+// COMPLETED Audit swaps: `${app}:${id}:${season|'-'}` -> { hash, rel, ts }.
+// Records which release a row was swapped TO, so the verifier can refuse to offer that exact
+// release back. Needed because the Playback section judges the current file by the release GROUP
+// in its filename, and *arr's import rename strips it — so a freshly-imported pack reads as
+// "unproven depth" while the identical candidate reads as proven 8-bit, and the row asks to
+// re-download 30 GB to stand still (observed: Supernatural S09, 2026-07-28). Matching on the
+// recorded infoHash/title is precise; a size-and-source heuristic is NOT — it would reject the
+// legitimate 10-bit → 8-bit swap at the same source and size, which is this section's whole job.
+const auditSwapped = new Map();
 // "Movie Mode" master switch: when true, ALL background work (downloads + every sweep) is paused so
 // the NUC's CPU + the single USB disk are free for smooth Jellyfin playback. Persisted so it stays
 // off/on across a controller restart — only an explicit resume turns it back on.
@@ -41,7 +62,7 @@ function persistState() {
   clearTimeout(persistState._timer);
   persistState._timer = setTimeout(() => {
     try {
-      const obj = { declined: {}, blocked: {}, searchState: {}, gpuSwapped: {}, gpuPending: {}, masterPaused, forceGrabImport: {}, completedForceGrabs: {} };
+      const obj = { declined: {}, blocked: {}, searchState: {}, gpuSwapped: {}, gpuPending: {}, masterPaused, forceGrabImport: {}, completedForceGrabs: {}, auditVerdicts: {}, auditPending: {}, auditSwapped: {} };
       for (const [k, v] of declined) obj.declined[k] = v;
       for (const [k, v] of blocked) obj.blocked[k] = v;
       for (const [k, v] of searchState) obj.searchState[k] = v;
@@ -49,6 +70,9 @@ function persistState() {
       for (const [k, v] of gpuPending) obj.gpuPending[k] = v;
       for (const [k, v] of forceGrabImport) obj.forceGrabImport[k] = v;
       for (const [k, v] of completedForceGrabs) obj.completedForceGrabs[k] = v;
+      for (const [k, v] of auditVerdicts) obj.auditVerdicts[k] = v;
+      for (const [k, v] of auditPending) obj.auditPending[k] = v;
+      for (const [k, v] of auditSwapped) obj.auditSwapped[k] = v;
       fs.writeFileSync('/config/state.json', JSON.stringify(obj));
     } catch { /* */ }
   }, 500);
@@ -65,14 +89,39 @@ function loadState() {
     // Lowercase keys on load to migrate any pre-fix state written with an UPPERCASE infoHash.
     if (obj.forceGrabImport) for (const [k, v] of Object.entries(obj.forceGrabImport)) forceGrabImport.set(String(k).toLowerCase(), v);
     if (obj.completedForceGrabs) for (const [k, v] of Object.entries(obj.completedForceGrabs)) completedForceGrabs.set(String(k).toLowerCase(), v);
+    if (obj.auditVerdicts) for (const [k, v] of Object.entries(obj.auditVerdicts)) auditVerdicts.set(k, v);
+    if (obj.auditPending) for (const [k, v] of Object.entries(obj.auditPending)) auditPending.set(k, v);
+    if (obj.auditSwapped) for (const [k, v] of Object.entries(obj.auditSwapped)) auditSwapped.set(k, v);
   } catch { /* */ }
 }
 
 function isMasterPaused() { return masterPaused; }
 function setMasterPaused(v) { masterPaused = !!v; }
 
+// ---- AUDIT SWAP IDENTITY ───────────────────────────────────────────────────────────────────
+// "Is this torrent an in-flight Audit replacement?" — the question that decides whether a delete may
+// touch the library. During a swap the ORIGINAL is still on disk and still playable (the swap is
+// zero-gap by design), and the replacement torrent resolves to that same movie/series id, so a
+// hash-based layered delete of the replacement would take the original with it.
+//
+// It lives HERE, next to auditPending, rather than in audit.js, because both downloads.js and
+// routes-actions.js need it and audit.js sits downstream of importer.js, which requires downloads.js:
+// exporting it from audit.js created a downloads → audit → importer → downloads cycle that handed
+// importer a partially-initialised module (its destructured getDl came back undefined, which would
+// have broken the import watchdog). state.js is a leaf, so asking it costs nothing.
+function swapForHash(hash) {
+  const h = String(hash || '').toLowerCase();
+  if (!h) return null;
+  for (const [k, p] of auditPending) {
+    if (String(p.hash || '').toLowerCase() === h) return { key: k, pending: p };
+  }
+  return null;
+}
+const isSwapHash = (hash) => !!swapForHash(hash);
+
 module.exports = {
-  declined, blocked, gpuSwapped, gpuPending, searchState,
+  declined, blocked, gpuSwapped, gpuPending, searchState, auditVerdicts, auditPending, auditSwapped,
   forceGrabImport, completedForceGrabs, importState,
   persistState, loadState, isMasterPaused, setMasterPaused,
+  swapForHash, isSwapHash,
 };

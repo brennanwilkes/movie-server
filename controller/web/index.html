@@ -66,6 +66,74 @@
       <div id="library-loading" class="loading" hidden><span class="spinner"></span>Loading library…</div>
       <p id="library-empty" class="empty" hidden>Nothing here yet.</p>
     </section>
+
+    <!-- AUDIT — read-only reporting on the library's worst offenders. Each row carries a
+         CACHED verdict on whether a better source actually exists (a live indexer search is
+         5-21s, so it can't happen on load); the background verifier keeps them warm. -->
+    <section id="tab-audit" class="tab" hidden>
+      <!-- Verdicts are cached for 14 days, which is right for a background sweep but means
+           "is there something better yet?" can't be asked on demand — indexer availability moves
+           much faster than a fortnight. This drops every cached verdict so the paced verifier
+           re-checks the whole library. Read-only: verification only searches. -->
+      <div class="audit-actions">
+        <button id="aud-rescan" class="btn-ghost">Re-check everything</button>
+        <span id="aud-rescan-note" class="sub"></span>
+      </div>
+      <div id="audit-progress" class="audit-progress" hidden></div>
+
+      <!-- The sections ARE the headline figures — no separate stat strip above them.
+           Each shows only what is CONFIRMED actionable, so the numbers fall as work is done.
+           EDITION is the exception and deliberately so: it counts every wrong CUT whether or not a
+           better release is seeded today, because the file being the wrong film is the fact worth
+           knowing. Its count is a COUNT, not gigabytes — an extended cut is bigger, so a size
+           headline would read as a cost rather than a fix. -->
+      <div class="audit-tabs" id="audit-toggle">
+        <button data-sec="cpu" class="active">
+          <span class="at-label">Playback</span>
+          <span class="at-val" id="at-val-cpu">–</span>
+          <span class="at-sub" id="at-sub-cpu"></span>
+        </button>
+        <button data-sec="bitrate">
+          <span class="at-label">Disk</span>
+          <span class="at-val" id="at-val-bitrate">–</span>
+          <span class="at-sub" id="at-sub-bitrate"></span>
+        </button>
+        <button data-sec="edition">
+          <span class="at-label">Edition</span>
+          <span class="at-val" id="at-val-edition">–</span>
+          <span class="at-sub" id="at-sub-edition"></span>
+        </button>
+        <button data-sec="upgrade">
+          <span class="at-label">Upgrade</span>
+          <span class="at-val" id="at-val-upgrade">–</span>
+          <span class="at-sub" id="at-sub-upgrade"></span>
+        </button>
+        <button data-sec="stale">
+          <span class="at-label">Stale</span>
+          <span class="at-val" id="at-val-stale">–</span>
+          <span class="at-sub" id="at-sub-stale"></span>
+        </button>
+      </div>
+
+      <!-- Verified-only is now permanent: an unactionable row is noise. Kept in the DOM,
+           hidden and forced on, so re-enabling it is a one-line change if that ever changes.
+      <label class="audit-filter"><input type="checkbox" id="audit-only-improvable" checked>
+        Only rows with a better source</label> -->
+
+      <button id="aud-reclaim" class="btn-primary" hidden></button>
+      <!-- Upgrade only. 805 movies is far too many to scan by eye, so search is the primary way in;
+           the ranked order is for browsing. Hidden on every other section, where the list is short
+           and already filtered to what is actionable. -->
+      <input id="aud-search" class="search" type="search" placeholder="Search all movies…"
+             autocomplete="off" aria-label="Search movies to upgrade" hidden>
+      <ul id="audit-list" class="list"></ul>
+      <!-- Infinite-scroll sentinel: an IntersectionObserver on this element asks for the next page
+           when it comes into view. Kept OUTSIDE #audit-list so re-rendering the list never destroys
+           the node the observer is watching. -->
+      <div id="audit-more" hidden><span class="spinner sm"></span>Loading more…</div>
+      <div id="audit-loading" class="loading" hidden><span class="spinner"></span>Loading audit…</div>
+      <p id="audit-empty" class="empty" hidden>Nothing here.</p>
+    </section>
   </main>
 
   <!-- Delete confirm sheet -->
@@ -115,6 +183,53 @@
     </div>
   </div>
 
+  <!-- Audit options sheet: candidate replacements for one row. Read-only — picking one is
+       deliberately NOT wired; see docs/AUDIT-WORKFLOW.md for how swaps are performed. -->
+  <div id="aud-backdrop" class="sheet-backdrop" hidden>
+    <div class="sheet force-sheet" role="dialog" aria-modal="true">
+      <div class="force-header">
+        <h3 id="aud-title">Replacement options</h3>
+        <div id="aud-cur" class="aud-cand cur"></div>
+      </div>
+      <div id="aud-body" class="force-body"><div id="aud-results" class="force-results"></div></div>
+      <div class="force-footer sheet-actions">
+        <button id="aud-recheck" class="btn-ghost">Re-check</button>
+        <button id="aud-close" class="btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stale reclaim confirm. Dry-run first: the sheet shows exactly what the SERVER says it
+       will remove, re-derived at request time, before anything is deleted. -->
+  <div id="rec-backdrop" class="sheet-backdrop" hidden>
+    <div class="sheet force-sheet" role="dialog" aria-modal="true">
+      <div class="force-header">
+        <h3 id="rec-title">Reclaim stale torrents?</h3>
+        <p id="rec-sub" class="muted"></p>
+      </div>
+      <div class="force-body"><div id="rec-results" class="force-results"></div></div>
+      <div class="force-footer sheet-actions">
+        <button id="rec-cancel" class="btn-ghost">Cancel</button>
+        <button id="rec-confirm" class="btn-danger">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Replace confirm. Shows the SERVER's dry-run plan; nothing is grabbed until Replace is
+       tapped, and the old files survive until the new copy finishes downloading. -->
+  <div id="swap-backdrop" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <h3 id="swap-title">Replace this?</h3>
+      <p id="swap-sub" class="muted"></p>
+      <div id="swap-plan"></div>
+      <p id="swap-note" class="swap-note"></p>
+      <div class="sheet-actions">
+        <button id="swap-cancel" class="btn-ghost">Cancel</button>
+        <button id="swap-confirm" class="btn-primary">Replace</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="toast" class="toast" hidden></div>
 
@@ -132,6 +247,10 @@
       <svg viewBox="0 0 24 24"><path d="M4 5h12v16H4zM16 7l4 1-3 13-4-1"/></svg>
       <span>Library</span>
     </button>
+    <button data-tab="audit" aria-label="Audit">
+      <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      <span>Audit</span>
+    </button>
   </nav>
 
   <!-- Split of the former app.js — classic scripts sharing global scope, so
@@ -143,6 +262,7 @@
   <script src="js/home.js"></script>
   <script src="js/downloads.js"></script>
   <script src="js/library.js"></script>
+  <script src="js/audit.js"></script>
   <script src="js/sheets.js"></script>
   <script src="js/main.js"></script>
 </body>

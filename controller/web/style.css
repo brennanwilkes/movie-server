@@ -81,7 +81,12 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
   color: var(--warn);
 }
 .loading { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); padding: 40px 0; }
-.spinner { width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+/* inline-block matters: inside a flex .loading it is a flex item either way, but dropped into
+   a <p> (the sheet loading states) a bare inline span ignores width/height and renders nothing. */
+.spinner { display: inline-block; width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+/* In-button variant. currentColor so it reads on accent/danger fills as well as on .btn-ghost,
+   where a fixed --accent top would vanish. */
+.spinner.sm { width: 15px; height: 15px; border-width: 2px; border-color: color-mix(in srgb, currentColor 30%, transparent); border-top-color: currentColor; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* System stats strip (NUC CPU / RAM / temp) */
@@ -109,7 +114,10 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
   display: flex; align-items: center; justify-content: center;
   min-height: 52px; border-radius: 14px; border: 0; cursor: pointer;
   font-size: 16px; font-weight: 600; text-decoration: none; width: 100%;
+  gap: 10px;   /* only bites when a .spinner.sm is added alongside the label */
 }
+/* A button mid-request keeps full contrast — dimming it to look disabled loses the spinner. */
+.btn-primary:disabled, .btn-danger:disabled, .btn-ghost:disabled { cursor: progress; }
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-danger { background: var(--danger); color: #fff; }
 .btn-ghost { background: var(--card-2); color: var(--text); }
@@ -156,6 +164,10 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .row.dl.attn .mini-bar > div { background: var(--danger) !important; }
 .row.dl.done { cursor: pointer; }
 .row.dl.done:active { transform: scale(.99); }
+/* Parked at the bottom: not out yet (or out for days with no torrent yet). Dimmed and with no
+   progress bar, so this block reads as "waiting on the world" rather than pending work. */
+.row.dl.upcoming { opacity: .62; }
+.row.dl.upcoming .mini-bar { display: none; }
 
 /* Trash button */
 .trash {
@@ -222,11 +234,41 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 }
 .result-info { flex: 1; min-width: 0; }
 .result-title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.result-meta { font-size: 12px; color: var(--muted); margin-top: 2px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
-.result-meta .format { font-weight: 500; color: var(--accent); }
-.result-meta .format.ok { color: var(--ok); }
-.result-meta .format.warn { color: var(--warn); }
-.result-meta .format.bad { color: var(--danger); }
+/* Titles were single-line-ellipsised, which hid the very part of a scene name that says what a
+   release IS (…S05.1080p.BluRay.x265). Wrap to two lines instead; the pills below carry the summary. */
+.result-title {
+  white-space: normal; overflow: hidden; text-overflow: initial; word-break: break-word;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+.result-meta { font-size: 12px; color: var(--muted); margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+/* Real pills, not coloured words: a release now carries up to 7 signals (coverage, scope, res,
+   source, re-encode, codec, audio) and running them together as tinted text was unreadable. */
+.result-meta .format {
+  font-weight: 600; font-size: 11px; line-height: 1; color: var(--accent);
+  padding: 4px 7px; border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.result-meta .format.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.result-meta .format.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.result-meta .format.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 16%, transparent); }
+/* Seeders / size / indexer: supporting facts, so plain text under the pills. */
+.result-meta.result-sub { margin-top: 3px; font-size: 11.5px; }
+/* Lower-quality releases: present but folded away — see PICK_RES_FLOOR. */
+.force-weak { margin-top: 4px; }
+.force-weak > summary {
+  cursor: pointer; padding: 8px 4px; font-size: 12.5px; color: var(--muted);
+  list-style: none;
+}
+.force-weak > summary::-webkit-details-marker { display: none; }
+.force-weak > summary::before { content: '▸ '; }
+.force-weak[open] > summary::before { content: '▾ '; }
+.force-weak > summary:hover { color: var(--text); }
+.force-weak .result-row { margin-top: 6px; }
+/* What was filtered out, so a short list never reads as "this show does not exist". */
+.force-filtered { margin: 8px 2px 0; font-size: 11.5px; color: var(--muted); }
+/* Audit tab header action row ("Re-check everything" + its status note). */
+.audit-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.audit-actions .sub { font-size: 12px; color: var(--muted); }
 .result-grab {
   flex: none; min-width: 60px; height: 44px; padding: 0 14px;
   border: 0; border-radius: 10px; background: var(--accent); color: #fff;
@@ -298,3 +340,277 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .dot.warn { background: var(--warn); }                /* tunnel down / no forwarded port */
 .row .sub.danger { color: var(--danger); }            /* red, but subtle — matches row styling */
 .row .sub.warn { color: var(--warn); }
+
+/* ── Audit tab ─────────────────────────────────────────────────────────────────
+   Rows reuse .row / .grow / .title from the Library tab. The three section buttons ARE the
+   headline figures — there is no separate stat strip above them. */
+
+.audit-progress {
+  margin-top: 10px; padding: 8px 12px; font-size: 12.5px; border-radius: 10px; text-align: center;
+  background: color-mix(in srgb, var(--accent) 12%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* Equal thirds, centred content: the figures are the point, so they sit dead-centre in each
+   tile rather than ragged-left with whitespace to their right. */
+/* ALWAYS ONE ROW, whatever the section count (3 -> 5 as Edition and Upgrade were added). auto-fit
+   would wrap; an explicit auto-flow column grid cannot. The text scales down instead of the row
+   breaking: clamp() ties the figure and labels to viewport width, and min-width:0 lets a grid item
+   shrink below its content width (grid items default to min-content, which is what forces overflow).
+   Gap tightens with width too, so five tiles still fit a 320px phone. */
+/* minmax(0, 1fr), NOT 1fr. `1fr` is shorthand for `minmax(auto, 1fr)`, and that auto MINIMUM is the
+   content width — so five tiles refused to shrink and wrapped to a second row no matter how small the
+   text got. minmax(0, ...) is what actually lets a grid track go narrower than its contents.
+   MOBILE FIRST: sized so five tiles fit a 320px phone, then allowed to grow. */
+.audit-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+  gap: clamp(2px, 1vw, 8px); margin: 12px 0; }
+.audit-tabs button {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-width: 0; padding: 10px clamp(1px, 0.8vw, 8px); cursor: pointer; text-align: center;
+  overflow: hidden; border-radius: clamp(8px, 2.5vw, 14px);
+  background: var(--card); border: 1px solid transparent; border-radius: 14px; color: var(--text);
+}
+.audit-tabs button.active {
+  background: color-mix(in srgb, var(--accent) 14%, var(--card));
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.at-label { font-size: clamp(8px, 2.1vw, 10px); font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted); white-space: nowrap; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; }
+.audit-tabs button.active .at-label { color: var(--accent); }
+.at-val { font-size: clamp(13px, 4vw, 20px); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; white-space: nowrap; }
+.at-sub { font-size: clamp(8px, 2.2vw, 10.5px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* .row centres its children; audit rows are multi-line so they align to the top. */
+.row.aud { align-items: flex-start; cursor: pointer; gap: 10px; }
+.row.aud:active { transform: scale(.995); }
+/* A swap already in flight. Must not look tappable: no pointer, no press animation, and the
+   default cursor so the row reads as status rather than an action. Kept legible (not dimmed to
+   the point of looking disabled-by-error) because this is progress, not a problem. */
+.row.aud.swapping { cursor: default; opacity: .72; }
+.row.aud.swapping:active { transform: none; }
+.aud-swap-rel { margin-top: 4px; font-size: 11.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row.aud .grow { max-width: 100%; min-width: 0; overflow: hidden; }
+/* Release names in the Stale list are long; one nowrap line chopped them mid-word. Allow two
+   lines and clamp, so the name stays identifiable without the row growing unbounded. */
+.row.aud .title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+
+/* before → after on one line. Fixed-width first column so the size deltas stack vertically
+   down the list and can be compared without reading. */
+/* Line 2 carries the format facts AND the quality badges. It used to hold only "12 GB H.264"
+   while line 3 held eight badges and wrapped to a fourth line — this is that rebalance. */
+.aud-line { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: 12.5px; }
+/* NO min-width. It was 116px to line the next column up across cards, but most rows read just
+   "31 GB" (Playback rows carry no bitrate), which left a ~70px hole before "HEVC 10bit" and
+   looked broken on a wide screen. Column alignment was not worth that. */
+.aud-delta { flex: 0 0 auto; font-variant-numeric: tabular-nums; font-weight: 600; }
+/* Badges promoted onto line 2. nowrap + shrinkable: they must never be what causes a new line,
+   so if the line runs out of room the release-agnostic text truncates instead. */
+.aud-inline { display: flex; gap: 5px; flex: 1 1 auto; min-width: 0; overflow: hidden; flex-wrap: nowrap; }
+.aud-inline .apill { flex: 0 0 auto; }
+.aud-rate { color: var(--muted); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aud-delta i, .aud-rate i { font-style: normal; color: var(--muted); margin: 0 4px; }
+
+.aud-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+/* "nothing better found" sits in the badge line but is prose, not a badge — muted so it recedes
+   behind the facts about the file, which are what the row is now for. */
+.aud-none { color: var(--muted); font-size: 12px; flex: 0 0 auto; }
+/* The Upgrade tab lists the WHOLE library, so its device row is tightened: 805 rows x 7px of
+   breathing room is most of a screen. Same pills, same order, less air. */
+.row.aud.upg .aud-pills { margin-top: 4px; }
+/* Seed count is pushed to the far right so the DEVICE badges start at the same x on every card.
+   With the variable-width seed pill leading ("12 seeds" vs "137 seeds") the device row stepped
+   sideways per card and could not be compared down the column, which is their whole purpose. */
+.apill.seeds { margin-left: auto; }
+/* Right-hand column of a MAIN row: saving pinned top-right, seeds bottom-right. The saving used
+   to be vertically centred on its own while the seed pill sat at the end of the badge row, which
+   left an empty rectangle to the right of the badges and under the number. This fills it. */
+.aud-right {
+  flex: none; align-self: stretch; display: flex; flex-direction: column;
+  align-items: flex-end; justify-content: space-between; gap: 6px;
+}
+.aud-right .aud-save { align-self: flex-end; }
+.aud-right .apill.seeds { margin-left: 0; }
+.apill {
+  padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+  background: var(--card-2); color: var(--muted); white-space: nowrap;
+}
+.apill.ok   { background: color-mix(in srgb, var(--ok) 17%, transparent); color: var(--ok); }
+.apill.warn { background: color-mix(in srgb, var(--warn) 17%, transparent); color: var(--warn); }
+/* below-the-content-floor marker inside the bitrate pill. Costs 6px, not a whole pill, so it
+   cannot push the candidate card to a fourth line — and unlike a tooltip it exists on touch. */
+.apill > b { margin-left: 3px; font-weight: 900; }
+
+/* The payoff, right-aligned and large — the one number worth comparing between rows. */
+.aud-save {
+  flex: none; align-self: center; font-size: 20px; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--ok); white-space: nowrap;
+}
+.aud-save small { font-size: 11px; font-weight: 600; margin-left: 1px; }
+.aud-save.sm { font-size: 15px; align-self: flex-start; }
+/* A LARGER replacement — legitimate in the Playback section, where a source upgrade or a
+   playback fix is the point and size is the price. Must not be green: it is a cost, not a win. */
+.aud-save.bigger { color: var(--warn); }
+
+/* Candidate cards inside the options sheet. */
+.aud-cand { background: var(--card-2); border-radius: 12px; padding: 11px 13px; margin-bottom: 8px; }
+.aud-cand-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+/* Release names wrap rather than truncate — this is the screen where you choose between
+   them, so the whole name must be legible. */
+.aud-cand-title { font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; min-width: 0; }
+/* Reclaim button sits above the Stale list — full width, it is the section's one action. */
+#aud-reclaim { margin-bottom: 10px; min-height: 46px; font-size: 15px; }
+.apill.bad { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+.apill.strong { color: var(--text); font-variant-numeric: tabular-nums; }
+/* Device badges read as a row of client names; the colour is the whole message, so they are
+   deliberately narrow and uniform-width rather than carrying explanatory text. */
+.apill.dev { font-size: 10.5px; letter-spacing: .02em; padding: 2px 7px; }
+/* Release names are frequently absurd ("...(Multi language)(MultiSUB) PHDTeam"). ONE line,
+   truncated — wrapping them was pushing every card to four lines on a phone, and the
+   distinguishing part of a release name is at the front anyway. Full name is in the tooltip. */
+.aud-cand-title {
+  flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* The "current file" card in the options sheet: same layout as a candidate so the comparison
+   is like-for-like, but flat and outlined so it never reads as one of the choices. */
+.aud-cand.cur { background: transparent; border: 1px solid var(--card-2); margin-bottom: 14px; }
+.aud-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--muted);
+  border: 1px solid var(--card-2); border-radius: 5px; padding: 1px 6px;
+}
+.aud-age { flex: none; font-size: 11px; color: var(--muted); }
+/* Badge rows wrap to a third line on a phone once devices are shown — expected, not a bug. */
+/* PHONE BUDGET. A 390px viewport leaves ~322px inside a candidate card, and the full badge set
+   (source, bitrate, re-encode, audio, seeds, five devices) does not fit in two rows at desktop
+   sizing — it spilled to a fourth line. Everything here buys horizontal room so the card stays
+   at three lines with slack, rather than clipping badges behind overflow:hidden. Measured with
+   scratchpad/linecheck.js against a synthetic worst-case card. */
+@media (max-width: 430px) {
+  .aud-pills { gap: 4px; }
+  .apill { padding: 2px 6px; font-size: 10px; }
+  .apill.dev { padding: 2px 5px; font-size: 9.5px; letter-spacing: 0; }
+  .aud-line { gap: 5px; }
+  .aud-delta { min-width: 96px; }
+  .aud-cand { padding: 10px 11px; }
+  /* `repack` is rare and never decides anything, and `aggressive` duplicates the already-red
+     bitrate badge (below the floor always colours it red). Both drop out on a phone. */
+  .apill.opt-hide { display: none; }
+}
+/* The audio badge is emitted on BOTH badge rows; exactly one is ever visible. Below 380px line 2
+   cannot fit it (measured: "DTS-HD" clipped at 360px) but line 3 still can. */
+/* Under 380px the full set needs ~20px more than the row has, so the pills themselves shrink
+   again. Measured at 360 and 375: this is what takes line 3 back to a single row. */
+@media (max-width: 380px) {
+  .apill.wide-only { display: none; }
+  .aud-pills { gap: 3px; }
+  .apill { padding: 2px 4px; font-size: 9.5px; }
+  .apill.dev { padding: 2px 4px; font-size: 9px; }
+  .aud-cand { padding: 10px 9px; }
+}
+/* 320px (original iPhone SE and similar) cannot hold the full set at any sane pill size — it is
+   ~30px short. Audio is the least decision-relevant badge, so it drops rather than letting the
+   card grow a fourth line. Still in the release name and the tooltip. */
+@media (max-width: 340px) { .apill.wide-only, .apill.narrow-only { display: none; } }
+@media (min-width: 381px) { .apill.narrow-only { display: none; } }
+/* "Use this" on a candidate — full-width inside the card so it is unmistakably the action,
+   not another badge. Destructive-ish, so it is accent-outlined rather than filled. */
+/* Small inline action button. Must NOT use .btn-ghost — that is width:100%/min-height:52px
+   for full-width sheet actions and swallows any row it sits in. Accent-outlined so it reads
+   as a button rather than another badge against this palette. */
+.audit-btn {
+  flex: 0 0 auto; width: auto; min-height: 34px; padding: 0 13px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  border-radius: 10px; background: var(--card-2);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent);
+}
+.audit-btn:disabled { opacity: .55; border-color: var(--card-2); color: var(--muted); }
+.audit-btn:active:not(:disabled) { transform: scale(.97); }
+/* Candidate cards ARE the choice — the whole card is the tap target, so it needs to look
+   pressable. `.cur` (the current-file card) has no .pick and stays inert. */
+.aud-cand.pick { cursor: pointer; border: 1px solid transparent; transition: border-color .12s ease; }
+.aud-cand.pick:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.aud-cand.pick:active { transform: scale(.99); }
+.aud-cand.pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* A card mid-dry-run. Its children dim and a spinner is overlaid at full contrast — dimming
+   the whole card the way this used to would fade the spinner along with everything else, which
+   is how the tap ended up with no visible feedback at all. */
+.aud-cand.busy { pointer-events: none; position: relative; }
+.aud-cand.busy > * { opacity: .25; }
+.aud-cand.busy::after {
+  content: ''; position: absolute; inset: 0; margin: auto;
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2.5px solid var(--line); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+#swap-plan { margin: 14px 0 10px; }
+.swap-note { font-size: 12.5px; line-height: 1.5; color: var(--muted); margin: 0 0 4px; }
+/* Failure text stays in the modal next to the button that failed, not only in a toast that a
+   phone user scrolls past. Reset on every open — see openSwapConfirm. */
+.swap-note.bad { color: var(--danger); font-weight: 600; }
+
+/* ── Upgrade section (Audit) ─────────────────────────────────────────────────────────────────
+   Full-width search above the list. Reuses .search so it matches the Library tab's field exactly
+   rather than introducing a second search look. */
+#aud-search { width: 100%; margin: 0 0 10px; }
+/* Top 100 position, inline before the title. A leading rank is the fastest way to confirm the
+   ranked order is doing what it claims — and it earns its space only on the ~100 rows that have one. */
+.upg-rank { display: inline-block; margin-right: 6px; padding: 1px 5px; border-radius: 6px;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+/* An in-place spinner would fight the row's flex layout (the same reason swapPills uses plain text),
+   so a searching row just dims and stops looking tappable while its indexer search runs. */
+.row.aud.upg.searching { opacity: .6; cursor: progress; }
+.row.aud.upg.searching:active { transform: none; }
+/* The infinite-scroll sentinel. Reuses .loading's shape but must keep a little height even when
+   empty, or an element with zero box never intersects and the observer would never fire. */
+#audit-more { display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 10px; color: var(--muted); font-size: 12.5px; }
+
+
+/* MOBILE FIRST for the audit section strip. The sub-line ("wrong cut · 0 fixable now") is the widest
+   and least important element in each tile, so below 480px it is hidden outright rather than allowed
+   to set the tile's minimum width — the label and the number are what you navigate by. Restored as
+   soon as there is room. */
+@media (max-width: 480px) {
+  .audit-tabs .at-sub { display: none; }
+  .audit-tabs .at-label { letter-spacing: 0; }
+}
+
+/* An audit swap's "Replacing your copy of X". OWN LINE, because prepending it to the meta line broke
+   the row on a phone — a long series title plus "· Downloading · 96% · 19 GB" has nowhere to go.
+   MOBILE FIRST: one line, ellipsised, so any title length is safe; the bold part is the title so the
+   eye lands on WHAT is being replaced. The reassurance that the current copy survives lives in the
+   cancel sheet (see openSwapCancelSheet), which is where the decision is actually made. */
+.dl-swap-note { margin: 2px 0 4px; font-size: 12px; line-height: 1.35; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.dl-swap-note b { font-weight: 600; color: var(--text); }
+
+/* Upgrade rows: status text then pills, sharing one line WHEN THEY FIT and wrapping when they do not.
+   `flex-wrap: wrap` is the whole "does it fit" check — the browser measures it at the real available
+   width, which no JS threshold can match, and an earlier version of this CLIPPED the overflow instead
+   and silently hid badges on a narrow phone. Wrapping costs a line only on the rows that need one.
+   min-width:0 on the text lets it ellipsize rather than forcing a wrap by itself (a flex item's
+   default min-width is auto, i.e. its content — the same trap as the grid tracks above). */
+.aud-line.upg-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; row-gap: 4px;
+  min-width: 0; }
+.aud-line.upg-line .aud-delta { flex: 0 1 auto; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+/* Pills keep their intrinsic width — they wrap to the next line rather than squashing to slivers.
+   WHY THEY WRAPPED EARLY, measured at 390px: flex-shrink never gets a chance in a wrapping
+   container. An item that does not fit moves to the next line; it is never squeezed onto the
+   current one. So a row could sit with 69px of visible slack because the next pill needed 80px
+   (Lawrence of Arabia missed by 11px, leaving a dead gap that read as a layout bug).
+   Nothing in flexbox re-packs to minimise that ragged edge — the only lever is making the pills
+   narrower, so the near-misses land. Trimming 2px of horizontal padding and 1px of gap recovers
+   ~6px per pill, which is enough for the marginal one on a typical 4-5 pill row. Verified against
+   the real markup at 320/390/768px rather than guessed. */
+.aud-line.upg-line .apill { flex: 0 0 auto; padding: 2px 6px; }
+
+/* "same size" — a replacement within 1 GB of what it replaces. Rendered as words, not a rounded
+   "−0GB", which put a minus sign in front of "no change" on the one screen that must be
+   unambiguous (the Replace confirm). Muted and smaller: it is the absence of a number, not a
+   number worth comparing. */
+.aud-save.same { color: var(--muted); font-size: 13px; }
+.aud-save.same small { margin-left: 3px; }

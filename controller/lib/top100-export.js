@@ -36,13 +36,19 @@ function formatSnapshot(items, stamp) {
     `# count: ${items.length}`,
     '#',
     '# The Top 100 ORDER is the irreplaceable part (Elo-tuned by hand); membership is secondary.',
-    '# Columns: rank <TAB> title (year) <TAB> imdb <TAB> jellyfinId',
+    '# Columns: rank <TAB> title (year) <TAB> imdb <TAB> jellyfinId <TAB> tmdb',
+    '#',
+    '# jellyfinId is the WEAKEST column and is recorded only as evidence: it is derived from the file',
+    '# path, so replacing a file mints a new one and this id goes dead. top100-guard.js uses exactly',
+    '# that — a dead id proves the playlist entry was orphaned by a swap rather than removed by hand.',
+    '# Recover by imdb/tmdb, never by jellyfinId.',
     '#',
   ];
   items.forEach((it, i) => {
     const year = it.ProductionYear ? ` (${it.ProductionYear})` : '';
     const imdb = (it.ProviderIds && it.ProviderIds.Imdb) || '-';
-    lines.push(`${String(i + 1).padStart(3)}\t${it.Name}${year}\t${imdb}\t${it.Id}`);
+    const tmdb = (it.ProviderIds && it.ProviderIds.Tmdb) || '-';
+    lines.push(`${String(i + 1).padStart(3)}\t${it.Name}${year}\t${imdb}\t${it.Id}\t${tmdb}`);
   });
   return `${lines.join('\n')}\n`;
 }

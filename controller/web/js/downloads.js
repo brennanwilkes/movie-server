@@ -22,8 +22,20 @@ function renderDownloads(items) {
       ? `Declined · Not enough disk space, needs ${fmtBytes(d.neededBytes)}, only ${fmtBytes(d.freeBytes)} free`
       : d.state === 'Not found' || d.state === 'Not found (recent)'
       ? `${d.state} · ${fmtRecovery(d)}${searchHint}`
+      // Recovery has stopped trying on this title (MAX_RESEARCH exhausted). There is no countdown
+      // to show, and showing one anyway promised an action that could never fire — say what is
+      // actually true, including that it stays put in case a seed ever appears.
+      : d.state === 'Stalled' && d.acceptedRare
+      ? `Stalled · no seeded copy found — kept in case one appears${pctShown ? ` · ${pctShown}` : ''}`
       : d.state === 'Stalled' && d.stallGiveUpAt
       ? `Stalled · ${fmtGiveUp(d.stallGiveUpAt)}`
+      // An Audit replacement looks exactly like any other download, which is what made the delete
+      // button dangerous: nothing on the row said "the copy this replaces is still on disk". Say it.
+      // A swap's "Replacing your copy of X" USED to be prepended here and blew the line apart on a
+      // phone ("Replacing your copy of The Lord of the Rings: The Rings of Power — S01 · Downloading ·
+      // 96% · 19 GB"). It now lives on its own line below (dl-swap-note), so the meta line stays the
+      // same shape as every other row and the replaced title gets room to ellipsize instead of
+      // wrapping the whole row.
       : [d.state, pctShown, d.sizeBytes > 0 ? fmtBytes(d.sizeBytes) : '', d.note, d.searchHint].filter(Boolean).join(' · ');
     const color = COLOR[d.state] || '';
     const seedsShown = typeof d.seeds === 'number' ? `Seeds: ${d.seeds}` : '';
@@ -31,7 +43,11 @@ function renderDownloads(items) {
     const isDone = d.state === 'Ready' || d.state === 'Done';
     const canDelete = d.hash && d.state !== 'Ready' && d.state !== 'Done';
     const isMissing = d.state === 'Not found' || d.state === 'Not found (recent)';
-    const canForceGrab = isMissing && d.source === 'sonarr' && d._id != null;
+    // Two ways to reach the release picker: nothing was ever grabbed ("Not found"), or something was
+    // grabbed and it turned out to be a dead swarm (canPick — the server decides when, see
+    // STALL_PICK_MS). Both end in the same sheet, and neither deletes anything: a picked release is
+    // grabbed alongside the stalled one, so choosing wrong costs disk, never the existing download.
+    const canForceGrab = (isMissing || d.canPick) && d.source === 'sonarr' && d._id != null;
     // Pause/resume: only for a real torrent that's actively in flight (not a "missing:" pseudo-row,
     // not a finished/importing item). Paused rows offer Resume; the rest offer Pause.
     const realHash = d.hash && !String(d.hash).startsWith('missing:');
@@ -46,11 +62,15 @@ function renderDownloads(items) {
         cleanTitle = mt2 ? mt2[1].replace(/[._]/g, ' ').trim() : d.title.replace(/-[A-Za-z0-9]+$/, '').replace(/[._]/g, ' ').trim();
       }
     }
-    return `<li class="row dl${(d.attention || d.state === 'Declined') ? ' attn' : ''}${isDone ? ' done' : ''}" data-hash="${esc(d.hash || '')}" data-state="${esc(d.state)}" data-title="${esc(cleanTitle)}" data-source="${esc(d.source)}"${d._id ? ` data-app="${esc(d.source)}" data-id="${esc(d._id)}"` : ''}>
+    // Not out yet (or out for days with no torrent yet): nothing for a human to do, so it sits
+    // dimmed at the bottom of the list instead of competing with rows that need attention.
+    const isUpcoming = d.state === 'Unreleased' || d.recentRelease === true;
+    return `<li class="row dl${(d.attention || d.state === 'Declined') ? ' attn' : ''}${isDone ? ' done' : ''}${isUpcoming ? ' upcoming' : ''}" data-hash="${esc(d.hash || '')}" data-state="${esc(d.state)}" data-title="${esc(cleanTitle)}" data-source="${esc(d.source)}"${d._id ? ` data-app="${esc(d.source)}" data-id="${esc(d._id)}"` : ''}${d.swap ? ` data-swap="${esc(d.swap.title || '')}"` : ''}>
       <div class="dl-title-row">
         <span class="title">${esc(d.title)}</span>
-        <span class="dl-actions">${isMissing ? `<button class="dl-retry" aria-label="Retry search"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></button>` : ''}${canForceGrab ? `<button class="dl-force" aria-label="Force grab via search"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 20h14"/></svg></button>` : ''}${pausable ? `<button class="dl-pause" aria-label="${isPaused ? 'Resume' : 'Pause'} download">${isPaused ? '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>'}</button>` : ''}${canDelete ? `<button class="dl-stop" aria-label="Delete torrent & files"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg></button>` : ''}</span>
+        <span class="dl-actions">${isMissing ? `<button class="dl-retry" aria-label="Retry search"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></button>` : ''}${canForceGrab ? `<button class="dl-force" aria-label="${isMissing ? 'Force grab via search' : 'Pick a source that has seeds'}"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 20h14"/></svg></button>` : ''}${pausable ? `<button class="dl-pause" aria-label="${isPaused ? 'Resume' : 'Pause'} download">${isPaused ? '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>'}</button>` : ''}${canDelete ? `<button class="dl-stop" aria-label="${d.swap ? 'Cancel this replacement download (keeps your current copy)' : 'Delete torrent &amp; files'}"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg></button>` : ''}</span>
       </div>
+      ${d.swap ? `<div class="dl-swap-note">Replacing your copy of <b>${esc(d.swap.title || 'this title')}</b></div>` : ''}
       <div class="mini-bar"><div style="width:${barW}%${color ? `;background:${color}` : ''}"></div></div>
       <div class="sub dl-meta"><span>${esc(leftMeta)}</span><span class="dl-meta-right">${[eta, seedsShown].filter(Boolean).map(esc).join(' · ')}</span></div>
     </li>`;
@@ -80,7 +100,10 @@ function renderDownloads(items) {
         const app = bli && bli.dataset.app;
         const id = bli && bli.dataset.id;
         if (!app || !id) return;
-        openForceGrabSheet(app, Number(id));
+        // Pass the stalled release's own title so the picker can lead with the season the user is
+        // actually looking at, not whichever season happens to have the best-seeded pack.
+        const rt = bli.querySelector('.title');
+        openForceGrabSheet(app, Number(id), rt ? rt.textContent : null);
       } else if (rbtn) {
         const bli = rbtn.closest('li');
         const app = bli && bli.dataset.app;
@@ -105,7 +128,13 @@ function renderDownloads(items) {
           } catch { toast('Failed to dismiss'); }
         } else {
           const t = bli.querySelector('.title');
-          openSheet({ hash, source: bli.dataset.source, title: t ? t.textContent : 'this download' });
+          // An Audit replacement carries its swap info on the row (data-swap = the title being
+          // replaced). openSheet branches on it into the cancel-only flow — never the layered delete.
+          const swapTitle = bli.dataset.swap;
+          openSheet({
+            hash, source: bli.dataset.source, title: t ? t.textContent : 'this download',
+            swap: swapTitle != null ? { title: swapTitle || null } : null,
+          });
         }
       } else if (li) {
         const title = li.dataset.title;

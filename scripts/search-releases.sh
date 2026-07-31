@@ -37,6 +37,7 @@ for arg in "$@"; do
     --top3)   TOP_N=3 ;;
     --top5)   TOP_N=5 ;;
     --top10)  TOP_N=10 ;;
+    --season=*) SEASON="${arg#*=}" ;;
     --*)      echo "Unknown flag: $arg" >&2; exit 1 ;;
     *)        POS_ARGS+=("$arg") ;;
   esac
@@ -75,7 +76,32 @@ for m in data:
 show_releases() {
   while IFS='|' read -r MID MNAME YEAR; do
     echo "=== ${MNAME} (${YEAR}) ==="
-    RELEASES=$(curl -sf -H "X-Api-Key: ${KEY}" "http://localhost:${PORT}/api/v3/release?${API_PATH}Id=${MID}" 2>/dev/null) || { echo "  (no releases available)" >&2; continue; }
+    # Sonarr's /release REQUIRES seriesId AND seasonNumber (or an episodeId). Given seriesId
+    # alone it silently ignores the filter and returns the RSS feed — which is why every TV
+    # query used to come back with the same unrelated recent releases regardless of title
+    # (found 2026-07-27: "Lost", "Fringe", "Jericho" and "House" gave four identical result
+    # sets of anime and Colin From Accounts). Radarr's ?movieId= is a real filter, so only
+    # the Sonarr path needed this. Seasons are searched one at a time because that is the
+    # unit the API accepts; --season=N picks one, otherwise every season with files is swept.
+    if [[ $APP == sonarr ]]; then
+      if [[ -n "${SEASON:-}" ]]; then
+        SEASONS="$SEASON"
+      else
+        SEASONS=$(curl -sf -H "X-Api-Key: ${KEY}" "http://localhost:${PORT}/api/v3/series/${MID}" \
+          | jq -r '.seasons[]|select(.statistics.episodeFileCount>0)|.seasonNumber' 2>/dev/null)
+        [[ -n "$SEASONS" ]] || SEASONS=1
+        echo "  (no --season=N given; sweeping seasons: $(tr '\n' ' ' <<<"$SEASONS"))" >&2
+      fi
+      RELEASES='[]'
+      for SN in $SEASONS; do
+        PART=$(curl -sf -H "X-Api-Key: ${KEY}" \
+          "http://localhost:${PORT}/api/v3/release?seriesId=${MID}&seasonNumber=${SN}" 2>/dev/null) || continue
+        RELEASES=$(jq -s 'add' <<<"$RELEASES$PART")
+      done
+    else
+      RELEASES=$(curl -sf -H "X-Api-Key: ${KEY}" "http://localhost:${PORT}/api/v3/release?movieId=${MID}" 2>/dev/null) \
+        || { echo "  (no releases available)" >&2; continue; }
+    fi
 
     if [[ "$MODE" == "raw" ]]; then
       echo "$RELEASES" | python3 -m json.tool 2>/dev/null

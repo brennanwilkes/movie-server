@@ -14,7 +14,14 @@ const { cachedFetch } = require('./cache');
 const {
   jellyfinIdByTmdb, jellyfinSearchId, jellyfinServerId, arrTmdbId,
 } = require('./jellyfin');
-const { arrIdForHash } = require('./arr-data');
+const {
+  arrIdForHash, arrParseEntity, normName, getQbitTorrents, torrentApp,
+} = require('./arr-data');
+// Shared release-title rules — the same gate the Audit tab uses for its candidates.
+const {
+  srcRank, REENC_RE, audioOf, refusedReason, scopeOf, SCOPE_LABEL, resOf, codecOf, TENBIT_RE,
+  supersedes, editionRefusal, overResCeiling,
+} = require('./release-rules');
 const { videoLabel, gpuTier, arrTitle } = require('./arr-inspect');
 const {
   buildDeletePlan, planItems, executeDelete, buildDeletePlanFromHash,
@@ -28,6 +35,10 @@ const {
 const { collectionsSweep, collectionsBusy } = require('./collections');
 const { registerHssShelf } = require('./hss-shelf');
 const { bustDownloadsCache } = require('./downloads');
+// Audit swap identity. An in-flight swap keeps the ORIGINAL on disk while the replacement downloads,
+// so a hash-based delete of the replacement would take the original with it — see audit.js.
+const { isSwapHash, swapForHash } = require('./state');
+const { forgetSwap } = require('./audit');
 const { triggerJellyfinScan } = require('./jf-scan');
 
 // Resolve a (cleaned) title to a Jellyfin item id + server id, so the UI can deep-link
@@ -134,6 +145,21 @@ app.post('/api/delete', async (req, res) => {
   const byHash = id == null && !!hash;
   if (!byHash && (!['radarr', 'sonarr'].includes(a) || id == null)) return res.status(400).json({ error: 'body must be {app,id} or {hash,source?}' });
   try {
+    // AN IN-FLIGHT AUDIT SWAP IS NOT DELETABLE BY HASH. The replacement torrent resolves to the same
+    // library item as the original, which is still on disk and still playable — so the layered plan
+    // built from this hash would delete the whole title when the user only meant "stop this
+    // download". Enforced HERE and not just in the UI: a stale tab, a direct curl, or a future caller
+    // must not be able to reach that path. /api/torrent/delete is the correct door, and it forgets
+    // the swap without touching a file.
+    if (byHash && !String(hash).startsWith('missing:') && isSwapHash(hash)) {
+      const sw = swapForHash(hash);
+      return res.status(409).json({
+        error: 'This is an Audit replacement download. Cancelling it must not delete the copy you '
+          + 'already have — use the cancel-download path instead.',
+        swap: true,
+        title: (sw && sw.pending && sw.pending.title) || null,
+      });
+    }
     let p;
     if (byHash && hash.startsWith('missing:')) {
       const parts = hash.split(':');
@@ -153,14 +179,28 @@ app.post('/api/delete', async (req, res) => {
 });
 
 // Delete a specific torrent from qBittorrent (used by the Downloads page stop button).
+//
+// This is also the ONLY correct way to cancel an in-flight Audit swap. It touches the torrent and
+// nothing else: deleteFiles removes the partial download from the downloads directory, and because
+// imports are hardlinked, even a swap that already imported keeps its library copy (a hardlink is a
+// second directory entry for the same data — this is the same reason the reclaim sweep is safe).
+// The original file the swap was going to replace is never in scope here at all.
 app.post('/api/torrent/delete', async (req, res) => {
   const { hash, deleteFiles = true } = req.body || {};
   if (!hash) return res.status(400).json({ error: 'hash is required' });
   try {
+    // Forget the swap FIRST. If qBittorrent errors we have still stopped the sweep from acting on a
+    // torrent the user has asked to be rid of, and the swap's own 48h abandon keeps the original
+    // either way. Doing it after a failed delete would leave the sweep chasing a cancelled swap.
+    const wasSwap = forgetSwap(hash);
     const body = new URLSearchParams({ hashes: hash, deleteFiles: String(deleteFiles) });
     const r = await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
     bustDownloadsCache();
-    res.json({ ok: r.ok });
+    if (wasSwap) {
+      metrics.emitEvent('audit_replace_cancelled', { ti: wasSwap.title, ap: wasSwap.app, id: wasSwap.id });
+      console.log(`torrent/delete: cancelled the audit replacement for "${wasSwap.title}" — the existing copy is untouched`);
+    }
+    res.json({ ok: r.ok, swapCancelled: !!wasSwap, title: wasSwap ? wasSwap.title : null });
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 
@@ -366,6 +406,46 @@ app.post('/api/retry', async (req, res) => {
   }
 });
 
+// When a human picks a release, the dead download it was picked to REPLACE used to keep running
+// until its own stall clock expired — so a fresh S05 pack sat alongside the stalled S05E09 that
+// prompted the pick, and both were racing to import the same episode. Cancel the superseded ones.
+//
+// Every guard below exists to make a wrong cancel impossible rather than merely unlikely, because a
+// MISSED cancel is harmless (the torrent's own give-up clock still ends it) while a wrong cancel
+// throws away real progress. All of these must hold:
+//   - same Sonarr series, proven by *arr's own queue/history record for that hash. Unresolvable id
+//     means skip: it is exactly the ambiguity we must not guess through.
+//   - stalled with ZERO seeds. A stalled torrent with peers may still resume; one with no swarm
+//     cannot, so nothing is being discarded.
+//   - the new pick genuinely COVERS it — every season the old release carries is inside the new
+//     one's span, and an episode is only superseded by a pack or by that same episode. 'unknown'
+//     scope on either side is a skip, never an assumption.
+//   - not an in-flight audit swap (that original is still on disk — see /api/torrent/delete) and
+//     not the torrent we just added.
+async function cancelSuperseded(seriesId, newHash, newTitle) {
+  const neu = scopeOf(newTitle);
+  const out = [];
+  for (const t of await getQbitTorrents()) {
+    const h = String(t.hash || '').toLowerCase();
+    if (!h || h === String(newHash || '').toLowerCase()) continue;
+    if (torrentApp(t) !== 'sonarr') continue;
+    if (t.state !== 'stalledDL' || (t.num_seeds || 0) > 0) continue;
+    if (isSwapHash(h)) continue;
+    if (!supersedes(neu, scopeOf(t.name))) continue;
+    if (await arrIdForHash('sonarr', h) !== Number(seriesId)) continue;
+    try {
+      await qbit.fetch('/api/v2/torrents/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ hashes: h, deleteFiles: 'true' }),
+      });
+      out.push(t.name);
+      console.log(`force-grab: cancelled "${t.name}" — superseded by "${newTitle}" (stalled, 0 seeds)`);
+    } catch (e) { console.log(`force-grab: could not cancel "${t.name}" — ${String(e.message || e)}`); }
+  }
+  return out;
+}
+
 // Force-grab the best "search gap" release — one that's healthy upstream (raw text search) but that
 // Sonarr's structured season-search never surfaced (e.g. a year-named full-series pack with no S01
 // marker). Adds the release to qBittorrent directly via its magnet link or infoHash (bypassing the
@@ -403,8 +483,17 @@ app.post('/api/force-grab', async (req, res) => {
     persistState();
     metrics.emitEvent('force_grab', { ap: a, id: Number(id), ti: title, rel: relTitle, seeders, indexer: rel.indexer, method: result.method, infoHash: result.infoHash });
     console.log(`force-grab: sonarr id=${id} → "${relTitle}" (${seeders} seeders, ${result.method})`);
+    // AFTER the grab, never before: if adding the release fails we must not have thrown away the
+    // dead one it was meant to replace. Non-fatal — a grab that worked is reported as a success even
+    // if the tidy-up did not, since the stalled row's own clock is still there as the backstop.
+    let superseded = [];
+    try { superseded = await cancelSuperseded(Number(id), result.infoHash, relTitle); } catch (e) {
+      console.log(`force-grab: supersede sweep failed — ${String(e.message || e)}`);
+    }
     bustDownloadsCache();
-    res.json({ ok: true, grabbed: relTitle, seeders, method: result.method });
+    res.json({
+      ok: true, grabbed: relTitle, seeders, method: result.method, superseded,
+    });
   } catch (e) {
     const msg = String(e.message || e);
     metrics.emitEvent('force_grab', { ap: a, id: Number(id), error: msg });
@@ -413,20 +502,65 @@ app.post('/api/force-grab', async (req, res) => {
   }
 });
 
-// Read-only: return all grabbable gap releases for a Sonarr item (no side effects).
-// The UI calls this to populate the manual-grab release picker.
+// ---- Manual-grab release picker (read-only) ────────────────────────────────────────────────
+// The raw output of probeSearchGap is a Prowlarr TEXT search, which is why the picker exists at all
+// (Sonarr's structured season search is what missed these releases). But raw text search is also
+// why the list was close to unusable: searching "The Wire" returned 156 results whose top five were
+// packs of seasons that are ALREADY COMPLETE, with the one useful release — S05, 236 seeds — buried
+// below them, and "Resident Alien S02E02 The Wire" ranked ninth.
+//
+// So this endpoint now does the work the Audit tab does for its candidates, using the same shared
+// rules (./release-rules) so the two can never drift:
+//   1. Drop releases that are not this series at all.
+//   2. Drop the hard refusals — camrip, extras disc, dubbed/multi-audio, foreign-audio-only.
+//   3. Rank releases that cover a season we are actually MISSING episodes from to the top.
+//   4. Demote (never drop) low-quality releases, so the rescue tool still works when junk is all
+//      that exists — the whole point of the picker is the case where nothing good is seeded.
+// Nothing here grabs: the endpoint is a GET-shaped POST with no side effects.
+
+// Below this vertical resolution a release goes in the "lower quality" bucket rather than the main
+// list. 720p is the floor for "looks fine on the TV"; 480p/DVD is a visible downgrade that is still
+// better than a missing episode, so it is demoted, not refused.
+const PICK_RES_FLOOR = 720;
+// A release with no seeders cannot finish. probeSearchGap already filters seeders>=1; this is a
+// second gate so a future change there cannot silently reintroduce dead releases into the picker.
+const PICK_MIN_SEEDERS = 1;
+// Sonarr's own parser is authoritative for "is this release this series", but it is a network call
+// per release. Most releases are settled by the cheap title test, so only the leftovers are parsed,
+// and only up to this many — a 156-result search must not turn into 156 round-trips.
+const PICK_MAX_PARSES = 25;
+
+// Does this release cover any season we are missing episodes from? Returns
+// 'gap' (covers a season with missing episodes) | 'complete' (only seasons we already have) |
+// 'unknown' (scope unclear — cannot tell, so do not claim either way).
+function coverageOf(scope, missingSeasons) {
+  if (!missingSeasons || !missingSeasons.size) return 'unknown';   // nothing missing, or we could not tell
+  if (scope.kind === 'multi' && scope.seasons == null) return 'gap'; // "Complete Series" covers everything
+  if (!scope.seasons || !scope.seasons.length) return 'unknown';
+  return scope.seasons.some((n) => missingSeasons.has(n)) ? 'gap' : 'complete';
+}
+
 app.post('/api/force-grab/search', async (req, res) => {
-  const { app: a, id } = req.body || {};
+  const { app: a, id, want } = req.body || {};
   if (a !== 'sonarr' || id == null) return res.status(400).json({ error: 'body must be {app:"sonarr",id}' });
   try {
-    const st = searchState.get(`${a}:${Number(id)}`) || {};
-    const title = st.lastSearchTitle || (st.searchProbe && st.searchProbe.title) || await arrTitle(a, Number(id), []);
-    // Fetch series metadata from Sonarr (best-effort)
-    let series = null;
+    const sid = Number(id);
+    // `want` is the release title of the row the user clicked the picker on, when there is one. It
+    // carries INTENT that the library state cannot: opening the picker on a stalled "American Gods
+    // S01" download means S01, even though Sonarr reports no missing episodes there (it is a re-grab,
+    // not a gap) — without this the list led with S03 packs. Optional; absent for "Not found" rows,
+    // which have no release to point at.
+    const wantSeasons = new Set((want ? (scopeOf(want).seasons || []) : []));
+    const st = searchState.get(`${a}:${sid}`) || {};
+    const title = st.lastSearchTitle || (st.searchProbe && st.searchProbe.title) || await arrTitle(a, sid, []);
+    // Fetch series metadata from Sonarr (best-effort). originalLanguage matters: it is what makes a
+    // lone foreign-language tag correct rather than a dub — see isForeignOnly.
+    let series = null, origLang = null;
     try {
-      const s = await arrGet('sonarr', `/series/${Number(id)}`, 6000);
+      const s = await arrGet('sonarr', `/series/${sid}`, 6000);
       if (s) {
         const monitoredSeasons = (s.seasons || []).filter((sn) => sn.monitored && sn.seasonNumber > 0);
+        origLang = ((s.originalLanguage || {}).name) || null;
         series = {
           title: s.title,
           year: s.year || null,
@@ -434,12 +568,143 @@ app.post('/api/force-grab/search', async (req, res) => {
           monitoredSeasonCount: monitoredSeasons.length,
           episodeCount: (s.statistics && s.statistics.episodeCount) || null,
           runtime: s.runtime || null,
+          origLang,
         };
       }
     } catch { /* best-effort */ }
-    let gap = await probeSearchGap(title, []);
-    if (!gap || !gap.all || !gap.all.length) return res.json({ results: [], query: gap?.query || null, series });
-    return res.json({ results: gap.all, query: gap.query, summary: gap.summary, series });
+
+    // WHICH SEASONS ARE ACTUALLY MISSING. This is the single most useful signal in the whole list:
+    // for The Wire it is the difference between offering the S05 pack that fixes the gap and
+    // offering four packs of seasons that are already finished.
+    let missingSeasons = new Set(), gapLabel = null;
+    try {
+      const miss = await missingEpisodes(sid);
+      missingSeasons = new Set(miss.map((e) => e.seasonNumber));
+      if (miss.length) {
+        const bySeason = new Map();
+        for (const e of miss) bySeason.set(e.seasonNumber, (bySeason.get(e.seasonNumber) || 0) + 1);
+        gapLabel = [...bySeason.entries()].sort((x, y) => x[0] - y[0])
+          .map(([sn, n]) => `S${String(sn).padStart(2, '0')} (${n} ep${n > 1 ? 's' : ''})`).join(', ');
+      }
+    } catch { /* best-effort — an unknown gap just means no gap-aware ranking */ }
+
+    const gap = await probeSearchGap(title, []);
+    const raw = (gap && gap.all) || [];
+    if (!raw.length) return res.json({ results: [], weak: [], query: gap?.query || null, series, gapLabel });
+
+    // ── Wrong-series drop. The cheap test first: after normalisation the release must START with
+    // the series title. "Resident Alien S02E02 The Wire" contains "the wire" but does not start with
+    // it, which is exactly the case that ranked ninth. Releases that fail the cheap test are not
+    // discarded blind — they go to Sonarr's own parser, which is authoritative, up to a budget.
+    const seriesTitles = [series && series.title, title].filter(Boolean);
+    const norms = seriesTitles.map((s) => normName(s));
+    // Group prefixes ("[SubsPlease] Show - 01") would defeat a strict prefix test, so a leading
+    // bracketed or "Group -" prefix is stripped before comparing.
+    const stripPrefix = (s) => normName(String(s || '').replace(/^\s*[[(][^\])]{1,30}[\])]\s*/, ''));
+    let parses = 0;
+    const kept = [];
+    for (const r of raw) {
+      const t = r.title || '';
+      const nt = stripPrefix(t);
+      let mine = norms.some((n) => n && (nt === n || nt.startsWith(n + ' ')));
+      if (!mine && parses < PICK_MAX_PARSES) {
+        parses++;
+        const ent = await arrParseEntity('sonarr', t);   // authoritative; shares the global parseCache
+        mine = !!(ent && ent.id === sid);
+      }
+      if (mine) kept.push(r);
+    }
+
+    // ── Hard refusals + shaping. Everything a card needs is derived here, once, from the title.
+    const refusedCounts = new Map();
+    const shaped = [];
+    for (const r of kept) {
+      const t = r.title || '';
+      // 2160p is refused, not merely demoted: nothing here can play it (see MAX_USABLE_RES). This
+      // list comes from RAW Prowlarr text search, so *arr's 1080p profile ceiling never filtered it.
+      const why = refusedReason(t, origLang) || editionRefusal(t, null, title)
+        || (overResCeiling(t) ? 'above 1080p — nothing here can play it' : null);
+      if (why) { refusedCounts.set(why, (refusedCounts.get(why) || 0) + 1); continue; }
+      if ((r.seeders || 0) < PICK_MIN_SEEDERS) {
+        refusedCounts.set('no seeders', (refusedCounts.get('no seeders') || 0) + 1);
+        continue;
+      }
+      const scope = scopeOf(t);
+      const res720 = resOf(t);
+      shaped.push({
+        // Identity — unchanged, this is what /api/force-grab takes back.
+        title: t, guid: r.guid, infoHash: r.infoHash || null, indexerId: r.indexerId,
+        indexer: r.indexer || null, size: r.size || 0, seeders: r.seeders || 0,
+        // Presentation / ranking signals.
+        res: res720,
+        codec: codecOf(t),
+        source: (() => { for (const [re, name] of [[/remux/i, 'Remux'], [/bluray|blu-?ray/i, 'BluRay'],
+          [/brrip|bdrip/i, 'BRRip'], [/web-?dl/i, 'WEB-DL'], [/webrip/i, 'WEBRip'],
+          [/hdtv/i, 'HDTV'], [/dvd/i, 'DVD']]) if (re.test(t)) return name; return null; })(),
+        srcRank: srcRank(t),
+        audio: audioOf(t),
+        reenc: REENC_RE.test(t),
+        tenbit: TENBIT_RE.test(t),
+        scope: scope.kind,
+        scopeLabel: SCOPE_LABEL[scope.kind],
+        seasons: scope.seasons,
+        episode: scope.episode,
+        coverage: coverageOf(scope, missingSeasons),
+        // Does this release cover the season the user actually clicked on? Null when no `want` was
+        // sent, so the UI can stay silent rather than implying "no".
+        wanted: wantSeasons.size
+          ? (scope.kind === 'multi' && scope.seasons == null) || (scope.seasons || []).some((n) => wantSeasons.has(n))
+          : null,
+        // Below the resolution floor is a DEMOTION, not a refusal — see PICK_RES_FLOOR. The source
+        // test matters independently: "The Wire S05 - DVDRip - x264" carries no resolution tag at
+        // all, so a res-only check let a DVD rip sit in the main list. srcRank <= 1 is DVD/SDTV.
+        weak: (res720 != null && res720 < PICK_RES_FLOOR) || (srcRank(t) ?? 9) <= 1,
+      });
+    }
+
+    // ── Rank. This picker's job is not the Audit tab's job. The Audit tab ranks quality first,
+    // because it is choosing whether to REPLACE a file that already plays. Here nothing plays: the
+    // episodes are missing and the previous grabs died at 0 seeds. So the order is what actually
+    // gets the gap filled:
+    //   1. coverage  — a release that cannot fix the gap is not an answer however pretty it is.
+    //   2. scope     — prefer the narrowest thing that covers it. Filling a 3-episode hole in S05
+    //                  does not justify a 137 GB five-season pack, and both said "fills your gap".
+    //   3. resolution— 1080p is the target, 720p is fine, 2160p is a transcode burden on this NUC
+    //                  (see DESIGN-THERMAL), unknown is unknown.
+    //   4. seeders   — deliberately ABOVE source tier, which is the opposite of the Audit tab. The
+    //                  entire reason this button exists is releases that never downloaded, so a
+    //                  236-seed BluRay x265 beats a 16-seed 110 GB REMUX every time.
+    //   5. source    — the last tiebreak among otherwise equal options.
+    const COV_RANK = { gap: 0, unknown: 1, complete: 2 };
+    const SCOPE_RANK = { season: 0, episode: 1, unknown: 2, multi: 3 };
+    const resBand = (r) => (r == null ? 0 : r >= 2160 ? 1 : r >= 1080 ? 3 : r >= 720 ? 2 : 0);
+    // Seeder buckets, not raw counts: 236 vs 184 seeds is no real difference in whether a torrent
+    // finishes, so comparing them directly would let a trivial gap outweigh resolution or scope.
+    const seedBand = (n) => (n >= 50 ? 3 : n >= 15 ? 2 : n >= 5 ? 1 : 0);
+    // The clicked row's own season outranks everything, INCLUDING our inferred gap: it is stated
+    // intent rather than inference. A release can be both, and usually is.
+    const cmp = (x, y) => ((x.wanted === false ? 1 : 0) - (y.wanted === false ? 1 : 0))
+      || (COV_RANK[x.coverage] - COV_RANK[y.coverage])
+      || ((SCOPE_RANK[x.scope] ?? 2) - (SCOPE_RANK[y.scope] ?? 2))
+      || (resBand(y.res) - resBand(x.res))
+      || (seedBand(y.seeders) - seedBand(x.seeders))
+      || ((y.srcRank ?? 2) - (x.srcRank ?? 2))
+      || (y.seeders - x.seeders);
+    const results = shaped.filter((r) => !r.weak).sort(cmp);
+    const weak = shaped.filter((r) => r.weak).sort(cmp);
+
+    const refused = [...refusedCounts.entries()].map(([reason, n]) => ({ reason, n }));
+    console.log(`force-grab/search: sonarr id=${sid} "${title}" — ${raw.length} raw → ${kept.length} this series`
+      + ` → ${results.length} offered + ${weak.length} lower-quality`
+      + (refused.length ? ` (refused: ${refused.map((x) => `${x.n} ${x.reason}`).join(', ')})` : '')
+      + (parses ? `; ${parses} *arr parse${parses > 1 ? 's' : ''}` : '')
+      + (gapLabel ? `; gap ${gapLabel}` : ''));
+    return res.json({
+      results, weak, refused, gapLabel, series,
+      query: gap.query, summary: gap.summary,
+      // Honest accounting so a short list never looks like "nothing exists".
+      counts: { raw: raw.length, series: kept.length, offered: results.length, weak: weak.length },
+    });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
   }

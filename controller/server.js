@@ -39,10 +39,13 @@ const systemStats = require('./lib/system-stats');
 const importer = require('./lib/importer');
 const stallRecovery = require('./lib/stall-recovery');
 const gpuVerify = require('./lib/gpu-verify');
+const cpuCensus = require('./lib/cpu-census');
+const audit = require('./lib/audit');
 const { collectionsSweep, startCollectionsTimer } = require('./lib/collections');
 const { oscarTagsSweep, startOscarTagsTimer } = require('./lib/oscar-tags');
 const { nationTagsSweep, startNationTagsTimer } = require('./lib/nation-tags');
 const { startTop100ExportTimer } = require('./lib/top100-export');
+const { startTop100GuardTimer } = require('./lib/top100-guard');
 const sweeps = require('./lib/sweeps');
 const searchEngine = require('./lib/search-engine');
 const jfScan = require('./lib/jf-scan');
@@ -83,10 +86,13 @@ startShelfTimer();
 importer.startWatchdog();
 stallRecovery.startStallRecovery();
 gpuVerify.startGpuVerify();
+audit.startAuditVerifier();   // Audit tab: paced indexer verification, one row per 45s
+cpuCensus.startCpuCensus();   // report-only: counts files that can't hardware-decode (gpuVerify only fixes fresh MOVIE imports)
 startCollectionsTimer();
 startOscarTagsTimer();
 startNationTagsTimer();
 startTop100ExportTimer();   // weekly TXT snapshot of the hand-ranked Top 100 (no other copy exists)
+startTop100GuardTimer();    // hourly: re-add titles a file swap orphaned (Jellyfin ids are path-derived)
 setTimeout(bootSequence, 15000);   // let the container settle, then self-heal the home page
 metricsRecorders.startRecorders();
 sweeps.startSweeps();

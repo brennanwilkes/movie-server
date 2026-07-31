@@ -55,6 +55,13 @@ while IFS= read -r path; do
   fi
 
   base="${path%.*}"
+  cbase="${cpath%.*}"
+  # Scratch file is dot-prefixed so Radarr/Sonarr skip it. Without the dot a disk scan that
+  # lands mid-conversion imports the temp file, and the *arr ends up pointing at a path that
+  # disappears on rename (hit on "Highest 2 Lowest (2025)", 2026-07-27). Same directory keeps
+  # the mv a rename, not a multi-GB cross-filesystem copy.
+  tmp_host="${base%/*}/.${base##*/}.ps4tmp.${ext}"
+  tmp_ctr="${cbase%/*}/.${cbase##*/}.ps4tmp.${ext}"
   # ADDITIVE, quality-preserving: keep every original stream and PREPEND an AC3 5.1 compat
   # track (flagged default). Capable clients keep the original DDP/TrueHD/DTS; the PS4 gets
   # AC3. Container unchanged (PS4 plays MKV). +448kbps ≈ +200MB/h.
@@ -62,12 +69,12 @@ while IFS= read -r path; do
   subs=(-sn); [[ "$ext" == mkv ]] && subs=(-map '0:s?' -c:s copy)
   fast=(); [[ "$ext" == mp4 ]] && fast=(-movflags +faststart)
   if $FF -y -v error -i "$cpath" "${maps[@]}" "${subs[@]}" -c copy \
-      -c:a:0 ac3 -b:a:0 448k -disposition:a:0 default "${fast[@]}" "${cpath%.*}.ps4tmp.${ext}"; then
-    mv -- "${base}.ps4tmp.${ext}" "$path"
+      -c:a:0 ac3 -b:a:0 448k -disposition:a:0 default "${fast[@]}" "$tmp_ctr"; then
+    mv -- "$tmp_host" "$path"
     echo "OK   ${path##*/} → +AC3 5.1 compat track (original audio kept)"
     converted=$((converted+1))
   else
-    rm -f -- "${base}.ps4tmp.${ext}"
+    rm -f -- "$tmp_host"
     echo "FAIL ${path##*/} (original untouched)"
     failed=$((failed+1))
   fi

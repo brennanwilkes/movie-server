@@ -70,9 +70,13 @@ const getQbitTorrents = () => cachedFetch('qbit:torrents', 5000, async () => {
   return r.json();
 }, []);
 
+// The include* flags matter: WITHOUT them *arr returns a queue record with no `movie`/`episode`
+// object, so every air-date/release-date check downstream silently saw `undefined` and fell
+// through to "Needs attention" — that's what painted premature grabs of unaired episodes red.
 const getQueueMap = (app) => cachedFetch(`queue:${app}`, QUEUE_TTL, async () => {
   const m = new Map();
-  for (const r of ((await arrGet(app, '/queue?pageSize=500')).records || [])) if (r.downloadId) m.set(r.downloadId.toLowerCase(), r);
+  const inc = app === 'radarr' ? '&includeMovie=true' : '&includeEpisode=true&includeSeries=true';
+  for (const r of ((await arrGet(app, `/queue?pageSize=500${inc}`)).records || [])) if (r.downloadId) m.set(r.downloadId.toLowerCase(), r);
   return m;
 }, new Map());
 
@@ -157,6 +161,26 @@ const parseCache = new Map(); // `${app}:${name}` -> { id, episodeIds } (only su
 // pass: deferred items simply render "Importing" for a beat and resolve over the next few passes
 // (parseCache is permanent, so the backlog drains in seconds). Cache hits are unaffected.
 let _parseBudget = 0;
+// Ask *arr's OWN release parser what entity a release name refers to: `{ id, episodeIds }`, or null
+// if it doesn't resolve / the parser is unreachable / this pass is out of budget. This is the
+// authoritative answer — the same parser *arr itself uses when deciding where a download belongs —
+// so prefer it over any string matching we could do here. Shares parseCache with arrOwns, so a name
+// is only ever parsed once no matter which caller asked first.
+async function arrParseEntity(app, name) {
+  const ck = `${app}:${name}`;
+  let ent = parseCache.get(ck);
+  if (ent !== undefined) return ent;
+  if (_parseBudget <= 0) return null;          // defer cold parse to a later pass — keeps the 5s refresh fast
+  _parseBudget--;
+  ent = null;
+  try {
+    const p = await arrGet(app, `/parse?title=${encodeURIComponent(name)}`, 10000);
+    if (app === 'radarr' && p && p.movie && p.movie.id != null) ent = { id: p.movie.id, episodeIds: [] };
+    else if (app === 'sonarr' && p && p.series && p.series.id != null) ent = { id: p.series.id, episodeIds: (p.episodes || []).map((e) => e.id) };
+    if (ent) parseCache.set(ck, ent); // cache only definitive resolutions; unknown releases re-parse (series may be added later)
+  } catch { /* parser unreachable — leave unresolved, retry next poll */ }
+  return ent;
+}
 async function arrOwns(app, name, hasFileMap, nameIds) {
   const tn = normName(name);
   const yr = (name || '').match(/\b(19\d\d|20\d\d)\b/)?.[1];
@@ -169,24 +193,30 @@ async function arrOwns(app, name, hasFileMap, nameIds) {
     }
   }
   // Parse fallback (always, for Sonarr — we need the exact episode ids; and for unmatched Radarr).
-  const ck = `${app}:${name}`;
-  let ent = parseCache.get(ck);
-  if (ent === undefined) {
-    if (_parseBudget <= 0) return null;        // defer cold parse to a later pass — keeps the 5s refresh fast
-    _parseBudget--;
-    ent = null;
-    try {
-      const p = await arrGet(app, `/parse?title=${encodeURIComponent(name)}`, 10000);
-      if (app === 'radarr' && p && p.movie && p.movie.id != null) ent = { id: p.movie.id, episodeIds: [] };
-      else if (app === 'sonarr' && p && p.series && p.series.id != null) ent = { id: p.series.id, episodeIds: (p.episodes || []).map((e) => e.id) };
-      if (ent) parseCache.set(ck, ent); // cache only definitive resolutions; unknown releases re-parse (series may be added later)
-    } catch { /* parser unreachable — leave unresolved, retry next poll */ }
-  }
+  const ent = await arrParseEntity(app, name);
   if (!ent) return null;
   if (app === 'radarr') return hasFileMap && hasFileMap.get(ent.id) === true ? { id: ent.id } : null;
   if (!ent.episodeIds.length) return null;                 // couldn't pin episodes → don't claim ownership
   const eps = await getEpisodeHasFile(ent.id);
   return ent.episodeIds.every((id) => eps.get(id) === true) ? { id: ent.id } : null;
+}
+// LAST-RESORT library id for a release name, using only the in-memory title map: no network call, no
+// ownership claim, no side effects. Only for names *arr's own parser (arrParseEntity) could not
+// resolve — prefer that, it is authoritative and this is a string guess.
+//
+// Deliberately NOT a substitute for arrOwns/arrIdForHash anywhere a decision touches files. It is
+// safe at its one call site because the id is used only to *search*, and the picker names the
+// resolved series before anything is grabbed. Longest match wins so a short title can never shadow a
+// longer one that also prefixes the release (e.g. "The Office" vs "The Office US").
+function arrIdByName(name, nameIds) {
+  const tn = normName(name);
+  if (!tn || !nameIds) return null;
+  let bestId = null, bestLen = 0;
+  for (const [nt, id] of nameIds) {
+    if (!nt || nt.length <= bestLen) continue;
+    if (tn === nt || tn.startsWith(nt + ' ')) { bestLen = nt.length; bestId = id; }
+  }
+  return bestId;
 }
 async function arrIdForHash(app, hash) {
   const r = (await getQueueMap(app)).get(hash);
@@ -200,5 +230,5 @@ function resetParseBudget(n) { _parseBudget = n; }
 module.exports = {
   INDEXER_WEIGHTS, getIndexerSnapshot, getQbitTorrents, getQueueMap,
   getHistoryIndex, normName, getHasFileMap, torrentApp, getEpisodeHasFile,
-  arrOwns, resetParseBudget, arrIdForHash,
+  arrOwns, resetParseBudget, arrIdForHash, arrIdByName, arrParseEntity,
 };

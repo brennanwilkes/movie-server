@@ -149,7 +149,25 @@ provision_arr() {
     else warn "${app}: Jellyfin connection issue: $(echo "$resp" | jq -c '(.[0].errorMessage // .message // .)' 2>/dev/null)"; fi
   fi
 
-  # 6. Quality definitions — sizes in MB/min. preferredSize is a soft target (Radarr
+  # 6. Quality definitions — sizes in MB/min, i.e. inherently BITRATE-normalised: *arr divides
+  #    by runtime, so ONE number governs a 22-minute episode, a 3-hour film and a whole season
+  #    pack alike. That makes this the right lever for TV, unlike the §8 size-band custom
+  #    formats, which are absolute GB figures tuned for movies and so never restrain
+  #    television — a 45-minute episode at 10.7 Mbps is only ~3.3 GB, landing in a neutral
+  #    band even inside the "Low (save space)" tier.
+  #
+  #    Sonarr's WEB entries were MISSING from this list until 2026-07-27 and therefore sat at
+  #    Sonarr's own defaults: WEBDL/WEBRip-1080p preferred=80 MB/min (10.7 Mbps) and the 720p
+  #    pair at 95 (12.7 Mbps) — effectively "prefer the biggest copy available", while Radarr
+  #    had always set its equivalents to 27. Measured against the library, TV x264 1080p ran a
+  #    median 10.6 Mbps versus 2.6 for movies; this omission is a large part of why.
+  #    The WEB rows restate Sonarr's EXISTING maxSize (80 / 130) rather than tightening it:
+  #    maxSize is a HARD reject and lowering it risks leaving a request with no eligible
+  #    release, breaking the "a request ALWAYS yields something" rule. Restating is not
+  #    optional — an empty max in this table means `del(.maxSize)` below, so omitting it
+  #    silently REMOVES the ceiling (which is exactly what the first cut of this change did).
+  #
+  #    preferredSize is a soft target (Radarr
   #    aims for it when a near-size release exists); maxSize is the HARD reject ceiling.
   #    Caps are deliberately loose (80–120 for 1080p, i.e. ~14–21 GB for a 2 h film) so
   #    the SIZE-BAND custom formats (§8) do the real steering per tier — maxSize only
@@ -205,17 +223,26 @@ provision_arr() {
         else "" end)"'
     else
       jq -r '.[] | select(.quality.name as $n |
-        $n == "Bluray-1080p" or $n == "HDTV-1080p" or $n == "Bluray-720p" or $n == "HDTV-720p")
+        $n == "Bluray-1080p" or $n == "HDTV-1080p" or $n == "Bluray-720p" or $n == "HDTV-720p"
+        or $n == "WEBDL-1080p" or $n == "WEBRip-1080p" or $n == "WEBDL-720p" or $n == "WEBRip-720p")
         | "\(.quality.name):\(
           if .quality.name == "Bluray-1080p" then 18
           elif .quality.name == "HDTV-1080p" then 16
+          elif .quality.name == "WEBDL-1080p" then 22
+          elif .quality.name == "WEBRip-1080p" then 22
           elif .quality.name == "Bluray-720p" then 11
           elif .quality.name == "HDTV-720p" then 9
+          elif .quality.name == "WEBDL-720p" then 12
+          elif .quality.name == "WEBRip-720p" then 12
           else 0 end):\(
           if .quality.name == "Bluray-1080p" then 120
           elif .quality.name == "HDTV-1080p" then 80
           elif .quality.name == "Bluray-720p" then 80
           elif .quality.name == "HDTV-720p" then 50
+          elif .quality.name == "WEBDL-1080p" then 80
+          elif .quality.name == "WEBRip-1080p" then 80
+          elif .quality.name == "WEBDL-720p" then 130
+          elif .quality.name == "WEBRip-720p" then 130
           else "" end)"'
     fi
   )"
@@ -371,8 +398,21 @@ provision_arr() {
   # nudge explicitly-labelled Theatrical down. Matched on the RELEASE TITLE (not Radarr's flaky
   # edition parser). Only affects the initial grab — an already-imported theatrical won't auto-swap
   # (cutoffFormatScore=0 marks it "done"); re-grab those via Interactive Search. See test notes.
+  # 2026-07-30: SPLIT into ranked tiers. This was ONE flat bucket scoring +500 for redux, extended,
+  # director's cut, final cut and ultimate alike, so Radarr could express "long cut beats theatrical"
+  # but NOT "Final Cut beats Redux" — the Apocalypse Now case. The three regexes are mutually
+  # exclusive (final/director terms removed from the Extended pattern) so the scores stay monotonic
+  # instead of a release matching two buckets and summing to a nonsense total.
+  #
+  # Theatrical stays a mild -100 ON PURPOSE, not a reject: the pattern only fires on releases that
+  # literally say "theatrical", and for a film that has no other cut that may be the ONLY release
+  # available. Radarr cannot express "for THIS film, require the extended cut" — that is what the
+  # controller's EDITION_FLOOR table does (see release-rules.js), and it is the hard gate. Here we
+  # only ever need theatrical to lose when a better cut is also on offer, which -100 vs +500 does.
   if [[ "$app" == "radarr" ]]; then
-    CFID["Extended / Long Cut"]=$(cf_ensure "Extended / Long Cut" "[$(rt '(?i)(\bredux\b|\bextended\b|\buncut\b|\bintegral\b|\broadshow\b|\bdirector.?s?.?cut\b|\bfinal.?cut\b|\bultimate.?(edition|cut)\b|\bthe.?complete\b|\bimax.?edition\b)')]")
+    CFID["Final / Ultimate Cut"]=$(cf_ensure "Final / Ultimate Cut" "[$(rt '(?i)(\bfinal.?cut\b|\bultimate.?(edition|cut)\b)')]")
+    CFID["Directors Cut"]=$(cf_ensure "Directors Cut" "[$(rt '(?i)\bdirector.?s?.?cut\b')]")
+    CFID["Extended / Long Cut"]=$(cf_ensure "Extended / Long Cut" "[$(rt '(?i)(\bredux\b|\bextended\b|\buncut\b|\bintegral\b|\broadshow\b|\bthe.?complete\b|\bimax.?edition\b|\bspecial.?edition\b)')]")
     CFID["Theatrical Cut"]=$(cf_ensure "Theatrical Cut" "[$(rt '(?i)\btheatrical\b')]")
   fi
   # Remove superseded custom formats from earlier iterations so they don't linger at score 0.
@@ -396,8 +436,26 @@ provision_arr() {
         if   $name=="Original-language audio" then 200
         elif $name=="Dubbed" then -100000
         elif $name=="Non-original language (reject)" then -100000
-        elif $name=="Extended / Long Cut" then 500
-        elif $name=="Theatrical Cut" then -100
+        # MAGNITUDES ARE DELIBERATE AND MEASURED, not decorative. At the first attempt these were
+        # +700/+600/+500/-100 and Radarr STILL preferred the theatrical: measured on Blade Runner
+        # 2026-07-30, "The.Final.Cut.2160p.BluRay.HEVC.TrueHD" scored -600 while "US Theatrical Cut
+        # 1080p x264" scored +220, because a big HDR 10-bit release collects up to -1990 of
+        # picture/size penalties (>15GB -1500, HDR -200, 10-bit -150, 10-bit group -120, lossless
+        # audio -20) while a small x264 collects up to +375 of bonuses. A cut is WHICH FILM you get,
+        # so it has to outrank that entire ~2400-point swing, which +700 vs -100 does not.
+        #
+        # Theatrical stays well ABOVE minFormatScore (-10000) on purpose: a theatrical-only film must
+        # remain grabbable when nothing else exists. -3000 + best-case bonuses lands near -2600, which
+        # loses to every long cut and still clears the reject threshold.
+        #
+        # The 200-point gaps BETWEEN long cuts are intentionally small — inside "not theatrical",
+        # picture quality is allowed to decide, which is what Brennan asked for: "if we end up doing a
+        # longer redux cut of apocolypse over the more desirable but shorter final cut, its not the
+        # end of the world."
+        elif $name=="Final / Ultimate Cut" then 3400
+        elif $name=="Directors Cut" then 3200
+        elif $name=="Extended / Long Cut" then 3000
+        elif $name=="Theatrical Cut" then -3000
         # Codec spread is DELIBERATELY asymmetric: H.264 is the only codec whose 8-bit-ness the
         # title can prove (modern x265 is 10-bit-by-default without saying so — ffprobe-verified
         # on this library). At +50/+50 they tied and seeders picked the codec, which is how

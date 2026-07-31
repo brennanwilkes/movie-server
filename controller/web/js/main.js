@@ -22,4 +22,4 @@ poll(pollHome, 10000);
 poll(pollDownloads, 4000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { pollHome(); pollDownloads(); } });
 let startTab; try { startTab = localStorage.getItem('tab'); } catch { /* ignore */ }
-showTab(['home', 'downloads', 'library'].includes(startTab) ? startTab : 'home');
+showTab(['home', 'downloads', 'library', 'audit'].includes(startTab) ? startTab : 'home');

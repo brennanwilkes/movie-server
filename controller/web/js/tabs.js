@@ -3,12 +3,13 @@
 // loadLibrary() (defined in library.js) only at click/boot time.
 
 // ── Tabs ──
-const TITLES = { home: 'Home', downloads: 'Downloads', library: 'Library' };
+const TITLES = { home: 'Home', downloads: 'Downloads', library: 'Library', audit: 'Audit' };
 function showTab(name) {
   $$('.tab').forEach((t) => { t.hidden = t.id !== `tab-${name}`; });
   $$('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
   $('#page-title').textContent = TITLES[name];
   try { localStorage.setItem('tab', name); } catch { /* ignore */ } // survive refresh
   if (name === 'library') loadLibrary();
+  if (name === 'audit') loadAudit();
 }
 $$('.tabbar button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));

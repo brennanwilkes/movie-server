@@ -12,10 +12,26 @@ const { cfg, HOST } = require('./config');
 const { tfetch, tfetchJson, qbit, arrGet, arrPost, arrOf, arrDelete } = require('./clients');
 const { getQbitTorrents, torrentApp, getIndexerSnapshot } = require('./arr-data');
 const { cachedFetch } = require('./cache');
-const { searchState, gpuPending, persistState, isMasterPaused } = require('./state');
+const { searchState, gpuPending, auditPending, persistState, isMasterPaused } = require('./state');
 
 // ---- *arr sweep: auto-recover stuck queue items + trigger search for missing monitored items ----
 let arrSweepBusy = false;
+// Is this queue entry the replacement half of an in-flight Audit-tab swap? Matched on the grab
+// hash FIRST (exact — the audit records infoHash at grab time), falling back to the pending key
+// app:id:season because some indexers return a release with no infoHash, leaving the entry
+// hash-less. Season is '-' for movies, matching the key replaceSweep builds.
+function isAuditSwap(app, qe) {
+  if (!auditPending.size) return false;
+  const dlId = String(qe.downloadId || '').toLowerCase();
+  const itemId = app === 'radarr' ? qe.movieId : qe.seriesId;
+  for (const [k, p] of auditPending) {
+    if (dlId && p.hash && dlId === String(p.hash).toLowerCase()) return true;
+    if (itemId == null) continue;
+    const season = app === 'radarr' ? '-' : (qe.seasonNumber ?? '-');
+    if (k === `${app}:${itemId}:${season}`) return true;
+  }
+  return false;
+}
 // searchState is declared up by `declined` (must exist before loadState() runs). Tuning knobs:
 const SEARCH_COOLDOWN_MS = 6 * 3600000;        // 6h between recovery re-searches of the same item
 const SEARCH_FAIL_LIMIT = 4;                   // after this many fruitless searches → negative-cache it
@@ -58,6 +74,61 @@ function isRecentRelease(item) {
   const newest = Math.max(...dates.map(d => new Date(d).getTime()));
   return Date.now() - newest < RECENT_RELEASE_WINDOW_MS;
 }
+// Out, but only just — torrents may not exist yet, so these get a shorter grace/cooldown and a
+// softer UI status. Movies: released within the window. Series: JUST premiered — nothing on disk
+// and the first episode aired within the window. Deliberately narrow for series: a long-running
+// show with old seasons missing is a real gap and must keep its normal, visible status.
+function isRecentlyAvailable(app, item) {
+  if (!item) return false;
+  if (app === 'radarr') return isRecentRelease(item);
+  if (app === 'sonarr') {
+    if (!item.previousAiring) return false;
+    if (item.statistics && item.statistics.episodeFileCount > 0) return false;
+    return Date.now() - new Date(item.previousAiring).getTime() < RECENT_RELEASE_WINDOW_MS;
+  }
+  return false;
+}
+// Is this library item simply NOT OUT YET — so having no torrent is expected, not a fault?
+// One rule, shared by the sweep (don't waste searches) and the UI (grey "Unreleased" at the
+// bottom, never a red/orange status). Movies use Radarr's own dates: a film still in cinemas
+// with no home release date has nothing legitimate to find. Series use Sonarr's airing
+// bookkeeping — nothing has EVER aired means the show hasn't premiered. `expected` is the
+// nearest date we know, so the UI can say "expected 30 Aug" instead of a bare status.
+const DAY_MS = 86400000;
+const THEATRICAL_WINDOW_MS = 45 * DAY_MS;      // typical cinema→home gap; past it, assume a release exists even if Radarr has no date
+function unreleasedInfo(app, item) {
+  if (!item) return { unreleased: false, expected: null };
+  const now = Date.now();
+  const t = (d) => (d ? new Date(d).getTime() : 0);
+  if (app === 'radarr') {
+    const status = String(item.status || '').toLowerCase();
+    const cinemas = t(item.inCinemas);
+    const home = [t(item.physicalRelease), t(item.digitalRelease)].filter(Boolean);
+    const nextHome = home.filter((d) => d > now).sort((a, b) => a - b)[0] || 0;
+    // Announced/TBA: Radarr itself says this hasn't come out.
+    if (status === 'tba' || status === 'announced') return { unreleased: true, expected: nextHome || cinemas || null };
+    if (!cinemas && !home.length) return { unreleased: true, expected: null };   // no date at all → can't be out
+    // Every known home release is still ahead of us (1-day skew allowance).
+    if (home.length && !home.some((d) => d <= now + DAY_MS)) return { unreleased: true, expected: nextHome };
+    // In cinemas, no home date yet → nothing to grab, until it's been out long enough that a
+    // home/web release plausibly exists and Radarr just hasn't recorded the date.
+    if (!home.length && cinemas && now - cinemas < THEATRICAL_WINDOW_MS) return { unreleased: true, expected: null };
+    return { unreleased: false, expected: null };
+  }
+  if (app === 'sonarr') {
+    if (item.previousAiring) return { unreleased: false, expected: null };        // something has already aired
+    const status = String(item.status || '').toLowerCase();
+    const stats = item.statistics || {};
+    const next = t(item.nextAiring), first = t(item.firstAired);
+    const expected = (next > now ? next : 0) || (first > now ? first : 0) || null;
+    if (status === 'upcoming') return { unreleased: true, expected };
+    if (!stats.episodeCount) return { unreleased: true, expected };               // Sonarr knows of no episodes yet
+    if (expected) return { unreleased: true, expected };                          // nothing aired, premiere still ahead
+    return { unreleased: false, expected: null };
+  }
+  return { unreleased: false, expected: null };
+}
+const isUnreleased = (app, item) => unreleasedInfo(app, item).unreleased;
 function touchSearchState(app, id, patch) {
   const k = `${app}:${id}`;
   const st = searchState.get(k) || {};
@@ -661,6 +732,15 @@ async function arrSweep() {
       const stalledHashes = [];
       for (const qe of queue) {
         const id = qe.movieId || qe.seriesId;
+        // EXEMPT in-flight AUDIT zero-gap swaps entirely — every cleanup below ends in
+        // removeFromClient=true, which deletes the torrent AND its files. An audit swap's
+        // replacement legitimately sits at "not an upgrade" (old copy still on disk by design)
+        // until replaceSweep finalises it, so cleaning it up here destroys the new copy after
+        // the originals have already been removed. That is exactly what emptied Twin Peaks S01
+        // and cost The Wire S05 three episodes on 2026-07-28: 10 queue_clean events landed one
+        // second before audit_replace_done. The 48h abandon in replaceSweep is what stops a
+        // genuinely wedged swap, so nothing here needs to.
+        if (isAuditSwap(app, qe)) continue;
         if (qe.trackedDownloadState === 'importBlocked' && qe.errorMessage && /missing file/i.test(qe.errorMessage)) {
           stuckIds.push({ id, queueId: qe.id, blocklist: false });   // good release, import glitch — don't blocklist
         }
@@ -684,14 +764,29 @@ async function arrSweep() {
           const msgs = ((qe.statusMessages || []).flatMap((m) => m.messages || []).join(' ') + ' ' + (qe.errorMessage || '')).toLowerCase();
           if (/not an upgrade|not a custom format upgrade|\bsample\b|matched to movie by id|manual import required/i.test(msgs)) {
             stuckIds.push({ id, queueId: qe.id, blocklist: true });
+          } else if (/no files found are eligible for import/i.test(msgs)) {
+            // ALREADY IMPORTED, not failed. This is the residue of a successful audit swap: our
+            // ManualImport moved every file out of the download folder, so *arr's own later pass
+            // finds nothing left and parks the entry at "warning" forever — one per episode,
+            // reading as "Needs attention" in the UI when the season is in fact complete
+            // (observed: FROM S01, 10/10 episodes on disk).
+            //
+            // Deliberately gentler than the branch above: blocklist FALSE because the release was
+            // good, and removeFromClient FALSE because the torrent may still be seeding and its
+            // data is no longer the library's copy. Clear only the stale queue record; if the
+            // torrent really is surplus, the Audit tab's Stale section will surface it as COVERED
+            // and a human decides. Never guess "imported" from a message alone and delete data.
+            stuckIds.push({ id, queueId: qe.id, blocklist: false, keepClient: true });
           }
         }
       }
 
       for (const s of stuckIds) {
         try {
-          await arrDelete(app, `/queue/${s.queueId}?removeFromClient=true&blocklist=${s.blocklist}`);
-          console.log(`arrSweep: removed stuck queue item id=${s.id} from ${app}${s.blocklist ? ' (blocklisted dead release)' : ''}`);
+          await arrDelete(app, `/queue/${s.queueId}?removeFromClient=${s.keepClient ? 'false' : 'true'}&blocklist=${s.blocklist}`);
+          console.log(`arrSweep: removed stuck queue item id=${s.id} from ${app}`
+            + (s.blocklist ? ' (blocklisted dead release)' : '')
+            + (s.keepClient ? ' (already-imported residue — torrent left alone)' : ''));
           metrics.emitEvent('queue_clean', { ap: app, id: s.id, blocklisted: !!s.blocklist });
         } catch (e) { console.log(`arrSweep: failed to remove queue item id=${s.id} from ${app} — ${e.message || e}`); }
       }
@@ -733,7 +828,15 @@ async function arrSweep() {
         if (torrentApp(t) !== app) continue;
         const id = hashToId.get((t.hash || '').toLowerCase());
         if (id == null) continue;
-        if (state !== 'missingFiles') hasTorrentIds.add(id);     // present/downloading/seeding — already handled
+        // "A torrent exists for this id, so don't re-search" is only sound for a MOVIE, where one
+        // torrent is the whole item. A SERIES id covers every season, so a seeding S03 pack says
+        // nothing about a gap in S05 — and because this set drives noteResolved() below, counting it
+        // ZEROED the series' missing clock on every poll, permanently excluding any show with a
+        // seeding pack from recovery. That is what kept The Wire S05 E08–E10 missing (2026-07-28).
+        // Same defect as the one fixed in downloads.js beingFetched(); this is an independent copy,
+        // and it is the one that actually gates recovery searches. For TV, only an IN-FLIGHT torrent
+        // counts as "already handled".
+        if (state !== 'missingFiles' && (app === 'radarr' || inflight)) hasTorrentIds.add(id);
         if (inflight) {
           if (!inflightById.has(id)) inflightById.set(id, []);
           inflightById.get(id).push(t);
@@ -799,14 +902,12 @@ async function arrSweep() {
           : !!(ss && ss.episodeCount > 0 && ss.episodeFileCount >= ss.episodeCount);
         if (hasContent) { searchKeyClear(app, i.id); noteResolved(app, i.id); continue; }             // got it — clear all state
         if (i.monitored === false) continue;
-        // Future release (Radarr): don't search for content that hasn't been released yet.
-        if (app === 'radarr') {
-          const fDates = [i.inCinemas, i.physicalRelease, i.digitalRelease].filter(Boolean);
-          if (fDates.length && fDates.some(d => new Date(d).getTime() > now + 86400000)) continue;
-        }
+        // Not out yet (either app): don't burn searches — or fail counters, which is what turned an
+        // unpremiered show into a red "gave up after 5 tries" — on content that doesn't exist yet.
+        if (isUnreleased(app, i)) { searchKeyClear(app, i.id); continue; }
         if (qIds.has(i.id) || downloadingIds.has(i.id)) { noteResolved(app, i.id); continue; } // in flight — reset clock
         const firstMissing = noteMissing(app, i.id);                            // start/read the missing clock
-        const isRR = app === 'radarr' && isRecentRelease(i);
+        const isRR = isRecentlyAvailable(app, i);
         const st = searchState.get(`${app}:${i.id}`);
         if (st && st.blockedUntil && st.blockedUntil > now) {
           if (!st.lastOutcomeKind || st.lastOutcomeKind === 'pending') {
@@ -864,7 +965,7 @@ async function arrSweep() {
           const st = searchState.get(key) || { ts: 0, fails: 0, blockedUntil: 0 };
           if (st.ts) st.fails = (st.fails || 0) + 1;   // a prior search left it with no content → it failed
           if (st.fails >= SEARCH_FAIL_LIMIT) {
-            const rr = app === 'radarr' && isRecentRelease(item);
+            const rr = isRecentlyAvailable(app, item);
             const blockMs = rr ? RECENT_RELEASE_BLOCK_MS : SEARCH_BLOCK_MS;
             st.blockedUntil = now + blockMs;
             console.log(`arrSweep: ${app} "${item.title}" (${item.id}) searched ${st.fails}× with no grab — negative-caching ${rr ? '1d' : '7d'} (manual retry clears)`);
@@ -913,7 +1014,8 @@ function startSearchEngine() {
 
 module.exports = {
   SEARCH_COOLDOWN_MS, RECOVERY_GRACE_MS, NOTFOUND_GRACE_MS, RECENT_RELEASE_GRACE_MS,
-  noteMissing, noteResolved, isRecentRelease, touchSearchState, searchKeyClear,
+  noteMissing, noteResolved, isRecentRelease, isRecentlyAvailable, unreleasedInfo, isUnreleased,
+  touchSearchState, searchKeyClear,
   missingEpisodes, shortReason, clampHint, probeSearchGap, grabGapRelease,
   trackSearchDispatch, arrSweep, startSearchEngine,
 };

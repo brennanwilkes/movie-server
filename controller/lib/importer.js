@@ -24,6 +24,7 @@ const {
 } = require('./state');
 const { getDl } = require('./downloads');
 const { triggerJellyfinScan } = require('./jf-scan');
+const { CF_UPGRADE_REJECT_RE, cfRefusalIsExcusable } = require('./release-rules');
 
 // Title normalizer for the watchdog's folder-scan fallback (same shape as the
 // one buildDownloads uses for torrent-name matching).
@@ -35,29 +36,160 @@ const norm = (s) => String(s || '').toLowerCase().replace(/[._'’:()\-]/g, ' ')
 // without importing (the delete→re-download race), there's no event to react to — so a
 // periodic sweep is the only way to catch the *absence* of an import. It runs the same
 // Manual Import the *arr UI offers, and retries with backoff until the file lands.
-async function importViaManual(app, folder, expectedId) {
+// opts.downloadId — the qBittorrent infoHash this folder came from. OPTIONAL, because the watchdog's
+// folder-scan fallback and gpu-verify reach files they cannot always tie back to a torrent. Supply it
+// wherever it IS known: the Audit swap (importViaManual) and the force-grab importer (importViaGrab)
+// both do. The rescue paths that scan a bare folder are the only ones that legitimately cannot.
+//
+// What it buys, when supplied: *arr associates the import with its own QUEUE ITEM instead of
+// treating this as an anonymous folder. Without it, (1) "auto" resolves to MOVE, so the files
+// leave the download folder and the torrent stops seeding — measured on 2026-07-28: every swapped
+// release had 0 video files left and the library file had a link count of 1; and (2) the queue
+// entry is never closed, so it later finds an empty folder and parks at "No files found are
+// eligible for import", which reads as "Needs attention" on a season that is actually complete
+// (FROM S01, 10/10 present). importMode 'copy' is *arr's hardlink-if-possible mode, so the
+// library gets its own path while the torrent keeps its data.
+// An "existing file is as good or better" rejection is *arr refusing an UPGRADE, not *arr saying
+// the file is unusable. That distinction matters for the Audit swap's preflight: it needs to know
+// the shape of an import while the originals are STILL ON DISK, and at that moment every candidate
+// in a legitimate replacement carries one of these. Matched narrowly and used only when the caller
+// asks (preflight); the real import still honours every rejection.
+const UPGRADE_REJECT_RE = /not an upgrade|existing file|already imported|equal or higher preference|higher preference/i;
+
+// ── Which file in this folder IS the movie? ───────────────────────────────────────────────────
+// A movie holds exactly ONE file, so a radarr import must submit exactly one candidate. Submitting
+// several is what destroyed GoodFellas on 2026-07-29: the `|| expectedId` fallback below is applied
+// PER CANDIDATE, so a multi-file release (Goodfellas.1990…-Grym = the feature plus four extras
+// documentaries) had every video bound to the same movieId and all of them submitted in one
+// ManualImport. Radarr imported them in sequence and each import deleted the previous one, so the
+// surviving "movie" was a 13-minute featurette and the 8.77 GB feature was gone.
+//
+// Why it stayed hidden for so long: while the movie already HAS a file, Radarr rejects the extras
+// as "Not an upgrade" and the list collapses to one anyway. That rejection was an accidental safety
+// net, and it is absent in exactly two places — a fresh download with no existing file, and the
+// Audit swap, which deletes the original FIRST by design. (#75, Shrek Forever After holding an
+// extras disc, is plausibly this same bug arriving through the fresh-download door.)
+//
+// The feature is the largest video by a wide margin — 16.71 GB against a 0.39 GB runner-up here.
+// Rules, in order:
+//   1. A candidate *arr itself parsed to the expected movie wins outright: that is real evidence,
+//      not a guess.
+//   2. Otherwise take the largest, but ONLY if it dwarfs the runner-up. Two similarly-sized videos
+//      mean we cannot tell which is the film, and guessing is how you import the wrong data.
+//      Refuse, and let the caller decide what to do about it.
+// A candidate that parsed to a DIFFERENT movie is never eligible when we know which movie we want.
+const DOMINANT_RATIO = 2;
+function chooseMovieFile(entries, expectedId) {
+  if (!entries.length) return { pick: null, ambiguous: false, reason: 'no importable file found yet' };
+  if (entries.length === 1) return { pick: entries[0], ambiguous: false, reason: null };
+  const mine = expectedId == null ? entries
+    : entries.filter((e) => e.parsedId == null || String(e.parsedId) === String(expectedId));
+  if (!mine.length) return { pick: null, ambiguous: true, reason: `all ${entries.length} candidate file(s) parsed to a different movie` };
+  const parsed = expectedId == null ? [] : mine.filter((e) => String(e.parsedId) === String(expectedId));
+  if (parsed.length === 1) return { pick: parsed[0], ambiguous: false, reason: null };
+  // Either nothing parsed (unreliable filenames) or several did (two cuts in one folder). Size has
+  // to decide, and it has to be decisive.
+  const pool = (parsed.length > 1 ? parsed : mine).slice().sort((a, b) => (b.size || 0) - (a.size || 0));
+  const [top, next] = pool;
+  if (!top.size || !next.size) return { pick: null, ambiguous: true, reason: `cannot tell which of ${pool.length} video files is the feature (sizes unavailable)` };
+  if (top.size < next.size * DOMINANT_RATIO) return { pick: null, ambiguous: true, reason: `${pool.length} similarly-sized video files offered — refusing to guess which is the feature` };
+  return { pick: top, ambiguous: false, reason: null };
+}
+
+// Shared listing + candidate shaping for importViaManual and previewManualImport, so the preflight
+// can never disagree with the import it is predicting.
+async function collectImportEntries(app, folder, expectedId, opts = {}) {
   const { base, key } = arrOf(app);
   const r = await tfetch(`${base}/manualimport?folder=${encodeURIComponent(folder)}&filterExistingFiles=true`, { headers: { 'X-Api-Key': key } }, 90000);
-  if (!r.ok) return { ok: false, reason: `manualimport HTTP ${r.status}` };
-  const files = []; let reason = 'no importable file found yet';
-  for (const c of await r.json()) {
+  if (!r.ok) return { ok: false, entries: [], reason: `manualimport HTTP ${r.status}` };
+  let cands; try { cands = await r.json(); } catch { return { ok: false, entries: [], reason: 'manualimport returned unparseable JSON' }; }
+  const entries = []; let reason = 'no importable file found yet';
+  for (const c of (Array.isArray(cands) ? cands : [])) {
     if (!c.path) continue;
     if (c.rejections && c.rejections.length) {
       const rsn = c.rejections[0].reason || '';
       if (/unknown movie/i.test(rsn) && expectedId) { /* trust the grab link despite unparseable filename */ }
-      else { reason = rsn || 'rejected'; continue; }
+      else if (opts.ignoreUpgradeRejections && UPGRADE_REJECT_RE.test(rsn)) { /* preflight: the original is still on disk, so this is expected */ }
+      // The Custom Format arm of the same comparison, tolerated ONLY when nothing that matters is
+      // worse. See cfRefusalIsExcusable in release-rules.js for why this is not a blanket ignore: a
+      // bigger file that a human deliberately chose must get through, a dubbed or foreign-audio one
+      // must not, and both arrive as this identical rejection string.
+      else if (opts.cfAllow && CF_UPGRADE_REJECT_RE.test(rsn)
+        && cfRefusalIsExcusable(opts.cfAllow.oldFormats, c.customFormats, opts.cfAllow.scoreByName)) {
+        console.log(`import: "${path.basename(c.path)}" scores lower than the copy on disk only on size`
+          + ' and/or an audio track a client will transcode — allowing it, the replacement was chosen by hand');
+      } else { reason = rsn || 'rejected'; continue; }
     }
     const f = { path: c.path, quality: c.quality, languages: c.languages || [], releaseGroup: c.releaseGroup || '' };
+    let parsedId = null;
     // Fall back to the grab-history movie id (expectedId) when the FILE NAME doesn't parse to a
     // movie — e.g. a release titled "Monty Python Life of Brian" for the library entry "Life of
     // Brian". *arr blocks auto-import on an ID-only match; we trust the grab link and import anyway.
-    if (app === 'radarr') { const mid = (c.movie && c.movie.id) || expectedId; if (!mid) { reason = 'no matching movie'; continue; } f.movieId = mid; }
-    else { if (!c.series) { reason = 'no matching series'; continue; } f.seriesId = c.series.id; f.episodeIds = (c.episodes || []).map((e) => e.id); if (!f.episodeIds.length) { reason = 'no matching episode'; continue; } }
-    files.push(f);
+    if (app === 'radarr') {
+      parsedId = (c.movie && c.movie.id) != null ? c.movie.id : null;
+      const mid = parsedId != null ? parsedId : expectedId;
+      if (!mid) { reason = 'no matching movie'; continue; }
+      f.movieId = mid;
+    } else {
+      if (!c.series) { reason = 'no matching series'; continue; }
+      f.seriesId = c.series.id; f.episodeIds = (c.episodes || []).map((e) => e.id);
+      if (!f.episodeIds.length) { reason = 'no matching episode'; continue; }
+    }
+    // Per-file downloadId is what ties this import to the queue item — the ManualImport command's
+    // top-level importMode alone does not.
+    if (opts.downloadId) f.downloadId = String(opts.downloadId).toUpperCase();
+    entries.push({ f, size: Number(c.size) || 0, parsedId });
   }
-  if (!files.length) return { ok: false, reason };
-  const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'ManualImport', importMode: 'auto', files }) }, 90000);
-  return { ok: cmd.ok, count: files.length, reason: cmd.ok ? null : `command HTTP ${cmd.status}` };
+  return { ok: true, entries, reason };
+}
+
+async function importViaManual(app, folder, expectedId, opts = {}) {
+  const { base, key } = arrOf(app);
+  const got = await collectImportEntries(app, folder, expectedId, opts);
+  if (!got.ok) return { ok: false, reason: got.reason };
+  let files = got.entries.map((e) => e.f);
+  if (!files.length) return { ok: false, reason: got.reason };
+  // CARDINALITY GUARD (radarr only — a series legitimately imports many files at once).
+  if (app === 'radarr' && got.entries.length > 1) {
+    const sel = chooseMovieFile(got.entries, expectedId);
+    if (!sel.pick) return { ok: false, ambiguous: true, offered: got.entries.length, reason: sel.reason || got.reason };
+    files = [sel.pick.f];
+    console.log(`import: ${got.entries.length} video files offered for movie ${expectedId} — importing only `
+      + `"${path.basename(sel.pick.f.path)}" (${(sel.pick.size / 1e9).toFixed(2)} GB); a movie holds one file`);
+  }
+  const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'ManualImport', importMode: opts.downloadId ? 'copy' : 'auto', files }) }, 90000);
+  // `count`/`submitted` are files SUBMITTED, not files landed — ManualImport is an async *arr
+  // command and this returns as soon as it is accepted. Do not report either number as an import
+  // count: "3 new file(s) imported" for GoodFellas was a request size, which is why nothing
+  // objected to importing three files into a one-file movie. Callers that need the truth must read
+  // *arr's own state back afterwards (see verifySwap in audit.js).
+  return { ok: cmd.ok, count: files.length, submitted: files.length, offered: got.entries.length,
+    reason: cmd.ok ? null : `command HTTP ${cmd.status}` };
+}
+
+// Preflight: what WOULD importViaManual do with this folder, without changing anything? The Audit
+// swap deletes the originals BEFORE importing (deliberately — see replaceSweepInner), which means
+// any defect in the import becomes data loss. This lets it establish that the import is sane while
+// the originals are still safely on disk. ignoreUpgradeRejections is essential here: with the
+// original still present, every candidate in a legitimate replacement is rejected as "not an
+// upgrade", so without it the preflight would refuse every swap.
+async function previewManualImport(app, folder, expectedId, opts = {}) {
+  const got = await collectImportEntries(app, folder, expectedId, { ...opts, ignoreUpgradeRejections: true });
+  if (!got.ok) return { ok: false, reason: got.reason };
+  const out = { ok: true, offered: got.entries.length, reason: got.reason, pick: null, episodeIds: [], ambiguous: false };
+  if (!got.entries.length) return { ok: false, offered: 0, reason: got.reason };
+  if (app === 'radarr') {
+    const sel = chooseMovieFile(got.entries, expectedId);
+    if (!sel.pick) return { ok: false, offered: got.entries.length, ambiguous: true, reason: sel.reason };
+    out.pick = { path: sel.pick.f.path, size: sel.pick.size, parsed: sel.pick.parsedId != null };
+  } else {
+    const ids = new Set();
+    for (const e of got.entries) for (const id of (e.f.episodeIds || [])) ids.add(id);
+    out.episodeIds = [...ids];
+    if (!out.episodeIds.length) return { ok: false, offered: got.entries.length, reason: got.reason };
+  }
+  return out;
 }
 
 // Season-alias rescue (Sonarr only, rare). Some TVDB series merge two differently-numbered shows
@@ -127,8 +259,27 @@ async function importViaSeasonRemap(folder, seriesIdHint, hash) {
 //   4. Sequential fill — sort video files by name, assign to first missing monitored episodes in
 //      order (last resort; works for season packs whose filenames have no recognizable pattern
 //      at all but are known to be a contiguous season)
-async function importViaGrab(app, folder, expectedId) {
+// `downloadId` is the torrent infoHash. Pass it whenever it is known: it is what turns a MOVE into a
+// hardlink. Without it this path used importMode 'auto', which *arr resolves to MOVE, so every
+// force-grabbed pack left its download folder empty and its torrent seeding data it no longer had —
+// measured on 2026-07-30 on The Wire S05: 10 imported files, link count 1, and the torrent sat at
+// "uploading" with only RARBG.txt and Subs/ behind it. This is the SAME defect that was fixed for
+// the Audit swap path in importViaManual (see the note above UPGRADE_REJECT_RE); importViaGrab was
+// simply never given the hash to fix it with. It also closes *arr's queue entry, which is what stops
+// a complete season parking at "No files found are eligible for import".
+async function importViaGrab(app, folder, expectedId, downloadId) {
   const { base, key } = arrOf(app);
+  // Per-file downloadId is the association *arr actually reads; the top-level importMode alone is
+  // not enough. Stamped at submit time so every strategy below gets it without repeating itself.
+  const submit = async (files) => {
+    const dl = downloadId ? String(downloadId).toUpperCase() : null;
+    const stamped = dl ? files.map((f) => ({ ...f, downloadId: dl })) : files;
+    return tfetch(`${base}/command`, {
+      method: 'POST',
+      headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'ManualImport', importMode: dl ? 'copy' : 'auto', files: stamped }),
+    }, 90000);
+  };
 
   // ── Scan video files directly so we have ground truth ──
   let onDiskVideos = [];
@@ -280,7 +431,7 @@ async function importViaGrab(app, folder, expectedId) {
     }
 
     if (importable.length) {
-      const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'ManualImport', importMode: 'auto', files: importable }) }, 90000);
+      const cmd = await submit(importable);
       return { ok: cmd.ok, count: importable.length, reason: cmd.ok ? null : `command HTTP ${cmd.status}` };
     }
   }
@@ -297,7 +448,7 @@ async function importViaGrab(app, folder, expectedId) {
   }
 
   if (resolved.length) {
-    const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'ManualImport', importMode: 'auto', files: resolved }) }, 90000);
+    const cmd = await submit(resolved);
     return { ok: cmd.ok, count: resolved.length, reason: cmd.ok ? null : `command HTTP ${cmd.status}` };
   }
 
@@ -312,7 +463,7 @@ async function importViaGrab(app, folder, expectedId) {
         seriesId: expectedId,
         episodeIds: [missingEps[i].id],
       }));
-      const cmd = await tfetch(`${base}/command`, { method: 'POST', headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'ManualImport', importMode: 'auto', files: sequential }) }, 90000);
+      const cmd = await submit(sequential);
       return { ok: cmd.ok, count: sequential.length, reason: cmd.ok ? null : `command HTTP ${cmd.status}` };
     }
   }
@@ -559,7 +710,7 @@ async function importWatchdog() {
       if (now - st.lastTry < (st.backoff || IMPORT_BACKOFF_MIN)) continue;
       st.lastTry = now; handled++;
       let res;
-      try { res = await importViaGrab('sonarr', fg.folder, fg.id); }
+      try { res = await importViaGrab('sonarr', fg.folder, fg.id, infoHash); }
       catch (e) { res = { ok: false, reason: e.message || 'error' }; }
       if (res && res.ok) {
         importState.set(fg.folder, { lastTry: now, reason: null, fails: 0, backoff: IMPORT_BACKOFF_MIN });
@@ -738,4 +889,7 @@ setTimeout(importWatchdog, 8000);
 setTimeout(recoverForceGrabImport, 4000);  // after loadState, before 1st watchdog at ~6s
 }
 
-module.exports = { importViaManual, importWatchdog, recoverForceGrabImport, startWatchdog };
+// chooseMovieFile is exported for the table test in scripts/test-choose-movie-file.js — a false
+// positive here imports the wrong film and a false negative blocks a legitimate swap, so it is
+// tested against real release shapes rather than reasoned about.
+module.exports = { importViaManual, previewManualImport, chooseMovieFile, importWatchdog, recoverForceGrabImport, startWatchdog };

@@ -15,7 +15,7 @@ const { _cache, cachedFetch } = require('./cache');
 const { jellyfinUserId, jellyfinIdByTmdb, jellyfinSearchId } = require('./jellyfin');
 const {
   getQbitTorrents, getQueueMap, getHistoryIndex, getHasFileMap, torrentApp,
-  arrOwns, resetParseBudget, getIndexerSnapshot,
+  arrOwns, resetParseBudget, getIndexerSnapshot, arrIdByName, arrParseEntity,
 } = require('./arr-data');
 const {
   declined, blocked, searchState, gpuPending, importState, forceGrabImport,
@@ -23,9 +23,14 @@ const {
 } = require('./state');
 const {
   SEARCH_COOLDOWN_MS, RECOVERY_GRACE_MS, NOTFOUND_GRACE_MS, RECENT_RELEASE_GRACE_MS,
-  noteMissing, noteResolved, isRecentRelease, shortReason, clampHint,
+  noteMissing, noteResolved, isRecentlyAvailable, unreleasedInfo, isUnreleased,
+  shortReason, clampHint,
 } = require('./search-engine');
-const { _stallSince, STALL_DEAD } = require('./stall-recovery');
+const { _stallSince, isAcceptedRare, STALL_DEAD } = require('./stall-recovery');
+// Audit swap identity — so the delete button can offer "cancel this download" instead of the layered
+// delete that would take the copy the swap is replacing. From ./state (a leaf) rather than ./audit,
+// which would cycle back through importer → downloads. See the note above swapForHash in state.js.
+const { swapForHash } = require('./state');
 const { triggerJellyfinScan } = require('./jf-scan');
 
 // Pause/resume a single torrent (or 'all'). Mirrors the route-actions helper so downloads.js
@@ -48,6 +53,16 @@ function parseTimeleft(s) {
   if (!m) return null;
   return (+(m[1] || 0)) * 86400 + (+m[2]) * 3600 + (+m[3]) * 60 + (+m[4]);
 }
+// Grace period before a metadata-less torrent stops being called "Starting". A healthy magnet
+// resolves in seconds; five minutes is already generous.
+const META_STARTING_S = 300;
+// How long a torrent must have been stalled before the UI offers a "pick a different source"
+// button. Automatic recovery (reannounce → blocklist-and-research) is strictly better than a human
+// guess while it still has moves left, so the button stays hidden until that clock has run: either
+// STALL_DEAD has elapsed with no seeds, or recovery has written the title off entirely
+// (acceptedRare). Offering it sooner would invite a duplicate grab of a swarm that was about to
+// wake up on its own.
+const STALL_PICK_MS = STALL_DEAD * 1000;
 function friendlyTorrentState(t) {
   const s = t.state || '';
   if (s === 'error' || s === 'missingFiles') return 'Error';
@@ -57,7 +72,14 @@ function friendlyTorrentState(t) {
   // at 100%. A genuine user pause is on an INCOMPLETE torrent, handled below.
   if ((t.progress || 0) >= 1) return 'Seeding';
   if (s.startsWith('paused') || s.startsWith('stopped')) return 'Paused';   // qBittorrent v5 renamed paused* → stopped*
-  if (s === 'metaDL' || s.startsWith('checking')) return 'Starting';
+  // metaDL means the client cannot even fetch the torrent's METADATA — no peers answering, so
+  // nothing about the content is known yet. For the first few minutes that is genuinely "Starting".
+  // Past that it is a dead swarm: Rings of Power S01 sat at metaDL for 870 minutes still reporting
+  // "Starting", while the Audit tab (which classifies on movement) correctly called the same torrent
+  // stalled. stallRecovery already treats metaDL as dead — see its num_seeds check — so this brings
+  // the label into line with what the backend has always believed.
+  if (s === 'metaDL') return (t.time_active || 0) > META_STARTING_S ? 'Stalled' : 'Starting';
+  if (s.startsWith('checking')) return 'Starting';
   if (s.startsWith('queued')) return 'Queued';
   if (s.startsWith('stalled')) return 'Stalled';
   return 'Downloading';
@@ -159,18 +181,16 @@ function isFutureRelease(app, qrec) {
   if (app === 'sonarr') {
     const airDate = qrec.episode && (qrec.episode.airDateUtc || qrec.episode.airDate);
     if (airDate) return new Date(airDate).getTime() > now;
+    // Season pack / no episode object: fall back to the series' own airing state.
+    if (isUnreleased('sonarr', qrec.series)) return true;
   }
-  if (app === 'radarr') {
-    const movie = qrec.movie;
-    if (movie) {
-      const dates = [movie.inCinemas, movie.physicalRelease, movie.digitalRelease].filter(Boolean);
-      for (const d of dates) {
-        if (new Date(d).getTime() > now + 86400000) return true;
-      }
-    }
-  }
+  if (app === 'radarr') return isUnreleased('radarr', qrec.movie);
   return false;
 }
+// "expected 30 Aug" for an Unreleased row — a date the user can act on, instead of a bare status.
+const fmtExpected = (ts) => (ts && ts > Date.now()
+  ? `expected ${new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+  : '');
 
 async function buildDownloads() {
   const now = Math.floor(Date.now() / 1000), DAY = 86400;
@@ -221,7 +241,16 @@ async function buildDownloads() {
     // but a Sonarr series' hasFile is true if it holds ANY episode — so using it here flagged every
     // still-downloading episode of a partially-present series as "imported → Ready", hiding the
     // live download from the UI. For Sonarr we trust the per-hash import event alone.
-    const imported = !!(hi && (hi.imported || (app === 'radarr' && hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
+    // ...and the radarr fallback has a THIRD exception beyond the Sonarr one above: an in-flight
+    // Audit swap. "A movie's hasFile is 1:1 with its torrent" is exactly false during a zero-gap
+    // swap, because the ORIGINAL file is deliberately still on disk while the replacement downloads.
+    // So hasFile:true made the live replacement read as already-imported → 'Ready' → `finished`, and
+    // with completion_on still 0 it failed the `show` test and vanished from the tab entirely. Found
+    // 2026-07-30 on Challengers: the Audit tab showed the swap stalled at 0% for 85 min while
+    // Downloads had no row for it at all — no way to see it, and no delete button to cancel it.
+    // hi.imported is untouched: a real per-hash import event still ends the download honestly.
+    const swapInFlight = !!swapForHash(h);
+    const imported = !!(hi && (hi.imported || (app === 'radarr' && !swapInFlight && hi.id != null && hasFile[app] && hasFile[app].get(hi.id) === true)));
     const _arrId = (qrec && (qrec.movieId || qrec.seriesId)) ?? (hi && hi.id);
     let state, attention = false, recover = null, attnNote = null;
     if (app && imported) {
@@ -319,8 +348,58 @@ async function buildDownloads() {
       const seeds = (state === 'Downloading' || state === 'Stalled') && typeof t.num_seeds === 'number' ? t.num_seeds : null;
       // "Stalled" mirrors stallRecovery's own give-up clock (STALL_DEAD after first seen at 0
       // seeds) so the UI can say when it'll blocklist-and-research instead of sitting silent.
-      const stallGiveUpAt = state === 'Stalled' && _stallSince.has(h) ? (_stallSince.get(h) + STALL_DEAD) * 1000 : null;
-      const item = { title: t.name, progress: displayProg, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || (hi && hi.size) || (qrec && qrec.size) || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash, seeds, stallGiveUpAt, category: t.category };
+      //
+      // ...but ONLY while that clock still means something. Once a title has exhausted MAX_RESEARCH
+      // re-searches it goes into stallRecovery's `_accepted` set, and from then on the sweep
+      // short-circuits before taking any action. The countdown kept rendering, firing, doing
+      // nothing, and restarting — an unbroken promise of a blocklist-and-research that could never
+      // happen (seen on both Wire S05 rows, where sonarr:60 was accepted after 3 tries). Say the
+      // true thing instead: we have stopped trying.
+      const acceptedRare = !!(app && _arrId != null && isAcceptedRare(app, _arrId));
+      const stallGiveUpAt = state === 'Stalled' && !acceptedRare && _stallSince.has(h) ? (_stallSince.get(h) + STALL_DEAD) * 1000 : null;
+      // Once automatic recovery is out of moves, a human picking a release that actually has seeds
+      // is the only move left — so offer the same release picker the "Not found" rows get. The
+      // policy lives here, not in the browser, because the recovery clock does. Note _stallSince is
+      // CLEARED for accepted-rare titles (the sweep short-circuits before setting it), so
+      // acceptedRare has to qualify on its own rather than via the elapsed-time test.
+      // How long has this ACTUALLY been stalled? Two independent clocks, and we take the longer:
+      //   _stallSince — recovery's own clock, but in memory, so every controller restart resets it
+      //                 to zero however long the torrent has really been dead.
+      //   last_activity — qBittorrent's, persisted by the torrent itself, so it survives restarts.
+      // Using _stallSince alone (or merely falling back to quiet time when it is absent) let a fresh
+      // restart shadow the truth: both Wire episodes had been quiet 1044 min yet read as minutes old,
+      // so the button stayed hidden on exactly the rows it exists for. max() cannot be fooled that
+      // way — a restart can only ever make a clock read LOW, never high.
+      const quietMs = t.last_activity ? Date.now() - t.last_activity * 1000 : 0;
+      const stalledMs = Math.max(_stallSince.has(h) ? Date.now() - _stallSince.get(h) * 1000 : 0, quietMs);
+      // The rows that need the picker MOST are the ones where recovery already blocklisted the
+      // release, which removes *arr's queue record — so `_arrId` is null exactly when the download
+      // is most thoroughly dead (both stalled Wire episodes were in this state). Fall back to a
+      // title match against the library so the picker is still reachable. Search-only, and the sheet
+      // names the resolved series before anything is grabbed.
+      // sonarr-only because /api/force-grab is sonarr-only: its search filters to TV indexer
+      // categories, so pointing it at a movie would offer releases for the wrong thing entirely.
+      // Resolution order, most authoritative first: *arr's queue/history record (_arrId) → *arr's own
+      // release parser → a title match against the library. The parser is the same one *arr uses to
+      // decide where a download belongs, so it is not a guess; the title map is, and is only reached
+      // for names even *arr can't parse.
+      let pickId = _arrId;
+      if (pickId == null && app === 'sonarr' && state === 'Stalled') {
+        const ent = await arrParseEntity('sonarr', t.name);
+        pickId = (ent && ent.id) ?? arrIdByName(t.name, nameIds.sonarr);
+      }
+      const canPick = state === 'Stalled' && app === 'sonarr' && pickId != null
+        && (acceptedRare || stalledMs >= STALL_PICK_MS);
+      const item = { title: t.name, progress: displayProg, state, etaSeconds: state === 'Downloading' ? eta : null, sizeBytes: t.size || (hi && hi.size) || (qrec && qrec.size) || 0, source: app || 'torrent', attention, _recover: recover, hash: t.hash, seeds, stallGiveUpAt, acceptedRare: !!acceptedRare && state === 'Stalled', canPick, category: t.category };
+      // Only set for rows that actually offer the picker: the id is what /api/force-grab needs, and
+      // leaving it off everything else keeps the existing rows byte-identical to before.
+      if (canPick) item._id = pickId;
+      // IS THIS AN AUDIT REPLACEMENT? If so the delete button must cancel the download and nothing
+      // else — the copy being replaced is still on disk and still playable, and it resolves to the
+      // same library id, so the ordinary layered delete would take it too. The server refuses that
+      // path outright (see /api/delete); this flag is what lets the UI ask the right question first.
+      const sw = swapForHash(h);
+      if (sw) item.swap = { title: sw.pending.title || null, phase: sw.pending.phase || 'downloading' };
       // An auto-upgrade the user didn't request must explain itself in the UI.
       if (app === 'radarr' && qrec && qrec.movieId != null && gpuPending.has(qrec.movieId)) {
         item.note = 'Auto-upgrade: fetching a GPU-friendly copy — your current file stays watchable until this finishes';
@@ -332,7 +411,15 @@ async function buildDownloads() {
         if (prev) { const i = items.indexOf(prev.item); if (i >= 0) items.splice(i, 1); }  // newer copy wins — remove the stale row
         completedByMovie.set(key, { completion: comp, item });
       }
-      if (app && _arrId != null) shownIds[app].add(_arrId);   // this title has a live download → don't also list it as missing
+      // "This title has a LIVE download → don't also list it as missing." For a movie, a finished
+      // torrent does mean the item is handled. For a SERIES it does not: the id spans every season,
+      // so a seeding S02 pack would claim the whole show is covered — and because shownIds feeds
+      // noteResolved() below, that ZEROED the series' missing clock on every UI poll (this runs far
+      // more often than arrSweep, which is why the clock died within two minutes of being set).
+      // Fourth and last copy of this same mistake; see beingFetched() above and arrSweep's
+      // hasTorrentIds. The completed-but-not-yet-imported window stays covered because such a
+      // download is still in *arr's queue, and appIdsInQueue is checked before shownIds.
+      if (app && _arrId != null && (app === 'radarr' || !finished)) shownIds[app].add(_arrId);
       items.push(item);
     }
   }
@@ -353,7 +440,20 @@ async function buildDownloads() {
   // the item's title+year against the raw torrent names of the same category.
   const norm = (s) => String(s || '').toLowerCase().replace(/[._'’:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
   const catTorNames = { radarr: [], sonarr: [] };
-  for (const t of torrents) { const a = torrentApp(t); if (a) catTorNames[a].push(norm(t.name)); }
+  // INCOMPLETE torrents only. The purpose here is to bridge the seconds between a grab landing in
+  // qBittorrent and *arr linking it — a torrent at 100% is not "being fetched", it is done.
+  // Including finished ones made every series with a seeding pack read as permanently in-flight,
+  // which called noteResolved() on it each poll and so ZEROED its missing clock forever. Because
+  // arrSweep only searches after RECOVERY_GRACE of continuously-missing time, that series' gaps
+  // could never be auto-filled. Found 2026-07-28 via The Wire: S05 was missing E08-E10 while four
+  // completed Wire season packs sat seeding, and the match is on series title prefix
+  // ("the wire s02 …" matches "The Wire"), so an S02 pack masked an S05 hole indefinitely.
+  // The completed-but-not-yet-imported window is still covered — *arr keeps such a download in its
+  // queue, and line ~383 checks appIdsInQueue/shownIds before this.
+  for (const t of torrents) {
+    if ((t.progress || 0) >= 1) continue;
+    const a = torrentApp(t); if (a) catTorNames[a].push(norm(t.name));
+  }
   const beingFetched = (app, it) => {
     const tn = norm(it.title); if (!tn) return false;
     const yr = it.year ? String(it.year) : '';
@@ -370,6 +470,9 @@ async function buildDownloads() {
       return false;
     });
   };
+  // Items already surfaced as "Unreleased" by the library scan below — the episode-level calendar
+  // scan after it must not add a SECOND row for the same series.
+  const unreleasedIds = { radarr: new Set(), sonarr: new Set() };
   try {
     for (const app of ['radarr', 'sonarr']) {
       let list = [];
@@ -379,17 +482,20 @@ async function buildDownloads() {
         const hasF = app === 'radarr' ? !!it.hasFile : !!(it.statistics && it.statistics.episodeCount > 0 && it.statistics.episodeFileCount >= it.statistics.episodeCount);
         if (hasF || it.monitored === false) { noteResolved(app, id); continue; }
         if (appIdsInQueue[app].has(id) || shownIds[app].has(id) || beingFetched(app, it)) { noteResolved(app, id); continue; }   // in queue / linked / freshly-grabbed torrent → not missing
-        // Future release: movie hasn't been released yet → show Unreleased, don't mark missing.
-        if (app === 'radarr') {
-          const dates = [it.inCinemas, it.physicalRelease, it.digitalRelease].filter(Boolean);
-          if (dates.length && dates.some(d => new Date(d).getTime() > Date.now() + 86400000)) {
-            items.push({ title: it.title + (it.year ? ` (${it.year})` : ''), progress: 0, state: 'Unreleased', etaSeconds: null, sizeBytes: 0, source: app, attention: false, hash: `missing:${app}:${id}`, _id: id, recoveryNext: 0, recoveryFails: 0, recoveryBlocked: false });
-            continue;
-          }
+        // Not out yet — a movie before its home release, or a series that hasn't premiered. There is
+        // nothing to find, so it must never read as a failure: grey "Unreleased" at the BOTTOM of the
+        // list, no attention flag, no "gave up after N tries" hint, and no missing clock running.
+        const unrel = unreleasedInfo(app, it);
+        if (unrel.unreleased) {
+          unreleasedIds[app].add(id);
+          items.push({ title: it.title + (it.year ? ` (${it.year})` : ''), progress: 0, state: 'Unreleased', etaSeconds: null, sizeBytes: 0, source: app, attention: false, hash: `missing:${app}:${id}`, _id: id, recoveryNext: 0, recoveryFails: 0, recoveryBlocked: false, searchHint: fmtExpected(unrel.expected) });
+          continue;
         }
         // Recent release: movie came out in the last 14 days. Torrents may not exist yet, so use
         // shorter grace/cooldown and show a softer status (not alarming like "Not found").
-        const recentRelease = app === 'radarr' && isRecentRelease(it);
+        // Same rule the sweep uses (isRecentlyAvailable), so the UI's "next retry" prediction can't
+        // disagree with the schedule the sweep actually follows.
+        const recentRelease = isRecentlyAvailable(app, it);
         // A freshly-requested item briefly has no file/queue while *arr's own search resolves. Show
         // "Searching…" (not the alarming "Not found") until NOTFOUND_GRACE — this is what stops the
         // "Not found → found seconds later" flip-flop. Only after the grace do we call it "Not found".
@@ -490,9 +596,9 @@ async function buildDownloads() {
     }, []);
     for (const u of unreleased) {
       if (appIdsInQueue.sonarr.has(u.seriesId) || shownIds.sonarr.has(u.seriesId)) continue;
-
+      if (unreleasedIds.sonarr.has(u.seriesId)) continue;      // already listed as an unreleased series
       const label = `${u.title} S${String(u.seasonNumber).padStart(2, '0')}E${String(u.episodeNumber).padStart(2, '0')}`;
-      items.push({ title: label, progress: 0, state: 'Unreleased', etaSeconds: null, sizeBytes: 0, source: 'sonarr', attention: false, hash: `unreleased:sonarr:${u.seriesId}:${u.episodeId}` });
+      items.push({ title: label, progress: 0, state: 'Unreleased', etaSeconds: null, sizeBytes: 0, source: 'sonarr', attention: false, hash: `unreleased:sonarr:${u.seriesId}:${u.episodeId}`, searchHint: fmtExpected(new Date(u.airDateUtc).getTime()) });
     }
   } catch (eu) { console.log('unreleased scan:', eu.message || eu); }
 
@@ -500,15 +606,23 @@ async function buildDownloads() {
   // progress, whatever its label), then the rest in progress, then recently-finished (Ready/Done
   // only ever survive the 24h `show` window above), and finally the long Queued backlog at the
   // bottom. Within a tier, the closer to done floats higher.
+  // Anything that isn't out yet (or came out days ago) belongs at the very bottom whatever its
+  // label: nobody needs to act on it, and letting it sit up top next to real failures is what made
+  // the page look alarming. Tier 5 keeps it below even the finished rows.
+  const notYetExpected = (it) => it.state === 'Unreleased' || it.recentRelease === true;
   const rank = (it) => {
     const s = it.state, p = it.progress || 0;
+    if (notYetExpected(it)) return 5;                          // unreleased / just-released → very bottom
     if (s === 'Needs attention' || s === 'Error' || s === 'Not found') return 0;    // errors of any kind first
     if (p > 0 && p < 100) return 1;                            // mid-transfer → near the top regardless of status
-    if (s === 'Queued' || s === 'Unreleased') return 4;        // backlog or waiting to air → bottom
+    if (s === 'Queued') return 4;                              // backlog → bottom
     if (s === 'Ready' || s === 'Done') return 3;               // recently finished (≤ 24h)
     return 2;                                                  // everything else in progress (100% but not done: Importing/Processing/…)
   };
-  items.sort((a, b) => rank(a) - rank(b) || (b.progress || 0) - (a.progress || 0));
+  // Within the bottom tier, the ones that at least exist ("Not found (recent)"/"Searching…") sit
+  // above the ones that don't exist yet ("Unreleased") — closest to actionable first.
+  const subRank = (it) => (it.state === 'Unreleased' ? 1 : 0);
+  items.sort((a, b) => rank(a) - rank(b) || subRank(a) - subRank(b) || (b.progress || 0) - (a.progress || 0));
   return items;
 }
 
@@ -641,7 +755,11 @@ async function downloadSummary(items) {
   // we do have metadata for — completed, downloading, and queued alike — the broadest sample.
   const knownSized = items.filter((i) => i.sizeBytes > 0 && i.state !== 'Declined');
   const avgItemBytes = knownSized.length ? knownSized.reduce((a, i) => a + i.sizeBytes, 0) / knownSized.length : 0;
-  const sizeOf = (i) => (i.sizeBytes > 0 ? i.sizeBytes : avgItemBytes);
+  // ...but ONLY for real torrents. The pseudo-rows (missing / unreleased items with no grab yet)
+  // aren't downloads waiting on metadata — charging them an average size invented GBs of "remaining"
+  // and stretched the batch ETA for content that hasn't even been released.
+  const noTorrent = (i) => /^(missing|unreleased):/.test(String(i.hash || ''));
+  const sizeOf = (i) => (i.sizeBytes > 0 ? i.sizeBytes : (noTorrent(i) ? 0 : avgItemBytes));
 
   // Buckets for the visual bar mirror the row colors exactly, so the summary never shows a
   // different picture than the list underneath it: red = needs a human, blue = actively resolving
@@ -660,7 +778,7 @@ async function downloadSummary(items) {
 
   // Remaining to download = the unfinished part of everything not done (downloading + all pending).
   const remainingBytes = Math.round([...inProg, ...queued].reduce((a, i) => a + sizeOf(i) * (1 - Math.min(100, i.progress || 0) / 100), 0));
-  const sizing = [...queued, ...inProg].filter((i) => !(i.sizeBytes > 0)).length;   // still fetching metadata
+  const sizing = [...queued, ...inProg].filter((i) => !(i.sizeBytes > 0) && !noTorrent(i)).length;   // real torrents still fetching metadata
 
   // Per-torrent ETAs from qBittorrent for actively downloading items.
   // These run in PARALLEL, so wall-clock time to finish the current batch is the MAX

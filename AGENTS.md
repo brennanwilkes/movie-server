@@ -103,6 +103,8 @@ under Movie Mode (`isMasterPaused()`).
 | `requestGate` | 5min | `lib/sweeps.js` | Flag Jellyseerr requests stuck on disk space |
 | `jfLibraryRefresh` | event + 5min safety net | `lib/jf-scan.js` | Trigger Jellyfin library scan after imports (trickplay-aware) |
 | `gpuVerifySweep` | 15min | `lib/gpu-verify.js` | Post-import ground truth, ZERO-GAP: a movie imported <48h ago whose mediaInfo is 10-bit/HDR/AV1/VP9 gets a strictly-better H.264 release grabbed (search-first, playstate-guarded); the OLD FILE STAYS until the replacement completes (`gpuPending` persisted), then swap+import. Once per movie ever (`gpuSwapped`); UI labels the download "Auto-upgrade". Log prefix `gpuVerify:` |
+| `auditVerifier` | 45s | `lib/audit.js` | Audit tab: one indexer search per tick, worst-first, over rows that lack a fresh verdict. Answers "does a genuinely better source exist?" — cached in `auditVerdicts` (persisted, 14-day TTL, `VERDICT_VERSION`) because a search is 5-21s and a full enrich is ~114 of them. Requires 8-bit; filters wrong-show matches via `mappedSeasonNumber`/`mappedMovieId`. READ-ONLY. Log prefix `audit:` |
+| `cpuCensusSweep` | 6h | `lib/cpu-census.js` | Counts library files that can't hardware-decode (reuses `gpuTier()`), emits the `cpu_census` event — the trend line behind the Audit tab. Report-only. Log prefix `cpuCensus:` |
 | `collectionsSweep` | 6h + boot | `lib/collections.js` | Maintains native auto-collections from library metadata: decades, top-8 + curated genres, Critically Loved, Short & Sweet, Epic Runtimes, and 8 Oscar-winner categories (Best Picture/Director/Acting/Editing/Cinematography, drawn from `data/oscars/build.sh` via `controller/oscar-winners.json`). Vibes shuffle at random; Oscar collections sort year-descending (newest first). Auto-sets each collection's poster from its best-rated member. Pure Jellyfin Collections API. Log prefix `collectionsSweep:`. **Boot:** `bootSequence()` (search it) waits for Jellyfin to answer, then runs the sweep BEFORE the first `registerHssShelf` so the home shelves have box sets to show on first load — no cold-start empty-home gap. **Manual:** `POST /api/collections/build` runs the sweep + shelf re-register on demand (409 if already running). |
 
 (Grep the sweep name in `controller/lib/` to find it. Other cleanups
@@ -326,6 +328,14 @@ At 10s sampling: ~2 MB/day, ~700 MB/year. 35 GB free on the SSD (root) where met
 - **probeSearchGap sort order**: grabbable releases (magnet guid or infoHash) sort above non-grabbable ones regardless of seed count. The best release object captures `magnetUrl`, `infoHash`, `size`, `downloadUrl`. `probeSearchGap` also returns `all` (every grabbable release) which powers the manual release-picker modal.
 - **Auto-grab was REMOVED (2026-07-07)**: `probeSearchOutcome` emits `search_gap` for the UI hint but NEVER acquires. Acquisition is manual only (force-grab button). See INVARIANTS in the force-grab subsystem section — there is no `AUTO_GRAB_ENABLED` flag to flip.
 - **UI hint for search gaps** shows the best gap release title (truncated), seeders, and specific reason (e.g. "no S01 marker" or "not a candidate").
+
+### "The Audit tab is full of issues — what do I do?"
+
+**Read `docs/AUDIT-WORKFLOW.md` first.** It maps each Audit section to the script that fixes
+it and states the rule plainly: do NOT invent file operations. No ad-hoc `rm`, no direct
+qBittorrent/*arr delete calls. Every fix goes through a reviewed script
+(`find-replacements.sh`, `show-stale-torrents.sh`, `show-bloat.sh`), because a misunderstanding
+in an ad-hoc session is how media gets destroyed. Background: `docs/AUDIT-DISK-2026-07-27.md`.
 
 ### "Why was THIS release picked?" (codec/size/quality complaints)
 

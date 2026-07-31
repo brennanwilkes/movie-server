@@ -24,10 +24,20 @@ converted=0
 CUTOFF=$(date -u -d '48 hours ago' +%Y-%m-%dT%H:%M:%SZ)
 
 convert() {  # host-path -> 0 converted / 1 skipped
-  local path="$1" cpath base info v vprof a ach ext
+  local path="$1" cpath base cbase tmp_host tmp_ctr info v vprof a ach ext
   cpath="${path/\/data\/media//media}"
   ext="${path##*.}"
   base="${path%.*}"
+  cbase="${cpath%.*}"
+  # The scratch file must be INVISIBLE to Radarr/Sonarr. A plain "<name>.ps4tmp.mp4" sitting
+  # in the library is a video file like any other, so a disk scan landing mid-conversion
+  # imports it — and the *arr is then left pointing at a path that vanishes the instant we
+  # rename. Observed 2026-07-27 on "Highest 2 Lowest (2025)": Radarr recorded the temp file,
+  # wrote a matching .ps4tmp.nfo beside it, and reported the movie as missing once the mv
+  # completed. A leading dot makes the *arr scanners skip it; keeping it in the SAME
+  # directory keeps the final mv a rename rather than a multi-GB copy across filesystems.
+  tmp_host="${base%/*}/.${base##*/}.ps4tmp.${ext}"
+  tmp_ctr="${cbase%/*}/.${cbase##*/}.ps4tmp.${ext}"
   [[ -f "$path" ]] || { [[ -f "${base}.mp4" ]] && return 1; return 1; }   # gone or already swapped
   info=$($FP -v quiet -show_entries stream=codec_type,codec_name,channels,profile -of json "$cpath" 2>/dev/null) || return 1
   v=$(jq -r '[.streams[]|select(.codec_type=="video")][0].codec_name' <<<"$info")
@@ -40,12 +50,12 @@ convert() {  # host-path -> 0 converted / 1 skipped
   subs=(-sn); [[ "$ext" == mkv ]] && subs=(-map '0:s?' -c:s copy)
   fast=(); [[ "$ext" == mp4 ]] && fast=(-movflags +faststart)
   if $FF -y -v error -i "$cpath" "${maps[@]}" "${subs[@]}" -c copy \
-      -c:a:0 ac3 -b:a:0 448k -disposition:a:0 default "${fast[@]}" "${cpath%.*}.ps4tmp.${ext}"; then
-    mv -- "${base}.ps4tmp.${ext}" "$path"
+      -c:a:0 ac3 -b:a:0 448k -disposition:a:0 default "${fast[@]}" "$tmp_ctr"; then
+    mv -- "$tmp_host" "$path"
     echo "ps4fix: ${path##*/} → +AC3 compat track"
     return 0
   fi
-  rm -f -- "${base}.ps4tmp.${ext}"
+  rm -f -- "$tmp_host"
   return 1
 }
 
