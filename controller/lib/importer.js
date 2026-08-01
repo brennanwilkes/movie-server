@@ -17,7 +17,7 @@ const { execFile } = require('child_process');
 const metrics = require('../metrics');
 const { cfg, HOST } = require('./config');
 const { tfetch, qbit, arrGet, arrOf } = require('./clients');
-const { getQbitTorrents, getQueueMap } = require('./arr-data');
+const { getQbitTorrents, getQueueMap, getEpisodeHasFile } = require('./arr-data');
 const { jellyfinUserId } = require('./jellyfin');
 const {
   importState, forceGrabImport, completedForceGrabs, persistState, isMasterPaused,
@@ -29,6 +29,17 @@ const { CF_UPGRADE_REJECT_RE, cfRefusalIsExcusable } = require('./release-rules'
 // Title normalizer for the watchdog's folder-scan fallback (same shape as the
 // one buildDownloads uses for torrent-name matching).
 const norm = (s) => String(s || '').toLowerCase().replace(/[._'’:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
+
+// A Sonarr series is "fully imported" when EVERY episode has a file. statistics.episodeFileCount is
+// the number of FILES, so a file spanning multiple episodes (a "Chapter 5 to 8" multi-episode
+// force-grab) reads as permanently incomplete against episodeCount — the false fg_giveup / stuck
+// "Importing" / phantom missing-row class. Counting episodes that have a file (via *arr's own
+// per-episode data) is identical for single-episode files and correct for ranges. Fail-closed: if
+// *arr can't be read the map comes back empty, so this returns false and the watchdog keeps trying.
+async function seriesFullyImported(seriesId) {
+  const eps = await getEpisodeHasFile(seriesId);
+  return eps.size > 0 && [...eps.values()].every(Boolean);
+}
 
 // ---- Auto-import watchdog (backend, container-to-container; NOT driven by the UI) ----
 // The happy path is event-driven: qBittorrent finishes → *arr imports → *arr pushes a
@@ -290,7 +301,10 @@ async function importViaGrab(app, folder, expectedId, downloadId) {
       if (VIDEO_EXT.has(ext)) onDiskVideos.push(path.join(folder, e));
     }
   } catch {}
-  onDiskVideos.sort();
+  // Numeric-aware sort for strategy 4's sequential fill. Lexicographic order puts 10.mkv before
+  // 2.mkv, so pairing a string-sorted file list against numerically-sorted missing episodes
+  // mis-assigned every file ≥ episode 10 (silent content/episode corruption).
+  onDiskVideos.sort((a, b) => path.basename(a).localeCompare(path.basename(b), undefined, { numeric: true, sensitivity: 'base' }));
 
   // ── Fetch full episode table for this series ──
   let allEps = [], episodeCount = 0, episodeFileCount = 0;
@@ -511,7 +525,13 @@ async function computeForceGrabVerify(seriesId) {
   const tvdb = series.tvdbId || null;
   const sonarrSeasons = {};
   for (const sn of (series.seasons || [])) if (sn.seasonNumber > 0) { const ss = sn.statistics || {}; sonarrSeasons[String(sn.seasonNumber)] = ss.episodeFileCount || 0; }
-  if (!(st.episodeCount > 0 && st.episodeFileCount >= st.episodeCount)) issues.push(`sonarr_incomplete:${st.episodeFileCount || 0}/${st.episodeCount || 0}`);
+  // episodeFileCount counts FILES, not covered episodes — a multi-episode file ("Chapter 5 to 8") is
+  // 1 file for 4 episodes, so files>=episodes reads a fully-imported series as incomplete forever (the
+  // false fg_giveup / sonarr_incomplete / jellyfin_extra_episodes class). Count episodes that have a
+  // file instead. Fail-closed: if the episode table can't be read, fall back to the file count.
+  let covered = st.episodeFileCount || 0;
+  try { covered = [...(await getEpisodeHasFile(seriesId)).values()].filter(Boolean).length; } catch { /* keep file count */ }
+  if (!(st.episodeCount > 0 && covered >= st.episodeCount)) issues.push(`sonarr_incomplete:${covered}/${st.episodeCount || 0}`);
   let jf = null, transient = false;
   try {
     const mapped = (series.path || '').replace('/data/media', '/media');
@@ -526,14 +546,14 @@ async function computeForceGrabVerify(seriesId) {
       jf = { tvdb: jtvdb || null, total: counts.total, seasons: counts.bySeason };
       const real = new Set(Object.keys(sonarrSeasons));
       for (const s of Object.keys(counts.bySeason)) if (s === 'unknown' || !real.has(s)) issues.push(`jellyfin_phantom_season:${s}`);
-      if (st.episodeFileCount && counts.total > st.episodeFileCount) issues.push(`jellyfin_extra_episodes:${counts.total}>${st.episodeFileCount}`);
+      if (covered && counts.total > covered) issues.push(`jellyfin_extra_episodes:${counts.total}>${covered}`);
     }
   } catch { issues.push('jellyfin_check_error'); transient = true; }
   return {
     ok: issues.length === 0,
     transient,
     issues,
-    payload: { id: Number(seriesId), ti: title, tvdb, ok: issues.length === 0, issues, sonarr: { files: st.episodeFileCount || 0, eps: st.episodeCount || 0, seasons: sonarrSeasons }, jellyfin: jf },
+    payload: { id: Number(seriesId), ti: title, tvdb, ok: issues.length === 0, issues, sonarr: { files: st.episodeFileCount || 0, eps: st.episodeCount || 0, covered, seasons: sonarrSeasons }, jellyfin: jf },
   };
 }
 let fgVerifyBusy = false;
@@ -693,16 +713,16 @@ async function importWatchdog() {
       // Without this, importViaGrab finds nothing new to import (all files present) and would keep
       // counting "failures" against a series that's actually complete.
       try {
-        const s0 = await arrGet('sonarr', `/series/${fg.id}`, 6000);
-        const ss = s0 && s0.statistics;
-        if (ss && ss.episodeCount > 0 && ss.episodeFileCount >= ss.episodeCount) {
+        if (await seriesFullyImported(fg.id)) {
+          const s0 = await arrGet('sonarr', `/series/${fg.id}`, 6000);
+          const ss = s0 && s0.statistics;
           forceGrabImport.delete(infoHash);
           completedForceGrabs.set(infoHash, { id: fg.id });
           importState.delete(fg.folder);
           persistState();
-          metrics.emitEvent('fg_import', { id: fg.id, ti: fg.seriesTitle, files: ss.episodeFileCount, eps: ss.episodeCount, done: true, via: 'precomplete', infoHash });
+          metrics.emitEvent('fg_import', { id: fg.id, ti: fg.seriesTitle, files: (ss && ss.episodeFileCount) || 0, eps: (ss && ss.episodeCount) || 0, done: true, via: 'precomplete', infoHash });
           scheduleForceGrabVerify(fg.id, infoHash);
-          console.log(`watchdog: force-grab complete (${ss.episodeFileCount}/${ss.episodeCount}) — "${fg.seriesTitle}"`);
+          console.log(`watchdog: force-grab complete (${(ss && ss.episodeFileCount) || 0}/${(ss && ss.episodeCount) || 0}) — "${fg.seriesTitle}"`);
           continue;
         }
       } catch { /* stats unavailable — fall through and let importViaGrab try */ }
@@ -721,9 +741,7 @@ async function importWatchdog() {
         try {
           const seriesData = await arrGet('sonarr', `/series/${fg.id}`, 6000);
           stats = seriesData && seriesData.statistics;
-          if (stats && stats.episodeCount > 0 && stats.episodeFileCount != null) {
-            allDone = stats.episodeFileCount >= stats.episodeCount;
-          }
+          allDone = await seriesFullyImported(fg.id);
         } catch { /* best-effort — retry next sweep */ }
         metrics.emitEvent('fg_import', { id: fg.id, ti: fg.seriesTitle, imported: res.count, files: stats && stats.episodeFileCount, eps: stats && stats.episodeCount, done: allDone, via: 'watchdog', infoHash });
         if (allDone) {

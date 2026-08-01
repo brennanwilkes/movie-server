@@ -7,6 +7,7 @@
   --line: #262c3a;
   --accent: #4f8cff;
   --ok: #34c759;
+  --wow: #b06df2;
   --off: #5b6270;
   --warn: #ffb020;
   --danger: #ff453a;
@@ -139,7 +140,10 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .row .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .sub { font-size: 13px; color: var(--muted); margin-top: 2px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .row .sub-size { color: var(--muted); }
-.row .rate, .row .format { color: var(--accent); font-weight: 500; }
+.row .rate, .row .format { font-weight: 500; }
+.row .rate { color: var(--accent); }
+.row .format { color: var(--muted); }
+.row .rate.rate-wow, .row .format.wow { color: var(--wow); }
 .row .rate.rate-ok, .row .format.ok { color: var(--ok); }
 .row .rate.rate-warn, .row .format.warn { color: var(--warn); }
 .row .rate.rate-bad, .row .format.bad { color: var(--danger); }
@@ -412,6 +416,14 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .aud-inline .apill { flex: 0 0 auto; }
 .aud-rate { color: var(--muted); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .aud-delta i, .aud-rate i { font-style: normal; color: var(--muted); margin: 0 4px; }
+/* Colour-coded Mbps figure in the Audit tab — same purple/green/orange/red bands as the Library
+   bitrate badge (bitrateCls in util.js). The colour IS the message, so it overrides the muted
+   delta/rate defaults even when nested inside them. */
+.mbps { font-variant-numeric: tabular-nums; font-weight: 600; }
+.mbps.wow  { color: var(--wow); }
+.mbps.ok   { color: var(--ok); }
+.mbps.warn { color: var(--warn); }
+.mbps.bad  { color: var(--danger); }
 
 .aud-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
 /* "nothing better found" sits in the badge line but is prose, not a badge — muted so it recedes
@@ -438,6 +450,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   background: var(--card-2); color: var(--muted); white-space: nowrap;
 }
 .apill.ok   { background: color-mix(in srgb, var(--ok) 17%, transparent); color: var(--ok); }
+.apill.wow  { background: color-mix(in srgb, var(--wow) 17%, transparent); color: var(--wow); }
 .apill.warn { background: color-mix(in srgb, var(--warn) 17%, transparent); color: var(--warn); }
 /* below-the-content-floor marker inside the bitrate pill. Costs 6px, not a whole pill, so it
    cannot push the candidate card to a fourth line — and unlike a tooltip it exists on touch. */

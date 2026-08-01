@@ -10,7 +10,7 @@ const { cfg, HOST } = require('./config');
 const { tfetch, qbit, arrGet, arrDelete, arrOf } = require('./clients');
 const { getQbitTorrents, getQueueMap, torrentApp } = require('./arr-data');
 const { jellyfinUserId, jellyfinIdByTmdb } = require('./jellyfin');
-const { gpuSwapped, gpuPending, persistState, isMasterPaused } = require('./state');
+const { gpuSwapped, gpuPending, auditPending, persistState, isMasterPaused } = require('./state');
 const { videoLabel, gpuTier } = require('./arr-inspect');
 const { importViaManual } = require('./importer');
 
@@ -35,6 +35,11 @@ const { importViaManual } = require('./importer');
 //      in Movie Mode. Movies only. The Downloads UI labels the replacement download as an
 //      auto-upgrade so an un-requested download always explains itself.
 const GPU_SWAP_WINDOW_MS = 48 * 3600 * 1000;
+// A replacement grabbed on a stale indexer seeder count can sit at 0% with zero connected peers
+// forever; waiting the full 48h for it holds the old (playable) copy hostage to a row that will
+// never move. Mirrors audit.js's SWAP_DEAD_MS: abandon early, keep the old copy, and let the sweep
+// re-evaluate the movie after its 6h no-better-release backoff.
+const GPU_SWAP_DEAD_MS = 90 * 60 * 1000;
 let gpuVerifyBusy = false;
 async function gpuVerifySweep() {
   if (isMasterPaused() || gpuVerifyBusy) return;
@@ -44,6 +49,13 @@ async function gpuVerifySweep() {
     const queue = await getQueueMap('radarr');
     const queuedIds = new Set([...queue.values()].map((q) => q.movieId));
     const now = Date.now();
+    // Mutual exclusion with the Audit tab's in-flight replacements: both subsystems target the same
+    // file class (10-bit/HDR/AV1/VP9) and both delete via *arr, so an overlap would let one phase-1
+    // delete take the other's freshly-imported file. Never start a swap for a movie the Audit tab is
+    // already swapping. (The Audit tab guards the reverse direction in /api/audit/replace.)
+    const auditMovieIds = new Set(
+      [...auditPending.keys()].filter((k) => k.startsWith('radarr:')).map((k) => Number(k.split(':')[1]))
+    );
 
     // Phase 1 — finalize in-flight zero-gap swaps. The old copy is removed ONLY here: after
     // the replacement finished downloading, and never while someone is mid-watch.
@@ -62,7 +74,20 @@ async function gpuVerifySweep() {
           && !old.has((t.hash || '').toLowerCase())
           && (queue.get((t.hash || '').toLowerCase()) || {}).movieId === mid);
         const done = fresh.find((t) => (t.progress || 0) >= 1);
-        if (!done) continue;                          // replacement still downloading — old copy stays playable
+        if (!done) {
+          // DEAD-SWARM EARLY ABANDON (mirrors audit.js replaceSweep). A 0% replacement with no live
+          // seeders after the announce grace will not finish by itself; standing down now keeps the
+          // old copy and lets this movie be re-evaluated in 6h rather than at the 48h wall.
+          const dl = fresh.find((t) => (t.progress || 0) < 1);
+          if (dl && typeof dl.num_seeds === 'number' && dl.num_seeds === 0
+            && (dl.progress || 0) === 0 && now - p.ts > GPU_SWAP_DEAD_MS) {
+            gpuPending.delete(mid); gpuSwapped.set(mid, { ts: now, done: false }); persistState();
+            console.log(`gpuVerify: upgrade of "${p.title}" abandoned — replacement at 0% with no seeds for ${Math.round((now - p.ts) / 60000)} min; old copy kept, will re-check in 6h`);
+            metrics.emitEvent('swap_abandon', { ti: p.title, reason: 'dead_swarm', ageMin: Math.round((now - p.ts) / 60000) });
+            try { await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: String(dl.hash || '').toLowerCase(), deleteFiles: 'true' }) }); } catch { /* */ }
+          }
+          continue;                                    // replacement still downloading — old copy stays playable
+        }
         try {                                          // fail CLOSED: no playstate confirmation → no deletion
           const jfId = await jellyfinIdByTmdb('Movie', p.tmdbId);
           if (jfId) {
@@ -94,7 +119,7 @@ async function gpuVerifySweep() {
       if (acted >= 2) break;
       const mf = m.movieFile;
       if (!m.hasFile || !mf || !mf.mediaInfo) continue;
-      if (queuedIds.has(m.id) || gpuPending.has(m.id)) continue;
+      if (queuedIds.has(m.id) || gpuPending.has(m.id) || auditMovieIds.has(m.id)) continue;
       const st = gpuSwapped.get(m.id);
       if (st && (st.done || st === true || typeof st === 'number')) continue;   // done (legacy entries = plain ts)
       if (st && now - st.ts < 6 * 3600000) continue;                            // no-better-release backoff

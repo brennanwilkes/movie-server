@@ -21,6 +21,23 @@ $('#lib-toggle').addEventListener('click', (e) => {
 });
 $('#lib-search').addEventListener('input', renderLibrary);
 
+// Source badge — "Bluray-1080p" → "Bluray", coloured by source tier (mirrors the Audit tab).
+const SRC_TIER = [[/remux/i, 'ok'], [/bluray|blu-ray|brrip|bdrip/i, 'ok'], [/web-?dl/i, 'ok'],
+  [/webrip/i, ''], [/hdtv/i, 'warn'], [/dvd/i, 'bad'], [/sdtv|\bcam\b|telesync/i, 'bad']];
+function srcBadge(source) {
+  if (!source) return '';
+  let cls = '';
+  for (const [re, c] of SRC_TIER) if (re.test(source)) { cls = c; break; }
+  const label = String(source).replace(/-?(1080|720|2160)p/i, '').replace(/[-\s]+$/, '');
+  return `<span class="format ${cls}">${esc(label)}</span>`;
+}
+// Audio badge — same quality bands as the bitrate badge via the shared audioCls() classifier.
+function audioBadge(codec, ch) {
+  if (!codec) return '';
+  const c = String(codec).toUpperCase();
+  return `<span class="format ${audioCls(c)}">${esc(ch ? `${c} ${ch}` : c)}</span>`;
+}
+
 function renderLibrary() {
   const q = $('#lib-search').value.trim().toLowerCase();
   const items = q ? libItems.filter((m) => m.title.toLowerCase().includes(q)) : libItems;
@@ -31,13 +48,15 @@ function renderLibrary() {
   $('#library').innerHTML = items.map((m) => {
     let rate = '', rateCls = '';
     if (m.hasFile && m.sizeBytes && m.runtimeMinutes > 0) {
-      const mbpm = m.sizeBytes / (1024 * 1024) / m.runtimeMinutes;
-      rate = `${mbpm.toFixed(1)} MB/min`;
-      rateCls = mbpm < 40 ? 'rate-ok' : mbpm < 80 ? 'rate-warn' : 'rate-bad';
+      const mbps = m.sizeBytes * 8 / (m.runtimeMinutes * 60 * 1e6);
+      rate = `${mbps.toFixed(1)} Mbps`;
+      rateCls = mbps >= 15 ? 'rate-wow' : mbps >= 8 ? 'rate-ok' : mbps >= 4 ? 'rate-warn' : 'rate-bad';
     }
     const fmt = m.videoLabel || '';
     const compat = m.gpuCompat || '';
     const fmtCls = compat === 'ok' ? 'ok' : compat === 'warn' ? 'warn' : compat === 'bad' ? 'bad' : '';
+    const src = srcBadge(m.source);
+    const aud = audioBadge(m.audioCodec, m.audioCh);
     // Missing titles: show the server's live pipeline status ("Downloading (45%)", "Import
     // blocked", …) instead of a flat "Not downloaded" — the API computed it all along.
     const status = !m.hasFile && m.downloadDetail
@@ -46,7 +65,7 @@ function renderLibrary() {
     return `<li class="row">
       <span class="grow">
         <span class="title">${esc(m.title)}${m.year ? ` <span class="muted">(${m.year})</span>` : ''}</span>
-        <div class="sub">${status}${rate ? `<span class="rate ${rateCls}">${rate}</span>` : ''}${fmt ? `<span class="format ${fmtCls}">${esc(fmt)}</span>` : ''}</div>
+        <div class="sub">${status}${rate ? `<span class="rate ${rateCls}">${rate}</span>` : ''}${fmt ? `<span class="format ${fmtCls}">${esc(fmt)}</span>` : ''}${src}${aud}</div>
       </span>
       ${m._app === 'radarr' ? `<button class="redl" data-id="${m.id}" aria-label="Redownload ${esc(m.title)}">
         <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 3v5h-5"/></svg>

@@ -34,7 +34,7 @@ const { getQbitTorrents } = require('./arr-data');
 const { gpuTier, videoLabel } = require('./arr-inspect');
 const { importViaManual, previewManualImport } = require('./importer');
 const {
-  auditVerdicts, auditPending, auditSwapped, persistState, isMasterPaused, swapForHash,
+  auditVerdicts, auditPending, auditSwapped, gpuPending, persistState, isMasterPaused, swapForHash,
 } = require('./state');
 // Shared release-title heuristics — see ./release-rules for the case history behind each rule.
 // NOTE: TENBIT_RE is deliberately NOT imported; audit.js has its own stricter variant below.
@@ -56,9 +56,25 @@ const {
 // holding a theatrical candidate for a film whose extended cut is the only acceptable one. Serving
 // those from cache would offer exactly the swap this change exists to prevent. Cost is a re-verify
 // of the library at VERIFY_EVERY_MS, which the paced verifier does on its own.
-const VERDICT_VERSION = 10;  // v10: NUC ok->no (10-bit) is now a hard refusal, and EDITION_BEST
+const VERDICT_VERSION = 13;  // v10: NUC ok->no (10-bit) is now a hard refusal, and EDITION_BEST
                              // adds above-floor edition rows. Both change which candidates are
                              // ADMITTED, so cached v9 verdicts were computed under looser rules.
+                             // v11: loose (edition/upgrade) rows no longer require a codec token
+                             // in the title — the parsed quality source substitutes for it, so a
+                             // 59-char-truncated "...EXTENDED.1080p.BluRay." is no longer dropped
+                             // (Fellowship of the Ring read "none better" while 51/137 releases
+                             // were extended/final-cut). Changes ADMITTANCE, so cached v10
+                             // verdicts are invalid.
+                              // v12: EDITION_ORIGINAL_BEST — for a film whose original cut is the
+                              // definitive one (The Blues Brothers), the downgrade-refusal is
+                              // bypassed so theatrical candidates are admitted again. Changes
+                              // ADMITTANCE for those films, so cached v11 verdicts are invalid.
+                              // v13: WRONG-SHOW imdbId fallback — a release Radarr could not map
+                              // (mappedMovieId null, "Unable to parse release") is admitted when
+                              // its indexer-tagged imdbId matches the movie's (the best theatrical
+                              // Blues Brothers encodes were hidden this way). Collections/sequels
+                              // carry 0 or a different id and still drop. Changes ADMITTANCE, so
+                              // cached v12 verdicts are invalid.
 const VERDICT_TTL_MS = 14 * 24 * 3600 * 1000;  // release availability drifts; a stale "nothing better" is worse than no verdict
 const VERIFY_EVERY_MS = 45000;                 // paced: 114 searches at 45s ≈ 85 min to go fully warm, gentle on public indexers
 const BLOAT_MIN_MBPS = 6;                      // below this a season is not worth a re-grab
@@ -309,6 +325,12 @@ async function buildRows(force = false) {
       edition: ownEd, editionLabel: ownEd.label,
       top100: m.tmdbId ? (top100.get(String(m.tmdbId)) || null) : null,
       beloved: prof.startsWith('Beloved'),
+      // Identity fallback for the wrong-show guard: Radarr returns mappedMovieId=null for releases
+      // whose titles it cannot parse, even when the release IS this movie (the indexer tagged it
+      // with the right IMDb id — e.g. "The Blues Brothers*1980*TC[1080p...x264-LEON]" reads
+      // "Unable to parse release" yet carries imdbId 80455). Collections/sequels carry 0 or a
+      // different id, so the guard can admit exactly the well-tagged, wrongly-hidden copies.
+      imdbId: m.imdbId || null,
       // Lower-cased once here so the client's search filter does not redo it for 800 rows per keypress.
       q: `${m.title} ${m.year || ''}`.toLowerCase() });
     // Two ways into the Edition section, and they are NOT the same claim:
@@ -325,7 +347,7 @@ async function buildRows(force = false) {
         label: videoLabel(mf.mediaInfo), profile: prof, source: src,
         tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null,
-        edition: ownEd, editionFloor: edFloor, tmdbId: m.tmdbId || null,
+        edition: ownEd, editionFloor: edFloor, tmdbId: m.tmdbId || null, imdbId: m.imdbId || null,
         // The UI must not assert "theatrical" when nothing said so. An untagged file is USUALLY
         // theatrical but may just be badly named, and claiming otherwise is the kind of confident
         // wrongness that makes a human distrust the whole tab. `stated` is what lets it say
@@ -342,6 +364,7 @@ async function buildRows(force = false) {
         tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null,
         edition: ownEd, editionFloor: edFloor, editionPrefer: edPrefer, tmdbId: m.tmdbId || null,
+        imdbId: m.imdbId || null,
         editionLabel: ownEd.label, editionStated: ownEd.label !== null,
         want: edPrefer >= 4 ? 'Final Cut' : (edPrefer === 3 ? "Director's Cut" : 'Extended / long cut') });
     }
@@ -356,7 +379,7 @@ async function buildRows(force = false) {
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
         label: videoLabel(mf.mediaInfo), profile: prof,
         source: src, tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
-        origLang: (m.originalLanguage || {}).name || null,
+        origLang: (m.originalLanguage || {}).name || null, imdbId: m.imdbId || null,
         // WHICH CUT we hold. Both sources are consulted because each knows things the other does
         // not — see ownEditionOf. Carried on the row so the candidate filter can refuse an edition
         // downgrade without re-fetching anything.
@@ -370,7 +393,7 @@ async function buildRows(force = false) {
           title, files: 1, bytes: mf.size || 0, mbps: +mbps.toFixed(1),
           label: videoLabel(mf.mediaInfo), profile: prof, source: src, target: +(mbps * 0.55).toFixed(1),
           tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
-          origLang: (m.originalLanguage || {}).name || null,
+          origLang: (m.originalLanguage || {}).name || null, imdbId: m.imdbId || null,
           edition: ownEditionOf(mf.edition, mf.relativePath) });
       }
     }
@@ -716,7 +739,29 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
       // the Dragon and House of Cards both came back mapped=1 for a "House" search. Settle it
       // on the release's own parsed seriesTitle, disambiguated against the whole library.
       if (seriesNorm && bestSeriesMatch(r.seriesTitle, seriesNorm) !== row.id) continue;
-    } else if (r.mappedMovieId !== row.id) continue;
+    } else if (r.mappedMovieId !== row.id) {
+      // mappedMovieId is null in TWO very different cases, and they must not be treated alike:
+      //   * a release that IS this movie but whose title Radarr could not parse. The indexer
+      //     still tagged it with the movie's IMDb id — e.g. The Blues Brothers' best theatrical
+      //     encode arrives as "The Blues Brothers*1980*TC[1080p...x264-LEON]" with rejection
+      //     "Unable to parse release" yet imdbId 80455, and the 7.9GB BDrip carries 80455 too.
+      //   * a collection/foreign retitle (rejection "Unknown Movie"), which carries imdbId 0 or
+      //     another film's id and MUST stay dropped.
+      // The signal is strong but NOT infallible, and the margin is worth stating: indexers do
+      // mis-tag. Measured against live Radarr data on 2026-07-31, this admits 0 extra releases for
+      // Sicario (the "Complete Collection" case this guard was written for — it stays dropped) and
+      // 9 for The Blues Brothers, of which "Blues Brothers 2000 AC3 DivX" is the SEQUEL carrying
+      // the original's imdbId 80455. So an indexer-supplied id can be wrong; what keeps that
+      // harmless is that the /1080p/ and codec gates below drop the mis-tagged junk, which is
+      // uniformly DVD-era and unseeded. Every 1080p release this admits was the correct film.
+      // The IMDb id is the tie-breaker: admit only when it matches the movie the row is for, and
+      // only in the null case — a mappedMovieId that names a DIFFERENT movie is *arr telling us
+      // this release is something else, and that is still a hard drop.
+      if (r.mappedMovieId != null) continue;
+      const relImdb = Number(String(r.imdbId || '').replace(/^tt/i, '').replace(/^0+/, ''));
+      const rowImdb = Number(String(row.imdbId || '').replace(/^tt/i, '').replace(/^0+/, ''));
+      if (!relImdb || !rowImdb || relImdb !== rowImdb) continue;
+    }
     const t = r.title || '';
     if (!/1080p/i.test(t)) continue;
     // A pack spanning several seasons is not a replacement for one season — see MULTI_SEASON_RE.
@@ -743,8 +788,12 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
     // infoHash (exact) or release title, not on size/source — a size-and-source heuristic looks
     // equivalent but rejects 56 of 338 Playback candidates, because "same source, same size,
     // unproven depth → proven 8-bit" IS the swap this section exists to offer. See auditSwapped.
-    if (already && ((already.hash && String(r.infoHash || '').toLowerCase() === already.hash)
-      || (already.rel && normTitle(already.rel) === normTitle(t)))) continue;
+    // EXCEPTION: a record with reason:'dead' (swap abandoned because the swarm had no seeders) is
+    // only a negative cache, not a final verdict — swarms revive, so it expires after
+    // DEAD_REFUSE_TTL_MS and the release can be offered again.
+    if (already && (already.reason !== 'dead' || Date.now() - (already.ts || 0) < DEAD_REFUSE_TTL_MS)
+      && ((already.hash && String(r.infoHash || '').toLowerCase() === already.hash)
+        || (already.rel && normTitle(already.rel) === normTitle(t)))) continue;
     // Already downloaded and sitting in the torrent client — ungrabbable and pointless. See above.
     if (r.infoHash && haveHashes.has(String(r.infoHash).toLowerCase())) continue;
     // FOREIGN-AUDIO-ONLY, decided by *arr's own parse rather than by guessing from the title.
@@ -779,9 +828,29 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
     const isUp = section === 'upgrade';
     const loose = isEd || isUp;
     if (!loose && (depth === '10bit' || depth === 'mixed')) continue;   // pessimistic: only 8bit or a clean unknown survives
-    const isHevc = /x265|h\.?265|hevc/i.test(t);
-    const isH264 = /x264|h\.?264|avc/i.test(t);
-    if (!isHevc && !isH264) continue;
+    let isHevc = /x265|h\.?265|hevc/i.test(t);
+    let isH264 = /x264|h\.?264|avc/i.test(t);
+    // CODE-CUT GATE. The strict sections (cpu/bitrate) need a codec token in the title to judge
+    // playback at all, so they keep requiring one. But EDITION and UPGRADE exist to find the RIGHT
+    // CUT, and the indexers truncate titles at ~59 chars — The Fellowship of the Ring's best
+    // copies arrive as "...EXTENDED.1080p.BluRay." with the x264 tag chopped off, and REMUXes name
+    // the container, not the codec. A title-token requirement therefore hid every Extended 1080p
+    // candidate and produced a bogus "no better edition exists" verdict for a film with 51/137
+    // extended/final-cut releases on the indexers right now. *arr's PARSED quality is reliable
+    // where the title is not, so for loose sections a known <=1080p video SOURCE substitutes for
+    // the title token. Inferred codec is H.264 — the standard 1080p sources (Bluray/Remux/WEBDL/
+    // Webrip/HDTV/BRRip) are overwhelmingly AVC — but depth stays whatever the title says (usually
+    // unknown), so a hidden HEVC is never misrepresented as proven; it merely stops being hidden
+    // behind a "none better" verdict. Resolution is re-checked from the parsed quality too: a title
+    // truncated before its 2160p marker would otherwise sail past overResCeiling above.
+    if (!isHevc && !isH264) {
+      if (!loose) continue;
+      const qName = String(((r.quality || {}).quality || {}).name || '');
+      const qRes = ((r.quality || {}).quality || {}).resolution || null;
+      if (qRes == null || qRes > 1080) continue;
+      if (!/(bluray|remux|web-?dl|webrip|hd-?tv|br-?rip|hdr.?rip)/i.test(qName)) continue;
+      isH264 = true;
+    }
     // NEVER suggest a playback regression. House S01 is x264 8-bit — it direct-plays on every
     // device here — so an HEVC "saving" would cost the PS4 a transcode, and an unproven-depth
     // HEVC risks landing another CPU-decode file. A candidate must be no worse than what we
@@ -984,6 +1053,22 @@ async function warmTick() {
 // If the replacement never completes, the swap is abandoned after 48h and the ORIGINAL STAYS.
 // A title must never be left with nothing.
 const REPLACE_TIMEOUT_MS = 48 * 3600 * 1000;
+// A swap whose replacement torrent has NO live seeder is not going to finish by itself. The
+// indexer's search-time seeder count is a snapshot the real swarm frequently does not honour —
+// every swap stuck here shows qBittorrent num_seeds:0 from the moment it was added, with
+// num_complete:0 on most (a ghost/stale scrape, not a live peer list). Waiting the full 48h makes
+// the row claim "swapping" for two days while standing still. So abandon EARLY and KEEP THE
+// ORIGINAL — it is untouched until a completed import, so an early abandon costs nothing but the
+// download attempt. Zero-progress is the fast path (metadata never resolved / swarm never had a
+// seeder — mirrored from stallRecovery's own metaDL-is-dead stance); a PARTIAL download proves a
+// seeder was there and may return, so that one gets a long stall clock measured from its last
+// observed byte. This is the swap's OWN sweep ending it — stallRecovery still leaves swaps alone.
+const SWAP_DEAD_MS = 90 * 60 * 1000;      // 0% with zero connected seeds this long → dead swarm
+const SWAP_STALLED_MS = 12 * 3600 * 1000; // partial download, no movement + no seeds this long → abandoned
+// How long a dead-swarm release stays remembered (auditSwapped, reason:'dead') so it is not
+// re-offered. Mirrors the arrSweep negative-cache window for dead releases; after this the release
+// gets its chance back — swarms do revive.
+const DEAD_REFUSE_TTL_MS = 7 * 24 * 3600 * 1000;
 // A swap whose PREFLIGHT keeps refusing has a folder that will not become importable — an extras-
 // only release, a folder of similarly-sized videos we refuse to guess between. Retrying for the
 // full 48h just makes the row lie about being in progress. Nothing was deleted in that state, so
@@ -1098,6 +1183,22 @@ async function queueHashFor(p) {
   return null;
 }
 
+// One exit for a swap whose replacement torrent will never deliver: delete the pending row (the
+// ORIGINAL is untouched — old files only go after a completed import), remember the release as
+// reason:'dead' so it is not offered again for DEAD_REFUSE_TTL_MS, and drop the dead torrent so it
+// stops sitting in the *arr queue as an import-rejected item. Used by the dead_swarm (0%) and
+// stalled_swarm (partial) branches of replaceSweepInner.
+async function abandonDeadSwap(k, p, reason, ageMin) {
+  auditPending.delete(k); persistState();
+  auditSwapped.set(k, { hash: String(p.hash || '').toLowerCase(), rel: p.rel || null, reason: 'dead', ts: Date.now() });
+  _rowCache = { ts: 0, rows: null };
+  try {
+    await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: String(p.hash || '').toLowerCase(), deleteFiles: 'true' }) });
+  } catch { /* qbit hiccup — *arr's queue pass clears the record later */ }
+  console.log(`audit: replacement for "${p.title}" has had no seeds for ${ageMin} min (${reason}) — swap abandoned, original kept; release remembered so it is not offered again for a week`);
+  metrics.emitEvent('audit_replace_abandon', { ti: p.title, reason, ageMin });
+}
+
 async function replaceSweep() {
   if (isMasterPaused() || !auditPending.size || _sweepBusy) return;
   _sweepBusy = true;
@@ -1148,7 +1249,37 @@ async function replaceSweepInner() {
         ageMin: Math.round((now - p.ts) / 60000) });
       continue;
     }
-    if (!t || (t.progress || 0) < 1) continue;
+    if (!t || (t.progress || 0) < 1) {
+      // DEAD-SWARM / STALLED-SWARM EARLY ABANDON. The indexer's search-time seeder count is a
+      // snapshot the real swarm frequently does not honour — every swap stuck here has qBittorrent
+      // num_seeds:0 from the moment it was added (ghost/stale tracker scrapes, not live peers). A
+      // swap at 0% with no live seeders after the announce grace will not finish by itself, and
+      // waiting the full 48h makes the row claim "swapping" while standing still. Abandon early
+      // and KEEP THE ORIGINAL (untouched until a completed import), remembering the release so it
+      // is not offered straight back (reason:'dead' expires after DEAD_REFUSE_TTL_MS). A PARTIAL
+      // download proves a seeder was there, so it gets the longer SWAP_STALLED_MS clock measured
+      // from its last observed byte. This is the swap's OWN sweep ending it; stallRecovery still
+      // leaves swaps alone, so nothing else can delete the human's chosen release.
+      if (t) {
+        const stuckZero = (t.progress || 0) === 0;
+        // Only trust num_seeds when qBit actually reported it — an undefined count means we cannot
+        // confirm the swarm is dead, so fail safe and let the 48h backstop handle it.
+        const noSeeds = typeof t.num_seeds === 'number' && t.num_seeds === 0;
+        if (noSeeds && stuckZero && now - p.ts > SWAP_DEAD_MS) {
+          await abandonDeadSwap(k, p, 'dead_swarm', Math.round((now - p.ts) / 60000));
+          continue;
+        }
+        if (noSeeds && !stuckZero && (p.lastProgTs || 0) > p.ts && now - p.lastProgTs > SWAP_STALLED_MS) {
+          await abandonDeadSwap(k, p, 'stalled_swarm', Math.round((now - p.lastProgTs) / 60000));
+          continue;
+        }
+        // Track the last byte seen so a slow-but-alive swap is never judged against the grab time.
+        if (!stuckZero && (t.progress || 0) > (p.progress || 0)) {
+          p.progress = t.progress; p.lastProgTs = now; persistState();
+        }
+      }
+      continue;
+    }
     // PLAYSTATE GUARD. The replacement is complete and the old files are about to go, which is
     // the only moment in a swap where someone can lose a stream mid-scene. Row titles read
     // "Series — S01", so compare on the bare title to catch any episode of that season.
@@ -1784,6 +1915,10 @@ app.post('/api/audit/replace', async (req, res) => {
     if (!row) return res.status(404).json({ error: 'row not found' });
     const pk = `${row.app}:${row.id}:${row.season ?? '-'}`;
     if (auditPending.has(pk)) return res.status(409).json({ error: 'a replacement is already in flight for this title' });
+    // Mutual exclusion with gpuVerifySweep: never run an Audit replacement against a movie a GPU
+    // auto-upgrade is already swapping — both delete the same file class via *arr, and an overlap can
+    // take a freshly-imported copy from the other. (gpuVerifySweep guards the reverse direction.)
+    if (row.app === 'radarr' && gpuPending.has(row.id)) return res.status(409).json({ error: 'a GPU auto-upgrade is already in flight for this movie' });
 
     // A DRY RUN READS THE CACHE. It used to run a full verifyRow() — a live Prowlarr search
     // across every indexer — so merely clicking a suggestion cost 40-60s, and confirming cost

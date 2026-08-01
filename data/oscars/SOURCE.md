@@ -1,13 +1,15 @@
 # Oscar Winners Dataset
 
-There are **two independent datasets** here, built by two scripts, feeding two features:
+There are **three independent datasets** here, built by two scripts, feeding two features:
 
 | Script | Output | Keyed by | Feeds |
 |---|---|---|---|
-| `build.sh` | `controller/oscar-winners.json` | TMDb id | `collectionsSweep()` — the Oscar category **collections** (Best Picture, etc.) |
+| `build.sh` | `controller/oscar-winners.json` | TMDb id | `collectionsSweep()` — the award **collections** (Oscar Best Picture, etc., plus Cannes + Sundance winners) |
 | `build-awards.sh` | `controller/film-awards.json` | IMDb id | `oscarTagsSweep()` — per-film win/nom **poster badges** (web + Fire Stick) |
+| `build-awards.sh` | `controller/person-awards.json` | normalized name | per-person Oscar counts (person badges) |
 
-They do not overlap and neither script touches the other's output.
+`build.sh` additionally merges the curated Cannes/Sundance lists from `festivals.json`
+(see below). The two scripts do not overlap and neither touches the other's output.
 
 ## Source
 
@@ -50,7 +52,36 @@ controller image.
 `controller/oscar-winners.json` is built by `data/oscars/build.sh`. It's a
 lookup keyed by collection name → array of `{tmdb_id, title, year}`, sorted
 newest-first. Merges split categories (e.g., B&W + Color Cinematography →
-single "Oscar: Best Cinematography" collection).
+single "Oscar: Best Cinematography" collection). Cannes/Sundance categories
+are appended as-is from `festivals.json`, suffixed `(Winners)`.
+
+## Cannes & Sundance winner lists (`festivals.json`)
+
+`data/oscars/festivals.json` holds curated winner lists for **Cannes** (big four:
+Palme d'Or, Grand Prix, Jury Prize, Best Director — from 1946 onward) and
+**Sundance** (all six competitive features: Grand Jury Prize + Audience Award +
+Directing Award, each Dramatic + Documentary — from 1984/1988/1998 onward).
+Every entry is `{year, title, tmdb_id}`.
+
+**Sources** (English Wikipedia wikitext, parsed + hand-verified):
+`Palme d'Or`, `Grand Prix (Cannes Film Festival)`, `Jury Prize (Cannes Film Festival)`,
+`Cannes Film Festival Award for Best Director`, `List of Sundance Film Festival
+award winners`. Includes 2025 + 2026 winners. The 2018 honorary "Special Palme
+d'Or" (The Image Book) is deliberately **excluded** — it's not a regular win.
+
+**`resolve-festivals.sh`** fills in `tmdb_id` from the TMDb search API (reads
+`TMDB_API_KEY` from the repo `.env`; idempotent — already-resolved entries are
+skipped, ~0.3s/call). ALIASES map film titles whose festival/English name differs
+from TMDb's. After fixing titles (add an alias or edit the JSON directly and
+re-run), rebuild with:
+
+```bash
+bash data/oscars/build.sh
+```
+
+Note the build's category names in `collections.js` `OSCAR_DESC` and the
+`hss-shelf.js` award regexes (`/^(Oscar|Cannes|Sundance):/i`) must stay in sync
+with these collection names.
 
 ## Updating after an Oscars ceremony
 
@@ -96,3 +127,18 @@ Both split cinematography categories are merged because `collectionsSweep` only
 needs to know "did the movie win *any* cinematography Oscar" (it's a single
 collection). The `count` field is not stored in the output — duplicates are
 collapsed at build time.
+
+### Festival categories (from `festivals.json`)
+
+| Collection | Source list |
+|---|---|
+| Cannes: Palme d'Or (Winners) | Palme d'Or |
+| Cannes: Grand Prix (Winners) | Grand Prix |
+| Cannes: Jury Prize (Winners) | Jury Prize |
+| Cannes: Best Director (Winners) | Best Director |
+| Sundance: Grand Jury Prize (Dramatic/Documentary) (Winners) | Sundance Grand Jury Prize |
+| Sundance: Audience Award (Dramatic/Documentary) (Winners) | Sundance Audience Award |
+| Sundance: Directing Award (Dramatic/Documentary) (Winners) | Sundance Directing Award |
+
+Winners-only (no nominee lists) — these are competitive winner awards, and unlike
+the Academy there's no published all-nominee dataset to merge anyway.

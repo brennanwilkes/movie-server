@@ -186,11 +186,18 @@ async function arrOwns(app, name, hasFileMap, nameIds) {
   const yr = (name || '').match(/\b(19\d\d|20\d\d)\b/)?.[1];
   // Radarr: an in-memory title match is enough (movie hasFile is authoritative & 1:1) — no parse.
   if (app === 'radarr' && nameIds) {
+    // Longest match wins, exactly like arrIdByName. nameIds holds both bare titles and title+year
+    // variants for the SAME id, and the map iterates in library (arbitrary) order — so a short
+    // prefix like "The Matrix" must not shadow "The Matrix Resurrections 2021" just because it sorts
+    // first (that shadow made a release read as "owned" by the wrong movie and re-grabbed the real one).
+    let bestId = null, bestLen = 0;
     for (const [nt, id] of nameIds) {
+      if (!nt || nt.length <= bestLen) continue;
       if (tn === nt || (tn.startsWith(nt + ' ') && (!yr || tn.includes(yr)))) {
-        return hasFileMap && hasFileMap.get(id) === true ? { id } : null;
+        bestLen = nt.length; bestId = id;
       }
     }
+    if (bestId != null) return hasFileMap && hasFileMap.get(bestId) === true ? { id: bestId } : null;
   }
   // Parse fallback (always, for Sonarr — we need the exact episode ids; and for unmatched Radarr).
   const ent = await arrParseEntity(app, name);

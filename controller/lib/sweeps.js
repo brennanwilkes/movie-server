@@ -57,7 +57,7 @@ async function diskGate() {
         if (a === 'radarr') for (const mv of await arrGet('radarr', '/movie')) m.set(mv.id, !!mv.hasFile);
         else for (const s of await arrGet('sonarr', '/series')) m.set(s.id, ((s.statistics && s.statistics.episodeFileCount) || 0) > 0);
         idHasFile[a] = m;
-      } catch { idHasFile[a] = new Map(); }
+      } catch { idHasFile[a] = null; }   // hasFile unverifiable this cycle → fail closed below
     }
 
     // Pre-compute remaining bytes per *arr item so fragmented seasons are still
@@ -85,6 +85,11 @@ async function diskGate() {
       if (!app) continue;                                 // only *arr-managed titles
       // Never decline a torrent whose *arr item already has files (already imported).
       const hi = idByHash.get(hash);
+      // Fail CLOSED: if this app's hasFile fetch failed this cycle (idHasFile[a] === null) we cannot
+      // prove the item isn't already imported — declining it could destroy library media. Skip the
+      // teardown and let a later cycle re-verify. (The 2026-07-31 seerrSweep incident was the same
+      // fail-open-on-empty pattern.)
+      if (hi && idHasFile[hi.app] == null) continue;
       if (hi && idHasFile[hi.app]?.get(hi.id) === true) continue;
       const size = t.size || 0;
       if (size <= 0 || (t.state || '') === 'metaDL') continue; // real size not known yet
@@ -115,6 +120,7 @@ async function diskGate() {
     // episode is blocked should block the whole season). Uses `idByHash` from above.
     for (const [dh, dd] of declined) {
       if (now - dd.ts > 120 || dd.arrId == null) continue;
+      if (idHasFile[dd.source] == null) continue;   // can't verify the item isn't imported — leave siblings alone
       for (const t of torrents) {
         const th = (t.hash || '').toLowerCase();
         if (th === dh || declined.has(th) || !torrentApp(t) || torrentApp(t) !== dd.source) continue;
@@ -295,13 +301,22 @@ async function seerrSweep() {
   if (isMasterPaused() || seerrSweepBusy || !cfg.SEERR_KEY) return;     // Movie Mode — no request processing
   seerrSweepBusy = true;
   try {
-    const [mr, sonarrItems, radarrItems] = await Promise.all([
+    const [mr, sonarrRes, radarrRes] = await Promise.allSettled([
       seerr.fetch('/api/v1/media?take=5000', { ms: 10000 }),
-      arrGet('sonarr', '/series', 8000).catch(() => []),
-      arrGet('radarr', '/movie', 8000).catch(() => []),
+      arrGet('sonarr', '/series', 15000),
+      arrGet('radarr', '/movie', 15000),
     ]);
-    if (!mr.ok) return;
-    const data = await mr.json();
+    // FAIL-CLOSED: if the Jellyseerr media list, Sonarr, or Radarr fetch fails/times out we
+    // MUST NOT fall through with a partial/empty "known" set — that would treat every
+    // AVAILABLE title as an orphan and mass-delete it. Skip the whole sweep instead.
+    if (mr.status !== 'fulfilled') { console.warn(`seerrSweep: SKIPPED — jellyseerr fetch failed (${mr.reason && (mr.reason.message || mr.reason)}), nothing deleted`); return; }
+    const mrResp = mr.value;
+    if (!mrResp.ok) { console.warn(`seerrSweep: SKIPPED — jellyseerr list HTTP ${mrResp.status}, nothing deleted`); return; }
+    if (sonarrRes.status !== 'fulfilled') { console.warn(`seerrSweep: SKIPPED — sonarr fetch failed (${sonarrRes.reason && (sonarrRes.reason.message || sonarrRes.reason)}), nothing deleted`); return; }
+    if (radarrRes.status !== 'fulfilled') { console.warn(`seerrSweep: SKIPPED — radarr fetch failed (${radarrRes.reason && (radarrRes.reason.message || radarrRes.reason)}), nothing deleted`); return; }
+    const sonarrItems = sonarrRes.value;
+    const radarrItems = radarrRes.value;
+    const data = await mrResp.json();
     const allSeerr = data.results || [];
     if (!allSeerr.length) return;
 
@@ -309,13 +324,24 @@ async function seerrSweep() {
     for (const s of (Array.isArray(sonarrItems) ? sonarrItems : [])) { const t = s.tmdbId; if (t) known.add(String(t)); }
     for (const r of (Array.isArray(radarrItems) ? radarrItems : [])) { const t = r.tmdbId; if (t) known.add(String(t)); }
 
+    // Second line of defense: if the *arr data came back empty-ish we can't trust it.
+    if (known.size === 0) { console.warn('seerrSweep: SKIPPED — zero known tmdbIds from *arr, refusing to delete anything'); return; }
+
     const orphans = allSeerr.filter((m) => {
       const tid = m.tmdbId;
       const status = m.status || 0;
       return tid && !known.has(String(tid)) && status >= 4;
     });
 
+    // Mass-delete guard: more than half of all tracked media is suddenly an "orphan"?
+    // Almost certainly a bad fetch/data problem, not reality. Delete nothing.
+    if (orphans.length > allSeerr.length / 2) {
+      console.warn(`seerrSweep: ABORT — ${orphans.length}/${allSeerr.length} rows look like orphans (>50%), skipping to avoid a mass-delete`);
+      return;
+    }
+
     if (!orphans.length) return;
+    console.log(`seerrSweep: deleting ${orphans.length} orphan(s) of ${allSeerr.length} tracked`);
     for (const o of orphans) {
       try {
         const r = await seerr.fetch(`/api/v1/media/${o.id}`, { method: 'DELETE', ms: 5000 });

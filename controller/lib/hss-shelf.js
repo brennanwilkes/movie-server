@@ -19,19 +19,32 @@ const { jellyfinUserId } = require('./jellyfin');
 // collections sweep). NOTE: the plugin POSTs its payload to resultsEndpoint — a GET-only
 // route returns Express HTML that breaks its JSON parser, hence app.all.
 const SHELF_IDS = ['ShelfA', 'ShelfB', 'ShelfC', 'ShelfD', 'ShelfE', 'ShelfF', 'ShelfG', 'ShelfH', 'ShelfI', 'ShelfJ', 'ShelfK', 'ShelfL', 'ShelfM', 'ShelfN', 'ShelfO', 'ShelfP', 'ShelfQ', 'ShelfR', 'ShelfS', 'ShelfT'];   // 20 rotating shelf rows (grow: add ids here + rows in jellyfin.sh)
+const SHELF_WEIGHTS = { oscar: 5, craft: 2, nature: 10 };
+function shelfCategory(s) {
+  if (/^(Oscar|Cannes|Sundance):/i.test(s.Name || '')) return 'oscar';
+  if ((s.Name || '') === 'Nature & Cosmos') return 'nature';
+  const ov = (s.Overview || '').trim();
+  if (/^(Directed by|Shot by|Edited by|Music by)/.test(ov) || (s.Name || '') === 'Coen Brothers') return 'craft';
+  return 'other';
+}
 async function shelfCatalog() {
   const uid = await jellyfinUserId();
   const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
-  const bq = new URLSearchParams({ IncludeItemTypes: 'BoxSet', Recursive: 'true', Limit: '100' });
+  const bq = new URLSearchParams({ IncludeItemTypes: 'BoxSet', Recursive: 'true', Limit: '250', Fields: 'Overview' });
   const sets = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${bq}`, { headers: h }, 25000)).Items) || [];
   return sets.filter((s) => !/Collection$/.test(s.Name));   // ours, not TMDb franchise sets
 }
-function shelfPicks(autos) {   // fresh set every registration (10 min), spread across the catalog
+function shelfPicks(autos, n = SHELF_IDS.length) {   // weighted random sampling without replacement
   if (!autos.length) return [];
-  const n = autos.length, base = Math.floor(Date.now() / 600000);
-  const step = Math.max(1, Math.floor(n / SHELF_IDS.length));
-  let picks = SHELF_IDS.map((_, i) => autos[((base * 7) + (i * step)) % n]);
-  picks = [...new Map(picks.map((p) => [p.Id, p])).values()];
+  const pool = autos.map((s) => ({ s, w: SHELF_WEIGHTS[shelfCategory(s)] || 1 }));
+  const picks = [];
+  while (picks.length < n && pool.length) {
+    const total = pool.reduce((a, x) => a + x.w, 0);
+    let r = Math.random() * total;
+    let idx = pool.length - 1;
+    for (let i = 0; i < pool.length; i++) { r -= pool[i].w; if (r <= 0) { idx = i; break; } }
+    picks.push(pool.splice(idx, 1)[0].s);
+  }
   for (let i = picks.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [picks[i], picks[j]] = [picks[j], picks[i]]; }
   return picks;
 }
@@ -55,16 +68,30 @@ app.all('/api/hss/shelf', async (req, res) => {
     }
     const cq = new URLSearchParams({ ParentId: setId, Limit: '24' });
     const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 20000)).json()).Items) || [];
-    // Look up collection name to decide sort: Oscar = newest-first, everything else = random
+    // Look up collection name to decide sort: award collections = newest-first, everything else = random
     try {
       const meta = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${setId}`, { headers: h }, 5000)).json();
-      if (meta.Name && /^Oscar:/i.test(meta.Name)) {
+      if (meta.Name && /^(Oscar|Cannes|Sundance):/i.test(meta.Name)) {
         items.sort((a, b) => (b.ProductionYear || 0) - (a.ProductionYear || 0));
       } else {
         shuffle(items);
       }
     } catch (_) { shuffle(items); }
     res.json({ Items: items, TotalRecordCount: items.length });
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+app.all('/api/hss/rows', async (req, res) => {
+  try {
+    const uid = await jellyfinUserId();
+    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
+    const bq = new URLSearchParams({ IncludeItemTypes: 'BoxSet', Recursive: 'true', Limit: '250', Fields: 'Overview,ChildCount' });
+    const sets = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${bq}`, { headers: h }, 25000)).Items) || [];
+    const list = sets.filter((s) => !(/Collection$/.test(s.Name) && (s.ChildCount || 0) < 5));
+    let n = parseInt((req.query && req.query.n) || 20, 10);
+    if (!Number.isFinite(n)) n = 20;
+    n = Math.max(1, Math.min(50, n));
+    const picks = shelfPicks(list, n);
+    res.json({ items: picks.map((s) => ({ id: s.Id, name: s.Name, childCount: s.ChildCount || 0, category: shelfCategory(s) })) });
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 async function registerHssShelf() {

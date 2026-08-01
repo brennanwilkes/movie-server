@@ -280,6 +280,16 @@ const EDITION_BEST = new Map([
   ['das boot', 2],
   ['dances with wolves', 2],
 ]);
+// THE ORIGINAL CUT IS THE DEFINITIVE ONE — the mirror image of EDITION_FLOOR. Those films must
+// never be theatrical; these films are BEST as the original cut, and the "special" edition is
+// judged WORSE (The Blues Brothers' extended cut is widely considered inferior to the theatrical,
+// and the runtime-padding is the point of the cut). For these titles the downgrade-refusal is
+// INVERTED: a theatrical candidate is the TARGET, not a downgrade, so it must be offered in the
+// picker instead of filtered out as "below your Extended copy". Add a film here only when the
+// shorter/original cut is genuinely the one to own — the default assumption stays "longer cut wins".
+const EDITION_ORIGINAL_BEST = new Set([
+  'the blues brothers',
+]);
 const normEdTitle = (s) => String(s || '').toLowerCase()
   .replace(/\((?:19|20)\d{2}\)/g, ' ').replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
 const editionFloorFor = (title) => EDITION_FLOOR.get(normEdTitle(title)) ?? null;
@@ -327,6 +337,10 @@ function editionRefusal(candidateTitle, mine, title) {
   if (floor != null && cand.tier < floor) {
     return `${cand.label || 'no edition stated'} — this film must be the ${floor >= 3 ? "Director's/Final Cut" : 'extended/long cut'}`;
   }
+  // A film whose ORIGINAL cut is the definitive one (EDITION_ORIGINAL_BEST): the downgrade rule
+  // below would block the theatrical copy we actually WANT — it treats "below your Extended copy"
+  // as a loss when for these films the theatrical IS the target. Skip the check entirely.
+  if (EDITION_ORIGINAL_BEST.has(normEdTitle(title))) return null;
   // Accept either a pre-computed {tier,label} (from ownEditionOf) or a bare label string.
   const own = (mine && typeof mine === 'object' && 'tier' in mine) ? mine : editionOf(mine);
   // Only refuse a DOWNGRADE. Equal tiers are fine (a better encode of the same cut is the normal
@@ -453,7 +467,7 @@ module.exports = {
   CAM_RE, EXTRAS_RE, DUB_RE, LANG_TAG, HAS_ENG, CYRILLIC_RE,
   isForeignOnly, foreignLangOf, isRefused, refusedReason,
   MULTI_SEASON_RE, isMultiSeason, scopeOf, SCOPE_LABEL, supersedes,
-  RESTORED_RE, EDITION_TIER, EDITION_UNSTATED, EDITION_FLOOR, EDITION_BEST, MAX_USABLE_RES, overResCeiling,
+  RESTORED_RE, EDITION_TIER, EDITION_UNSTATED, EDITION_FLOOR, EDITION_BEST, EDITION_ORIGINAL_BEST, MAX_USABLE_RES, overResCeiling,
   editionOf, ownEditionOf, editionFloorFor, editionBestFor, editionUpgradeFor, editionRefusal, normEdTitle,
   resOf, codecOf, TENBIT_RE,
 };

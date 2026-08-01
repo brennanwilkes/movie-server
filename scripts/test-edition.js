@@ -98,6 +98,22 @@ refuse('Ronin 1998 REMASTERED BluRay 1080p x264', '', 'Ronin', false, 'no editio
 refuse('Burn After Reading 2008 1080p BluRay x264-OFT', null, 'Burn After Reading', false, 'null own edition — allowed');
 refuse('Some Movie 2020 2160p', undefined, 'Some Movie', false, 'undefined own edition — allowed');
 
+// ---- EDITION_ORIGINAL_BEST: films whose ORIGINAL cut is the definitive one ----------------------
+// The Blues Brothers: the extended cut is widely judged WORSE than the theatrical, so the downgrade
+// rule must NOT block a theatrical candidate even though we own the Extended copy. The theatrical IS
+// the target here — it must be admitted so the picker can offer it.
+refuse('The Blues Brothers 1980 Theatrical 1080p BluRay x264', 'EXTENDED', 'The Blues Brothers', false,
+  'Blues Brothers: theatrical admitted despite owning Extended (original cut is the definitive one)');
+refuse('The Blues Brothers 1980 1080p BluRay x264-GROUP', 'EXTENDED', 'The Blues Brothers', false,
+  'Blues Brothers: untagged copy admitted too — it is (almost certainly) the theatrical we want');
+refuse('The Blues Brothers 1980 Extended 2160p BluRay x265', 'EXTENDED', 'The Blues Brothers', false,
+  'Blues Brothers: same-tier Extended-for-Extended still allowed');
+refuse('The Blues Brothers (1980) Theatrical Cut 1080p', 'Extended', 'The Blues Brothers', false,
+  'Blues Brothers: explicit theatrical allowed, punctuation and year normalised');
+// The exemption is per-title: another film owning an Extended copy still refuses theatrical below it.
+refuse('Gladiator 2000 Theatrical 1080p BluRay', 'EXTENDED', 'Gladiator', true,
+  'Gladiator still refuses theatrical below its Extended copy — Blues Brothers override must not leak');
+
 // ---- known-harmless false positive, documented on purpose ------------------------------------
 // "Uncut Gems" contains the word UNCUT, so the film itself parses as tier 2. Harmless: the word is in
 // the TITLE, so it appears on both sides of every comparison for that film and they tie.

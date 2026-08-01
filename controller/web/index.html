@@ -130,7 +130,7 @@
       <!-- Infinite-scroll sentinel: an IntersectionObserver on this element asks for the next page
            when it comes into view. Kept OUTSIDE #audit-list so re-rendering the list never destroys
            the node the observer is watching. -->
-      <div id="audit-more" hidden><span class="spinner sm"></span>Loading more…</div>
+      <div id="audit-more" hidden><span class="spinner sm"></span><span id="audit-more-label">Loading more…</span></div>
       <div id="audit-loading" class="loading" hidden><span class="spinner"></span>Loading audit…</div>
       <p id="audit-empty" class="empty" hidden>Nothing here.</p>
     </section>

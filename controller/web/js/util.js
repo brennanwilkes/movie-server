@@ -10,6 +10,30 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+// Shared bitrate-quality band → CSS class, used by BOTH the Library tab's bitrate badge and every
+// Mbps figure the Audit tab renders, so a given bitrate never reads as two different qualities in
+// one app. Bands mirror the audio badge: ≥15 Mbps purple, 8-15 green, 4-8 orange, <4 red.
+function bitrateCls(mbps) {
+  if (mbps == null || mbps < 0) return '';
+  return mbps >= 15 ? 'wow' : mbps >= 8 ? 'ok' : mbps >= 4 ? 'warn' : 'bad';
+}
+// Colour-coded Mbps figure for the Audit tab, using the SAME bands as the Library bitrate badge.
+const bitrateSpan = (mbps) => {
+  const cls = bitrateCls(mbps);
+  return cls ? `<span class="mbps ${cls}">${mbps} Mbps</span>` : '';
+};
+// Shared audio-quality band → CSS class, used by BOTH the Library tab's format badge and the
+// Audit tab's audio pill so a given codec never reads as two different qualities in one app.
+// Handles both raw mediaInfo codecs ("TrueHD Atmos", "EAC3", "AC3") and *arr release-title
+// labels ("DDP 5.1", "DD+", "DD 5.1", "DTS-HD"). Bands mirror the bitrate badge: lossless/
+// object-based purple, multichannel lossy green, stereo lossy orange, unknown/poor red.
+function audioCls(s) {
+  const c = String(s || '').toUpperCase();
+  if (/TRUEHD|ATMOS|DTS.?HD|PCM|FLAC/.test(c)) return 'wow';
+  if (/EAC3|DDP|\bDD[+ ]|\bAC3\b|\bDTS\b/.test(c)) return 'ok';
+  if (/AAC|OPUS|VORBIS/.test(c)) return 'warn';
+  return 'bad';
+}
 // Rewrite a URL's host to the one the dashboard was opened with (keeps scheme/port/path), so the
 // server-built service links (which use the LAN IP) resolve over whatever path the user is on.
 const sameHost = (u) => String(u || '').replace(/^(https?:\/\/)[^/:]+/i, `$1${location.hostname}`);

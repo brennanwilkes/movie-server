@@ -201,8 +201,7 @@ function srcPill(source, drop) {
 // keep the badge at every width without ever clipping it.
 function audioPill(c, where) {
   if (!c.audio) return '';
-  const cls = (c.audioRank != null && c.audioRank <= 1) ? 'warn' : '';
-  return pill(c.audio, `${cls} ${where}`);
+  return pill(c.audio, `${audioCls(c.audio)} ${where}`);
 }
 function fmtPills(c) {
   let s = '';
@@ -267,7 +266,7 @@ function auditRowHtml(r) {
   // it, Playback rows had no `mbps` and fell back to the codec label. Now that Playback carries a
   // bitrate too, a bare swap to Mbps would have cost that tab the codec — the one thing it exists
   // to fix. Codec first (it is why the row is listed), bitrate second.
-  const rate = [esc(r.label || ''), r.mbps && b.mbps ? `${r.mbps}<i>→</i>${b.mbps} Mbps` : '']
+  const rate = [esc(r.label || ''), r.mbps && b.mbps ? `${bitrateSpan(r.mbps)}<i>→</i>${bitrateSpan(b.mbps)}` : '']
     .filter(Boolean).join('<i>·</i>');
   // A swap already in flight: the row is NOT actionable, so it does not pretend to be. No
   // data-key, no role=button — tapping it does nothing rather than opening a sheet whose Replace
@@ -433,6 +432,11 @@ function renderAudit() {
       : (auditSection === 'edition' ? auditEditionRowHtml : auditRowHtml)).join('');
   const list = $('#audit-list');
   if (list) list.innerHTML = html;
+  // The scroll sentinel is deliberately OUTSIDE #audit-list so re-rendering never destroys the
+  // node the observer holds — which also means nothing above hides it. It belongs to Upgrade
+  // alone, so without this it survives a section switch and parks a stray loading box at the foot
+  // of Disk / Playback / Edition / Stale for the rest of the session.
+  setHidden('#audit-more', auditSection !== 'upgrade' || upgDone || !upgRows.length);
   setHidden('#audit-empty', !!html);
   if (!html) {
     setText('#audit-empty', auditSection === 'upgrade'
@@ -530,7 +534,7 @@ function renderAudSheet() {
         <span class="aud-age">checked ${auditAge(v.ts)} ago</span>
       </div>
       <div class="aud-line">
-        <span class="aud-delta">${fmtBytes(r.bytes)}${r.mbps ? `<i>·</i>${r.mbps} Mbps` : ''}</span>
+        <span class="aud-delta">${fmtBytes(r.bytes)}${r.mbps ? `<i>·</i>${bitrateSpan(r.mbps)}` : ''}</span>
         <span class="aud-rate">${esc(r.label || '')}</span>
         <span class="aud-inline">${srcPill(r.source, 0)}</span>
       </div>
@@ -549,7 +553,7 @@ function renderAudSheet() {
         ${savePill(r.bytes, c.bytes, 'sm')}
       </div>
       <div class="aud-line">
-        <span class="aud-delta">${fmtBytes(c.bytes)}${c.mbps ? `<i>·</i>${c.mbps} Mbps` : ''}</span>
+        <span class="aud-delta">${fmtBytes(c.bytes)}${c.mbps ? `<i>·</i>${bitrateSpan(c.mbps)}` : ''}</span>
         <span class="aud-rate">${esc(c.codec === 'H.264' ? c.codec : `${c.codec} ${c.depth}`)}</span>
         <span class="aud-inline">${srcPill(c.source, c.srcDrop || 0)}${bandPill(c)}${audioPill(c, 'wide-only')}</span>
       </div>
@@ -920,13 +924,31 @@ let upgLoading = false;
 let upgDone = false;
 let upgSeq = 0;          // request sequence — a slow page-1 must never append after a newer search
 
+// The sentinel doubles as the "Loading more…" indicator AND the element the IntersectionObserver
+// watches, and those two jobs want opposite things: the observer needs a live box at all times,
+// the indicator must only appear during a fetch. So the BOX stays and its CONTENTS toggle — both
+// of them. Hiding only the label leaves the spinner animating forever at the foot of an idle list.
+const setMoreBusy = (busy) => {
+  setHidden('#audit-more .spinner', !busy);
+  setHidden('#audit-more-label', !busy);
+};
+
 async function loadUpgrade(reset) {
-  if (upgLoading) return;
+  // A RESET (a new search) must NOT be dropped just because a page is in flight. It used to be,
+  // and that was survivable only while infinite scroll was broken and loads were rare; now that
+  // the observer fetches continuously, a keystroke landing mid-page silently left upgQuery
+  // pointing at the new search while upgRows still held the old one — the next scroll page then
+  // appended `q=star` rows at the old query's offset onto unfiltered rows. Bumping upgSeq below
+  // orphans the in-flight page (its own `mySeq !== upgSeq` check discards it), which is exactly
+  // what that guard was written for and, until now, could never actually happen.
+  if (upgLoading && !reset) return;
   if (reset) { upgRows = []; upgDone = false; }
   if (upgDone) return;
   const mySeq = ++upgSeq;
   upgLoading = true;
   setHidden('#audit-more', upgRows.length === 0);   // first page uses the main spinner, not this one
+  // A fetch is now in flight — show the indicator again (the previous finally hid it while idle).
+  setMoreBusy(true);
   try {
     const qs = new URLSearchParams({ offset: String(upgRows.length), limit: String(UPG_PAGE) });
     if (upgQuery) qs.set('q', upgQuery);
@@ -946,7 +968,14 @@ async function loadUpgrade(reset) {
     if (mySeq === upgSeq) { setText('#audit-empty', `Could not load — ${e.message}`); setHidden('#audit-empty', false); }
   } finally {
     if (mySeq === upgSeq) upgLoading = false;
-    setHidden('#audit-more', true);
+    // The sentinel must STAY VISIBLE while more rows remain — the IntersectionObserver fires on
+    // it to fetch the next page. Hiding it unconditionally here is what killed infinite scroll:
+    // after page 1 the sentinel was display:none, the observer never fired again, and the list
+    // stopped at UPG_PAGE rows forever. Hide it only once the list is exhausted.
+    setHidden('#audit-more', upgDone || auditSection !== 'upgrade');
+    // The "Loading more…" indicator belongs only to a fetch in flight; idle, the sentinel is just
+    // the scroll trigger the observer watches. Its CSS min-height keeps it intersecting either way.
+    setMoreBusy(upgLoading);
   }
 }
 
@@ -991,7 +1020,7 @@ function auditUpgradeRowHtml(r) {
   //   checked, nothing → a muted "nothing better found"
   //   not checked yet  → nothing extra; the row is simply a statement of what you own
   const size = b ? `${fmtBytes(r.bytes)}<i>→</i>${fmtBytes(b.bytes)}` : fmtBytes(r.bytes);
-  const facts = [size, r.mbps ? `${r.mbps} Mbps` : ''].filter(Boolean).join('<i>·</i>');
+  const facts = [size, r.mbps ? bitrateSpan(r.mbps) : ''].filter(Boolean).join('<i>·</i>');
   const none = !b && v.state ? '<span class="aud-none">nothing better found</span>' : '';
   return `<li class="row aud upg" data-key="${esc(r.key)}" role="button" tabindex="0">
     <span class="grow">

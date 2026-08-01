@@ -116,6 +116,20 @@ for base in sorted(set(list(winners.keys()) + list(nominees.keys()))):
         items = sorted(data[base].values(), key=lambda x: (-x["year"], x["title"]))
         result[f"{base} {suffix}"] = items
 
+# Merge Cannes/Sundance festival winners from festivals.json (winner collections
+# only, one per category). See data/oscars/SOURCE.md. The festival title (English
+# display name from the curated lists) is kept; year is the festival year.
+festivals_path = os.path.join(here, "festivals.json")
+if os.path.exists(festivals_path):
+    with open(festivals_path) as f:
+        festivals = json.load(f)
+    for cat, items in festivals.items():
+        col = f"{cat} (Winners)"
+        result[col] = sorted(
+            [{"tmdb_id": it["tmdb_id"], "title": it["title"], "year": it["year"]} for it in items],
+            key=lambda x: (-x["year"], x["title"]),
+        )
+
 with open(out_path, "w") as f:
     json.dump(result, f, indent=2)
 

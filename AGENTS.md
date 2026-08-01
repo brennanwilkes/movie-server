@@ -60,10 +60,12 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `scripts/provision/jellyseerr.sh` | Jellyseerr settings, services, users (suggestarr + the second household account) |
 | `scripts/provision/controller.sh` | Writes all API keys into controller container |
 | `scripts/provision/custom_tpb_definition.yml` | Custom TPB indexer definition for Prowlarr |
-| `data/oscars/build.sh` | Build script: downloads json-nominations dataset → generates `controller/oscar-winners.json` |
-| `data/oscars/SOURCE.md` | Source docs for the Oscar dataset; how to update after future ceremonies |
+| `data/oscars/build.sh` | Build script: downloads json-nominations dataset → generates `controller/oscar-winners.json`; also merges curated Cannes/Sundance winners from `festivals.json` |
+| `data/oscars/festivals.json` | Curated Cannes (Palme/Grand Prix/Jury/Best Director) + Sundance (Grand Jury/Audience/Directing × Dramatic/Documentary) winner lists, `{year,title,tmdb_id}`, 554 entries through 2026 |
+| `data/oscars/resolve-festivals.sh` | Idempotent TMDb-ID resolver for `festivals.json` (reads `TMDB_API_KEY` from `.env`; re-run after adding titles) |
+| `data/oscars/SOURCE.md` | Source docs for the datasets; how to update after future ceremonies/festivals |
 | `data/oscars/latest-winners.json` | Supplementary winners for years not yet in the upstream dataset (merged by `build.sh`) |
-| `controller/oscar-winners.json` | Oscar winner lookup keyed by collection name → `[{tmdb_id, title, year}]`, sorted newest-first |
+| `controller/oscar-winners.json` | Award winner lookup keyed by collection name → `[{tmdb_id, title, year}]`, sorted newest-first. Oscar categories + Cannes/Sundance (from `data/oscars/festivals.json`) |
 
 ## Service Architecture
 
@@ -105,7 +107,7 @@ under Movie Mode (`isMasterPaused()`).
 | `gpuVerifySweep` | 15min | `lib/gpu-verify.js` | Post-import ground truth, ZERO-GAP: a movie imported <48h ago whose mediaInfo is 10-bit/HDR/AV1/VP9 gets a strictly-better H.264 release grabbed (search-first, playstate-guarded); the OLD FILE STAYS until the replacement completes (`gpuPending` persisted), then swap+import. Once per movie ever (`gpuSwapped`); UI labels the download "Auto-upgrade". Log prefix `gpuVerify:` |
 | `auditVerifier` | 45s | `lib/audit.js` | Audit tab: one indexer search per tick, worst-first, over rows that lack a fresh verdict. Answers "does a genuinely better source exist?" — cached in `auditVerdicts` (persisted, 14-day TTL, `VERDICT_VERSION`) because a search is 5-21s and a full enrich is ~114 of them. Requires 8-bit; filters wrong-show matches via `mappedSeasonNumber`/`mappedMovieId`. READ-ONLY. Log prefix `audit:` |
 | `cpuCensusSweep` | 6h | `lib/cpu-census.js` | Counts library files that can't hardware-decode (reuses `gpuTier()`), emits the `cpu_census` event — the trend line behind the Audit tab. Report-only. Log prefix `cpuCensus:` |
-| `collectionsSweep` | 6h + boot | `lib/collections.js` | Maintains native auto-collections from library metadata: decades, top-8 + curated genres, Critically Loved, Short & Sweet, Epic Runtimes, and 8 Oscar-winner categories (Best Picture/Director/Acting/Editing/Cinematography, drawn from `data/oscars/build.sh` via `controller/oscar-winners.json`). Vibes shuffle at random; Oscar collections sort year-descending (newest first). Auto-sets each collection's poster from its best-rated member. Pure Jellyfin Collections API. Log prefix `collectionsSweep:`. **Boot:** `bootSequence()` (search it) waits for Jellyfin to answer, then runs the sweep BEFORE the first `registerHssShelf` so the home shelves have box sets to show on first load — no cold-start empty-home gap. **Manual:** `POST /api/collections/build` runs the sweep + shelf re-register on demand (409 if already running). |
+| `collectionsSweep` | 6h + boot | `lib/collections.js` | Maintains native auto-collections from library metadata: decades, top-8 + curated genres, Critically Loved, Short & Sweet, Epic Runtimes, and 26 award-winner categories (8 Oscar Best Picture/Director/Acting/Editing/Cinematography + 10 Cannes + 10 Sundance, drawn from `data/oscars/build.sh` via `controller/oscar-winners.json`). Vibes shuffle at random; award collections sort year-descending (newest first). Auto-sets each collection's poster from its best-rated member. Pure Jellyfin Collections API. Log prefix `collectionsSweep:`. **Boot:** `bootSequence()` (search it) waits for Jellyfin to answer, then runs the sweep BEFORE the first `registerHssShelf` so the home shelves have box sets to show on first load — no cold-start empty-home gap. **Manual:** `POST /api/collections/build` runs the sweep + shelf re-register on demand (409 if already running). |
 
 (Grep the sweep name in `controller/lib/` to find it. Other cleanups
 living inside the sweeps above: `arrSweep` also removes+blocklists terminal import rejections
@@ -287,6 +289,32 @@ awk '{sum+=$1; n++} END {print "avg download:", sum/n, "s"}'
 At 10s sampling: ~2 MB/day, ~700 MB/year. 35 GB free on the SSD (root) where metrics live. Files are plain text, highly compressible (`gzip` shrinks JSONL ~8:1). To archive: `gzip /opt/appdata/controller/metrics/system/2026-07-06.jsonl` — the API skips gz files (only reads `.jsonl`), but unzip on demand for historical queries.
 
 ## Common Failure Modes
+
+### "Why did seerrSweep nuke ALL my available titles in Jellyseerr?"
+
+**Symptom**: every owned movie/TV show shows as *requestable* instead of *Available* in Jellyseerr,
+and `make metrics a='events --type svc_down'` / controller logs show 800+ `seerrSweep: removed orphan`
+lines in one sweep run.
+
+**Root cause (fixed 2026-07-31)**: `seerrSweep()` in `controller/lib/sweeps.js` fetched Sonarr/Radarr
+with `.catch(() => [])` — a failed/timed-out *arr fetch silently became an empty `known` set, so every
+Jellyseerr `media` row with `status >= 4` (AVAILABLE/PARTIALLY_AVAILABLE) looked like an orphan and got
+`DELETE /api/v1/media/{id}`'d. 809 rows died in ~70s on 2026-07-31 before Movie Mode paused the sweep.
+No error was ever logged — the sweep just ran "successfully" on empty data.
+
+**The rule (do not regress)**: sweeps that DELETE based on a cross-service "known" set MUST be
+**fail-closed** — if any upstream fetch errors, skip the sweep entirely. `seerrSweep` now uses
+`Promise.allSettled`, aborts with a `SKIPPED` warn if Sonarr/Radarr/Jellyseerr fetch fails, refuses to
+run when `known.size === 0`, and aborts with `ABORT` if >50% of tracked rows look like orphans.
+Other `.catch(() => [])` read-only patterns exist (`audit.js`, `gpu-verify.js`, `routes-actions.js`,
+`top100-guard.js`, `importer.js`) — they're safe to leave but NEVER add a delete to one.
+
+**Recovery**: Jellyseerr's own scanners rebuild the rows from source of truth — do NOT hand-edit the
+sqlite DB. Trigger via API (`SEERR_KEY` from `/opt/appdata/controller/keys.env`):
+`POST /api/v1/settings/jobs/radarr-scan/run`, `POST /api/v1/settings/jobs/sonarr-scan/run`, then
+`POST /api/v1/settings/jobs/jellyfin-full-scan/run`. Radarr scan recreates ~810 AVAILABLE movie rows
+in ~13s; Jellyfin full scan takes ~4min. Verify: `SELECT count(*),status FROM media GROUP BY status`
+(expect hundreds of status=5), or `GET /api/v1/media` and check target tmdbIds show status 5.
 
 ### "Why didn't X download?"
 

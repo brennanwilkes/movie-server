@@ -73,13 +73,29 @@ function persistState() {
       for (const [k, v] of auditVerdicts) obj.auditVerdicts[k] = v;
       for (const [k, v] of auditPending) obj.auditPending[k] = v;
       for (const [k, v] of auditSwapped) obj.auditSwapped[k] = v;
-      fs.writeFileSync('/config/state.json', JSON.stringify(obj));
+      // Atomic replace (temp + rename on the same filesystem): a kill/crash mid-write can never
+      // truncate the live file — a truncated state.json is silently parsed as empty by loadState,
+      // which wipes every persisted guard (gpuSwapped, searchState, declined, blocked, auditPending…).
+      const tmp = '/config/state.json.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(obj));
+      fs.renameSync(tmp, '/config/state.json');
     } catch { /* */ }
   }, 500);
 }
 function loadState() {
+  // Separate the READ (first boot — no file yet → silent) from the PARSE (corrupt file → loud, backed
+  // up). A silently-empty parse is how the persisted guards used to be wiped without a trace.
+  let raw;
+  try { raw = fs.readFileSync('/config/state.json', 'utf8'); }
+  catch { return; }                       // first boot — nothing persisted yet
+  let obj;
+  try { obj = JSON.parse(raw); }
+  catch {
+    try { fs.renameSync('/config/state.json', `/config/state.json.corrupt-${Date.now()}`); } catch { /* */ }
+    console.log('WARN state: /config/state.json is corrupt — backed it up and starting with empty state');
+    return;
+  }
   try {
-    const obj = JSON.parse(fs.readFileSync('/config/state.json', 'utf8'));
     if (obj.declined) for (const [k, v] of Object.entries(obj.declined)) declined.set(k, v);
     if (obj.blocked) for (const [k, v] of Object.entries(obj.blocked)) blocked.set(k, v);
     if (obj.searchState) for (const [k, v] of Object.entries(obj.searchState)) searchState.set(k, v);

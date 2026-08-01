@@ -112,6 +112,16 @@ async function collectionsSweep() {
       'Oscar: Best Film Editing (Nominees)': 'Every nominated film for editing — the cuts that nearly took the prize.',
       'Oscar: Best Cinematography (Winners)': 'Academy Award for Best Cinematography — the year\'s most stunning visuals.',
       'Oscar: Best Cinematography (Nominees)': 'Every nominated film for cinematography — the year\'s most beautiful-looking films.',
+      'Cannes: Palme d\'Or (Winners)': 'The Palme d\'Or — Cannes\' top prize for the festival\'s best film.',
+      'Cannes: Grand Prix (Winners)': 'The Grand Prix — Cannes\' runner-up prize, a film of near-equal distinction.',
+      'Cannes: Jury Prize (Winners)': 'The Jury Prize — Cannes\' third prize, for an original and striking work.',
+      'Cannes: Best Director (Winners)': 'Cannes Best Director — recognising the festival\'s finest directorial achievement.',
+      'Sundance: Grand Jury Prize (Dramatic) (Winners)': 'Sundance Grand Jury Prize (Dramatic) — the festival\'s top honour for American fiction film.',
+      'Sundance: Grand Jury Prize (Documentary) (Winners)': 'Sundance Grand Jury Prize (Documentary) — the festival\'s top honour for non-fiction film.',
+      'Sundance: Audience Award (Dramatic) (Winners)': 'Sundance Audience Award (Dramatic) — the fiction film festival-goers loved most.',
+      'Sundance: Audience Award (Documentary) (Winners)': 'Sundance Audience Award (Documentary) — the non-fiction film festival-goers loved most.',
+      'Sundance: Directing Award (Dramatic) (Winners)': 'Sundance Directing Award (Dramatic) — outstanding direction of an American fiction film.',
+      'Sundance: Directing Award (Documentary) (Winners)': 'Sundance Directing Award (Documentary) — outstanding direction of a documentary.',
     };
     const personBuckets = new Map();
     const pbAdd = (name, desc, id, year) => {

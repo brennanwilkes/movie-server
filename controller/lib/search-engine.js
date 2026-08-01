@@ -32,6 +32,13 @@ function isAuditSwap(app, qe) {
   }
   return false;
 }
+// Does any in-flight Audit replacement target this radarr movie? Movie pending keys are
+// `radarr:<id>:-` (season '-' for movies). Used to exempt swap torrents from dedup/supersede.
+function isAuditSwapMovie(movieId) {
+  if (!auditPending.size) return false;
+  for (const k of auditPending.keys()) if (k === `radarr:${movieId}:-`) return true;
+  return false;
+}
 // searchState is declared up by `declined` (must exist before loadState() runs). Tuning knobs:
 const SEARCH_COOLDOWN_MS = 6 * 3600000;        // 6h between recovery re-searches of the same item
 const SEARCH_FAIL_LIMIT = 4;                   // after this many fruitless searches → negative-cache it
@@ -748,7 +755,7 @@ async function arrSweep() {
           // Dead magnet: couldn't even fetch metadata (0 seeds). Blocklist it so *arr grabs a DIFFERENT
           // release next search instead of re-grabbing the same corpse (that loop = the "Not found" churn).
           stuckIds.push({ id, queueId: qe.id, blocklist: true });
-          if (qe.downloadId) stalledHashes.push(qe.downloadId);
+          if (qe.downloadId) stalledHashes.push(String(qe.downloadId).toLowerCase());   // qBittorrent expects the same lowercase casing every other call site uses
         }
         // Terminal import rejections: a COMPLETED download *arr refuses to import ("Not an
         // upgrade…", "Sample") will never improve — it sits in the queue wasting disk and a
@@ -855,6 +862,10 @@ async function arrSweep() {
       if (app === 'radarr') {
         for (const [id, ts] of inflightById) {
           if (ts.length < 2) continue;
+          // EXEMPT zero-gap swap torrents (gpuVerify + Audit): their replacement is a DELIBERATE
+          // second in-flight torrent for the same movie, and dedup would delete the user's chosen
+          // copy with deleteFiles:true. Each swap's own phase-1 finalise handles the old copy.
+          if (gpuPending.has(id) || isAuditSwapMovie(id)) continue;
           const sorted = ts.slice().sort((a, b) => (b.progress || 0) - (a.progress || 0) || (a.size || 0) - (b.size || 0));
           const losers = sorted.slice(1).map((t) => t.hash).filter(Boolean);
           if (!losers.length) continue;
@@ -869,6 +880,9 @@ async function arrSweep() {
         // separate/hard-linked copy, so removing the torrent's copy never deletes the movie from Jellyfin.
         for (const [id, ts] of completedById) {
           if (ts.length < 2) continue;
+          // Same swap exemption as dedup above — during a swap the old (seeding) copy and the new
+          // replacement both legitimately exist, so supersede must not pick one to delete mid-flight.
+          if (gpuPending.has(id) || isAuditSwapMovie(id)) continue;
           const sorted = ts.slice().sort((a, b) => (b.completion_on || 0) - (a.completion_on || 0));  // newest first
           const losers = sorted.slice(1).map((t) => t.hash).filter(Boolean);
           if (!losers.length) continue;

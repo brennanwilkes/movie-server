@@ -658,17 +658,17 @@ else
   radarr_key=$(arr_apikey /opt/appdata/radarr 2>/dev/null || true)
   sonarr_key=$(arr_apikey /opt/appdata/sonarr 2>/dev/null || true)
   hss_cur=$(curl -fsS "$JF/Plugins/${hss_id}/Configuration" -H "X-Emby-Token: $token")
-  # Layout: everyday rows first (media, resume, fresh arrivals), then taste (because-you-
-  # watched, genre rows, top ten, watch-again), then outward discovery (Jellyseerr discover +
-  # requests, *arr upcoming). Sections SHARING an OrderIndex render in random order among
-  # themselves on every load (plugin behavior) — the taste group (5) and discovery group (9)
-  # deliberately share numbers so the home page shuffles a little each visit. Overlapping/
-  # irrelevant rows explicitly disabled; users can override anything.
+  # Layout: intentionally CW/NextUp + rotating shelves ONLY — the rotating collection shelves
+  # (ShelfA–J, OrderIndex 4) ARE the taste/discovery layer, so the built-in because-you-watched,
+  # top-ten, watch-again and my-requests rows are disabled (their contents duplicate what the
+  # weighted collection sweep already surfaces, and they dilute the curated shelf mix). All 11
+  # enabled sections render on one page (NumSectionsPerPage=12, no "Load More"). Users can
+  # still override anything via the plugin's UI.
   hss_desired=$(jq --arg ip "$NUC_IP" --arg sk "$seerr_key" --arg rk "$radarr_key" --arg nk "$sonarr_key" '
     def row($id; $ord; $en; $hide; $max; $vm):
       {SectionId:$id, Enabled:$en, AllowUserOverride:true, LowerLimit:1, UpperLimit:$max,
        OrderIndex:$ord, ViewMode:$vm, HideWatchedItems:$hide};
-    .Enabled=true | .AllowUserOverride=true
+    .Enabled=true | .AllowUserOverride=true | .NumSectionsPerPage=12
     | .JellyseerrUrl=("http://"+$ip+":5055") | .JellyseerrApiKey=$sk
     | .Radarr.Url=("http://"+$ip+":7878") | .Radarr.ApiKey=$rk
     | .Sonarr.Url=("http://"+$ip+":8989") | .Sonarr.ApiKey=$nk
@@ -685,7 +685,7 @@ else
         row("ShelfH";                 4; true;  false; 10; "Landscape"),
         row("ShelfI";                 4; true;  false; 10; "Landscape"),
         row("ShelfJ";                 4; true;  false; 10; "Landscape"),
-        row("BecauseYouWatched";      5; true;  true;  4; "Landscape"),
+        row("BecauseYouWatched";      5; false; true;  4; "Landscape"),
         row("ShelfK";                 6; false;  false; 10; "Landscape"),
         row("ShelfL";                 6; false;  false; 10; "Landscape"),
         row("ShelfM";                 6; false;  false; 10; "Landscape"),
@@ -699,13 +699,13 @@ else
         row("RecentlyAddedMovies";    7; false; true;  1; "Landscape"),
         row("RecentlyAddedShows";     7; false; true;  1; "Landscape"),
         row("Genre";                  8; false;  true;  3; "Landscape"),
-        row("TopTen";                 8; true;  false; 1; "Landscape"),
-        row("WatchAgain";             8; true;  false; 1; "Landscape"),
+        row("TopTen";                 8; false; false; 1; "Landscape"),
+        row("WatchAgain";             8; false; false; 1; "Landscape"),
         row("DiscoverMovies";        11; false; false; 1; "Portrait"),
         row("DiscoverTv";            11; false; false; 1; "Portrait"),
         row("UpcomingMovies";        11; false; false; 1; "Portrait"),
         row("UpcomingShows";         11; false; false; 1; "Portrait"),
-        row("MyRequests";            15; true;  false; 1; "Landscape"),
+        row("MyRequests";            15; false; false; 1; "Landscape"),
         row("ContinueWatching";     999; false; false; 1; "Landscape"),
         row("LatestMovies";         999; false; false; 1; "Landscape"),
         row("LatestShows";          999; false; false; 1; "Landscape"),
@@ -717,7 +717,7 @@ else
   else
     curl -fsS -X POST "$JF/Plugins/${hss_id}/Configuration" -H "X-Emby-Token: $token" \
       -H 'Content-Type: application/json' -d "$hss_desired" >/dev/null
-    ok "Home Screen Sections layout applied (14 rows enabled incl. Off the Shelf, integrations wired to $NUC_IP)"
+    ok "Home Screen Sections layout applied (CW/NextUp + 10 rotating shelves only)"
   fi
 fi
 

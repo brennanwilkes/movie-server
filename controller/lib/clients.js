@@ -7,10 +7,11 @@ const { cfg, HOST } = require('./config');
 
 // ── fetch with timeout (fetch only rejects on network error/abort, not HTTP status) ──
 async function tfetch(url, opts = {}, ms = 3000) {
-  const ac = new AbortController();
-  const t = setTimeout(() => ac.abort(), ms);
-  try { return await fetch(url, { ...opts, signal: ac.signal }); }
-  finally { clearTimeout(t); }
+  // AbortSignal.timeout covers the BODY read too, not just the wait for headers. The old header-only
+  // abort cleared its timer the moment headers arrived, so a server that stalled mid-body never
+  // resolved and the caller's busy flag parked forever (one stuck upstream stops the whole
+  // controller). This is the same pattern tfetchJson already uses.
+  return fetch(url, { ...opts, signal: AbortSignal.timeout(ms) });
 }
 // Like tfetch but signal stays active during body read (covers headers + body).
 async function tfetchJson(url, opts = {}, ms = 3000) {

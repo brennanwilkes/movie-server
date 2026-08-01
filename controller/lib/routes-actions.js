@@ -88,7 +88,9 @@ app.get('/api/library', async (req, res) => {
       if (a === 'radarr') {
         const movies = await arrGet('radarr', '/movie');
         items = movies.map((m) => {
-          const item = { id: m.id, title: m.title, year: m.year, hasFile: !!m.hasFile, sizeBytes: (m.movieFile && m.movieFile.size) || m.sizeOnDisk || 0, tmdbId: m.tmdbId, runtimeMinutes: m.runtime || 0, videoLabel: videoLabel(m.movieFile && m.movieFile.mediaInfo), gpuCompat: gpuTier(m.movieFile && m.movieFile.mediaInfo) };
+          const mf = m.movieFile;
+          const mi = mf && mf.mediaInfo;
+          const item = { id: m.id, title: m.title, year: m.year, hasFile: !!m.hasFile, sizeBytes: (mf && mf.size) || m.sizeOnDisk || 0, tmdbId: m.tmdbId, runtimeMinutes: m.runtime || 0, videoLabel: videoLabel(mi), gpuCompat: gpuTier(mi), source: (mf && mf.quality && mf.quality.quality && mf.quality.quality.name) || null, audioCodec: (mi && mi.audioCodec) || null, audioCh: (mi && mi.audioChannels) || null };
           if (!m.hasFile) {
             const qe = qByItemId[m.id];
             if (qe) {
@@ -111,12 +113,12 @@ app.get('/api/library', async (req, res) => {
         await Promise.allSettled(seriesList.filter((s) => s.statistics && s.statistics.episodeFileCount > 0).map(async (s) => {
           const efs = await arrGet('sonarr', `/episodefile?seriesId=${s.id}`, 5000);
           if (!Array.isArray(efs) || !efs.length) return;
-          const mi = efs.find((ef) => ef.mediaInfo);
-          if (mi) miBySeries[s.id] = mi.mediaInfo;
+          const ef = efs.find((ef) => ef.mediaInfo);
+          if (ef) miBySeries[s.id] = { mi: ef.mediaInfo, src: ((ef.quality || {}).quality || {}).name || null };
         }));
         items = seriesList.map((s) => {
           const mi = miBySeries[s.id];
-          const item = { id: s.id, title: s.title, year: s.year, hasFile: ((s.statistics && s.statistics.episodeFileCount) || 0) > 0, sizeBytes: (s.statistics && s.statistics.sizeOnDisk) || 0, tmdbId: s.tmdbId, runtimeMinutes: (s.runtime && s.statistics && s.statistics.episodeFileCount) ? s.runtime * s.statistics.episodeFileCount : 0, videoLabel: videoLabel(mi), gpuCompat: gpuTier(mi) };
+          const item = { id: s.id, title: s.title, year: s.year, hasFile: ((s.statistics && s.statistics.episodeFileCount) || 0) > 0, sizeBytes: (s.statistics && s.statistics.sizeOnDisk) || 0, tmdbId: s.tmdbId, runtimeMinutes: (s.runtime && s.statistics && s.statistics.episodeFileCount) ? s.runtime * s.statistics.episodeFileCount : 0, videoLabel: videoLabel(mi && mi.mi), gpuCompat: gpuTier(mi && mi.mi), source: (mi && mi.src) || null, audioCodec: (mi && mi.mi && mi.mi.audioCodec) || null, audioCh: (mi && mi.mi && mi.mi.audioChannels) || null };
           if (!item.hasFile) {
             const qe = qByItemId[s.id];
             if (qe) {
@@ -151,13 +153,23 @@ app.post('/api/delete', async (req, res) => {
     // download". Enforced HERE and not just in the UI: a stale tab, a direct curl, or a future caller
     // must not be able to reach that path. /api/torrent/delete is the correct door, and it forgets
     // the swap without touching a file.
-    if (byHash && !String(hash).startsWith('missing:') && isSwapHash(hash)) {
+    if (byHash && !String(hash).startsWith('missing:') && (isSwapHash(hash) || forceGrabImport.has(String(hash).toLowerCase()))) {
       const sw = swapForHash(hash);
+      if (sw) {
+        return res.status(409).json({
+          error: 'This is an Audit replacement download. Cancelling it must not delete the copy you '
+            + 'already have — use the cancel-download path instead.',
+          swap: true,
+          title: (sw.pending && sw.pending.title) || null,
+        });
+      }
+      // A MANUAL FORCE-GRAB (`sonarr-force`): the import watchdog is the ONLY thing allowed to import
+      // or delete those files (AGENTS.md force-grab invariants), and a hash delete here would wipe the
+      // download folder the watchdog needs. Same 409, pointing at the safe cancel-download path.
       return res.status(409).json({
-        error: 'This is an Audit replacement download. Cancelling it must not delete the copy you '
-          + 'already have — use the cancel-download path instead.',
-        swap: true,
-        title: (sw && sw.pending && sw.pending.title) || null,
+        error: 'This is a manual force-grab owned by the import watchdog. Deleting it here would '
+          + 'destroy files only the watchdog may import or remove — use the cancel-download path instead.',
+        forceGrab: true,
       });
     }
     let p;
