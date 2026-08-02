@@ -24,10 +24,10 @@ const cfg = loadCfg();
 
 const oscarWinners = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'oscar-winners.json'), 'utf8')); } catch { return {}; } })();
 // Per-film Oscar win/nom COUNTS, IMDb-keyed — feeds oscarTagsSweep() poster badges. Distinct
-// from oscarWinners above (which is TMDB-keyed category collections). See DESIGN-OSCAR-BADGES.md.
+// from oscarWinners above (which is TMDB-keyed category collections).
 const filmAwards = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'film-awards.json'), 'utf8')); } catch { return {}; } })();
 // Per-person Oscar counts, keyed by NORMALIZED NAME (people mostly lack IMDb ids in Jellyfin, so
-// oscarTagsSweep matches Person items by name). Value: {noms, wins, name}. See DESIGN-OSCAR-BADGES.md.
+// oscarTagsSweep matches Person items by name). Value: {noms, wins, name}.
 const personAwards = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'person-awards.json'), 'utf8')); } catch { return {}; } })();
 const intlLanguages = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'intl-languages.json'), 'utf8')); } catch { return {}; } })();
 

@@ -22,7 +22,27 @@ const {
   srcRank, REENC_RE, audioOf, refusedReason, scopeOf, SCOPE_LABEL, resOf, codecOf, TENBIT_RE,
   supersedes, editionRefusal, overResCeiling,
 } = require('./release-rules');
-const { videoLabel, gpuTier, arrTitle } = require('./arr-inspect');
+const { videoLabel, gpuTier, bppOf, bppBand, bppIndex, arrTitle } = require('./arr-inspect');
+
+// The Library tab's quality figure. bpp, NOT Mbps — see the block comment above bppOf() in
+// arr-inspect.js for why raw Mbps is not comparable across this library (only 171 of 860 movies
+// are a full 1920x1080; the rest are letterboxed, and HEVC needs ~55% of the bits).
+//
+// The BAND IS COMPUTED SERVER-SIDE and sent alongside the value so the browser never re-derives
+// the thresholds. Two copies of the band boundaries is exactly the drift the shared-classifier
+// comments in util.js exist to prevent.
+//
+// mediaInfo.videoBitrate is 0 on ~18% of movies (154 of 859, measured 2026-08-01), so the
+// size-derived total is passed as a fallback. For a series, sizeBytes/runtimeMinutes is the
+// average across every episode while mediaInfo comes from one representative file — an
+// approximation, and the honest one available without walking every episode.
+function bppFields(mi, sizeBytes, runtimeMinutes) {
+  const fallback = (sizeBytes > 0 && runtimeMinutes > 0) ? (sizeBytes * 8) / (runtimeMinutes * 60) : null;
+  const bpp = bppOf(mi, fallback);
+  // bppPlus is what the UI renders: raw bpp lives between 0.02 and 0.44 across the whole library,
+  // so the differences that matter are in the third decimal. See bppIndex() in arr-inspect.js.
+  return { bpp, bppPlus: bppIndex(bpp), bppBand: bppBand(bpp) };
+}
 const {
   buildDeletePlan, planItems, executeDelete, buildDeletePlanFromHash,
 } = require('./delete-plan');
@@ -90,7 +110,8 @@ app.get('/api/library', async (req, res) => {
         items = movies.map((m) => {
           const mf = m.movieFile;
           const mi = mf && mf.mediaInfo;
-          const item = { id: m.id, title: m.title, year: m.year, hasFile: !!m.hasFile, sizeBytes: (mf && mf.size) || m.sizeOnDisk || 0, tmdbId: m.tmdbId, runtimeMinutes: m.runtime || 0, videoLabel: videoLabel(mi), gpuCompat: gpuTier(mi), source: (mf && mf.quality && mf.quality.quality && mf.quality.quality.name) || null, audioCodec: (mi && mi.audioCodec) || null, audioCh: (mi && mi.audioChannels) || null };
+          const sizeBytes = (mf && mf.size) || m.sizeOnDisk || 0;
+          const item = { id: m.id, title: m.title, year: m.year, hasFile: !!m.hasFile, sizeBytes, tmdbId: m.tmdbId, runtimeMinutes: m.runtime || 0, videoLabel: videoLabel(mi), gpuCompat: gpuTier(mi), source: (mf && mf.quality && mf.quality.quality && mf.quality.quality.name) || null, audioCodec: (mi && mi.audioCodec) || null, audioCh: (mi && mi.audioChannels) || null, ...bppFields(mi, sizeBytes, m.runtime || 0) };
           if (!m.hasFile) {
             const qe = qByItemId[m.id];
             if (qe) {
@@ -118,7 +139,9 @@ app.get('/api/library', async (req, res) => {
         }));
         items = seriesList.map((s) => {
           const mi = miBySeries[s.id];
-          const item = { id: s.id, title: s.title, year: s.year, hasFile: ((s.statistics && s.statistics.episodeFileCount) || 0) > 0, sizeBytes: (s.statistics && s.statistics.sizeOnDisk) || 0, tmdbId: s.tmdbId, runtimeMinutes: (s.runtime && s.statistics && s.statistics.episodeFileCount) ? s.runtime * s.statistics.episodeFileCount : 0, videoLabel: videoLabel(mi && mi.mi), gpuCompat: gpuTier(mi && mi.mi), source: (mi && mi.src) || null, audioCodec: (mi && mi.mi && mi.mi.audioCodec) || null, audioCh: (mi && mi.mi && mi.mi.audioChannels) || null };
+          const sizeBytes = (s.statistics && s.statistics.sizeOnDisk) || 0;
+          const runtimeMinutes = (s.runtime && s.statistics && s.statistics.episodeFileCount) ? s.runtime * s.statistics.episodeFileCount : 0;
+          const item = { id: s.id, title: s.title, year: s.year, hasFile: ((s.statistics && s.statistics.episodeFileCount) || 0) > 0, sizeBytes, tmdbId: s.tmdbId, runtimeMinutes, videoLabel: videoLabel(mi && mi.mi), gpuCompat: gpuTier(mi && mi.mi), source: (mi && mi.src) || null, audioCodec: (mi && mi.mi && mi.mi.audioCodec) || null, audioCh: (mi && mi.mi && mi.mi.audioChannels) || null, ...bppFields(mi && mi.mi, sizeBytes, runtimeMinutes) };
           if (!item.hasFile) {
             const qe = qByItemId[s.id];
             if (qe) {

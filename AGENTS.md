@@ -4,8 +4,7 @@ This doc helps agents auto-discover the system layout, failure modes, and where 
 
 **Fast start:** `make test` (30+ PASS/FAIL assertions — run it before AND after changes) ·
 `make search q="Title"` (why the grab algorithm picks what it picks) · `make why q="Title"`
-(why a title won't play on the PS4/projector) · `AUDIT.md` (2026-07-02 deep audit: verified
-findings + what's already fixed + open recommendations).
+(why a title won't play on the PS4/projector).
 
 **Deep diagnostics:** when scripts/controller-API aren't enough, query each service's own API directly — see **Direct Service API Access** (key retrieval + the most useful Sonarr/Radarr/qBittorrent/Jellyfin/Jellyseerr endpoints for cross-checking DB vs torrents vs library). For the manual force-grab / naming path, see the **Force-grab / manual-import subsystem** and **Naming & Jellyfin identity** sections + `make metrics a='events --type fg_verify'` (post-import PASS/FAIL health check).
 
@@ -46,7 +45,6 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `scripts/show-indexers.sh` | **Tool**: Prowlarr indexer health/tags/proxy, live-test, per-indexer search counts |
 | `scripts/smoke-test.sh` | **Tool**: `make test` — 30+ read-only PASS/FAIL assertions over the whole stack. Run FIRST when anything seems off, and after every change |
 | `scripts/why-playback.sh` | **Tool**: `make why q="Title"` — per-title playback diagnosis (PS4 direct-play? transcode feasible? live transcode reasons) |
-| `AUDIT.md` | Deep audit 2026-07-02: verified findings, fix log, live-stack snapshot, open [REC] items |
 | `docker-compose.yml` → `suggestarr` | Recommendation engine (:5000): Jellyfin history → TMDb similar → Jellyseerr auto-requests. One-time web-UI setup (TMDb key) |
 | `scripts/provision/dlna-ps4-profile.xml` | PS4 DLNA device profile (installed by jellyfin.sh). The console IS a PS4 — it was mislabelled "PS3" until 2026-07-02; a PS4 identifies as "PLAYSTATION 4", so PS3 profiles never match |
 | `scripts/ps4ify.sh` + `scripts/ps4ify-sweep.sh` | **Tool + timer**: add an AC3 5.1 compat track (originals kept, video untouched) so DDP/DTS files direct-play on the PS4. Manual: `make ps4ify q="Title"`; automatic: ps4fix.timer (every 30 min, fresh imports) |
@@ -83,7 +81,6 @@ All ports: `docker-compose.yml:104`
 A second Jellyfin + Jellyseerr account, `leslie/leslie` (`JELLYFIN_USER_2`/`JELLYFIN_PASS_2` in `.env`), can **watch and request only** —
 non-admin, no deletion, no collection editing, auto-approved requests. She exists in **Jellyfin and Jellyseerr only**; there is no
 *arr, qBittorrent or controller account, and the controller dashboard stays unauthenticated (her actions there run as brennan, by design).
-See `docs/DESIGN-USER-LESLIE.md`.
 
 ## Controller Sweeps (controller/lib/)
 
@@ -105,7 +102,7 @@ under Movie Mode (`isMasterPaused()`).
 | `requestGate` | 5min | `lib/sweeps.js` | Flag Jellyseerr requests stuck on disk space |
 | `jfLibraryRefresh` | event + 5min safety net | `lib/jf-scan.js` | Trigger Jellyfin library scan after imports (trickplay-aware) |
 | `gpuVerifySweep` | 15min | `lib/gpu-verify.js` | Post-import ground truth, ZERO-GAP: a movie imported <48h ago whose mediaInfo is 10-bit/HDR/AV1/VP9 gets a strictly-better H.264 release grabbed (search-first, playstate-guarded); the OLD FILE STAYS until the replacement completes (`gpuPending` persisted), then swap+import. Once per movie ever (`gpuSwapped`); UI labels the download "Auto-upgrade". Log prefix `gpuVerify:` |
-| `auditVerifier` | 45s | `lib/audit.js` | Audit tab: one indexer search per tick, worst-first, over rows that lack a fresh verdict. Answers "does a genuinely better source exist?" — cached in `auditVerdicts` (persisted, 14-day TTL, `VERDICT_VERSION`) because a search is 5-21s and a full enrich is ~114 of them. Requires 8-bit; filters wrong-show matches via `mappedSeasonNumber`/`mappedMovieId`. READ-ONLY. Log prefix `audit:` |
+| `auditVerifier` | 45s | `lib/audit.js` | Audit tab: one indexer search per tick, worst-first, over rows that lack a fresh verdict. Answers "does a genuinely better source exist?" — cached in `auditVerdicts` (persisted, 14-day TTL, `VERDICT_VERSION`) because a search is 5-21s and a full enrich is ~114 of them. Requires 8-bit; filters wrong-show matches via `mappedSeasonNumber`/`mappedMovieId`. Candidates are RANKED (not refused) by an absolute bpp test (`candidateBandOk`): Beloved/Top-100 below green, or anything more than one band below the current file, sorts last via `bandWeak`. READ-ONLY. Log prefix `audit:` |
 | `cpuCensusSweep` | 6h | `lib/cpu-census.js` | Counts library files that can't hardware-decode (reuses `gpuTier()`), emits the `cpu_census` event — the trend line behind the Audit tab. Report-only. Log prefix `cpuCensus:` |
 | `collectionsSweep` | 6h + boot | `lib/collections.js` | Maintains native auto-collections from library metadata: decades, top-8 + curated genres, Critically Loved, Short & Sweet, Epic Runtimes, and 26 award-winner categories (8 Oscar Best Picture/Director/Acting/Editing/Cinematography + 10 Cannes + 10 Sundance, drawn from `data/oscars/build.sh` via `controller/oscar-winners.json`). Vibes shuffle at random; award collections sort year-descending (newest first). Auto-sets each collection's poster from its best-rated member. Pure Jellyfin Collections API. Log prefix `collectionsSweep:`. **Boot:** `bootSequence()` (search it) waits for Jellyfin to answer, then runs the sweep BEFORE the first `registerHssShelf` so the home shelves have box sets to show on first load — no cold-start empty-home gap. **Manual:** `POST /api/collections/build` runs the sweep + shelf re-register on demand (409 if already running). |
 
@@ -357,13 +354,113 @@ in ~13s; Jellyfin full scan takes ~4min. Verify: `SELECT count(*),status FROM me
 - **Auto-grab was REMOVED (2026-07-07)**: `probeSearchOutcome` emits `search_gap` for the UI hint but NEVER acquires. Acquisition is manual only (force-grab button). See INVARIANTS in the force-grab subsystem section — there is no `AUTO_GRAB_ENABLED` flag to flip.
 - **UI hint for search gaps** shows the best gap release title (truncated), seeders, and specific reason (e.g. "no S01 marker" or "not a candidate").
 
+### How file quality is measured: bits per pixel per frame (bpp)
+
+**One unit, one definition: `bppOf()` in `controller/lib/arr-inspect.js`.** Everything that
+colours or ranks picture quality imports it — the Library badge, all five Audit sections, the
+candidate cards and the Upgrade sort. Do not add a second scale.
+
+```
+bpp  = videoBitrate / (width * height * fps)      then x1.6 if HEVC
+BPP+ = round(100 * sqrt(bpp / 0.13))              the number humans read
+```
+
+**BPP+ IS SQUARE-ROOTED ON PURPOSE (2026-08-01).** It used to be a straight ratio, so "200"
+meant "twice the bits" — a statement about disk, not picture. Measured on this library's own
+content, visible error falls as roughly `bitrate^-0.5`, so the square root makes the index
+proportional to **1/error** instead: **200 = about half the visible error of 100** (and four
+times the bits); **50 = about twice the error**. The transform is monotonic, so it re-labels
+every file without re-ranking any of them. The exponent is fitted from our content and is the
+weakest link in the model — see `docs/audit-2026-07-31/raw/bitrate-plateau-2026-08-01.md`.
+
+**Raw Mbps was replaced on 2026-08-01 because it is not comparable between files here.**
+Measured against the live library the old `>=15 / 8 / 4 Mbps` bands put **82.7% of movies in the
+worst colour**, which is a constant, not a signal. Three independent reasons:
+only 171 of 860 movies are a full 1920x1080 (the rest are letterboxed to heights from 528 to
+1076, so the same Mbps buys visibly more on a scope film); 24 vs 30 fps is a 25% difference in
+bits per frame; and HEVC needs ~55% of H.264's bits for the same picture.
+
+| Band | BPP+ | bpp | CSS | Means |
+|---|---|---|---|---|
+| purple | >= 125 | >= 0.20 | `wow` | ~10 Mbps @1080p24, CRF 18. Beyond what the current projector resolves — the band that starts to matter **after** a hardware upgrade |
+| green | 100-124 | >= 0.13 | `ok` | ~6.5 Mbps. **Good enough to look its best on current hardware.** The target. |
+| orange | 75-99 | >= 0.073 | `warn` | ~4 Mbps. Diminished even today; may still be fine — human call |
+| red | < 75 | < 0.073 | `bad` | Worse. The YTS family (41% of the movie library) sits ~65 |
+
+**KNOWN CONSERVATISM.** `BPP_TARGET = 0.13` is anchored to CRF-18 transparency on a *1080p*
+display, but the projector is a native 1280x720 panel discarding 2.25x the pixels we charge
+files for. The whole library therefore probably scores low. 2.25x is an upper bound on the
+credit, not the credit, and nothing we can currently measure resolves it — SSIM is confounded by
+grain in exactly this regime and no no-reference metric survives it either
+(`docs/audit-2026-07-31/raw/RESEARCH-quality-metrics-2026-08-01.md`). The per-title CRF probe
+replaces the constant with a measurement and is the actual fix. **Do not invent a partial
+credit.**
+
+**COLOUR IS OBJECTIVE; INTENT LIVES IN THE QUALITY PROFILE.** A 2005 romcom on
+`Low (save space)` sitting in red is correct and must not be flagged. The same bpp on a
+`Beloved` title is the loudest signal in the app. Attention is driven by the MISMATCH, never by
+the colour alone. Evidence: `docs/audit-2026-07-31/FINDINGS-2026-08-01.md`.
+
+**OFFER MORE, RANK BETTER — never filter on degree.** Brennan, 2026-08-01: *"We should be
+providing more options, more suggestions, not less, and just allowing the user to choose... That
+said the human decision should be easy, as all the information they need should be abundantly
+clear, colour coded, and not misleading, and suggestions should never be absolute crap (IE dubbed
+copies, wrong edition, etc)."*
+
+The line is drawn by KIND, not by degree:
+- **Refuse outright** — dubs, camrips, extras discs, foreign-only audio, wrong cut, above the
+  resolution ceiling. `release-rules.js` owns these. No amount of colour-coding makes them a
+  choice.
+- **Offer but sink** — anything merely low-quality, over-large, or already listed elsewhere. It is
+  a real trade the human can read off the coloured badge. `lowPriority` on Disk rows and
+  `bandWeak` on candidates push these to the bottom instead of hiding them.
+
+So a Beloved/Top-100 film that is genuinely large DOES get a Disk row, and a 10-bit file appears
+in **both** Playback and Disk — the two sections answer different questions about the same file.
+Do not reintroduce a filter here; sink it in the sort instead.
+
+Two data traps, both real bugs caught by running the model against the live library:
+
+1. **`mediaInfo.videoBitrate` lies on some HEVC files.** *arr reports a nominal/peak rate:
+   Challengers is 4.6 Mbps all-in and Radarr claims 30.3 Mbps. **18 of 859 movies affected.**
+   `bppOf()` rejects any value above the size-derived container total and falls back. It is also
+   absent entirely on 154 of 859 — always pass the size-derived fallback.
+2. **Green is the target, not bloat.** bpp 0.13 means "looks its best on current hardware", so
+   `BLOAT_BAND_BY_PROFILE` only calls a default title bloated at PURPLE. Green is the bar only for
+   `Low (save space)`, where the profile has already recorded the instruction.
+
+Pinned by `scripts/test-bpp.js` and `scripts/test-bpp-floor.js`. Changing a band boundary or the
+Disk rule without running both is how this silently drifts.
+
+### Playback ground truth (MEASURED 2026-08-01, not assumed)
+
+Driven against the live Fire Stick via Jellyfin's session API, reading the settled decision.
+Full method: `docs/audit-2026-07-31/raw/playback-tests-2026-08-01.md`.
+
+- **HEVC Main10 is the ONLY thing in the library that forces a server transcode.** 19.7 Mbps
+  H.264, DTS-only, TrueHD-only, FLAC and HEVC 8-bit all **DirectPlay**. The client profile
+  declares `hevc-profile=main` with no main10; a Main10 file returns
+  `TranscodeReasons=VideoProfileNotSupported`.
+- That transcode costs **2.1x realtime idle, 1.29x while downloads run**, and one of them took
+  system load from 4.1 to 14.3. This is the stutter mechanism. `gpuTier()` returns `bad` (not
+  `warn`) for 10-bit for this reason.
+- **Every audio format ends as STEREO.** TrueHD 7.1, DTS 5.1, EAC3-JOC Atmos and FLAC are all
+  software-decoded by ExoPlayer and leave `AudioALSAStreamOut` at `channel_mask=3`, into a
+  WiMiUS K5 (3.5 mm out) and a PreSonus Eris 3.5 stereo pair. **Do not treat lossless or
+  multichannel audio as quality** — `audioCls()` deliberately returns `''` for everything.
+- **The projector is a native 1280x720, 480 ANSI lumen panel.** It accepts 1080p and downscales.
+  Still store 1080p (downscaling beats a native 720p source), but the top of the bitrate range
+  buys nothing visible today.
+- The Fire Stick decodes DTS and TrueHD itself, so the AC3 compat track (`ps4ify`) matters for
+  the **PS4 only** — ~1% of playback.
+
 ### "The Audit tab is full of issues — what do I do?"
 
-**Read `docs/AUDIT-WORKFLOW.md` first.** It maps each Audit section to the script that fixes
-it and states the rule plainly: do NOT invent file operations. No ad-hoc `rm`, no direct
+**The rule, plainly: do NOT invent file operations.** No ad-hoc `rm`, no direct
 qBittorrent/*arr delete calls. Every fix goes through a reviewed script
 (`find-replacements.sh`, `show-stale-torrents.sh`, `show-bloat.sh`), because a misunderstanding
-in an ad-hoc session is how media gets destroyed. Background: `docs/AUDIT-DISK-2026-07-27.md`.
+in an ad-hoc session is how media gets destroyed. And per Brennan's standing instruction, no
+agent modifies, deletes or re-encodes a file on disk without explicit per-action permission.
 
 ### "Why was THIS release picked?" (codec/size/quality complaints)
 
@@ -620,7 +717,7 @@ to live installs on every provision, so edit the script, never the *arr UI.
 ## Credentials & Config
 
 - **All services**: `brennan` / `brennan`
-- **Second household account**: `leslie` / `leslie` — Jellyfin + Jellyseerr only, watch + request (see `docs/DESIGN-USER-LESLIE.md`)
+- **Second household account**: `leslie` / `leslie` — Jellyfin + Jellyseerr only, watch + request
 - **API keys**: written to `controller:/config/keys.env` by `provision/controller.sh`; never committed
 - **Config root**: `/opt/appdata` (SSD)
 - **Media root**: `/data` (7.3 TB USB drive)

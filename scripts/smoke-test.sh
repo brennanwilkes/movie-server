@@ -73,7 +73,7 @@ if [[ -n "$JFKEY" ]]; then
   chk "Watchlist playlist stays retired (not recreated by provision)" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' 'http://${NUC_IP}:8096/Items?IncludeItemTypes=Playlist&Recursive=true' | jq -e '[.Items[]|select(.Name==\"Watchlist\")]|length == 0'"
 fi
 
-# Second household account (docs/DESIGN-USER-LESLIE.md). Skipped when JELLYFIN_USER_2 is unset.
+# Second household account. Skipped when JELLYFIN_USER_2 is unset.
 if [[ -n "${JELLYFIN_USER_2:-}" && -n "$JFKEY" ]]; then
   echo "=== jellyfin: $JELLYFIN_USER_2 ==="
   chk "'$JELLYFIN_USER_2' can authenticate" sh -c "curl -sf --max-time 8 -X POST 'http://${NUC_IP}:8096/Users/AuthenticateByName' -H 'Content-Type: application/json' -H 'X-Emby-Authorization: MediaBrowser Client=\"smoke\", Device=\"smoke\", DeviceId=\"smoke\", Version=\"1\"' -d '{\"Username\":\"${JELLYFIN_USER_2}\",\"Pw\":\"${JELLYFIN_PASS_2:-}\"}' | jq -e '.AccessToken'"

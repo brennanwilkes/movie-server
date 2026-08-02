@@ -100,7 +100,7 @@ fi
 #     Jellyfin surfaces a "Playlists" entry in the web sidebar drawer, and the Firestick
 #     fork's toolbar buttons open each list by name.
 #     Playlists are user-scoped, so create them under the admin user we authenticated as.
-#     (Watchlist was retired 2026-07-26 — see docs/DESIGN-USER-LESLIE.md §4b.)
+#     (Watchlist was retired 2026-07-26.)
 jf_uid=$(curl -fsS "$JF/Users/Me" -H "X-Emby-Token: $token" | jq -r '.Id')
 [[ -n "$jf_uid" && "$jf_uid" != "null" ]] || die "could not resolve Jellyfin user id for playlists"
 existing_playlists=$(curl -fsS "$JF/Items?userId=$jf_uid&IncludeItemTypes=Playlist&Recursive=true" \
@@ -157,7 +157,7 @@ jf_refresh_playlist_cover() {  # name
 }
 jf_refresh_playlist_cover "Top 100"
 
-# 3d. Second household account (leslie) — watch + request only. See docs/DESIGN-USER-LESLIE.md.
+# 3d. Second household account (leslie) — watch + request only.
 #     Placed here because it needs $token, $jf_uid and the Top 100 playlist that §3c resolved.
 #     Skipped entirely when JELLYFIN_USER_2 is empty, so a box that doesn't want a second user
 #     still provisions cleanly.
@@ -394,7 +394,7 @@ fi
 #     IMPORTANT: This MUST run AFTER §6a2 (splashscreen POST) because the POST reads the
 #     in-memory CustomCss and writes the entire config back to disk — overwriting whatever
 #     docker cp put there. By writing LAST, we guarantee branding.xml has the fresh CSS.
-#     See docs/branding/PLAN-branding-css-deploy.md for the full bug analysis.
+#
 log "  ensuring custom CSS theme is applied"
 CUSTOM_CSS_FILE="$(dirname "${BASH_SOURCE[0]}")/jellyfin-custom.css"
 if [[ ! -f "$CUSTOM_CSS_FILE" ]]; then
@@ -629,7 +629,7 @@ done
 [[ -n "$token" && "$token" != "null" ]] || die "auth failed after restart (Jellyfin not ready within ~120s)"
 
 # 7a. Post-restart verification: confirm the served CSS matches our source file.
-#     If this warns, the deployment bug (PLAN-branding-css-deploy.md) may have regressed.
+#     If this warns, the deployment bug may have regressed.
 CUSTOM_CSS_FILE="${CUSTOM_CSS_FILE:-$(dirname "${BASH_SOURCE[0]}")/jellyfin-custom.css}"
 if [[ -f "$CUSTOM_CSS_FILE" ]]; then
   # Strict content check (not just byte-count): the served CSS must be byte-identical to
@@ -751,7 +751,7 @@ fi
 #    public.js at a versioned URL (public.js?v=<ticks>) that bumps whenever this flair JS
 #    changes, and index.html is Cache-Control:no-cache, so a normal refresh picks up new JS.
 #    CSS is additionally re-fetched with ?v=Date.now() by refreshBrandingCss() on every load.
-#    See docs/branding/PLAN-branding-css-deploy.md (Caching Re-Verification 2026-07-16).
+#
 FLAIR_JS="$(dirname "${BASH_SOURCE[0]}")/jellyfin-web-flair.js"
 js_id=$(curl -fsS --max-time 30 "$JF/Plugins" -H "X-Emby-Token: $token" | jq -r '.[]|select(.Name=="JavaScript Injector" and .Status=="Active").Id // empty')
 if [[ -z "$js_id" ]]; then

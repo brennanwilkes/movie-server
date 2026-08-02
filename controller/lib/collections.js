@@ -238,7 +238,7 @@ async function collectionsSweep() {
         (m, y, mins, r) => has(m, 'Romance') && has(m, 'Drama') && mins >= 120 && none(m, ['Comedy', 'Action', 'Horror', 'Animation'])],
       ['Top Docs', 'True stories, brilliantly told.',
         (m, y, mins, r) => has(m, 'Documentary') && r >= 7.5],
-      // ── Collections v2 (2026-07-17) — mood/vibe/occasion shelves, see DESIGN-COLLECTIONS-V2.md ──
+      // ── Collections v2 (2026-07-17) — mood/vibe/occasion shelves, Tags-driven ────────────────────
       ['Date Night: Action', 'Crowd-pleasing thrills to share — action and adventure that never turns grim.',
         (m, y, mins, r) => (has(m, 'Action') || has(m, 'Adventure')) && r >= 6.8 && mins > 0 && mins <= 140 && none(m, ['Horror', 'Documentary', 'War', 'Animation'])],
       ['Heavy Hitters', 'Serious, weighty drama — the films that stay with you long after the credits.',

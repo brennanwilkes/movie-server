@@ -177,7 +177,7 @@
 		} catch (e) { /* @font-face fallback still covers browsers without FontFace */ }
 	}
 
-	// ---- branded splash (DESIGN-PERF-LOADING.md Task 4.1) --------------------------------------
+	// ---- branded splash --------------------------------------
 	// Injected SYNCHRONOUSLY at script-execute time (this whole IIFE runs before app boot), so
 	// it takes over from the stock boot logo. Removed when the first populated .itemsContainer
 	// gains cards (tiny dedicated observer) or after a hard 8s timeout, whichever comes first.
@@ -494,7 +494,7 @@
 			typeof a.accessToken === 'function' && a.accessToken();
 	}
 
-	// ---- localStorage cache (DESIGN-PERF-LOADING.md Task 3.2) ----------------------------------
+	// ---- localStorage cache ----------------------------------
 	// The four bulk maps hydrate from localStorage the moment the userId is known — decoration
 	// starts from (possibly slightly stale) cached data immediately instead of waiting ~seconds
 	// for the API rebuilds. Each loader persists its fresh map after every network rebuild.
@@ -691,7 +691,7 @@
 	// RunTimeTicks is a DEFAULT field on /Items (verified against 10.11.11 — no Fields= needed),
 	// so this is a plain id lookup. We deliberately do NOT bulk-load every movie: the home page
 	// only ever shows a few dozen cards, and this box is already sensitive to wide library
-	// queries (see DESIGN-PERF-LOADING.md). Batched + cached, it costs one request per screenful
+	// queries. Batched + cached, it costs one request per screenful
 	// on a cold cache and nothing at all afterwards.
 	function runtimeFor(id) { return runtimeById.get(normalize(id)); }
 	function requestRuntime(rawId) {
@@ -749,7 +749,7 @@
 			'<span class="mn-card-rt">' + (year ? '  ·  ' : '') + rt + '</span>');
 	}
 
-	// ---- Oscar badges (see DESIGN-OSCAR-BADGES.md) --------------------------------------------
+	// ---- Oscar badges  --------------------------------------------
 	// The controller's oscarTagsSweep writes oscar-wins-N / oscar-noms-N Tags onto every Academy
 	// Award movie (noms here = LOSING nominations; wins are separate). We pull those items and
 	// parse the counts into oscarById, keyed by both GUID forms like rankById.
@@ -1610,8 +1610,7 @@
 
 	// Lazy People enrichment for the showcase fact lines (DIRECTED BY … / cast).
 	// ROOT CAUSE of the missing-forever detail text: loadLists' Playlists/{id}/Items call never
-	// requests Fields=People (deliberately — with People it is a ~1MB, >10s query on this box,
-	// see docs/DESIGN-PERF-LOADING.md), so item.People was ALWAYS undefined and dirName/topCast
+	// requests Fields=People (deliberately — with People it is a ~1MB, >10s query on this box, ), so item.People was ALWAYS undefined and dirName/topCast
 	// returned nothing. Fix: fetch People here, only while the Top 100 page is actually open, in
 	// two progressive batches — ranks 1-25 first (Pantheon facts appear fast), then 26-50
 	// (tier 3 renders no fact lines, so 51+ are never fetched). Results live in
@@ -2281,7 +2280,7 @@
 		}
 	}
 
-	// ---- observer pipeline (DESIGN-PERF-LOADING.md Task 3.1) -----------------------------------
+	// ---- observer pipeline -----------------------------------
 	// Cards are decorated the same frame their nodes are added — no silence-debounce. (The old
 	// 500ms trailing-reset debounce never fired during progressive loading on slow CPUs, so
 	// badges lagged 30+ seconds.) A throttled full scan() still runs for the non-card chrome

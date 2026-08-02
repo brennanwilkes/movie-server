@@ -19,8 +19,9 @@
 // THE THREE SECTIONS ARE NOT THE SAME KIND OF PROBLEM:
 //   cpu     - 10-bit/AV1/VP9/DV files. Costs PLAYBACK (software decode on the NUC, no
 //             direct-play on the Fire TV Stick 2nd gen). Costs no disk. Needs verification.
-//   bitrate - fat x264 seasons. Costs DISK. Plays fine. Needs verification. Beloved excluded:
-//             a large file in that tier is the profile working as intended.
+//   bitrate - files whose picture quality exceeds what the title's profile asks for, judged on
+//             the shared bpp band (arr-inspect.js). Costs DISK. Plays fine. Needs verification.
+//             Beloved excluded: a large file in that tier is the profile working as intended.
 //   stale   - torrents no longer hardlinked into the library. Pure waste, ALWAYS actionable,
 //             needs no verification at all (see show-stale-torrents.sh for the safety model).
 
@@ -31,7 +32,7 @@ const { tfetch, tfetchJson, arrGet, arrDelete, arrOf, qbit } = require('./client
 // Read-only: used solely to learn the Top 100 playlist's ORDER for the Upgrade tab's ranking.
 const { jellyfinUserId } = require('./jellyfin');
 const { getQbitTorrents } = require('./arr-data');
-const { gpuTier, videoLabel } = require('./arr-inspect');
+const { gpuTier, videoLabel, bppOf, bppBand, bppIndex, BPP_RANK, X265_EFFICIENCY } = require('./arr-inspect');
 const { importViaManual, previewManualImport } = require('./importer');
 const {
   auditVerdicts, auditPending, auditSwapped, gpuPending, persistState, isMasterPaused, swapForHash,
@@ -56,7 +57,25 @@ const {
 // holding a theatrical candidate for a film whose extended cut is the only acceptable one. Serving
 // those from cache would offer exactly the swap this change exists to prevent. Cost is a re-verify
 // of the library at VERIFY_EVERY_MS, which the paced verifier does on its own.
-const VERDICT_VERSION = 13;  // v10: NUC ok->no (10-bit) is now a hard refusal, and EDITION_BEST
+// v14 (2026-08-01, MANDATORY): the candidate filter now applies candidateBandOk(), an ABSOLUTE
+// bpp floor, in place of the relative minRatioFor() test. Verdicts cached under v13 were computed
+// without it, so they can still be holding a candidate that is compromised in absolute terms —
+// exactly the swap this change exists to prevent. The Disk section's membership rule also changed
+// from ">= 6 Mbps x264" to a bpp band, so cached rows can be for titles the section would no
+// longer list at all. Cost is a paced re-verify at VERIFY_EVERY_MS, which the verifier does itself.
+// v16 (2026-08-01): candBppFrom() now divides by the square of the frame-height ratio. Cached
+// candidate bpp values from v15 IGNORE resolution, so every 720p -> 1080p upgrade is stored
+// several times too high (Meet the Parents: 380 bpp+ cached vs 169 actual). Those are wrong, not
+// stale — they would paint a reasonable upgrade as "beyond what the display can resolve".
+// v15 (2026-08-01): the stored candidate shape changed — candidates now carry `bppPlus` and the
+// gain/loss pills are worded in BPP+ instead of Mbps. v14 verdicts are not WRONG, but they render
+// a stale "+2.7 Mbps" pill and a missing before->after figure, and both are baked into the cached
+// object rather than derived at render time. Cheap to redo here because the v13->v14 re-verify was
+// still in flight; letting them age out over 14 days would leave two units on screen at once.
+const VERDICT_VERSION = 17;  // v17: BPP+ is now square-rooted and HEVC is x1.6 (was x1.8), so both
+                             // the band a candidate lands in and the bandWeak ranking penalty can
+                             // differ from a v16 verdict. See bppIndex() in arr-inspect.js.
+                             // v10: NUC ok->no (10-bit) is now a hard refusal, and EDITION_BEST
                              // adds above-floor edition rows. Both change which candidates are
                              // ADMITTED, so cached v9 verdicts were computed under looser rules.
                              // v11: loose (edition/upgrade) rows no longer require a codec token
@@ -77,7 +96,31 @@ const VERDICT_VERSION = 13;  // v10: NUC ok->no (10-bit) is now a hard refusal, 
                               // cached v12 verdicts are invalid.
 const VERDICT_TTL_MS = 14 * 24 * 3600 * 1000;  // release availability drifts; a stale "nothing better" is worse than no verdict
 const VERIFY_EVERY_MS = 45000;                 // paced: 114 searches at 45s ≈ 85 min to go fully warm, gentle on public indexers
-const BLOAT_MIN_MBPS = 6;                      // below this a season is not worth a re-grab
+// DISK-SECTION THRESHOLD. Was BLOAT_MIN_MBPS = 6 (raw Mbps) until 2026-08-01. Raw Mbps is
+// resolution-, framerate- and codec-blind: a 1920x800 scope film and a flat 1920x1080 one at the
+// same Mbps are not the same quality, and 6 Mbps of HEVC is worth ~10.8 of H.264. The section now
+// selects on the shared bpp band instead, which normalises all three — see arr-inspect.js.
+//
+// THE THRESHOLD DEPENDS ON WHAT THE TITLE IS FOR, and getting this wrong is not a cosmetic bug.
+// A first cut used a flat 'ok' (green) for everything, and testing it against the live library
+// showed it would have offered to SHRINK Lawrence of Arabia, Blade Runner, Fight Club and six
+// other Top 100 films — the exact titles the audit exists to protect. Two separate mistakes:
+//
+//   1. GREEN IS THE TARGET, NOT BLOAT. bpp 0.13 is "looks its best on current hardware". Flagging
+//      it as too big would ratchet the whole library down to orange. Only PURPLE (>=0.20) is
+//      arguably more than this projector can show, so purple is the bar for a default title.
+//   2. TOP 100 IS DECLARED INTENT, exactly like the Beloved profile. Those films are on `Normal`
+//      today only because the profile migration has not happened yet; a purple copy of Lawrence
+//      of Arabia is the goal, not waste.
+//
+// So:
+//   Beloved profile   -> never listed. That tier exists to spare no expense.
+//   Top 100           -> never listed, for the same reason. Intent is intent.
+//   Low (save space)  -> listed at GREEN or better. The profile says "red is fine, that is the
+//                        point", so anything comfortably above that is disk spent against a
+//                        recorded instruction.
+//   Normal (default)  -> listed at PURPLE only. Beyond what the hardware can resolve.
+const BLOAT_BAND_BY_PROFILE = (profile) => (String(profile || '').startsWith('Low') ? 'ok' : 'wow');
 // How long a swap's torrent may be absent from qBittorrent before the swap is abandoned. MODULE
 // level because BOTH replaceSweep (which does the abandoning) and the swap-health reported to the
 // UI must use the same number: reporting "torrent gone / abandoning" on a swap seconds old was
@@ -208,6 +251,8 @@ const TIER_NOTE = { 1: 'plays everywhere', 2: 'Fire Stick OK · PS4 transcodes',
 // Per-device support, so the UI can say WHICH client suffers rather than one vague label.
 // ok = direct play · tx = server transcodes it (works, costs CPU) · no = not decodable.
 //   Fire  - Fire TV Stick 2nd gen (AFTT): HEVC decoder present, capped 1920x1088, no Main10.
+//           MEASURED 2026-08-01 against the live device — HEVC 8-bit, 19.7 Mbps H.264, DTS-only
+//           and TrueHD-only all direct-play; Main10 is the only transcode trigger in the library.
 //   PS4   - media player is H.264 only; any HEVC means a transcode (cheap via QSV for 8-bit).
 //   iOS   - iPhone/iPad and Jellyfin/Streamyfin on them decode HEVC incl. Main10 natively.
 //   Web   - desktop browsers: H.264 universal; HEVC only in Safari, so assume a transcode.
@@ -217,7 +262,9 @@ const TIER_NOTE = { 1: 'plays everywhere', 2: 'Fire Stick OK · PS4 transcodes',
 // away the most detail: for Yellowstone S01 (10.1 Mbps x264) a 2.6 Mbps x264 "saved" the most
 // GB precisely because it is a quarter of the quality, and it outranked a 5.5 Mbps HEVC that
 // is visually equivalent to the original.
-const X265_EFFICIENCY = 1.8;
+// X265_EFFICIENCY now lives in arr-inspect.js beside bppOf(), which needs the same constant to
+// normalise HEVC. It was defined in both files for a few minutes on 2026-08-01 and that is exactly
+// the drift these shared-classifier comments exist to prevent — one definition, imported.
 // BANDS ARE DELIBERATELY WIDE. This is a bitrate ratio, not a measured quality metric —
 // real perceptual quality also depends on encoder settings, source and grain, and bitrate
 // has diminishing returns, so 54% of a lavish 11.6 Mbps is not comparable to 54% of a lean
@@ -248,6 +295,69 @@ function minRatioFor(genres, year) {
   if (g.includes('documentary')) return 0.80;   // near-parity or nothing
   if (year && year < 1990) return 0.70;         // film grain
   return 0.30;                                  // the general floor
+}
+// ---- CANDIDATE QUALITY FLOOR, in absolute bands ─────────────────────────────────────────────
+// A RANKING PENALTY, NOT A REFUSAL. Brennan, 2026-08-01: "We should be providing more options,
+// more suggestions, not less, and just allowing the user to choose... That said the human decision
+// should be easy, as all the information they need should be abundantly clear, colour coded, and
+// not misleading, and suggestions should never be absolute crap (IE dubbed copies, wrong edition)."
+//
+// So the line is drawn by KIND, not by degree. Dubs, camrips, wrong cuts and foreign-only audio
+// stay hard refusals (release-rules.js) because no amount of colour-coding makes them a real
+// choice. A merely LOW-QUALITY candidate is a legitimate trade — smaller file, worse picture —
+// and the human can see exactly that in the coloured bpp badge. Refusing it would be deciding for
+// them. An earlier cut of this function returned false and dropped those candidates entirely;
+// that was the wrong instinct.
+//
+// What it still does is push them DOWN the list, so the top of the sheet is the good trade and the
+// compromised ones are visible but last.
+//
+//   Beloved / Top 100  -> anything below GREEN is penalised. These titles are supposed to look
+//                         their best, so a merely-adequate replacement should not lead the list.
+//   everything else    -> penalised more than ONE band below what is on disk, or below ORANGE.
+//
+// This also supersedes minRatioFor() as a quality judgement (kept above only because cached
+// verdicts still carry `minRatio` mid-TTL). minRatioFor was RELATIVE to the file you already have,
+// so 80% of an already-red file passed: Jackie Brown at 0.064 bpp would accept 0.052. It also
+// guessed from genre/year, which is a human call, and the one time that guess was tested it
+// pointed the wrong way (a CRF-12 reference of Lawrence of Arabia landed at 10.6 Mbps, White
+// Chicks at 24.5).
+function candidateBandOk(candBpp, curBpp, priority) {
+  const cand = bppBand(candBpp);
+  if (!cand) return true;                       // unknown is never penalised on a guess
+  const c = BPP_RANK[cand];
+  if (priority) return c <= BPP_RANK.ok;
+  if (c > BPP_RANK.warn) return false;
+  const cur = bppBand(curBpp);
+  return !cur || c <= BPP_RANK[cur] + 1;
+}
+// bpp for a row, from the representative mediaInfo plus the row's own bytes/seconds. The
+// size-derived total is the fallback because mediaInfo.videoBitrate is 0 on ~18% of movies
+// (154 of 859, measured 2026-08-01) — see bppOf() in arr-inspect.js.
+function bppFor(mi, bytes, sec) {
+  return bppOf(mi, sec > 0 ? (bytes * 8) / sec : null);
+}
+// A candidate's bpp is ESTIMATED, not measured: we have its byte size and title but never probe
+// it. Same film and same runtime, so bits scale with bytes — then x1.8 if the candidate switches
+// to HEVC, exactly as qualityBand does.
+//
+// RESOLUTION MUST BE FACTORED IN SEPARATELY, and forgetting it was a real bug (caught 2026-08-01
+// on Meet the Parents). bpp is bits per PIXEL, so a candidate that is both bigger AND a higher
+// resolution is spreading those extra bits over more pixels. The 720p copy on disk (1280x688,
+// 0.034 bpp = 26 bpp+) against a 1080p WEB-DL 14.6x its size estimated to 380 bpp+ — deep purple,
+// implying "more than the display can resolve" — when the honest figure is ~167. Left uncorrected
+// this systematically overstates every 720p -> 1080p upgrade, which is exactly the upgrade the
+// library most often wants.
+//
+// Frame height is taken from the *arr quality name ("Bluray-720p") and the release title, which
+// is all we have for a candidate we have not downloaded. Aspect ratio is preserved across a
+// re-encode of the same film, so pixel count scales with the SQUARE of the height ratio. When
+// either side is unstated the scale is left at 1 — an unknown is never a guess.
+function candBppFrom(rowBpp, rowBytes, candBytes, curIsHevc, candIsHevc, curRes, candRes) {
+  if (!rowBpp || !rowBytes || !candBytes) return null;
+  const codecScale = (candIsHevc && !curIsHevc) ? X265_EFFICIENCY : 1;
+  const resScale = (curRes && candRes && curRes !== candRes) ? (curRes / candRes) ** 2 : 1;
+  return +((rowBpp * (candBytes / rowBytes)) * codecScale * resScale).toFixed(5);
 }
 
 // The NUC's own decode status for a playback tier, and the ONE place that mapping lives so the
@@ -306,6 +416,13 @@ async function buildRows(force = false) {
     // HDTV-sourced suggestion for a Bluray-sourced file read as an unqualified win.
     const src = ((mf.quality || {}).quality || {}).name || null;
     const sec = secs((mf.mediaInfo || {}).runTime);
+    // Top 100 rank is DECLARED INTENT, read once here: it gates the Disk section (a purple Top 100
+    // film is the goal, not bloat) and raises the candidate floor to green in verifyRow.
+    const top100Rank = m.tmdbId ? (top100.get(String(m.tmdbId)) || null) : null;
+    // Picture quality in the one unit that is comparable across the library. Every section
+    // below carries it so the UI never has to re-derive a band. See arr-inspect.js bppOf().
+    const bpp = bppFor(mf.mediaInfo, mf.size || 0, sec);
+    const band = bppBand(bpp);
     // EDITION: a film on the floor list whose copy is the wrong CUT. Independent of the other two
     // sections — Blade Runner is neither a CPU-decode nor a bitrate offender, it is simply the wrong
     // film. This is why it is a third section rather than a badge on Playback: an extended cut is
@@ -319,11 +436,12 @@ async function buildRows(force = false) {
     // then alphabetical. Deliberately NOT worst-quality-first — that is what Playback/Disk are for.
     upgrade.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
       title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
+      bpp, bppPlus: bppIndex(bpp), bppBand: band,
       label: videoLabel(mf.mediaInfo), profile: prof, source: src,
       tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
       origLang: (m.originalLanguage || {}).name || null,
       edition: ownEd, editionLabel: ownEd.label,
-      top100: m.tmdbId ? (top100.get(String(m.tmdbId)) || null) : null,
+      top100: top100Rank,
       beloved: prof.startsWith('Beloved'),
       // Identity fallback for the wrong-show guard: Radarr returns mappedMovieId=null for releases
       // whose titles it cannot parse, even when the release IS this movie (the indexer tagged it
@@ -344,6 +462,7 @@ async function buildRows(force = false) {
     if (edFloor != null && ownEd.tier < edFloor) {
       edition.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
+      bpp, bppPlus: bppIndex(bpp), bppBand: band,
         label: videoLabel(mf.mediaInfo), profile: prof, source: src,
         tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null,
@@ -360,6 +479,7 @@ async function buildRows(force = false) {
       // this row is not a problem to be solved.
       edition.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
+      bpp, bppPlus: bppIndex(bpp), bppBand: band,
         label: videoLabel(mf.mediaInfo), profile: prof, source: src,
         tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null,
@@ -377,6 +497,7 @@ async function buildRows(force = false) {
       // in verifyRow's `else` (Disk-only) branch, so Playback still shows everything it did.
       cpu.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
+      bpp, bppPlus: bppIndex(bpp), bppBand: band, top100: top100Rank, beloved: prof.startsWith('Beloved'),
         label: videoLabel(mf.mediaInfo), profile: prof,
         source: src, tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null, imdbId: m.imdbId || null,
@@ -385,12 +506,27 @@ async function buildRows(force = false) {
         // downgrade without re-fetching anything.
         edition: ownEditionOf(mf.edition, mf.relativePath) });
     }
-    const codec = String(mf.mediaInfo.videoCodec || '').toLowerCase();
-    if (!prof.startsWith('Beloved') && sec && ['x264', 'h264', 'avc'].includes(codec)) {
+    // DISK. Selects on the bpp band now, not a flat Mbps number, and no longer only on x264 —
+    // a fat 10-bit HEVC season used to be invisible here because the codec filter excluded it,
+    // leaving it to the Playback section which says nothing about disk. Beloved is still exempt
+    // by design: that profile exists to spare no expense.
+    // LISTED, NOT FILTERED. Brennan, 2026-08-01: "its fine for stuff to appear in multiple audit
+    // tabs, or to appear when its low priority, like reducing the file size of a beloved or
+    // top100 movie. Those can appear, they just likely should be weighted lower."
+    //
+    // So a Beloved or Top 100 film that is genuinely large DOES get a row here — shrinking it is a
+    // legitimate option a human might take — it just sorts below everything else. Same for a file
+    // the Playback section already lists: the two sections are answering different questions about
+    // the same file (CPU cost vs disk cost) and seeing both is more useful than seeing one.
+    // Only the CODEC filter is gone for good: it excluded HEVC 8-bit, which is pure disk cost.
+    if (sec) {
       const mbps = mf.size * 8 / sec / 1e6;
-      if (mbps >= BLOAT_MIN_MBPS) {
+      if (band && BPP_RANK[band] <= BPP_RANK[BLOAT_BAND_BY_PROFILE(prof)]) {
         bitrate.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
           title, files: 1, bytes: mf.size || 0, mbps: +mbps.toFixed(1),
+          bpp, bppPlus: bppIndex(bpp), bppBand: band, top100: top100Rank, beloved: prof.startsWith('Beloved'),
+          // Sinks the row in the Disk ordering without hiding it — see the sort below.
+          lowPriority: !!(top100Rank || prof.startsWith('Beloved') || gpuTier(mf.mediaInfo) !== 'ok'),
           label: videoLabel(mf.mediaInfo), profile: prof, source: src, target: +(mbps * 0.55).toFixed(1),
           tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
           origLang: (m.originalLanguage || {}).name || null, imdbId: m.imdbId || null,
@@ -416,23 +552,30 @@ async function buildRows(force = false) {
       // would understate the rate badly on a season where only 2 of 10 episodes are 10-bit.
       const badBytes = bad.reduce((a, f) => a + (f.size || 0), 0);
       const badSec = bad.reduce((a, f) => a + secs((f.mediaInfo || {}).runTime), 0);
+      const badBpp = bppFor(bad[0].mediaInfo, badBytes, badSec);
       cpu.push({ key: `tv:${k}`, kind: 'season', app: 'sonarr', id: e.s.id, season: e.season,
         title: `${e.s.title} — S${String(e.season).padStart(2, '0')}`,
         files: bad.length, bytes: badBytes,
         mbps: badSec ? +(badBytes * 8 / badSec / 1e6).toFixed(1) : null,
+        bpp: badBpp, bppPlus: bppIndex(badBpp), bppBand: bppBand(badBpp),
         label: videoLabel(bad[0].mediaInfo), profile: prof, tier: currentTier(bad[0].mediaInfo),
         source: ((bad[0].quality || {}).quality || {}).name || null,
         minRatio: minRatioFor(e.s.genres, e.s.year),
         origLang: (e.s.originalLanguage || {}).name || null });
     }
-    // Beloved is excluded by design — that tier exists to spare no expense.
-    if (prof.startsWith('Beloved') || !e.sec) continue;
+    // Beloved seasons are LISTED but sorted last (see the movie branch and the sort below) —
+    // shrinking one is a legitimate choice, just rarely the first one.
+    if (!e.sec) continue;
     const mbps = e.bytes * 8 / e.sec / 1e6;
-    const x264 = e.files.filter((f) => ['x264', 'h264', 'avc'].includes(String((f.mediaInfo || {}).videoCodec || '').toLowerCase()));
-    if (mbps >= BLOAT_MIN_MBPS && x264.length) {
+    const seasonBpp = bppFor(e.files[0].mediaInfo, e.bytes, e.sec);
+    const seasonBand = bppBand(seasonBpp);
+    // Band, not Mbps, and no longer x264-only — see the movie branch above for why.
+    if (seasonBand && BPP_RANK[seasonBand] <= BPP_RANK[BLOAT_BAND_BY_PROFILE(prof)]) {
       bitrate.push({ key: `tv:${k}`, kind: 'season', app: 'sonarr', id: e.s.id, season: e.season,
         title: `${e.s.title} — S${String(e.season).padStart(2, '0')}`,
         files: e.files.length, bytes: e.bytes, mbps: +mbps.toFixed(1),
+        bpp: seasonBpp, bppPlus: bppIndex(seasonBpp), bppBand: seasonBand, beloved: prof.startsWith('Beloved'),
+        lowPriority: !!(prof.startsWith('Beloved') || bad.length),
         label: videoLabel(e.files[0].mediaInfo), profile: prof,
         source: ((e.files[0].quality || {}).quality || {}).name || null,
         target: +(mbps * 0.55).toFixed(1), tier: currentTier(e.files[0].mediaInfo),
@@ -441,13 +584,32 @@ async function buildRows(force = false) {
     }
   }
   cpu.sort((a, b) => b.bytes - a.bytes);
-  bitrate.sort((a, b) => b.bytes - a.bytes);
+  // Biggest first, EXCEPT that low-priority rows sink to the bottom: a Beloved/Top-100 title, or
+  // one the Playback section already lists. They are real options, just not the ones to lead with.
+  bitrate.sort((a, b) => (Number(!!a.lowPriority) - Number(!!b.lowPriority)) || b.bytes - a.bytes);
   // Alphabetical, not by size: this list is short and every row is equally wrong, so "which film"
   // is the only useful ordering. Sorting by bytes would imply a severity that does not exist here.
   edition.sort((a, b) => a.title.localeCompare(b.title));
-  // Top 100 first IN PLAYLIST ORDER (that order is hand-tuned and is the whole point), then Beloved,
-  // then everything else alphabetically. Unranked films sort as Infinity so they fall below rank 100.
-  upgrade.sort((a, b) => (a.top100 || Infinity) - (b.top100 || Infinity)
+  // SORT: most-underserved first, but ONLY among titles that have declared intent.
+  //
+  // This tab is the "underserved" surface — it already lists every movie with the copy you own and
+  // its device support, so a separate section for "films I love that look bad" would duplicate it
+  // (Brennan, 2026-08-01). What it needed was a better ordering.
+  //
+  // Group 0 is the whole point: a title marked Beloved, or sitting in the Top 100, whose picture is
+  // below the green band. Worst bpp first, because that is the one that most needs a decision.
+  // Group 1 keeps the old hand-tuned ordering for priority titles that are already fine.
+  // Group 2 stays ALPHABETICAL deliberately: 647 movies carry no recorded opinion, and sorting
+  // those by shortfall would put the worst first and bury the tab in noise. There is a search box,
+  // and with accurate badges scanning alphabetically is how an unmarked great gets spotted.
+  const upgGroup = (r) => {
+    const priority = !!(r.top100 || r.beloved);
+    if (!priority) return 2;
+    return (r.bppBand && BPP_RANK[r.bppBand] > BPP_RANK.ok) ? 0 : 1;
+  };
+  upgrade.sort((a, b) => upgGroup(a) - upgGroup(b)
+    || (upgGroup(a) === 0 ? (a.bpp ?? 9) - (b.bpp ?? 9) : 0)
+    || (a.top100 || Infinity) - (b.top100 || Infinity)
     || (b.beloved ? 1 : 0) - (a.beloved ? 1 : 0)
     || a.title.localeCompare(b.title));
   const seriesNorm = new Map(series.map((x) => [x.id, normTitle(x.title)]));
@@ -875,6 +1037,12 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
     // Computed BEFORE the size filters below, which now consult q.ratio.
     const candMbps = row.mbps ? +(row.mbps * (r.size / row.bytes)).toFixed(1) : null;
     const q = qualityBand(row.mbps, candMbps, (row.tier || 1) !== 1, isHevc);
+    // Same scaling, expressed in the unit the UI actually shows. Estimated from size, not probed —
+    // see candBppFrom(). `priority` is what raises the floor from "one band down" to "never below
+    // green": the profile is where Brennan records that a film is supposed to look its best.
+    const candBpp = candBppFrom(row.bpp, row.bytes, r.size, (row.tier || 1) !== 1, isHevc,
+      resOf(row.source), resOf(t));
+    const priority = !!(row.beloved || row.top100 || String(row.profile || '').startsWith('Beloved'));
     if (loose) {
       // No size test at all beyond a sanity cap. The correct cut can be far larger (a 2.2 GB
       // theatrical x264 against a 56 GB Final Cut REMUX is a real pair from this library), and
@@ -896,6 +1064,12 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
       // sitcom). It is now carried as `belowFloor` so the UI can flag it and the human decides.
       if (row.mbps && q.ratio != null && q.ratio < AGGRESSIVE_FLOOR) continue;
     }
+    // NOT a refusal — see candidateBandOk(). Carried onto the candidate so the sort can sink it
+    // below the good trades while still offering it.
+    const bandWeak = !candidateBandOk(candBpp, row.bpp, priority);
+    // Retained for the UI's caution flag only — the refusal above is what actually protects the
+    // library now. A candidate can still be "below the old content-aware floor" and perfectly
+    // acceptable in absolute terms, which is precisely why this stopped being a rejection.
     const belowFloor = !!(row.mbps && q.ratio != null && q.ratio < (row.minRatio ?? 0.30));
     // ---- UPGRADE: what is actually BETTER here, and what is being given up? -------------------
     // Brennan's rule: "better on >=1 axis, tradeoffs allowed but labelled". So this computes both
@@ -921,7 +1095,14 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
       }
       // Bitrate: MORE is better here. This is the mirror image of the Disk section, where less is the
       // goal — same number, opposite meaning, which is exactly why they are separate sections.
-      if (row.mbps && candMbps && Math.abs(candMbps - row.mbps) / row.mbps > 0.15) {
+      // Stated in BPP+, not Mbps — the rest of the app dropped raw Mbps on 2026-08-01 and a lone
+      // "+2.7 Mbps" pill next to a "26 bpp+" figure asked the reader to hold two incompatible
+      // scales at once. Falls back to the Mbps comparison only when bpp is unavailable on either
+      // side, which is rare and better than saying nothing.
+      const curPlus = bppIndex(row.bpp), cndPlus = bppIndex(candBpp);
+      if (curPlus && cndPlus && Math.abs(cndPlus - curPlus) / curPlus > 0.15) {
+        (cndPlus > curPlus ? gains : losses).push(`${cndPlus} bpp+`);
+      } else if (!curPlus && row.mbps && candMbps && Math.abs(candMbps - row.mbps) / row.mbps > 0.15) {
         (candMbps > row.mbps ? gains : losses).push(`${candMbps} Mbps`);
       }
       // Playback tier: LOWER is better (1 = direct-plays everywhere). A 10-bit HDR gain in picture is
@@ -970,13 +1151,18 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
       langWarn, langs: relLangs.length ? relLangs : null,
       tier: cTier, play: TIER_NOTE[cTier], devices: deviceSupport(isHevc ? 'HEVC' : 'H.264', depth || 'unknown'),
       saveGb: gb(Math.max(0, row.bytes - r.size)),
-      mbps: row.mbps ? +(row.mbps * (r.size / row.bytes)).toFixed(1) : null });
+      mbps: row.mbps ? +(row.mbps * (r.size / row.bytes)).toFixed(1) : null,
+      bpp: candBpp, bppPlus: bppIndex(candBpp), bppBand: bppBand(candBpp), bandWeak });
   }
   // Rank: known 8-bit first, then seeders — availability matters as much as the numbers.
   // QUALITY first, then playback tier, then seeders. Ranking on seeders (or on savings)
   // ahead of quality is what pushed a quarter-bitrate release to the top of Yellowstone S01.
   // Savings is the LAST tiebreak: it is the reward, never the reason.
-  cands.sort((a, b) => (BAND_RANK[a.band] - BAND_RANK[b.band])
+  // `bandWeak` first: a candidate that is compromised in ABSOLUTE terms is still offered (the
+  // human decides), but it must never lead the sheet. Everything after it is the pre-existing
+  // ordering, unchanged.
+  cands.sort((a, b) => (Number(a.bandWeak) - Number(b.bandWeak))
+    || (BAND_RANK[a.band] - BAND_RANK[b.band])
     || (a.tier - b.tier) || (b.seeders - a.seeders) || (b.saveGb - a.saveGb));
   // 12, not 6. This is the deliberate "present the options, let the human choose" call: with
   // aggressive trades no longer filtered out, six slots filled up with near-identical safe
@@ -2068,4 +2254,11 @@ function forgetSwap(hash) {
 
 // devNuc is exported ONLY so scripts/test-nuc-compat.js can pin the refusal rule. It is the hinge
 // of a hard filter that is otherwise reachable only through a live indexer search.
-module.exports = { startAuditVerifier, verifyTick, buildRows, forgetSwap, devNuc };
+// candidateBandOk and BLOAT_BAND_BY_PROFILE are exported for scripts/test-bpp-floor.js only —
+// both live inside decisions that otherwise need a live indexer search to reach, and both are
+// hard refusals, so pinning them cheaply is the difference between a tested rule and a hoped-for
+// one. Same reasoning as devNuc above.
+module.exports = {
+  startAuditVerifier, verifyTick, buildRows, forgetSwap, devNuc,
+  candidateBandOk, BLOAT_BAND_BY_PROFILE,
+};

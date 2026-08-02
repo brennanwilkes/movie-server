@@ -3,7 +3,7 @@
 // Tags, which BOTH clients (web flair JS + the Movie Night Fire Stick fork) read to draw gold/silver
 // statuette badges on posters and person cards. Tags are the shared source of truth: they ride along
 // on queries both clients already make, survive controller downtime, and need no second backend.
-// See DESIGN-OSCAR-BADGES.md. Owns: oscarTagsBusy. Timers: startOscarTagsTimer() → every 24h
+// Owns: oscarTagsBusy. Timers: startOscarTagsTimer() → every 24h
 // (award data changes yearly; the boot run is sequenced by server.js bootSequence()).
 //
 // Tags written (idempotent, diff-only):

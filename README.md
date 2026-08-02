@@ -64,7 +64,7 @@ Leslie is a watch-and-request household account, provisioned by IaC from `JELLYF
 Continue Watching and Next Up are separate from brennan's automatically — Jellyfin stores playstate
 per user. The Fire Stick stays signed in as brennan, so anything watched **on the TV** lands in
 brennan's history; she's web-only for now. The controller dashboard is unauthenticated by design,
-so if she uses it her actions run as brennan. See `docs/DESIGN-USER-LESLIE.md`.
+so if she uses it her actions run as brennan.
 
 ## Controller dashboard (`http://movies.local`)
 Mobile-friendly web controller for the whole stack, served from the NUC on **port 80**

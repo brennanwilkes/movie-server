@@ -137,16 +137,48 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
   text-decoration: none; color: var(--text);
 }
 .row .grow { flex: 1; min-width: 0; }
-.row .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* `display: block` is load-bearing, not cosmetic. `.title` is a <span>, and overflow /
+   text-overflow DO NOT APPLY to non-replaced inline elements — so the ellipsis here silently did
+   nothing and a long title escaped `.grow` entirely. Measured 2026-08-01 at 390px: "The Lord of
+   the Rings: The Two Towers (2002)" ended at x=381 while its container ended at x=231, running
+   straight over the redownload and delete buttons at x=243. Short titles hid it. */
+.row .title { font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .sub { font-size: 13px; color: var(--muted); margin-top: 2px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .row .sub-size { color: var(--muted); }
 .row .rate, .row .format { font-weight: 500; }
 .row .rate { color: var(--accent); }
 .row .format { color: var(--muted); }
-.row .rate.rate-wow, .row .format.wow { color: var(--wow); }
-.row .rate.rate-ok, .row .format.ok { color: var(--ok); }
-.row .rate.rate-warn, .row .format.warn { color: var(--warn); }
-.row .rate.rate-bad, .row .format.bad { color: var(--danger); }
+/* .rate-wow/-ok/-warn/-bad were dropped on 2026-08-01 with the raw-Mbps badge — the Library row
+   now renders .mbps (BPP+) plus the .qbar edge rule, which carry their own colours. .format keeps
+   these because gpuTier() still classifies the codec label. */
+.row .format.wow { color: var(--wow); }
+.row .format.ok { color: var(--ok); }
+.row .format.warn { color: var(--warn); }
+/* PROMINENCE: 'bad' is not a shade of the same thing — it means the NUC must software-transcode
+   this file (HEVC 10-bit, VP9, AV1, DoVi), measured at 1.29x realtime under load. Rendered as
+   plain red text it lost every time to the full-height .qbar rule, so a purple-bar/red-badge row
+   like LOTR: Return of the King read as "great file" when it is the one that costs us a CPU.
+   A filled pill puts the two signals on equal footing without merging the axes. */
+.row .format.bad {
+  color: var(--danger); font-weight: 700;
+  padding: 1px 6px; border-radius: 6px;
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+}
+/* THE QUALITY BAR — a full-height coloured rule down the left edge of the row, carrying the BPP+
+   band. Replaced the four inline dots on 2026-08-01: dots sat next to a variable-length title, so
+   they never lined up into anything scannable. A bar pinned to the row edge does, and it costs no
+   horizontal space on a phone. Inset top/bottom so it reads as a marker rather than a border.
+   .row already has 16px of left padding, so the bar sits in existing whitespace and nothing has
+   to move. */
+.row.qbar { position: relative; }
+.row.qbar::before {
+  content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 4px;
+  border-radius: 0 3px 3px 0; background: var(--muted);
+}
+.row.qbar.q-wow::before  { background: var(--wow); }
+.row.qbar.q-ok::before   { background: var(--ok); }
+.row.qbar.q-warn::before { background: var(--warn); }
+.row.qbar.q-bad::before  { background: var(--danger); }
 .dl-status { font-style: italic; }
 .dl-status.ds-downloading { color: var(--accent); font-style: normal; }
 .dl-status.ds-queued { color: var(--muted); }
@@ -416,10 +448,14 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .aud-inline .apill { flex: 0 0 auto; }
 .aud-rate { color: var(--muted); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .aud-delta i, .aud-rate i { font-style: normal; color: var(--muted); margin: 0 4px; }
-/* Colour-coded Mbps figure in the Audit tab — same purple/green/orange/red bands as the Library
-   bitrate badge (bitrateCls in util.js). The colour IS the message, so it overrides the muted
-   delta/rate defaults even when nested inside them. */
+/* BPP+ — the picture-quality figure, shared by the Library rows and every Audit surface. One
+   scale, purple/green/orange/red, classified server-side in arr-inspect.js (bppBand) and rendered
+   by bppSpan() in util.js. Replaced raw Mbps on 2026-08-01 (resolution-, framerate- and
+   codec-blind; painted 82.7% of movies red), then raw bpp was indexed so 100 = "exactly what this
+   hardware needs" — 0.033 vs 0.043 is unreadable, 25 vs 33 is not.
+   The colour IS the message, so it overrides the muted delta/rate defaults even when nested. */
 .mbps { font-variant-numeric: tabular-nums; font-weight: 600; }
+.mbps small { font-size: 0.7em; font-weight: 500; opacity: 0.6; margin-left: 1px; letter-spacing: -0.2px; }
 .mbps.wow  { color: var(--wow); }
 .mbps.ok   { color: var(--ok); }
 .mbps.warn { color: var(--warn); }

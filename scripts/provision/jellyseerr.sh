@@ -142,7 +142,7 @@ else
 fi
 
 # Second household account (leslie) — watch + request, auto-approved. See
-# docs/DESIGN-USER-LESLIE.md §3. Skipped when JELLYFIN_USER_2 is empty.
+# Skipped when JELLYFIN_USER_2 is empty.
 #
 # We IMPORT her Jellyfin identity rather than creating a local Jellyseerr user, so she signs in
 # with the same credentials she uses for Jellyfin. /user/import-from-jellyfin is present in 3.3.0

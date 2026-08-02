@@ -2,8 +2,13 @@
 // Audit tab — read-only reporting on the library's worst offenders, in three sections that
 // are deliberately NOT one merged list because they are not the same kind of problem:
 //   Playback — 10-bit/AV1/VP9/DV. Software-decode on the NUC, no Fire Stick direct-play.
-//              Costs CPU, not disk. Movies and TV seasons both appear.
-//   Disk     — x264 over 6 Mbps. Plays fine, just large. Beloved excluded by design.
+//              Costs CPU, not disk. Movies and TV seasons both appear. Confirmed by measurement
+//              2026-08-01: HEVC Main10 is exactly the class that forces a server transcode, and
+//              that transcode runs at 1.29x realtime while downloads are active.
+//   Disk     — picture quality above what the title's profile asks for, judged on the shared bpp
+//              band (was "x264 over 6 Mbps" until 2026-08-01 — raw Mbps is resolution-, framerate-
+//              and codec-blind, and the x264-only filter hid fat HEVC seasons entirely).
+//              Plays fine, just large. Beloved excluded by design.
 //   Stale    — torrent bytes no longer shared with the library. Always actionable.
 //
 // Only rows with a CONFIRMED better source are listed, and the section counts reflect the
@@ -12,7 +17,7 @@
 // 5-21s); the backend verifier trickles through them.
 //
 // NOTHING HERE MUTATES. Picking a candidate is intentionally not wired — see
-// docs/AUDIT-WORKFLOW.md for how a swap is actually performed.
+// AGENTS.md "The Audit tab is full of issues" for how a swap is actually performed.
 
 let auditData = null;
 let auditSection = 'cpu';
@@ -90,36 +95,19 @@ const TIER_CLS = { 1: 'ok', 2: 'ok', 3: 'warn' };
 // One badge per client instead of a single vague note, so it is obvious WHICH device pays.
 // ok = direct play (green) · tx = server transcodes, works but costs CPU (amber) · no = red.
 const DEV_CLS = { ok: 'ok', tx: 'warn', no: 'bad' };
-// Picture quality is a SEPARATE axis from device support. A 2.6 Mbps x264 plays perfectly on
-// every device — all four device badges go green — while being a quarter of the bitrate we
-// have. Without its own coloured badge the row reads as an unqualified win.
-// Derived from the stored RATIO, not the stored band name — same reasoning as devicesFor():
-// renaming or re-cutting the bands must not invalidate ~2h of cached indexer verification.
-// Boundaries are deliberately wide; see qualityBand() in audit.js for why.
-function bandClass(ratio) {
-  if (ratio == null) return '';
-  if (ratio >= 0.85) return 'ok';
-  if (ratio >= 0.5) return '';
-  return ratio >= 0.3 ? 'warn' : 'bad';
-}
-// Reads "≈61% bitrate", not "slightly lower 61%" — it IS a bitrate ratio (candidate rate,
-// scaled x1.8 when HEVC replaces x264, over the current rate), and calling it quality claimed
-// a precision the number does not have. The title attribute spells that out on hover.
-const BAND_HELP = 'Estimated bitrate vs the current file (HEVC scaled x1.8 for codec efficiency). '
-  + 'A rough guide, not a measured quality score.';
-// "≈56%" not "≈56% bitrate" — the word cost ~50px of a 364px line and the tooltip says it.
-// belowFloor folds into THIS badge rather than getting its own: a candidate under the
-// content-aware floor already forces this pill red, so a separate "aggressive" pill said the
-// same thing twice and cost 73px, which is what pushed line 3 to two rows on a 500px screen.
-const FLOOR_HELP = ' BELOW the recommended floor for this content — grain, dark scenes and fast '
-  + 'motion suffer most at low bitrate. Offered anyway because the call is yours.';
-const bandPill = (c) => (c.ratio == null ? '' :
-  `<span class="apill ${bandClass(c.ratio)}" title="${esc(BAND_HELP + (c.belowFloor ? FLOOR_HELP : ''))}">`
-  // A bang, not just a red tint. The v8 widening stopped the content-aware floor from REJECTING
-  // these and made the warning the whole safety valve — but the warning lived in a `title`
-  // tooltip, which does not exist on touch, and 15 rows had a below-floor candidate as their
-  // DEFAULT top pick. On a phone that is a one-tap steep downgrade with no readable caution.
-  + `≈${Math.round(c.ratio * 100)}%${c.belowFloor ? '<b>!</b>' : ''}</span>`);
+// PICTURE QUALITY is a SEPARATE axis from device support, and it now travels as an ABSOLUTE
+// figure rather than a ratio. A 2.6 Mbps x264 plays perfectly on every device — all five device
+// badges go green — while being a quarter of the bitrate we have, so it still needs its own
+// coloured badge or the row reads as an unqualified win. That badge is bppSpan() in util.js.
+//
+// THE `bandPill` (`~61%`) BADGE WAS REMOVED on 2026-08-01. It rendered candidate-bitrate over
+// current-bitrate, x1.8 for HEVC. Two problems: with a coloured bpp figure now on BOTH the
+// current card and the candidate, "0.05 -> 0.14" states the same comparison in absolute terms and
+// states it better; and a ratio is blind to the case that matters most — a film already sitting at
+// 0.05 bpp can offer a candidate at 90% of that and look like a safe trade while still being red.
+// The absolute floor (candidateBandOk in lib/audit.js) is what refuses those now, and the
+// candidate's own bpp badge rendering orange or red is a stronger caution than the old
+// `belowFloor` exclamation mark ever was.
 // Under ~5 seeders a grab may simply never finish; that is a practical risk, not a nicety.
 // `seeds` right-aligns it so the device badges below line up across cards.
 // Below 3 this is RED, not amber (2026-07-30, Brennan): amber reads as "caution", but the honest
@@ -231,12 +219,23 @@ function fmtPills(c) {
 // Derived HERE, not on the server, from the codec+depth the verdict already carries. Baking
 // the matrix into cached verdicts meant every tweak needed a VERDICT_VERSION bump, throwing
 // away ~2h of indexer verification for a cosmetic change.
-//   Fire - Fire TV Stick 2nd gen: HEVC decoder present (<=1920x1088) but no Main10.
+//   Fire - Fire TV Stick 2nd gen (AFTT). MEASURED 2026-08-01 by driving the live session and
+//          reading Jellyfin's settled decision: HEVC 8-bit, 19.7 Mbps H.264, DTS-only and
+//          TrueHD-only all DIRECT PLAY. The client profile declares `hevc-profile=main` with no
+//          main10, and a Main10 file returns TranscodeReasons=VideoProfileNotSupported. So
+//          Main10 is the ONLY transcode trigger in the whole library. Decoders cap at 1920x1088.
+//          This is ~95% of playback, which is why it is listed first.
 //   PS4  - media player is H.264 only; any HEVC is a transcode (cheap via QSV at 8-bit).
+//          ~1% of playback. Not verified by measurement; inherited assumption.
 //   iOS  - iPhone/iPad, and Jellyfin/Streamyfin on them, decode HEVC incl. Main10 natively.
 //   Web  - desktop browsers: H.264 universal, HEVC effectively Safari-only.
 //   NUC  - the SERVER's own cost when it must transcode: Iris 540 hardware-decodes H.264 and
-//          HEVC 8-bit, but 10-bit HEVC is software (EnableDecodingColorDepth10Hevc=false).
+//          HEVC 8-bit but NOT Main10 (confirmed absent from vainfo: no VAProfileHEVCMain10, no
+//          VP9, no AV1). Measured cost of that software decode at true 1920x1080: 2.1x realtime
+//          idle, 1.29x while downloads run, and one transcode took load from 4.1 to 14.3.
+//          gpuTier() in lib/arr-inspect.js was amber for 10-bit until 2026-08-01 while this said
+//          red; both now say red, which is the honest reading.
+// Full method and results: docs/audit-2026-07-31/raw/playback-tests-2026-08-01.md
 function devicesFor(c) {
   const h265 = c.codec !== 'H.264';
   const tenbit = h265 && c.depth !== '8bit';
@@ -266,7 +265,8 @@ function auditRowHtml(r) {
   // it, Playback rows had no `mbps` and fell back to the codec label. Now that Playback carries a
   // bitrate too, a bare swap to Mbps would have cost that tab the codec — the one thing it exists
   // to fix. Codec first (it is why the row is listed), bitrate second.
-  const rate = [esc(r.label || ''), r.mbps && b.mbps ? `${bitrateSpan(r.mbps)}<i>→</i>${bitrateSpan(b.mbps)}` : '']
+  const rate = [esc(r.label || ''), r.bpp != null && b.bpp != null
+    ? `${bppSpan(r.bppPlus, r.bppBand)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand)}` : '']
     .filter(Boolean).join('<i>·</i>');
   // A swap already in flight: the row is NOT actionable, so it does not pretend to be. No
   // data-key, no role=button — tapping it does nothing rather than opening a sheet whose Replace
@@ -288,7 +288,7 @@ function auditRowHtml(r) {
       <span class="aud-right">${savePill(r.bytes, b.bytes)}</span>
     </li>`;
   }
-  return `<li class="row aud" data-key="${esc(r.key)}" role="button" tabindex="0">
+  return `<li class="row aud${qbarCls(r.bppBand)}" data-key="${esc(r.key)}" role="button" tabindex="0">
     <span class="grow">
       <span class="title">${esc(r.title)}</span>
       <div class="aud-line">
@@ -534,7 +534,7 @@ function renderAudSheet() {
         <span class="aud-age">checked ${auditAge(v.ts)} ago</span>
       </div>
       <div class="aud-line">
-        <span class="aud-delta">${fmtBytes(r.bytes)}${r.mbps ? `<i>·</i>${bitrateSpan(r.mbps)}` : ''}</span>
+        <span class="aud-delta">${fmtBytes(r.bytes)}${r.bppPlus != null ? `<i>·</i>${bppSpan(r.bppPlus, r.bppBand)}` : ''}</span>
         <span class="aud-rate">${esc(r.label || '')}</span>
         <span class="aud-inline">${srcPill(r.source, 0)}</span>
       </div>
@@ -553,9 +553,9 @@ function renderAudSheet() {
         ${savePill(r.bytes, c.bytes, 'sm')}
       </div>
       <div class="aud-line">
-        <span class="aud-delta">${fmtBytes(c.bytes)}${c.mbps ? `<i>·</i>${bitrateSpan(c.mbps)}` : ''}</span>
+        <span class="aud-delta">${fmtBytes(c.bytes)}${c.bppPlus != null ? `<i>·</i>${bppSpan(c.bppPlus, c.bppBand)}` : ''}</span>
         <span class="aud-rate">${esc(c.codec === 'H.264' ? c.codec : `${c.codec} ${c.depth}`)}</span>
-        <span class="aud-inline">${srcPill(c.source, c.srcDrop || 0)}${bandPill(c)}${audioPill(c, 'wide-only')}</span>
+        <span class="aud-inline">${srcPill(c.source, c.srcDrop || 0)}${audioPill(c, 'wide-only')}</span>
       </div>
       <div class="aud-pills">${devPills(c)}${fmtPills(c)}${audioPill(c, 'narrow-only')}${seedPill(c.seeders)}</div>
     </div>`).join('') : '<p class="muted">No candidates.</p>';
@@ -987,6 +987,7 @@ function auditUpgradeRowHtml(r) {
   const v = r.verdict || {};
   const b = v.state === 'improvable' ? v.best : null;
   const rank = r.top100 ? `<span class="upg-rank">#${r.top100}</span>` : '';
+
   const belovedPill = r.beloved ? pill('beloved', 'ok') : '';
   // A swap already in flight renders EXACTLY like the other audit sections — same .swapping class,
   // same health pills, same release line — rather than a bare "replacing now…" that could not say
@@ -1020,9 +1021,16 @@ function auditUpgradeRowHtml(r) {
   //   checked, nothing → a muted "nothing better found"
   //   not checked yet  → nothing extra; the row is simply a statement of what you own
   const size = b ? `${fmtBytes(r.bytes)}<i>→</i>${fmtBytes(b.bytes)}` : fmtBytes(r.bytes);
-  const facts = [size, r.mbps ? bitrateSpan(r.mbps) : ''].filter(Boolean).join('<i>·</i>');
+  // When a candidate exists the quality figure becomes a BEFORE -> AFTER pair, mirroring the size
+  // delta immediately to its left. Showing the current file's BPP+ alone next to "549 MB -> 2.1 GB"
+  // read as though the number described the candidate, which is the one thing it does not.
+  const facts = [size, r.bppPlus != null
+    ? (b && b.bppPlus != null
+      ? `${bppSpan(r.bppPlus, r.bppBand)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand)}`
+      : bppSpan(r.bppPlus, r.bppBand))
+    : ''].filter(Boolean).join('<i>·</i>');
   const none = !b && v.state ? '<span class="aud-none">nothing better found</span>' : '';
-  return `<li class="row aud upg" data-key="${esc(r.key)}" role="button" tabindex="0">
+  return `<li class="row aud upg${qbarCls(r.bppBand)}" data-key="${esc(r.key)}" role="button" tabindex="0">
     <span class="grow">
       <span class="title">${rank}${esc(r.title)}</span>
       <div class="aud-line upg-line">

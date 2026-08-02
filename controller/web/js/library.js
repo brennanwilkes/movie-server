@@ -31,7 +31,10 @@ function srcBadge(source) {
   const label = String(source).replace(/-?(1080|720|2160)p/i, '').replace(/[-\s]+$/, '');
   return `<span class="format ${cls}">${esc(label)}</span>`;
 }
-// Audio badge — same quality bands as the bitrate badge via the shared audioCls() classifier.
+// Audio badge — INFORMATION ONLY, deliberately uncoloured. audioCls() returns '' for everything
+// now: measured 2026-08-01, every audio format on this chain ends as stereo PCM, and the primary
+// codec alone cannot prove PS4 compatibility (commentary AC3 tracks are invisible here).
+// See the block comment above audioCls() in util.js.
 function audioBadge(codec, ch) {
   if (!codec) return '';
   const c = String(codec).toUpperCase();
@@ -46,12 +49,10 @@ function renderLibrary() {
   $('#library-empty').hidden = items.length > 0 || libLoading;
   $('#library-empty').textContent = libItems.length ? 'No matches.' : 'Nothing here yet.';
   $('#library').innerHTML = items.map((m) => {
-    let rate = '', rateCls = '';
-    if (m.hasFile && m.sizeBytes && m.runtimeMinutes > 0) {
-      const mbps = m.sizeBytes * 8 / (m.runtimeMinutes * 60 * 1e6);
-      rate = `${mbps.toFixed(1)} Mbps`;
-      rateCls = mbps >= 15 ? 'rate-wow' : mbps >= 8 ? 'rate-ok' : mbps >= 4 ? 'rate-warn' : 'rate-bad';
-    }
+    // QUALITY: bpp + band, both computed server-side (arr-inspect.js). This used to derive
+    // Mbps here from sizeBytes/runtimeMinutes and colour it >=15/8/4 — resolution-, framerate-
+    // and codec-blind, which put 82.7% of movies in the worst colour. See util.js bppSpan().
+    const rate = bppSpan(m.bppPlus, m.bppBand);
     const fmt = m.videoLabel || '';
     const compat = m.gpuCompat || '';
     const fmtCls = compat === 'ok' ? 'ok' : compat === 'warn' ? 'warn' : compat === 'bad' ? 'bad' : '';
@@ -62,10 +63,10 @@ function renderLibrary() {
     const status = !m.hasFile && m.downloadDetail
       ? `<span class="dl-status ds-${esc(m.downloadStatus || 'missing')}">${esc(m.downloadDetail)}</span>`
       : `<span class="sub-size">${m.hasFile ? fmtBytes(m.sizeBytes) + ' on disk' : 'Not downloaded'}</span>`;
-    return `<li class="row">
+    return `<li class="row${qbarCls(m.bppBand)}">
       <span class="grow">
         <span class="title">${esc(m.title)}${m.year ? ` <span class="muted">(${m.year})</span>` : ''}</span>
-        <div class="sub">${status}${rate ? `<span class="rate ${rateCls}">${rate}</span>` : ''}${fmt ? `<span class="format ${fmtCls}">${esc(fmt)}</span>` : ''}${src}${aud}</div>
+        <div class="sub">${status}${rate}${fmt ? `<span class="format ${fmtCls}">${esc(fmt)}</span>` : ''}${src}${aud}</div>
       </span>
       ${m._app === 'radarr' ? `<button class="redl" data-id="${m.id}" aria-label="Redownload ${esc(m.title)}">
         <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 3v5h-5"/></svg>

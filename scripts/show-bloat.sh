@@ -34,7 +34,7 @@
 #
 # TARGET 8-BIT x265 ONLY. 10-bit HEVC cannot direct-play on the Fire TV Stick 2nd gen and
 # Jellyfin has EnableDecodingColorDepth10Hevc=false, so it falls back to CPU software
-# decode on the NUC. See docs/AUDIT-DISK-2026-07-27.md.
+# decode on the NUC.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib.sh

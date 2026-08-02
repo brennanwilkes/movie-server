@@ -7,7 +7,7 @@ set -euo pipefail
 #   • build.sh  → controller/oscar-winners.json : category collections (Best Picture, etc.),
 #                 TMDB-keyed, feeds collectionsSweep() (the Oscar BoxSets).
 #   • THIS       → controller/film-awards.json   : total {noms, wins} per film, IMDb-keyed,
-#                 feeds oscarTagsSweep() → poster badges (web + Fire Stick). See DESIGN-OSCAR-BADGES.md.
+#                 feeds oscarTagsSweep() → poster badges (web + Fire Stick).
 #
 # SOURCE: https://github.com/DLu/oscar_data  (oscars.csv) — every Academy Award nomination,
 # IMDb-keyed, annually updated (DLu refreshes within days of each ceremony). See SOURCE.md.
@@ -39,7 +39,7 @@ fi
 
 # The file is TAB-separated despite the .csv name; FilmId is pipe-delimited (a single
 # acting nomination can list every film the nominee was cited for that year — each is
-# credited, per DESIGN-OSCAR-BADGES.md §2.1). Use python3's csv module (quoted fields).
+# credited). Use python3's csv module (quoted fields).
 # Emits TWO files: film-awards.json (IMDb tt-keyed) and person-awards.json (name-keyed —
 # people mostly lack IMDb ids in Jellyfin, so the controller matches them by normalized name).
 exec python3 - "$SOURCE_CSV" "$OUT" "$OUT_PEOPLE" << 'PY'

@@ -39,7 +39,7 @@ const NATION_TAG_RE = /^nation(-[a-z]{2})?$/;
 // has Radarr's originalLanguage in hand. Deliberately OUTSIDE the nation* namespace: `nation` is
 // not "foreign language" (an English film from the UK gets a flag), and the clients' flag-badge
 // parsing keys off NATION_TAG_RE, which this must not match. Consumed by the Fire Stick fork's
-// "Foreign" mood tile and by the English-only mood filters (docs/DESIGN-GENRE-MOODS.md).
+// "Foreign" mood tile and by the English-only mood filters.
 const LANG_TAG = 'foreign-language';
 const LANG_TAG_RE = /^foreign-language$/;
 
