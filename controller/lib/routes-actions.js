@@ -488,7 +488,7 @@ async function cancelSuperseded(seriesId, newHash, newTitle) {
 // from the qBittorrent queue and import it when complete.
 app.post('/api/force-grab', async (req, res) => {
   const { app: a, id, release } = req.body || {};
-  if (a !== 'sonarr' || id == null) return res.status(400).json({ error: 'body must be {app:"sonarr",id}' });
+  if ((a !== 'sonarr' && a !== 'radarr') || id == null) return res.status(400).json({ error: 'body must be {app:"sonarr"|"radarr",id}' });
   try {
     const key = `${a}:${Number(id)}`;
     const st = searchState.get(key) || {};
@@ -500,13 +500,13 @@ app.post('/api/force-grab', async (req, res) => {
     } else {
       // Fallback: fresh search + best pick (backward compat for scripts/curl)
       title = st.lastSearchTitle || (st.searchProbe && st.searchProbe.title) || await arrTitle(a, Number(id), []);
-      let gap = await probeSearchGap(title, []);
+      let gap = await probeSearchGap(title, [], { app: a });
       if ((!gap || !gap.best) && st.lastSearchGap) gap = st.lastSearchGap;
       if (!gap || !gap.best) return res.status(404).json({ error: 'no grabbable gap release found' });
       rel = gap.best;
     }
     const { title: relTitle, seeders } = rel;
-    const result = await grabGapRelease(rel, 'sonarr-force');
+    const result = await grabGapRelease(rel, a === 'radarr' ? 'radarr-force' : 'sonarr-force');
     // Track for post-grab import guarantee: when the torrent completes (or lands on disk),
     // the watchdog will retry Manual Import until all episodes are accounted for.
     if (result.infoHash) {
@@ -517,7 +517,7 @@ app.post('/api/force-grab', async (req, res) => {
     searchState.set(key, st);
     persistState();
     metrics.emitEvent('force_grab', { ap: a, id: Number(id), ti: title, rel: relTitle, seeders, indexer: rel.indexer, method: result.method, infoHash: result.infoHash });
-    console.log(`force-grab: sonarr id=${id} → "${relTitle}" (${seeders} seeders, ${result.method})`);
+    console.log(`force-grab: ${a} id=${id} → "${relTitle}" (${seeders} seeders, ${result.method})`);
     // AFTER the grab, never before: if adding the release fails we must not have thrown away the
     // dead one it was meant to replace. Non-fatal — a grab that worked is reported as a success even
     // if the tidy-up did not, since the stalled row's own clock is still there as the backstop.
@@ -532,7 +532,7 @@ app.post('/api/force-grab', async (req, res) => {
   } catch (e) {
     const msg = String(e.message || e);
     metrics.emitEvent('force_grab', { ap: a, id: Number(id), error: msg });
-    console.log(`force-grab: failed for sonarr id=${id} — ${msg}`);
+    console.log(`force-grab: failed for ${a} id=${id} — ${msg}`);
     res.status(500).json({ error: msg });
   }
 });
@@ -575,9 +575,139 @@ function coverageOf(scope, missingSeasons) {
   return scope.seasons.some((n) => missingSeasons.has(n)) ? 'gap' : 'complete';
 }
 
+// ── Movie force-grab picker (Radarr) ─────────────────────────────────────────────
+// Same shape as the Sonarr picker below but for a single-file movie: probe a raw Prowlarr text
+// search (movie category + title/year scoped), drop wrong films and hard refusals with the SAME
+// release-rules the Audit tab uses, then rank by seeders → res → size. A movie holds one file, so
+// there is no season/episode/coverage axis — the "quality vs. rescue" tension is purely seeder count
+// vs. resolution vs. source, exactly the order a single missing film benefits from. Read-only.
+async function movieGapPicker(res, mid) {
+  try {
+    const st = searchState.get(`radarr:${mid}`) || {};
+    const title = st.lastSearchTitle || (st.searchProbe && st.searchProbe.title) || await arrTitle('radarr', mid, []);
+    // Movie metadata — originalLanguage makes a lone foreign tag a dub-or-not decision, see isForeignOnly.
+    let movie = null, origLang = null;
+    try {
+      const m = await arrGet('radarr', `/movie/${mid}`, 6000);
+      if (m) {
+        origLang = ((m.originalLanguage || {}).name) || null;
+        movie = { title: m.title, year: m.year || null, tmdbId: m.tmdbId || null, runtime: m.runtime || null, origLang };
+      }
+    } catch { /* best-effort */ }
+
+    // ── Candidate source: Radarr's own release endpoint is AUTHORITATIVE — it searched the indexers
+    // for THIS movie id, and every entry carries `mappedMovieId`, so wrong films (a "Psycho Beach
+    // Party" that fuzzes in) are already marked `mappedMovieId: undefined` + "Unknown Movie". Use it
+    // when it has anything; the raw Prowlarr text search is only a fallback for when Radarr's search
+    // cache is empty (e.g. nothing searched yet), filtered with the title-prefix wrong-film drop below.
+    let raw = [], query = null, summary = null;
+    try {
+      const rels = await arrGet('radarr', `/release?movieId=${mid}`, 8000);
+      if (Array.isArray(rels) && rels.length) raw = rels;
+    } catch { /* fall through to text search */ }
+    let gap = null;
+    if (!raw.length) {
+      gap = await probeSearchGap(title, [], { app: 'radarr' });
+      raw = (gap && gap.all) || [];
+      query = gap?.query || null;
+      summary = gap?.summary || null;
+    }
+    if (!raw.length) {
+      return res.json({ results: [], weak: [], refused: [], movie, query, gapLabel: null,
+        counts: { raw: 0, series: 0, offered: 0, weak: 0 } });
+    }
+
+    // ── Wrong-film drop. For release-endpoint entries Radarr already did this (mappedMovieId). For
+    // text-search fallback entries: title must START WITH the movie name after a release prefix strip;
+    // leftovers go to Radarr's own parser (authoritative) up to the same budget as the Sonarr picker,
+    // so a search glitch pointing at a soundtrack or "1964 Muscle Beach Party" remake cannot surface
+    // as a candidate for "Beach Party (1963)".
+    const titles = [movie && movie.title, title].filter(Boolean);
+    const norms = titles.map((s) => normName(s));
+    const stripPrefix = (s) => normName(String(s || '').replace(/^\s*[[(][^\])]{1,30}[\])]\s*/, ''));
+    let parses = 0;
+    const kept = [];
+    for (const r of raw) {
+      const t = r.title || '';
+      if (r.mappedMovieId != null) {
+        if (r.mappedMovieId === mid) kept.push(r);
+        continue;   // release-endpoint row: Radarr's mapping is final, no fallback to a fuzzy parse
+      }
+      const nt = stripPrefix(t);
+      let mine = norms.some((n) => n && (nt === n || nt.startsWith(n + ' ')));
+      if (!mine && parses < PICK_MAX_PARSES) {
+        parses++;
+        const ent = await arrParseEntity('radarr', t);
+        mine = !!(ent && ent.id === mid);
+      }
+      if (mine) kept.push(r);
+    }
+
+    // ── Hard refusals + shaping (shared Audit rules). No edition/scope logic: a movie is one film.
+    const refusedCounts = new Map();
+    const shaped = [];
+    for (const r of kept) {
+      const t = r.title || '';
+      // Radarr's release-endpoint "rejections" already told us why it wouldn't auto-grab. The profile
+      // one ("Unknown is not wanted in profile") is exactly the manual-rescue case — that's why the
+      // button exists. Wrong-movie rows were already dropped above by mappedMovieId.
+      const radarrRej = (Array.isArray(r.rejections) ? r.rejections : [])
+        .filter((z) => !/profile/i.test(z));
+      if (radarrRej.length) {
+        refusedCounts.set(radarrRej[0], (refusedCounts.get(radarrRej[0]) || 0) + 1);
+        continue;
+      }
+      const why = refusedReason(t, origLang) || editionRefusal(t, null, title)
+        || (overResCeiling(t) ? 'above 1080p — nothing here can play it' : null);
+      if (why) { refusedCounts.set(why, (refusedCounts.get(why) || 0) + 1); continue; }
+      if ((r.seeders || 0) < PICK_MIN_SEEDERS) {
+        refusedCounts.set('no seeders', (refusedCounts.get('no seeders') || 0) + 1);
+        continue;
+      }
+      const res = resOf(t);
+      shaped.push({
+        title: t, guid: r.guid, infoHash: r.infoHash || null, indexerId: r.indexerId,
+        indexer: r.indexer || null, size: r.size || 0, seeders: r.seeders || 0,
+        res, srcRank: srcRank(t), source: (() => { for (const [re, name] of [[/remux/i, 'Remux'], [/bluray|blu-?ray/i, 'BluRay'], [/brrip|bdrip/i, 'BRRip'], [/web-?dl/i, 'WEB-DL'], [/webrip/i, 'WEBRip'], [/hdtv/i, 'HDTV'], [/dvd/i, 'DVD']]) if (re.test(t)) return name; return null; })(),
+        codec: codecOf(t), audio: audioOf(t), reenc: REENC_RE.test(t), tenbit: TENBIT_RE.test(t),
+        weak: (res != null && res < PICK_RES_FLOOR) || (srcRank(t) ?? 9) <= 1,
+      });
+    }
+
+    // ── Rank: seeders first (rescue), then resolution, then size. Refuse nothing further — junk is
+    // demoted to `weak`, not hidden, so the picker still works when the only thing seeded is 480p.
+    const resLess = (r) => (r == null || r.res == null ? 0 : r.res >= 2160 ? 1 : r.res >= 1080 ? 3 : r.res >= 720 ? 2 : 0);
+    const seedBand = (n) => (n >= 50 ? 3 : n >= 15 ? 2 : n >= 5 ? 1 : 0);
+    const cmpMovie = (x, y) => (seedBand(y.seeders) - seedBand(x.seeders))
+      || (resLess(y) - resLess(x))
+      || (Number(y.size) || 0) - (Number(x.size) || 0);
+    const results = shaped.filter((r) => !r.weak).sort(cmpMovie);
+    const weakByName = shaped.filter((r) => r.weak).sort(cmpMovie);
+
+    const refused = [...refusedCounts.entries()].map(([reason, n]) => ({ reason, n }));
+    console.log(`force-grab/search: radarr id=${mid} "${title}" — ${raw.length} raw → ${kept.length} this movie`
+      + ` → ${results.length} offered + ${weakByName.length} lower-quality`
+      + (refused.length ? ` (refused: ${refused.map((x) => `${x.n} ${x.reason}`).join(', ')})` : '')
+      + (parses ? `; ${parses} *arr parse${parses > 1 ? 's' : ''}` : ''));
+    return res.json({
+      results, weak: weakByName, refused, movie, series: movie,
+      query, summary,
+      counts: { raw: raw.length, series: kept.length, offered: results.length, weak: weakByName.length },
+    });
+  } catch (e) {
+    console.log(`force-grab/search: radarr picker ERROR — ${String(e && e.stack || e)}`);
+    return res.status(500).json({ error: String(e.message || e) });
+  }
+}
+
 app.post('/api/force-grab/search', async (req, res) => {
   const { app: a, id, want } = req.body || {};
-  if (a !== 'sonarr' || id == null) return res.status(400).json({ error: 'body must be {app:"sonarr",id}' });
+  if ((a !== 'sonarr' && a !== 'radarr') || id == null) return res.status(400).json({ error: 'body must be {app:"sonarr"|"radarr",id}' });
+  // Movies have a single file to rescue — none of the season/episode shaping below applies. Run a
+  // dedicated movie picker; the shared release-rules reject wrong films/refusals exactly as the
+  // Audit candidate cards do, so the two surfaces cannot drift.
+  if (a === 'radarr') return movieGapPicker(res, Number(id));
+
   try {
     const sid = Number(id);
     // `want` is the release title of the row the user clicked the picker on, when there is one. It

@@ -14,7 +14,7 @@ const { tfetch, qbit, arrGet } = require('./clients');
 const { _cache, cachedFetch } = require('./cache');
 const { jellyfinUserId, jellyfinIdByTmdb, jellyfinSearchId } = require('./jellyfin');
 const {
-  getQbitTorrents, getQueueMap, getHistoryIndex, getHasFileMap, torrentApp,
+  getQbitTorrents, getQueueMap, getHistoryIndex, getHasFileMap, torrentApp, isForceGrabCategory,
   arrOwns, resetParseBudget, getIndexerSnapshot, arrIdByName, arrParseEntity,
 } = require('./arr-data');
 const {
@@ -315,9 +315,9 @@ async function buildDownloads() {
           // Fresh completions (≤1 day old) may still be picked up by the import watchdog →
           // keep them as "Importing". Older completions with no queue entry and no confirmed
           // import are almost certainly fine — the history window aged out the import event.
-          if (forceGrabImport.has(h) || (t.category || '').toLowerCase() === 'sonarr-force') {
-            // Force-grabs are owned EXCLUSIVELY by the watchdog pre-pass (importViaGrab, which knows
-            // the user-chosen series). NEVER emit a recover for a sonarr-force torrent: the generic
+          if (forceGrabImport.has(h) || isForceGrabCategory(t.category)) {
+            // Force-grabs are owned EXCLUSIVELY by the watchdog pre-pass (importViaGrab/importViaManual,
+            // which know the user-chosen item). NEVER emit a recover for a force-grab torrent: the generic
             // recover runs importViaManual with no expectedId, and on an unparseable release its
             // "Unknown Series" branch DELETES the folder with deleteFiles:true — this is what wiped
             // Cosmos 1980. Gating on the CATEGORY (not just the hash map) keeps this safe even if the
@@ -700,7 +700,7 @@ async function refreshDownloads() {
         if (!knownBefore.has(h) && t.state !== 'Paused' && t.state !== 'Seeding') {
           // New hash, not yet tracked, actively downloading → check category
           const cat = (t.category || '').toLowerCase();
-          if (cat !== 'sonarr-force') {
+          if (!isForceGrabCategory(cat)) {
             qbitPauseResume(h, false).catch(() => {});
           }
         }

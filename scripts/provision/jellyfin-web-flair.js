@@ -458,6 +458,14 @@
 			// compact variant for wide-but-not-huge artwork (list-row thumbnails)
 			'.oscar-plaque-sm{bottom:4px;right:4px;padding:2px 7px;font-size:10px;line-height:1.4;}' +
 			'.oscar-plaque-sm svg{width:7px;height:14px;vertical-align:-3px;margin-right:3px;}' +
+			'.oscar-plaque .opl-f{white-space:nowrap;}' +
+			'.oscar-plaque > div + div{margin-top:2px;}' +
+			'.oscar-plaque .opl-f.f-cannes{color:#9fb87f;}' +
+			'.oscar-plaque .opl-f.f-sundance{color:#f26d3d;}' +
+			'.oscar-plaque .opl-f svg{vertical-align:-4px;}' +
+			'.oscar-plaque .opl-f svg.sun,.oscar-plaque .opl-f svg.reel{width:11px;height:11px;vertical-align:-2px;margin-right:4px;}' +
+			'.oscar-plaque-sm .opl-f svg{vertical-align:-3px;}' +
+			'.oscar-plaque-sm .opl-f svg.sun,.oscar-plaque-sm .opl-f svg.reel{width:9px;height:9px;vertical-align:-1px;margin-right:2px;}' +
 
 			// ---- Nation flags (retro "luggage sticker" — see nation-tags.js sweep) ----
 			// TOP-left corner (rank+oscars own the right side). Moved from bottom-left
@@ -517,7 +525,7 @@
 			if (r.idByName) idByName = r.idByName;
 			if (r.playlistsViewId) playlistsViewId = r.playlistsViewId;
 		}
-		var o = lsGet(cacheKey('mn_oscars'));
+		var o = lsGet(cacheKey('mn_oscars_v2'));
 		if (o) oscarById = new Map(o);
 		var n = lsGet(cacheKey('mn_nations'));
 		if (n) nationById = new Map(n);
@@ -754,16 +762,30 @@
 	// Award movie (noms here = LOSING nominations; wins are separate). We pull those items and
 	// parse the counts into oscarById, keyed by both GUID forms like rankById.
 	var OSCAR_TAG_RE = /^oscar-(wins|noms)-(\d+)$/;
+	var FESTIVAL_TAG_RE = /^festival-(cannes|sundance)(?:-(\d+)|-name-(.+))?$/;
 	function parseOscarTags(tags) {
 		if (!tags || !tags.length) return null;
-		var w = 0, l = 0, hit = false;
+		var w = 0, l = 0, c = 0, s = 0, cName = '', sName = '', hit = false;
 		for (var i = 0; i < tags.length; i++) {
 			var m = OSCAR_TAG_RE.exec(tags[i]);
-			if (!m) continue;
-			hit = true;
-			if (m[1] === 'wins') w = parseInt(m[2], 10); else l = parseInt(m[2], 10);
+			if (m) { hit = true; if (m[1] === 'wins') w = parseInt(m[2], 10); else l = parseInt(m[2], 10); continue; }
+			var f = FESTIVAL_TAG_RE.exec(tags[i]);
+			if (f) {
+				hit = true;
+				if (f[1] === 'cannes') {
+					// BLOCKER-fix: the -name- tag matches with f[2] undefined — only assign from the
+					// capture group that actually matched, or the name tag clobbers the count to 0
+					// (parseInt(undefined) → NaN → 0) and the festival row vanishes for every
+					// single-win film. Count and name are INDEPENDENT tags.
+					if (f[2] !== undefined) c = parseInt(f[2], 10) || 0;
+					if (f[3] !== undefined) cName = f[3];
+				} else {
+					if (f[2] !== undefined) s = parseInt(f[2], 10) || 0;
+					if (f[3] !== undefined) sName = f[3];
+				}
+			}
 		}
-		return hit ? { w: w, l: l } : null;
+		return hit ? { w: w, l: l, c: c, s: s, cName: cName, sName: sName } : null;
 	}
 	function loadOscars() {
 		if (!ready()) return Promise.resolve();
@@ -777,21 +799,29 @@
 			});
 			var changed = diffMapKeys(oscarById, next);
 			oscarById = next;
-			lsSet(cacheKey('mn_oscars'), Array.from(next.entries()));
+			lsSet(cacheKey('mn_oscars_v2'), Array.from(next.entries()));
 			// Diffed re-decoration (mirrors loadLists()) — untouched cards keep their MARK.
 			if (redecorateChanged(changed)) scan();
 		}
-		// Primary: server-side Tags filter (verified filtering on this build). Fallback: if it comes
-		// back empty (older server that ignores/rejects Tags), scan the whole library and filter here
-		// — parseOscarTags ignores non-Oscar movies, so the wider result set is still correct.
-		return a.getItems(userId, { IncludeItemTypes: 'Movie', Recursive: true, Tags: 'oscars', Fields: 'Tags', Limit: 2000 })
-			.then(function (res) {
-				var items = (res && res.Items) || [];
-				if (items.length) { ingest(items); return; }
-				return a.getItems(userId, { IncludeItemTypes: 'Movie', Recursive: true, Fields: 'Tags', Limit: 5000 })
-					.then(function (r2) { ingest((r2 && r2.Items) || []); });
-			})
-			.catch(function () { /* ignore — retry on the next refresh tick */ });
+		// Primary: two parallel Tags filters — `oscars` AND `festival` (festival-only films carry
+		// only the latter). Merge by item Id so an Oscar+festival film is ingested once. Fallback:
+		// if BOTH come back empty (older server that ignores/rejects Tags), full-scan and filter here.
+		var merged = new Map();
+		function collect(res) {
+			((res && res.Items) || []).forEach(function (it) { if (it.Id) merged.set(it.Id, it); });
+		}
+		// Promise.allSettled (not all): a server that ignores/rejects the Tags filter would make
+		// Promise.all reject and swallow BOTH results — allSettled keeps the healthy query's rows
+		// and lets the fallback fire only when both genuinely come back empty.
+		return Promise.allSettled([
+			a.getItems(userId, { IncludeItemTypes: 'Movie', Recursive: true, Tags: 'oscars', Fields: 'Tags', Limit: 2000 }),
+			a.getItems(userId, { IncludeItemTypes: 'Movie', Recursive: true, Tags: 'festival', Fields: 'Tags', Limit: 2000 }),
+		]).then(function (rs) {
+			rs.forEach(function (r) { if (r && r.status === 'fulfilled') collect(r.value); });
+			if (merged.size) { ingest(Array.from(merged.values())); return; }
+			return a.getItems(userId, { IncludeItemTypes: 'Movie', Recursive: true, Fields: 'Tags', Limit: 5000 })
+				.then(function (r2) { ingest((r2 && r2.Items) || []); });
+		}).catch(function () { /* ignore — retry on the next refresh tick */ });
 	}
 
 	// Single closed statuette path, viewBox 0 0 24 48 (head + tapered body + stepped pedestal).
@@ -820,7 +850,23 @@
 	// Large-format alternative to the cascade: themed corner plaque with count lines —
 	// "5 OSCAR WINS" / "8 NOMINATIONS" — each led by a tiny solid statuette. `large` picks the
 	// full-size variant (detail posters / big cards); otherwise a compact one (wide list thumbs).
-	function oscarPlaqueHtml(wins, losses, large) {
+	// Festival glyphs — EXACT markup from the approved mockup (plaque versions).
+	var FESTIVAL_REEL_SVG = '<svg class="reel" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
+		'<circle cx="12" cy="12" r="9" fill="#9fb87f"/>' +
+		'<circle cx="12" cy="12" r="5" fill="none" stroke="#0e2a30" stroke-width="1.6"/>' +
+		'<g fill="#0e2a30"><circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="19" r="1.3"/>' +
+		'<circle cx="5" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>' +
+		'<circle cx="7.1" cy="7.1" r="1.3"/><circle cx="16.9" cy="16.9" r="1.3"/>' +
+		'<circle cx="7.1" cy="16.9" r="1.3"/><circle cx="16.9" cy="7.1" r="1.3"/></g></svg>';
+	var FESTIVAL_SUN_SVG = '<svg class="sun" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
+		'<circle cx="12" cy="12" r="5" fill="#f26d3d"/>' +
+		'<g stroke="#f26d3d" stroke-width="2" stroke-linecap="round">' +
+		'<line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/>' +
+		'<line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/>' +
+		'<line x1="4.6" y1="4.6" x2="6.4" y2="6.4"/><line x1="17.6" y1="17.6" x2="19.4" y2="19.4"/>' +
+		'<line x1="4.6" y1="19.4" x2="6.4" y2="17.6"/><line x1="17.6" y1="6.4" x2="19.4" y2="4.6"/></g></svg>';
+
+	function oscarPlaqueHtml(wins, losses, cannes, sundance, cannesName, sundanceName, large) {
 		function mini(color) {
 			return '<svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg">' +
 				'<path fill="' + color + '" d="' + STATUETTE_PATH + '"/></svg>';
@@ -829,6 +875,12 @@
 		if (wins > 0) lines.push('<div class="opl-w">' + mini('#E6B94C') + wins + ' OSCAR WIN' + (wins > 1 ? 'S' : '') + '</div>');
 		if (losses > 0) { var totalNoms = wins + losses; lines.push('<div class="opl-n">' + mini('#C9CDD3') + totalNoms +
 			(wins > 0 ? ' NOMINATION' : ' OSCAR NOMINATION') + (totalNoms > 1 ? 'S' : '') + '</div>'); }
+		// One festival ROW per festival, always after the Oscar rows. Single win → the controller
+		// wrote a -name-{DISPLAY} tag; count-form fallback covers older controllers.
+		if (cannes > 0) lines.push('<div class="opl-f f-cannes">' + FESTIVAL_REEL_SVG +
+			(cannesName || cannes + ' CANNES WIN' + (cannes > 1 ? 'S' : '')) + '</div>');
+		if (sundance > 0) lines.push('<div class="opl-f f-sundance">' + FESTIVAL_SUN_SVG +
+			(sundanceName || sundance + ' SUNDANCE WIN' + (sundance > 1 ? 'S' : '')) + '</div>');
 		if (!lines.length) return '';
 		return '<div class="oscar-plaque' + (large ? '' : ' oscar-plaque-sm') + '">' + lines.join('') + '</div>';
 	}
@@ -1111,23 +1163,38 @@
 			var hostW = host.getBoundingClientRect ? host.getBoundingClientRect().width : 0;
 			var oscarMobile = document.documentElement.classList.contains('layout-mobile');
 			if (isDetail || !oscarMobile || hostW >= 180) {
-				host.insertAdjacentHTML('beforeend', oscarPlaqueHtml(osc.w, osc.l, isDetail || hostW >= 300));
+				host.insertAdjacentHTML('beforeend', oscarPlaqueHtml(osc.w, osc.l, osc.c, osc.s, osc.cName, osc.sName, isDetail || hostW >= 300));
 			} else {
-				// Bottom-right corner pill (mobile only): gold when there are wins, silver
-				// (mn-oscar-silver) for noms-only.
+				// Bottom-right corner pill (mobile only). Festival content rides along: Oscar
+				// segment (gold, mn-oscar-silver when noms-only) is gated on osc.w/osc.l so a
+				// festival-only film never renders "🏆 0N"; festival segments append 🌴/☀ + count
+				// in their own colour, each in its own span (a both-festival film like sex, lies,
+				// and videotape keeps laurel + amber distinct). Festival-only → whole pill takes
+				// the festival accent.
 				var oscarText;
 				if (hostW >= 150) {
-					oscarText = osc.w > 0
-						? '\uD83C\uDFC6 ' + osc.w + ' win' + (osc.w > 1 ? 's' : '') +
-							(osc.l > 0 ? ' · ' + osc.l + ' nom' + (osc.l > 1 ? 's' : '') : '')
-						: '\uD83C\uDFC6 ' + osc.l + ' nom' + (osc.l > 1 ? 's' : '');
+					if (osc.w > 0 || osc.l > 0) {
+						oscarText = osc.w > 0
+							? '\uD83C\uDFC6 ' + osc.w + ' win' + (osc.w > 1 ? 's' : '') +
+								(osc.l > 0 ? ' · ' + osc.l + ' nom' + (osc.l > 1 ? 's' : '') : '')
+							: '\uD83C\uDFC6 ' + osc.l + ' nom' + (osc.l > 1 ? 's' : '');
+					} else { oscarText = ''; }
 				} else {
-					oscarText = osc.w > 0
-						? '\uD83C\uDFC6 ' + osc.w + 'W' + (osc.l > 0 ? ' · ' + osc.l + 'N' : '')
-						: '\uD83C\uDFC6 ' + osc.l + 'N';
+					if (osc.w > 0 || osc.l > 0) {
+						oscarText = osc.w > 0
+							? '\uD83C\uDFC6 ' + osc.w + 'W' + (osc.l > 0 ? ' · ' + osc.l + 'N' : '')
+							: '\uD83C\uDFC6 ' + osc.l + 'N';
+					} else { oscarText = ''; }
 				}
-				host.insertAdjacentHTML('beforeend', '<div class="mn-oscar-text' +
-					(osc.w === 0 ? ' mn-oscar-silver' : '') + '">' + oscarText + '</div>');
+				var segLead = oscarText ? ' · ' : '';
+				var festSpan = (osc.c > 0 ? '<span class="mn-oscar-fest mn-fest-cannes">' + segLead + '\uD83C\uDF34' + osc.c + '</span>' : '')
+					+ (osc.s > 0 ? '<span class="mn-oscar-fest mn-fest-sundance">' + (osc.c > 0 ? ' · ' : segLead) + '\u2600' + osc.s + '</span>' : '');
+				if (oscarText || festSpan) {
+					host.insertAdjacentHTML('beforeend', '<div class="mn-oscar-text' +
+						(osc.w === 0 && osc.l === 0 ? ' mn-oscar-festival mn-fest-' + (osc.c > 0 ? 'cannes' : 'sundance') : '') +
+						(osc.w === 0 && osc.l > 0 ? ' mn-oscar-silver' : '') + '">' +
+						oscarText + festSpan + '</div>');
+				}
 			}
 		}
 		// Nation flag — top-left retro sticker (fully inside the poster, no spill).

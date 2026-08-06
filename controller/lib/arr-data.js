@@ -132,12 +132,17 @@ const getHasFileMap = (app) => cachedFetch(`hasFile:${app}`, HIST_TTL, async () 
   }
   return { hasFile, nameIds };
 }, { hasFile: new Map(), nameIds: new Map() });
-// `sonarr-force` is the manual force-grab category. It is NOT one of Sonarr's monitored download
-// categories (Sonarr's client uses `sonarr`), so Sonarr's Completed Download Handling never sees
-// these torrents and can't auto-import a mis-parsed release into the wrong series. The controller's
-// watchdog owns their import (always with the user-chosen seriesId). Here it still maps to 'sonarr'
-// so the Downloads UI groups/renders it like any other Sonarr download.
-const torrentApp = (t) => { const c = (t.category || '').toLowerCase(); return (c === 'radarr' || c === 'sonarr' || c === 'tv-sonarr' || c === 'sonarr-force') ? (c === 'radarr' ? 'radarr' : 'sonarr') : null; };
+// `sonarr-force`/`radarr-force` are the manual force-grab categories. They are NOT one of Sonarr's/
+// Radarr's monitored download categories (`sonarr`/`radarr`), so *arr's Completed Download Handling
+// never sees these torrents and can't auto-import a mis-parsed release into the wrong item. The
+// controller's watchdog owns their import (always with the user-chosen id). Here still maps to
+// 'sonarr'/'radarr' so the Downloads UI groups/renders them like any other download.
+const isForceGrabCategory = (c) => { const s = String(c || '').toLowerCase(); return s === 'sonarr-force' || s === 'radarr-force'; };
+const torrentApp = (t) => {
+  const c = (t.category || '').toLowerCase();
+  if (c === 'radarr' || c === 'radarr-force') return 'radarr';
+  return (c === 'sonarr' || c === 'tv-sonarr' || c === 'sonarr-force') ? 'sonarr' : null;
+};
 
 // Per-series episodeId -> hasFile, so we can ask "does the library already hold the exact episodes
 // this torrent contains" (series-level hasFile is too coarse — true if ANY episode is present).
@@ -236,6 +241,6 @@ function resetParseBudget(n) { _parseBudget = n; }
 
 module.exports = {
   INDEXER_WEIGHTS, getIndexerSnapshot, getQbitTorrents, getQueueMap,
-  getHistoryIndex, normName, getHasFileMap, torrentApp, getEpisodeHasFile,
+  getHistoryIndex, normName, getHasFileMap, torrentApp, isForceGrabCategory, getEpisodeHasFile,
   arrOwns, resetParseBudget, arrIdForHash, arrIdByName, arrParseEntity,
 };

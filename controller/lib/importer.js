@@ -40,6 +40,15 @@ async function seriesFullyImported(seriesId) {
   const eps = await getEpisodeHasFile(seriesId);
   return eps.size > 0 && [...eps.values()].every(Boolean);
 }
+// A Radarr movie is "fully imported" when it has a file. For a single-file force-grab this is the
+// only meaningful completion signal — there are no episodes to reconcile. Fail-closed: if *arr
+// can't be read, return false so the watchdog keeps retrying rather than declaring victory.
+async function movieFullyImported(movieId) {
+  try {
+    const m = await arrGet('radarr', `/movie/${movieId}`, 6000);
+    return !!(m && m.hasFile);
+  } catch { return false; }
+}
 
 // ---- Auto-import watchdog (backend, container-to-container; NOT driven by the UI) ----
 // The happy path is event-driven: qBittorrent finishes → *arr imports → *arr pushes a
@@ -674,32 +683,35 @@ async function importWatchdog() {
   try {
     const now = Math.floor(Date.now() / 1000);
     let handled = 0;
-    // Pre-pass: resolve force-grabbed torrents whose content is on disk but Sonarr hasn't
-    // fully imported. These don't appear in `snap` (torrent may be gone from qBittorrent
-    // while the download folder still holds orphaned episode files). Try Manual Import for
-    // any watched hash whose folder is known (either from the live torrent or from disk).
+// Pre-pass: resolve force-grabbed torrents whose content is on disk but *arr hasn't fully
+    // imported. These don't appear in `snap` (torrent may be gone from qBittorrent while the
+    // download folder still holds orphaned files). Try Manual Import for any watched hash whose
+    // folder is known (either from the live torrent or from disk). Movies import a single file via
+    // importViaManual; series use the episode-aware importViaGrab.
     const fgTorrents = forceGrabImport.size ? await getQbitTorrents().catch(() => []) : [];
     const fgByHash = new Map();
     for (const t of fgTorrents) fgByHash.set((t.hash || '').toLowerCase(), t);
-    const CAT_PATH = '/data/torrents/complete/sonarr-force';
     for (const [infoHash, fg] of forceGrabImport) {
       if (handled >= WATCHDOG_BATCH) break;
+      const fgApp = fg.app || 'sonarr';
+      const CAT_PATH = `/data/torrents/complete/${fgApp === 'radarr' ? 'radarr' : 'sonarr'}-force`;
+      const fullyImported = fgApp === 'radarr' ? () => movieFullyImported(fg.id) : () => seriesFullyImported(fg.id);
       const liveTorrent = fgByHash.get(infoHash);
       if (liveTorrent) {
         // Import ONLY once the torrent is complete. Importing mid-download hardlinks preallocated/
-        // half-written files into the library — Sonarr then marks them imported and never replaces
+        // half-written files into the library — *arr then marks them imported and never replaces
         // them with the finished data, and Jellyfin probes partial media. qBit's content_path also
         // points into the incomplete/ tree until completion. Wait for the next sweep.
         if ((liveTorrent.progress || 0) < 1) { fg.folder = null; continue; }
         if (liveTorrent.content_path) fg.folder = liveTorrent.content_path;
       } else if (!fg.folder) {
-        // Torrent gone from qBittorrent but may still have files on disk.
-        // Scan the sonarr category folder for a directory matching the series title.
+        // Torrent gone from qBittorrent but may still have files on disk. Scan the force category
+        // folder for a directory matching the item title.
         try {
           const entries = await fs.promises.readdir(CAT_PATH).catch(() => []);
-          const seriesNorm = norm(fg.seriesTitle);
+          const titleNorm = norm(fg.seriesTitle);
           for (const entry of entries) {
-            if (norm(entry).includes(seriesNorm)) {
+            if (norm(entry).includes(titleNorm)) {
               const fp = path.join(CAT_PATH, entry);
               const st = await fs.promises.stat(fp).catch(() => null);
               if (st && st.isDirectory()) { fg.folder = fp; break; }
@@ -710,48 +722,57 @@ async function importWatchdog() {
       if (!fg.folder) continue; // not ready yet, retry next sweep
       if (fg.folder.includes('/torrents/incomplete/')) continue; // defense: never import from the incomplete tree
       // Already fully imported (by a prior sweep, or the standard path) → finalize and stop retrying.
-      // Without this, importViaGrab finds nothing new to import (all files present) and would keep
-      // counting "failures" against a series that's actually complete.
+      // Without this, the importer finds nothing new to import (all files present) and would keep
+      // counting "failures" against an item that's actually complete.
       try {
-        if (await seriesFullyImported(fg.id)) {
-          const s0 = await arrGet('sonarr', `/series/${fg.id}`, 6000);
-          const ss = s0 && s0.statistics;
+        if (await fullyImported()) {
+          const stats = fgApp === 'radarr' ? null : ((await arrGet('sonarr', `/series/${fg.id}`, 6000)) || {}).statistics;
           forceGrabImport.delete(infoHash);
           completedForceGrabs.set(infoHash, { id: fg.id });
           importState.delete(fg.folder);
           persistState();
-          metrics.emitEvent('fg_import', { id: fg.id, ti: fg.seriesTitle, files: (ss && ss.episodeFileCount) || 0, eps: (ss && ss.episodeCount) || 0, done: true, via: 'precomplete', infoHash });
-          scheduleForceGrabVerify(fg.id, infoHash);
-          console.log(`watchdog: force-grab complete (${(ss && ss.episodeFileCount) || 0}/${(ss && ss.episodeCount) || 0}) — "${fg.seriesTitle}"`);
+          metrics.emitEvent('fg_import', { id: fg.id, ti: fg.seriesTitle, files: (stats && stats.episodeFileCount) || 0, eps: (stats && stats.episodeCount) || 0, done: true, via: 'precomplete', infoHash });
+          if (fgApp !== 'radarr') scheduleForceGrabVerify(fg.id, infoHash);
+          console.log(`watchdog: force-grab complete — "${fg.seriesTitle}" (${fgApp})`);
           continue;
         }
-      } catch { /* stats unavailable — fall through and let importViaGrab try */ }
+      } catch { /* stats unavailable — fall through and let the importer try */ }
       const st = importState.get(fg.folder) || { lastTry: 0, reason: null, fails: 0, backoff: IMPORT_BACKOFF_MIN };
       if (now - st.lastTry < (st.backoff || IMPORT_BACKOFF_MIN)) continue;
       st.lastTry = now; handled++;
       let res;
-      try { res = await importViaGrab('sonarr', fg.folder, fg.id, infoHash); }
+      try {
+        res = fgApp === 'radarr'
+          ? await importViaManual('radarr', fg.folder, fg.id, { downloadId: infoHash })
+          : await importViaGrab('sonarr', fg.folder, fg.id, infoHash);
+      }
       catch (e) { res = { ok: false, reason: e.message || 'error' }; }
       if (res && res.ok) {
         importState.set(fg.folder, { lastTry: now, reason: null, fails: 0, backoff: IMPORT_BACKOFF_MIN });
         triggerJellyfinScan();
         console.log(`watchdog: force-grab imported ${res.count} file(s) from "${fg.folder}"`);
-        // Check if ALL episodes are now in the library — partial imports keep retrying.
+        // Check if the item is now fully in the library — partial imports keep retrying.
         let allDone = false, stats = null;
         try {
-          const seriesData = await arrGet('sonarr', `/series/${fg.id}`, 6000);
-          stats = seriesData && seriesData.statistics;
-          allDone = await seriesFullyImported(fg.id);
+          if (fgApp === 'radarr') {
+            const m = await arrGet('radarr', `/movie/${fg.id}`, 6000);
+            stats = m ? { hasFile: !!m.hasFile } : null;
+            allDone = await movieFullyImported(fg.id);
+          } else {
+            const seriesData = await arrGet('sonarr', `/series/${fg.id}`, 6000);
+            stats = seriesData && seriesData.statistics;
+            allDone = await seriesFullyImported(fg.id);
+          }
         } catch { /* best-effort — retry next sweep */ }
         metrics.emitEvent('fg_import', { id: fg.id, ti: fg.seriesTitle, imported: res.count, files: stats && stats.episodeFileCount, eps: stats && stats.episodeCount, done: allDone, via: 'watchdog', infoHash });
         if (allDone) {
           forceGrabImport.delete(infoHash);
-          completedForceGrabs.set(infoHash, { id: fg.id }); // remember the series so buildDownloads renders this Ready (no downloadId-keyed *arr history)
+          completedForceGrabs.set(infoHash, { id: fg.id });      // remember the item so buildDownloads renders this Ready (no downloadId-keyed *arr history)
           persistState();
-          scheduleForceGrabVerify(fg.id, infoHash);
+          if (fgApp !== 'radarr') scheduleForceGrabVerify(fg.id, infoHash);
         }
-      } else if (res && (/no matching (series|episode)/i.test(res.reason || '') || (st.fails || 0) >= IMPORT_MAX_FAILS)) {
-        // Can't match: folder was removed or Sonarr truly can't parse these files. Give up.
+      } else if (res && (/no matching (series|episode|movie)/i.test(res.reason || '') || (st.fails || 0) >= IMPORT_MAX_FAILS)) {
+        // Can't match: folder was removed or *arr can't parse these files. Give up.
         console.log(`watchdog: force-grab gave up on "${fg.folder}" — ${res.reason || 'max fails'}`);
         metrics.emitEvent('fg_giveup', { id: fg.id, ti: fg.seriesTitle, folder: fg.folder, reason: res ? res.reason : 'max fails', infoHash });
         forceGrabImport.delete(infoHash);
@@ -827,7 +848,8 @@ async function importWatchdog() {
         // Defense-in-depth: never orphan-delete a manual force-grab. Its release name frequently
         // doesn't parse to any series (that's WHY it was force-grabbed), which would otherwise trip
         // this branch and wipe the files with deleteFiles:true. The pre-pass owns these folders.
-        if ((rec.folder || '').includes('/complete/sonarr-force/')) { importState.delete(rec.folder); continue; }
+        if ((rec.folder || '').includes('/complete/sonarr-force/')
+          || (rec.folder || '').includes('/complete/radarr-force/')) { importState.delete(rec.folder); continue; }
         try { if (rec.hash) await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: rec.hash, deleteFiles: 'true' }) }); } catch { /* qbit hiccup — retried next sweep */ }
         importState.delete(rec.folder);
         console.log(`watchdog: orphan removed (not tracked by ${rec.app}): "${rec.folder}" — ${res.reason}`);
@@ -865,29 +887,32 @@ async function recoverForceGrabImport() {
       if (!tags.includes('manual-force-grab')) continue;
       const h = (t.hash || '').toLowerCase();
       if (forceGrabImport.has(h) || completedForceGrabs.has(h)) continue; // already tracked or already fully imported
-      let seriesTitle = null, seriesId = null;
+      const cat = String(t.category || '');
+      const app = /radarr-force/.test(cat) ? 'radarr' : (/sonarr-force/.test(cat) ? 'sonarr' : null);
+      if (!app) continue;   // a manual-force-grab tag in an unexpected category — don't guess the importer
+      let title = null, fid = null;
       if (t.content_path) {
         const folderName = path.basename(t.content_path);
         const cleaned = folderName.replace(/\.\w+$/, '').replace(/[\(\)]/g, '').trim();
-        seriesTitle = cleaned;
+        title = cleaned;
         try {
-          const seriesList = await arrGet('sonarr', '/series', 8000);
-          if (Array.isArray(seriesList)) {
+          const list = app === 'radarr' ? await arrGet('radarr', '/movie', 8000) : await arrGet('sonarr', '/series', 8000);
+          if (Array.isArray(list)) {
             const n = (x) => String(x || '').toLowerCase().replace(/[._'’:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
-            // Title match is ambiguous when two series share a name (e.g. Cosmos 1980 vs Cosmos
-            // 2014). Collect every title match, then disambiguate by a year token in the folder
-            // name — a wrong bind here would import the whole pack into the wrong series.
-            const cands = seriesList.filter((s) => n(cleaned).includes(n(s.title)) || n(s.title).includes(n(cleaned)));
+            // Title match is ambiguous when two items share a name. Collect every title match, then
+            // disambiguate by a year token in the folder name — a wrong bind here would import the
+            // whole pack into the wrong series/movie.
+            const cands = list.filter((s) => n(cleaned).includes(n(s.title)) || n(s.title).includes(n(cleaned)));
             const years = (cleaned.match(/\b(19|20)\d{2}\b/g) || []).map(Number);
             const byYear = years.length ? cands.find((s) => s.year && years.includes(s.year)) : null;
             const pick = byYear || (cands.length === 1 ? cands[0] : null); // don't guess when ambiguous and no year to break the tie
-            if (pick) { seriesTitle = pick.title; seriesId = pick.id; }
+            if (pick) { title = pick.title; fid = pick.id; }
           }
         } catch { /* best-effort */ }
       }
-      if (seriesId != null) {
-        forceGrabImport.set(h, { app: 'sonarr', id: seriesId, seriesTitle: seriesTitle || 'Unknown', folder: t.content_path || null });
-        console.log(`recover: force-grab → sonarr id=${seriesId} "${seriesTitle || '?'}" (${h.slice(0, 12)}…)`);
+      if (fid != null) {
+        forceGrabImport.set(h, { app, id: fid, seriesTitle: title || 'Unknown', folder: t.content_path || null });
+        console.log(`recover: force-grab → ${app} id=${fid} "${title || '?'}" (${h.slice(0, 12)}…)`);
       }
     }
     // Prune completedForceGrabs whose torrent is gone from qBittorrent — the row can't render

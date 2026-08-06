@@ -327,10 +327,12 @@ const clampHint = (s, n = 68) => { const t = String(s || '').trim(); return t.le
 // THE SEARCH GAP: releases that are healthy upstream (raw Prowlarr text search) but never became
 // Sonarr candidates — e.g. year-named full-series packs with no S01 marker, which structured
 // tvsearch drops before the rejection list. `candidates` is Sonarr's /release set (to diff against).
-async function probeSearchGap(rawTitle, candidates) {
+// Pass `app: 'radarr'` to rescue movie gaps instead: the same idea, but filtered to movie categories.
+async function probeSearchGap(rawTitle, candidates, opts = {}) {
   const { query, year } = cleanSearchQuery(rawTitle);
   if (!query) { console.log(`probeSearchGap: "${rawTitle}" → null (empty query)`); return null; }
   const titleTokens = searchTokens(query.replace(/(19|20)\d{2}/, '')); // series-name tokens, sans year
+  const isMovieGap = opts.app === 'radarr';
   let results = null;
   try {
     const url = `${HOST.prowlarr}/api/v1/search?query=${encodeURIComponent(query)}&type=search&limit=100`;
@@ -341,13 +343,18 @@ async function probeSearchGap(rawTitle, candidates) {
   console.log(`probeSearchGap: "${query}" → ${results.length} raw results, candidates=${Array.isArray(candidates) ? candidates.length : 'N/A'}`);
   const candTitles = new Set((Array.isArray(candidates) ? candidates : [])
     .map((c) => normSearchText(c.title || c.sourceTitle || '')));
-  const isTv = (r) => (r.categories || []).some((c) => { const n = Number(c && (c.id != null ? c.id : c)); return n >= 5000 && n < 6000; });
-  const matchesSeries = (t) => { const nt = normSearchText(t); return titleTokens.every((tok) => nt.includes(tok)) && (!year || nt.includes(year)); };
+  // newznab category ranges: 5000-5999 = TV, 2000-2999 = Movies. A movie gap must match the
+  // title AND the optional year against MOVIE releases specifically (a "Beach Party" text search
+  // surfaces soundtracks and later remakes; category + year scope narrows it to the right film).
+  const inCat = isMovieGap
+    ? (r) => (r.categories || []).some((c) => { const n = Number(c && (c.id != null ? c.id : c)); return n >= 2000 && n < 3000; })
+    : (r) => (r.categories || []).some((c) => { const n = Number(c && (c.id != null ? c.id : c)); return n >= 5000 && n < 6000; });
+  const matchesTitle = (t) => { const nt = normSearchText(t); return titleTokens.every((tok) => nt.includes(tok)) && (!year || nt.includes(year)); };
   const filtered = results.filter((r) => Number(r.seeders) >= 1);
-  const tvFiltered = filtered.filter((r) => isTv(r));
-  const seriesFiltered = tvFiltered.filter((r) => matchesSeries(r.title));
-  const misses = seriesFiltered.filter((r) => !candTitles.has(normSearchText(r.title)));
-  console.log(`probeSearchGap: "${query}" → seeders>=1:${filtered.length} isTv:${tvFiltered.length} matchesSeries:${seriesFiltered.length} notInCandidates:${misses.length}`);
+  const catFiltered = filtered.filter((r) => inCat(r));
+  const titleFiltered = catFiltered.filter((r) => matchesTitle(r.title));
+  const misses = titleFiltered.filter((r) => !candTitles.has(normSearchText(r.title)));
+  console.log(`probeSearchGap: "${query}" → seeders>=1:${filtered.length} ${isMovieGap ? 'movie' : 'tv'}:${catFiltered.length} matchesTitle:${titleFiltered.length} notInCandidates:${misses.length}`);
   if (!misses.length) { console.log(`probeSearchGap: "${query}" → null (no misses after all filters)`); return null; }
   misses.sort((a, b) => {
     // Grabbable releases (magnet guid or infoHash) sort above non-grabbable ones regardless of
@@ -362,7 +369,7 @@ async function probeSearchGap(rawTitle, candidates) {
     return (Number(b.size) || 0) - (Number(a.size) || 0);
   });
   const best = misses[0];
-  const reasonClass = !hasSeasonMarker(best.title) ? 'no-season-marker' : 'not-a-candidate';
+  const reasonClass = isMovieGap ? 'movie-not-candidate' : (!hasSeasonMarker(best.title) ? 'no-season-marker' : 'not-a-candidate');
   return {
     query,
     upstreamHealthy: misses.length,
@@ -389,7 +396,8 @@ async function probeSearchGap(rawTitle, candidates) {
       indexerId: r.indexerId != null ? r.indexerId : null,
       downloadUrl: r.downloadUrl || null,
     })),
-    summary: `${misses.length} healthy release${misses.length === 1 ? '' : 's'} exist in raw search but were not season-search candidates (${reasonClass}); best: "${best.title}" (${Number(best.seeders) || 0} seeders)`,
+    summary: `${misses.length} healthy release${misses.length === 1 ? '' : 's'} exist in raw search`
+      + ` but were not ${isMovieGap ? 'grabbable movie' : 'season-search'} candidates (${reasonClass}); best: "${best.title}" (${Number(best.seeders) || 0} seeders)`,
   };
 }
 

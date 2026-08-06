@@ -1770,6 +1770,26 @@ html.layout-mobile .sectionTitle {
   border-color: rgba(192, 192, 196, .35);
 }
 
+/* Festival accent inside the mobile pill: appended 🌴/☀ segment keeps its own colour. */
+.mn-oscar-text .mn-oscar-fest {
+  font-weight: 700;
+}
+.mn-oscar-text .mn-fest-cannes {
+  color: #9fb87f;
+}
+.mn-oscar-text .mn-fest-sundance {
+  color: #f26d3d;
+}
+/* Festival-only pill: whole pill takes the festival accent (laurel wins over amber). */
+.mn-oscar-text.mn-oscar-festival.mn-fest-cannes {
+  color: #9fb87f;
+  border-color: rgba(159, 184, 127, .4);
+}
+.mn-oscar-text.mn-oscar-festival.mn-fest-sundance {
+  color: #f26d3d;
+  border-color: rgba(242, 109, 61, .4);
+}
+
 /* List-row hover: themed accent outline + glow on the THUMBNAIL only.
    The glow used to sit on .listItem itself, which wrapped the whole row (thumbnail + title +
    metadata + padding) in a giant accent ring — the same oversized-border bug as the cards.

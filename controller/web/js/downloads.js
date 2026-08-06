@@ -47,7 +47,7 @@ function renderDownloads(items) {
     // grabbed and it turned out to be a dead swarm (canPick — the server decides when, see
     // STALL_PICK_MS). Both end in the same sheet, and neither deletes anything: a picked release is
     // grabbed alongside the stalled one, so choosing wrong costs disk, never the existing download.
-    const canForceGrab = (isMissing || d.canPick) && d.source === 'sonarr' && d._id != null;
+    const canForceGrab = (isMissing || d.canPick) && (d.source === 'sonarr' || d.source === 'radarr') && d._id != null;
     // Pause/resume: only for a real torrent that's actively in flight (not a "missing:" pseudo-row,
     // not a finished/importing item). Paused rows offer Resume; the rest offer Pause.
     const realHash = d.hash && !String(d.hash).startsWith('missing:');

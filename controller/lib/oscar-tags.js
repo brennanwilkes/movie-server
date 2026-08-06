@@ -20,12 +20,46 @@
 // SAFETY (memory: storm 2026-07-07): metadata Tags only. Never deletes items, triggers
 // searches/grabs, or touches user policies. oscar* tags must NEVER be added to any BlockedTags.
 
-const { cfg, HOST, filmAwards, personAwards } = require('./config');
+const { cfg, HOST, filmAwards, personAwards, oscarWinners } = require('./config');
 const { tfetch, tfetchJson } = require('./clients');
 const { jellyfinUserId } = require('./jellyfin');
 const { isMasterPaused } = require('./state');
 
 const OSCAR_TAG_RE = /^oscar(s|-wins-\d+|-noms-\d+)$/;
+const FESTIVAL_TAG_RE = /^festival(?:-(cannes|sundance)(?:-(?:\d+|name-.+))?)?$/;
+
+const FESTIVAL_DISPLAY = {
+  "Cannes: Palme d'Or (Winners)": "PALME D'OR",
+  "Cannes: Grand Prix (Winners)": "GRAND PRIX",
+  "Cannes: Jury Prize (Winners)": "JURY PRIZE",
+  "Cannes: Best Director (Winners)": "BEST DIRECTOR",
+  "Sundance: Grand Jury Prize (Dramatic) (Winners)": "GRAND JURY",
+  "Sundance: Grand Jury Prize (Documentary) (Winners)": "GRAND JURY",
+  "Sundance: Audience Award (Dramatic) (Winners)": "AUDIENCE",
+  "Sundance: Audience Award (Documentary) (Winners)": "AUDIENCE",
+  "Sundance: Directing Award (Dramatic) (Winners)": "DIRECTING AWARD",
+  "Sundance: Directing Award (Documentary) (Winners)": "DIRECTING AWARD",
+};
+// tmdb_id in the JSON is a NUMBER; Jellyfin ProviderIds.Tmdb is a STRING — key by String().
+// Value: { cannes: [displayNames], sundance: [displayNames] } (names in collection order).
+const festivalByTmdb = (() => {
+  const m = new Map();
+  for (const [key, rows] of Object.entries(oscarWinners)) {
+    const label = FESTIVAL_DISPLAY[key];
+    if (!label) continue;
+    const fest = key.startsWith('Cannes: ') ? 'cannes'
+      : key.startsWith('Sundance: ') ? 'sundance' : null;
+    if (!fest) continue;
+    for (const r of rows || []) {
+      if (r && r.tmdb_id != null) {
+        const k = String(r.tmdb_id);
+        if (!m.has(k)) m.set(k, { cannes: [], sundance: [] });
+        m.get(k)[fest].push(label);
+      }
+    }
+  }
+  return m;
+})();
 
 // Name normalization — MUST stay byte-for-byte identical to norm_name() in build-awards.sh.
 function normName(s) {
@@ -37,15 +71,31 @@ function normName(s) {
 }
 
 // Desired oscar-tag set for an item given its current tags + award entry ({wins,noms} or null).
-function desiredTags(current, award) {
-  const base = (current || []).filter((t) => !OSCAR_TAG_RE.test(t));
-  if (!award) return base;
-  const wins = award.wins || 0;
-  const losses = Math.max(0, (award.noms || 0) - wins);
-  if (wins <= 0 && losses <= 0) return base;
-  base.push('oscars');
-  if (wins > 0) base.push(`oscar-wins-${wins}`);
-  if (losses > 0) base.push(`oscar-noms-${losses}`);
+function desiredTags(current, award, festival) {
+  const base = (current || []).filter((t) => !OSCAR_TAG_RE.test(t) && !FESTIVAL_TAG_RE.test(t));
+  const wins = (award && award.wins) || 0;
+  const losses = Math.max(0, ((award && award.noms) || 0) - wins);
+  const cannes = (festival && festival.cannes) || [];
+  const sundance = (festival && festival.sundance) || [];
+  const hasOscar = wins > 0 || losses > 0;
+  const hasFestival = cannes.length > 0 || sundance.length > 0;
+  if (!hasOscar && !hasFestival) return base;
+  if (hasOscar) {
+    base.push('oscars');
+    if (wins > 0) base.push(`oscar-wins-${wins}`);
+    if (losses > 0) base.push(`oscar-noms-${losses}`);
+  }
+  if (hasFestival) {
+    base.push('festival');                       // presence marker (web bulk-query filter)
+    if (cannes.length > 0) {
+      base.push(`festival-cannes-${cannes.length}`);
+      if (cannes.length === 1) base.push(`festival-cannes-name-${cannes[0]}`);
+    }
+    if (sundance.length > 0) {
+      base.push(`festival-sundance-${sundance.length}`);
+      if (sundance.length === 1) base.push(`festival-sundance-name-${sundance[0]}`);
+    }
+  }
   return base;
 }
 
@@ -58,9 +108,9 @@ function sameTags(a, b) {
 // Full-DTO fetch→patch→POST (same recipe as scripts/sort-collections.sh): POST /Items/{id} REPLACES
 // the item, so patch only .Tags on the complete DTO — omitted fields get erased. Returns 'written',
 // 'skip' (already correct) or 'failed'. Works for Movie and Person items alike.
-async function reconcileTags(uid, h, item, award) {
+async function reconcileTags(uid, h, item, award, festival) {
   const current = item.Tags || [];
-  const want = desiredTags(current, award);
+  const want = desiredTags(current, award, festival);
   if (sameTags(current, want)) return 'skip';
   try {
     const dto = await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items/${item.Id}`, { headers: h }, 15000);
@@ -159,18 +209,23 @@ async function oscarTagsSweep() {
     if (haveFilms) {
       const q = new URLSearchParams({ IncludeItemTypes: 'Movie', Recursive: 'true', Fields: 'ProviderIds,Tags', Limit: '5000' });
       const movies = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 120000)).Items) || [];
-      let matched = 0, written = 0, removed = 0, noImdb = 0, failed = 0;
+      let matched = 0, written = 0, removed = 0, noImdb = 0, failed = 0, festivalMatched = 0;
       for (const m of movies) {
         const imdb = m.ProviderIds && m.ProviderIds.Imdb;
         if (!imdb) noImdb++;
         const award = imdb ? filmAwards[imdb] : null;
         if (award) matched++;
-        const res = await reconcileTags(uid, h, m, award);
-        if (res === 'written') { written++; if (!award) removed++; }
+        const tmdb = m.ProviderIds && m.ProviderIds.Tmdb;
+        const festival = tmdb ? festivalByTmdb.get(String(tmdb)) : null;
+        if (festival) festivalMatched++;   // separate counter — a film in BOTH oscar+festival
+                                           // would otherwise double-count `matched`
+        const res = await reconcileTags(uid, h, m, award, festival);
+        if (res === 'written') { written++; if (!award && !festival) removed++; }
         else if (res === 'failed') failed++;
       }
-      console.log(`oscarTagsSweep[movies]: ${matched} tagged, ${written} written, ${removed} removed`
-        + (noImdb ? `, ${noImdb} without Imdb id` : '') + (failed ? `, ${failed} failed` : ''));
+      console.log(`oscarTagsSweep[movies]: ${matched} oscar-tagged, ${festivalMatched} festival-tagged, `
+        + `${written} written, ${removed} removed`
+        + (noImdb ? `, ${noImdb} without Imdb id (festival still matched if tagged)` : '') + (failed ? `, ${failed} failed` : ''));
     }
 
     // ---- People pass (match by normalized Name) ----

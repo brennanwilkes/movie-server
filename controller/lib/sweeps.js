@@ -14,7 +14,7 @@ const path = require('path');
 const metrics = require('../metrics');
 const { cfg } = require('./config');
 const { qbit, arrGet, seerr } = require('./clients');
-const { getQbitTorrents, torrentApp, arrIdForHash } = require('./arr-data');
+const { getQbitTorrents, torrentApp, arrIdForHash, isForceGrabCategory } = require('./arr-data');
 const {
   declined, blocked, persistState, isMasterPaused, isSwapHash, forceGrabImport,
 } = require('./state');
@@ -275,7 +275,7 @@ async function datalessSweep() {
       if (!cp || !cp.startsWith('/data/')) continue;          // unknown location — never guess
       if (cp.includes('/torrents/incomplete/')) continue;     // defence: the incomplete tree is not ours to tidy
       if (isSwapHash(h)) continue;                            // in-flight audit swap — hands off (see /api/torrent/delete)
-      if (forceGrabImport.has(h)) continue;                   // the import watchdog still owns this one
+      if (forceGrabImport.has(h) || isForceGrabCategory(t.category)) continue; // the import watchdog still owns this one
       // Measured at DELETE time, never from a cached scan — the same rule /api/audit/stale/reclaim
       // follows, so a stale reading can never authorise a removal.
       const onDisk = bytesUnder(cp);

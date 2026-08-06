@@ -7,7 +7,7 @@
 
 const metrics = require('../metrics');
 const { tfetch, qbit, arrGet, arrOf } = require('./clients');
-const { getQbitTorrents, getQueueMap, torrentApp } = require('./arr-data');
+const { getQbitTorrents, getQueueMap, torrentApp, isForceGrabCategory } = require('./arr-data');
 const { forceGrabImport, auditPending, isMasterPaused } = require('./state');
 
 // ── Stalled-download recovery (backend, container-to-container) ──────────────────────────────
@@ -109,7 +109,7 @@ async function stallRecovery() {
       // Force-grabbed torrents are user-approved and may not have an *arr queue record
       // yet (or ever, if the release name doesn't parse). Don't delete them — the import
       // watchdog will retry Manual Import on the download folder until files land.
-      if (forceGrabImport.has(h) || (t.category || '').toLowerCase() === 'sonarr-force') { _stallSince.delete(h); continue; }
+      if (forceGrabImport.has(h) || isForceGrabCategory(t.category)) { _stallSince.delete(h); continue; }
       // Dead download that *arr no longer tracks (queue record gone — e.g. a prior cleanup
       // removed the record but the qBittorrent delete failed). NOTHING else can rescue it:
       // the escalation below needs a queue id, and the orphan sweep only acts when the

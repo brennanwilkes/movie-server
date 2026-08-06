@@ -202,17 +202,21 @@ async function openForceGrabSheet(app, id, want) {
   backdrop.hidden = false;
   try {
     const data = await postJSON('/api/force-grab/search', { app, id, want: want || undefined });
-    // Series info
-    if (data.series) {
-      const s = data.series;
-      const seasonInfo = s.monitoredSeasonCount
-        ? `${s.monitoredSeasonCount} season${s.monitoredSeasonCount > 1 ? 's' : ''} monitored`
-        : '<span class="warn-text">No monitored seasons</span>';
-      const tvdb = s.tvdbId ? ` · TVDB ${s.tvdbId}` : '';
-      const eps = s.episodeCount ? ` · ${s.episodeCount} eps` : '';
-      $('#force-series').innerHTML = `${esc(s.title)} (${s.year})${tvdb}${eps} · ${seasonInfo}`;
+    // Item info — a series shows monitored seasons/TVDB/episode count; a movie shows year + runtime.
+    if (data.movie || data.series) {
+      const s = data.movie || data.series;
+      const isMovie = !!data.movie;
+      let detail;
+      if (isMovie) {
+        detail = s.runtime ? ` · ${s.runtime} min` : '';
+      } else if (s.monitoredSeasonCount) {
+        detail = `${s.tvdbId ? ` · TVDB ${s.tvdbId}` : ''}${s.episodeCount ? ` · ${s.episodeCount} eps` : ''} · ${s.monitoredSeasonCount} season${s.monitoredSeasonCount > 1 ? 's' : ''} monitored`;
+      } else {
+        detail = `${s.tvdbId ? ` · TVDB ${s.tvdbId}` : ''}${s.episodeCount ? ` · ${s.episodeCount} eps` : ''}<span class="warn-text"> · No monitored seasons</span>`;
+      }
+      $('#force-series').innerHTML = `${esc(s.title)} (${s.year})${detail}`;
     } else {
-      $('#force-series').innerHTML = '<span class="muted">Series info unavailable</span>';
+      $('#force-series').innerHTML = '<span class="muted">Info unavailable</span>';
     }
     // Results. `results` are the ones worth offering; `weak` are below the resolution floor and are
     // kept behind a disclosure rather than dropped — this picker exists precisely for the case where
@@ -225,9 +229,10 @@ async function openForceGrabSheet(app, id, want) {
       // Say WHY nothing is offered. A bare "none found" reads as "this show does not exist"
       // when the truth is usually "17 existed and every one was a dub".
       const c = data.counts;
+      const unit = data.movie ? 'for this film' : 'for this series';
       const why = (data.refused || []).map((x) => `${x.n} ${x.reason}`).join(', ');
       $('#force-sub').textContent = c && c.raw
-        ? `No usable releases — ${c.raw} found, ${c.series} for this series${why ? `, refused: ${why}` : ''}`
+        ? `No usable releases — ${c.raw} found, ${c.series} for this title${why ? `, refused: ${why}` : ''}`
         : 'No grabbable releases found';
       $('#force-results').innerHTML = '';
       return;
@@ -243,7 +248,7 @@ async function openForceGrabSheet(app, id, want) {
     // Honest accounting of what was filtered out, so a short list is never mistaken for a dead show.
     if (data.counts && data.counts.raw > forceGrabResults.length) {
       const why = (data.refused || []).map((x) => `${x.n} ${x.reason}`).join(', ');
-      html += `<p class="force-filtered">${data.counts.raw} found · ${data.counts.series} for this series`
+      html += `<p class="force-filtered">${data.counts.raw} found · ${data.counts.series} for this ${data.movie ? 'film' : 'series'}`
         + `${why ? ` · refused ${esc(why)}` : ''}</p>`;
     }
     $('#force-results').innerHTML = html;
