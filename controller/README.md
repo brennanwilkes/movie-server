@@ -20,7 +20,14 @@ lib/
   config.js          cfg (/config/keys.env over env), HOST/PORTS maps, data files.
   clients.js         tfetch/tfetchJson, qbit cookie client, seerr, arr* REST helpers.
   cache.js           cachedFetch resilient TTL cache + raw _cache object.
-  state.js           Persisted Maps + masterPaused accessors + persistState/loadState.
+  state.js           Persisted Maps + the TWO Movie Mode latches (manual/auto,
+                     isMasterPaused() = either) + persistState/loadState.
+  jobs.js            THE BACKGROUND-JOB REGISTRY. One status contract for every
+                     recurring thing the box does, merged from three runtimes
+                     (controller sweeps, Jellyfin /ScheduledTasks, host systemd
+                     timers via status files in /config/host-jobs). GET /api/jobs.
+  movie-mode.js      Auto Movie Mode: the playback session table, the auto latch's
+                     lifecycle (expiry + release grace), POST /api/jellyfin-webhook.
   jellyfin.js        Jellyfin/Jellyseerr id resolvers (user/server/tmdb/title).
   jf-scan.js         Debounced library-refresh trigger + trickplay-aware safety net.
   system-stats.js    Host CPU%/RAM%/temp sampling from /proc + /sys.
@@ -53,6 +60,13 @@ importer/gpu-verify/sweeps/delete-plan → routes → server.js. Peer modules ne
 cross-import; anything shared by two subsystems lives in `state.js` (Maps) or a
 lower layer. Mutable `let`s are never exported — accessors only (`getDl()`,
 `isMasterPaused()`, `getCpuPct()`, `resetParseBudget()`).
+
+`jobs.js` sits just above `state.js` and is required by every module that owns a
+sweep, so it must never require one back — it reaches upward only through the
+`report()` callback that modules push into. `movie-mode.js` owns the auto latch but
+NOT the qBittorrent pause/resume recipe: `routes-actions.js` owns that and injects
+it downward via `setApplier()`, so the manual button and auto Movie Mode run the
+identical code path and cannot drift apart.
 
 ## Background loops
 

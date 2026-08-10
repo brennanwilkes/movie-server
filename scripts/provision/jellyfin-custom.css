@@ -404,7 +404,12 @@ html,
     .layout-mobile .skinHeader:has(.pageTitle:not(.pageTitleWithLogo):not(:empty)):has(.sectionTabs:not(.hide)) {
         height: 140px !important;
     }
-    .layout-mobile .libraryPage:not(.noSecondaryNavPage) {
+    /* GATED like its three siblings above. This 9.5em exists to clear the absolutely-positioned
+       .pageTitle those rules push to top:60px inside a 110-140px header — but unlike them it
+       carried no :has() condition, so it padded EVERY narrow-mobile page by ~152px, including the
+       ones with no page title at all. On the film detail page (whose title is rendered inline next
+       to the poster, not in the header) that is pure empty space above the poster. */
+    .layout-mobile .libraryPage:not(.noSecondaryNavPage):has(.pageTitle:not(.pageTitleWithLogo):not(:empty)) {
         padding-top: 9.5em !important;
     }
     .layout-mobile .headroom--unpinned:has(.headerTabs.sectionTabs > :not(.hide)):has(.pageTitle:not(.pageTitleWithLogo):not(:empty)) {
@@ -751,9 +756,19 @@ html,
     border-radius: var(--rounded-cards) !important;
     padding: 0px 20px 10px 20px !important;
 }
-/* Fix content shifting when clicking "Show more" on a long description */
-.detailSectionContent .overview {
+/* Fix content shifting when clicking "Show more" on a long description.
+   SCOPED TO THE CLAMPED STATE. This used to be an unconditional `display:-webkit-box !important`
+   on .overview, which is the legacy 2009 flexbox display type. Jellyfin only wants it while the
+   text is clamped — its own rule is `.detail-clamp-text{display:-webkit-box;-webkit-box-orient:
+   vertical;-webkit-line-clamp:6}` — and on "show more" it drops that class to return the text to
+   normal flow. Our !important overrode that, so the EXPANDED text stayed a -webkit-box with no
+   box-orient, laying every paragraph out as a horizontal box child instead of stacked lines. On a
+   film that is one paragraph and invisible; on an actor's multi-paragraph biography it collapsed
+   into narrow squashed columns (Brennan, 2026-08-09: "the text in the show more gets super weirdly
+   crunched"). Adding box-orient here too so the clamped state can never inherit the same fault. */
+.detailSectionContent .overview.detail-clamp-text {
     display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
 }
 
 /* Add card around track selection */
@@ -1652,11 +1667,18 @@ html [class*="material-icons"]::before {
   position: relative !important;
   padding-left: 4px !important;
 }
-.mainDrawer .navMenuOption:hover:not(.navMenuOption-selected) {
-  background: rgba(255, 255, 255, .08) !important;
-  color: rgba(255, 255, 255, .95) !important;
-  transform: none !important;
-  box-shadow: none !important;
+/* GATED ON A REAL POINTER. A touchscreen has no pointer to leave, so :hover latches onto whatever
+   was last touched and stays lit until something else is tapped. The drawer sits under the left
+   screen edge — exactly where the browser's swipe-to-go-back gesture starts — so every back swipe
+   dragged across these rows and left one highlighted behind the closing drawer. Phones and tablets
+   simply never match this query; desktop hover is unchanged. */
+@media (hover: hover) and (pointer: fine) {
+  .mainDrawer .navMenuOption:hover:not(.navMenuOption-selected) {
+    background: rgba(255, 255, 255, .08) !important;
+    color: rgba(255, 255, 255, .95) !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
 }
 .mainDrawer .navMenuOption-selected {
   background: var(--primary-accent-color, #47c4b8) !important;
@@ -1686,9 +1708,20 @@ html.layout-mobile .skinHeader.skinHeader {
 /* Wordmark docks INSIDE the header bar: right of the hamburger/home button,
    small enough to fit the bar. fitWm() in the flair JS scales the text to
    ~140px under layout-mobile (222px is the docked-drawer desktop target). */
+/* CENTRED IN THE BAR, NOT NUDGED INTO IT. `top: 7px` positioned the LINE BOX, and the wordmark is
+   live text in a script face (Palm Canyon Drive et al.) whose ink sits low inside a tall
+   ascent/descent box — so the glyphs landed with clean space above and none below and read as
+   vertically off-centre (Brennan, 2026-08-09). Pinning the box to the full bar height and
+   flex-centring it centres the TEXT instead, and `line-height: 1` collapses the box so the
+   font's own leading stops adding phantom space above the ink. 48px matches the offset the drawer
+   already reserves for the wordmark (.mainDrawer-scrollContainer padding-top). */
 html.layout-mobile #mn-wordmark {
   left: 52px !important;
-  top: 7px !important;
+  top: 0 !important;
+  height: 48px !important;
+  display: flex !important;
+  align-items: center !important;
+  line-height: 1 !important;
   width: auto !important;
   max-width: calc(100vw - 150px) !important;
   transition: transform 0.25s ease, opacity 0.25s ease !important;
@@ -1715,6 +1748,22 @@ html.layout-mobile .mainDrawer.drawer-open ~ #mn-wordmark {
 html.layout-mobile .mainDrawer-scrollContainer {
   padding-top: 48px !important;
 }
+/* ── Back-swipe must not light up the drawer ──
+   The sticky-:hover half of this is fixed at the :hover rule itself (gated behind
+   @media (hover: hover)). These are the other two things a finger dragging in from the left edge
+   triggers, and all three had to go before the swipe felt clean:
+     1. the native tap-highlight flash Chrome/Safari paint on any touched interactive element, and
+     2. text selection — a horizontal drag across nav labels selects them, so the swipe ended with
+        blue-highlighted words sitting in the drawer.
+   Selection is worth nothing here: these are navigation labels, not content anyone copies.
+   Scoped to layout-mobile so a desktop user can still select text if they want to. */
+html.layout-mobile .mainDrawer,
+html.layout-mobile .mainDrawer * {
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
 /* Back arrow: no left padding needed (hamburger/home lives at the far left) */
 html.layout-mobile .headerLeft {
   padding-left: 0 !important;
@@ -1726,6 +1775,45 @@ html.layout-mobile .playlistHeader,
 html.layout-mobile .playlistSelectionToolbar,
 html.layout-mobile .selectionToolbar {
   display: none !important;
+}
+
+/* ── Mobile detail page: backdrop flush to the header ──
+   Jellyfin ships `.libraryPage{padding-top:7em!important}`, which applies to the item detail page
+   (it is `.page.libraryPage.itemDetailPage.noSecondaryNavPage.selfBackdropPage` — so the narrower
+   `:not(.noSecondaryNavPage)` and `:not(.itemDetailPage)` rules both miss it and only the blanket
+   7em lands). That reserves ~112px for a header-plus-secondary-nav this page does not have.
+
+   Crucially `#itemBackdrop` is the page's FIRST CHILD, so that padding is exactly the band of dead
+   ground above the backdrop (Brennan, 2026-08-09: "the area above the wide format film preview
+   backdrop… that backdrop should go right to the top bar"). Zero, not a smaller number: Jellyfin's
+   own mobile rule is `.layout-mobile .itemBackdrop{margin-top:0!important}`, i.e. flush is the
+   stock intent, and its `:before` already lays a top-down gradient under the header so the
+   wordmark stays legible over the artwork.
+
+   Safe with no artwork: `.layout-mobile .itemBackdrop` is `height:30vh` unconditionally, so the
+   space is reserved whether or not a backdrop image loads and content can never slide under the
+   fixed header. */
+html.layout-mobile .itemDetailPage {
+  padding-top: 0 !important;
+}
+
+/* ── Wrapped card grids: centre the leftover instead of pooling it on the right ──
+   `.vertical-wrap` is `flex-wrap: wrap` with no justification, so cards pack left and ALL the
+   slack collects in one gap at the right edge. On a phone that gap is large in relative terms —
+   an actor's filmography fits two cards per row because a third would overflow, leaving most of a
+   card's width dead on the right (Brennan, 2026-08-09).
+
+   `justify-content: center` is Jellyfin's own answer to this: it ships `.vertical-wrap.centered`
+   with exactly this declaration, the person page's container simply never gets that class. Centring
+   splits the slack into equal outer margins and leaves the inter-card gutters (which come from card
+   margins) untouched, so full rows are unchanged and only the ragged edge moves — unlike
+   space-between/space-evenly, which would stretch gutters on partial rows and make the last row's
+   spacing disagree with every row above it.
+
+   Keyed on layout-mobile (phone AND tablet — both have cards that are large relative to the
+   viewport) and excluding the Top 100 showcase, which owns its own container geometry. */
+html.layout-mobile .libraryPage:not(.mn-top100) .itemsContainer.vertical-wrap {
+  justify-content: center !important;
 }
 
 /* Mobile: detail page item names wrap normally (can be long); section row
@@ -2820,6 +2908,92 @@ a.clearLink.emby-button {
 .actionSheetContent .actionsheetDivider {
   margin-top: 0.4em !important;
   margin-bottom: 0.4em !important;
+}
+
+/* ── "…" overflow menu: OWN the colours instead of inheriting them ──
+   Brennan, 2026-08-09: "can have very low background colour / text colour contrast or be crunched
+   together depending on the theme. Regardless, it's hard to read."
+
+   ROOT CAUSE. Jellyfin's own stylesheet gives `.actionSheet` NO background and NO color — checked
+   against the served bundle: it sets only border/border-radius/display/max-height/padding. So both
+   came from whatever won the cascade underneath (Jellyfin's theme.css, scyfin via @import, and our
+   `.dialog` background rule, which only applies when the sheet is rendered AS a dialog — the
+   non-modal popup variant is not). That is precisely why the result changed with the theme: nobody
+   was actually setting it.
+
+   The theme tokens themselves are fine — measured against each theme's sheet background, --mn-text
+   scores 13.0:1 (canyon), 13.0:1 (matinee), 17.1:1 (reelone), 15.9:1 (marquee), all AAA. The bug
+   was never the palette, it was that the palette wasn't being applied. So: state both explicitly,
+   from the theme vars, on every variant of the sheet.
+
+   The CRUNCH is a separate cause with a separate fix. `.actionSheetMenuItem` inherits `.listItem`'s
+   padding of `.25em .25em .25em .5em`, which is a list-row density, not a menu-row one — and an
+   earlier pass (2026-07-26) deliberately used margin rather than padding to separate them, which
+   spaced the rows without ever making them comfortable to hit. Min-height in em keeps desktop tidy;
+   the touch block below takes them to a 44px target. */
+.actionSheet,
+.actionSheet.dialog,
+.actionSheetContent {
+  background-color: var(--secondary-background-color, #181818) !important;
+  color: var(--mn-text, #f5eedc) !important;
+  border-radius: var(--mn-sheet-radius, 8px) !important;
+}
+/* The sheet floats over content, so it needs its own edge to read as a surface. Without this it
+   dissolves into a dark backdrop in all four themes. */
+.actionSheet,
+.actionSheet.dialog {
+  border: 1px solid var(--mn-divider-color, rgba(255, 255, 255, .09)) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .55) !important;
+}
+.actionSheetContent .actionSheetMenuItem,
+.actionSheet .actionSheetItemText,
+.actionSheet .actionSheetTitle {
+  color: var(--mn-text, #f5eedc) !important;
+}
+.actionSheetContent .actionSheetMenuItem {
+  padding: 0.5em 0.9em !important;
+  min-height: 2.4em !important;
+  align-items: center !important;
+}
+/* Stock sets opacity .7 on the aside text (shortcut hints). Against a themed sheet that lands under
+   4.5:1, so give it the muted token instead — measured 5.7-6.6:1 across the four themes. */
+.actionSheet .actionSheetItemAsideText {
+  opacity: 1 !important;
+  color: var(--mn-muted, #7fa8a4) !important;
+}
+.actionSheetContent .actionsheetDivider {
+  border-top: 1px solid var(--mn-divider-color, rgba(255, 255, 255, .09)) !important;
+}
+/* Stock is `overflow: hidden` with `justify-content: center` and max-height 84% — a long menu
+   (the item "…" menu runs to a dozen entries) silently clips its ends rather than scrolling. */
+.actionSheetScroller {
+  overflow-y: auto !important;
+}
+.actionSheetContent {
+  overflow: hidden auto !important;
+  justify-content: flex-start !important;
+}
+/* Selected/active row: accent fill, and the accent's paired text colour so it stays legible —
+   reelone's textOnAccent is white, the other three are near-black, which is why this cannot be
+   hardcoded. Hover is pointer-gated for the same sticky-touch reason as the drawer. */
+.actionSheetContent .actionSheetMenuItem:focus,
+.actionSheetContent .actionSheetMenuItem.selected {
+  background: var(--primary-accent-color, #47c4b8) !important;
+  color: var(--mn-text-on-accent, #0c2429) !important;
+}
+@media (hover: hover) and (pointer: fine) {
+  .actionSheetContent .actionSheetMenuItem:hover {
+    background: rgba(255, 255, 255, .10) !important;
+  }
+}
+/* Touch: 44px rows (the Apple/Material minimum) and no tap-flash — these are the same rows people
+   were mis-tapping when they were list-dense. */
+@media (pointer: coarse) {
+  .actionSheetContent .actionSheetMenuItem {
+    min-height: 44px !important;
+    padding: 0.65em 1em !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
 }
 
 /* Watched checkmark / played indicator on cards+posters: scyfin (via @import) and

@@ -8,6 +8,7 @@
 // at 1.5s).
 
 const app = require('./app');
+const jobs = require('./jobs');
 const metrics = require('../metrics');
 const { cfg, HOST } = require('./config');
 const { tfetch, qbit, arrGet } = require('./clients');
@@ -322,7 +323,16 @@ async function buildDownloads() {
             // "Unknown Series" branch DELETES the folder with deleteFiles:true — this is what wiped
             // Cosmos 1980. Gating on the CATEGORY (not just the hash map) keeps this safe even if the
             // bookkeeping entry is briefly missing (e.g. right after a restart, before recover runs).
-            state = 'Importing';
+            //
+            // But "the watchdog owns it" is not the same as "it is progressing". A force-grab whose
+            // files never left the incomplete tree is WEDGED (see importer.js's stuck-move detector):
+            // the watchdog refuses to import from there and qBit won't retry the move, so nothing will
+            // ever change on its own. That must never read as a calm blue "Importing" — it did exactly
+            // that for a full day on Beach Party (1963). Red, with the real cause on the row. Still no
+            // `recover` — the Cosmos rule above is absolute for force-grabs, wedged or not.
+            const stuck = (importState.get(t.content_path) || {}).reason;
+            if (stuck) { state = 'Needs attention'; attention = true; attnNote = stuck; }
+            else state = 'Importing';
           } else if ((t.completion_on || 0) > 0 && now - t.completion_on > DAY) {
             state = 'Likely imported';
           } else {
@@ -434,6 +444,26 @@ async function buildDownloads() {
       if (id != null) appIdsInQueue[app].add(id);
     }
   }
+  // FORCE-GRABS ARE IN NO *ARR QUEUE OR HISTORY. The controller grabs them itself into
+  // radarr-force/sonarr-force so *arr can't auto-import the wrong item, so appIdsInQueue misses them,
+  // and shownIds misses them too because _arrId (line ~255) resolves from those same two sources.
+  // The last guard, beingFetched(), then skips anything at 100% — correct for the series case it was
+  // written for, but it means a force-grab that has FINISHED downloading and is waiting on the import
+  // watchdog matches none of the three, and the title gets a phantom "Not found" row beside its own
+  // live "Importing" row. Beach Party (1963), 2026-08-09. The hash→id record is authoritative and
+  // persisted, so use it instead of guessing at titles.
+  const forceGrabIds = { radarr: new Set(), sonarr: new Set() };
+  for (const t of torrents) {
+    if (!isForceGrabCategory(t.category)) continue;
+    const app = torrentApp(t); if (!app) continue;
+    const fg = forceGrabImport.get(String(t.hash || '').toLowerCase())
+      || completedForceGrabs.get(String(t.hash || '').toLowerCase());
+    if (!fg || fg.id == null || (fg.app && fg.app !== app)) continue;
+    // Same movies-vs-series rule as shownIds above and arrSweep's hasTorrentIds: one torrent IS the
+    // whole movie, but a series id spans every season, so a finished force-grabbed S02 pack must not
+    // claim an S05 hole is covered. For TV only an unfinished (still-fetching) force-grab counts.
+    if (app === 'radarr' || (t.progress || 0) < 1) forceGrabIds[app].add(fg.id);
+  }
   // A JUST-grabbed torrent (redownload / fresh request) is in qBittorrent seconds before the
   // 20s-cached *arr queue/history links it to its item — so shownIds/queue miss it and the title
   // would show BOTH its download row AND a phantom "Searching…" row. Bridge that window by matching
@@ -481,7 +511,7 @@ async function buildDownloads() {
         const id = it.id;
         const hasF = app === 'radarr' ? !!it.hasFile : !!(it.statistics && it.statistics.episodeCount > 0 && it.statistics.episodeFileCount >= it.statistics.episodeCount);
         if (hasF || it.monitored === false) { noteResolved(app, id); continue; }
-        if (appIdsInQueue[app].has(id) || shownIds[app].has(id) || beingFetched(app, it)) { noteResolved(app, id); continue; }   // in queue / linked / freshly-grabbed torrent → not missing
+        if (appIdsInQueue[app].has(id) || shownIds[app].has(id) || forceGrabIds[app].has(id) || beingFetched(app, it)) { noteResolved(app, id); continue; }   // in queue / linked / force-grabbed / freshly-grabbed torrent → not missing
         // Not out yet — a movie before its home release, or a series that hasn't premiered. There is
         // nothing to find, so it must never read as a failure: grey "Unreleased" at the BOTTOM of the
         // list, no attention flag, no "gave up after N tries" hint, and no missing clock running.
@@ -838,9 +868,17 @@ async function downloadSummary(items) {
   };
 }
 
+// Not gated on Movie Mode: this only READS qBittorrent and the *arrs to build the dashboard
+// snapshot. Pausing it would blank the Downloads tab exactly when someone is checking on it.
+const tracked = jobs.define({
+  id: 'downloads-snapshot', name: 'Downloads snapshot', group: 'System', weight: 12,
+  what: 'Builds the downloads view',
+  every: 5000, scheduleText: 'every 5s',
+}, refreshDownloads);
+
 function startDownloadsLoop() {
-  setInterval(refreshDownloads, 5000);
-  setTimeout(refreshDownloads, 1500);
+  setInterval(tracked, 5000);
+  setTimeout(tracked, 1500);
 }
 function getDl() { return _dl; }
 

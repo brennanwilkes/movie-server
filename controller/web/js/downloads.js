@@ -218,31 +218,9 @@ function updateDlStale() {
     } else if (span) span.remove();
   }
 }
-// Movie Mode (master pause) — one tap frees the NUC's CPU + disk for smooth Jellyfin playback.
-const mmBtn = $('#movie-mode-btn');
-let mmBusy = false;
-function renderMovieMode(paused) {
-  if (!mmBtn) return;
-  mmBtn.classList.toggle('on', !!paused);
-  mmBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
-  const label = mmBtn.querySelector('.mm-label');
-  if (label) label.textContent = paused ? 'Paused for streaming · tap to resume everything' : 'Movie Mode · pause everything for streaming';
-  const path = mmBtn.querySelector('svg path');
-  if (path) path.setAttribute('d', paused ? 'M7 5l12 7-12 7z' : 'M9 5v14M15 5v14');   // play triangle when paused, pause bars otherwise
-}
-if (mmBtn) mmBtn.addEventListener('click', async () => {
-  if (mmBusy) return;
-  const pausing = !mmBtn.classList.contains('on');
-  mmBusy = true; mmBtn.disabled = true;
-  renderMovieMode(pausing);                                   // optimistic flip
-  try {
-    const out = await postJSON(pausing ? '/api/master-pause' : '/api/master-resume', {});
-    if (out && out.qbit === false) toast(pausing ? 'Sweeps paused — but qBittorrent didn’t confirm, torrents may still run' : 'Sweeps resumed — but qBittorrent didn’t confirm');
-    else toast(pausing ? 'Movie Mode on · everything paused' : 'Resumed · downloads back on');
-    pollDownloads();
-  } catch { renderMovieMode(!pausing); toast('Could not reach the server'); }
-  finally { mmBusy = false; mmBtn.disabled = false; }
-});
+// Movie Mode MOVED to the Jobs tab on 2026-08-06 (web/js/jobs.js). It is the master switch over
+// every background job — not a downloads control — and it now also reports the playback that armed
+// it automatically, which only reads correctly beside the jobs it pauses.
 
 async function pollDownloads() {
   if (offline) { setDlLoading(false); return; }
@@ -259,7 +237,7 @@ async function pollDownloads() {
     setDlLoading(false);
     renderDownloads(data.items || []);
     renderDlSummary(data.summary);
-    renderMovieMode(data.masterPaused);
+    // Movie Mode is rendered on the Jobs tab now; this poll no longer owns that button.
     updateDlStale();                                          // clear stale indicator
   } catch { if (dlLoaded) setDlLoading(false); /* else keep spinner; it retries next tick */ }
   finally { dlInflight = false; }

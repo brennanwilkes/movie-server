@@ -12,6 +12,17 @@
   --warn: #ffb020;
   --danger: #ff453a;
   --radius: 16px;
+  /* Height of the fixed bottom tabbar (icon 24 + label ~16 + padding 8/10). Anything that renders
+     at the bottom of the viewport must clear it — see .sheet. */
+  --tabbar-h: 58px;
+  /* AREA palette for the Jobs tab — deliberately apart from the status colours (accent/ok/warn/
+     danger) and desaturated, so "what part of the system is this" can never be mistaken for
+     "what is happening right now". Status owns the rail and the state badge; area gets one tag. */
+  --g-quality: #a78bfa;
+  --g-media:   #22d3ee;   /* cyan, deliberately far from the accent blue that means RUNNING */
+  --g-meta:    #2dd4bf;
+  --g-dl:      #f472b6;
+  --g-sys:     #94a3b8;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -235,7 +246,17 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; z-index: 20; }
 .sheet {
   background: var(--card); width: 100%; max-width: 640px; margin: 0 auto;
-  border-radius: 22px 22px 0 0; padding: 22px 20px calc(20px + env(safe-area-inset-bottom));
+  border-radius: 22px 22px 0 0;
+  /* THE BOTTOM PADDING CLEARS THE TABBAR, and that is a correctness fix, not styling. A sheet is
+     bottom-anchored and .btn-primary is 52px tall, so with only 20px of padding the action row
+     occupied 20-72px above the viewport bottom while the fixed tabbar occupies 0-58px — 38px of
+     the Replace button sat directly on top of the tab buttons. The sheet is z-20 over the tabbar's
+     z-10, so the first tap was always delivered correctly; but the sheet CLOSES on success, and any
+     follow-up tap at the same spot then landed on the tabbar's rightmost button.
+     Invisible until 2026-08-06: the rightmost tab was Audit, so mis-tapping it while on the Audit
+     tab did nothing. Adding Jobs as the 5th tab turned a silent mis-tap into "I hit Replace and got
+     sent to the Jobs tab" (Brennan). --tabbar-h is the shared source of truth for that height. */
+  padding: 22px 20px calc(20px + var(--tabbar-h) + env(safe-area-inset-bottom));
   animation: slideup .22s ease;
 }
 @keyframes slideup { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -303,8 +324,6 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 /* What was filtered out, so a short list never reads as "this show does not exist". */
 .force-filtered { margin: 8px 2px 0; font-size: 11.5px; color: var(--muted); }
 /* Audit tab header action row ("Re-check everything" + its status note). */
-.audit-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
-.audit-actions .sub { font-size: 12px; color: var(--muted); }
 .result-grab {
   flex: none; min-width: 60px; height: 44px; padding: 0 14px;
   border: 0; border-radius: 10px; background: var(--accent); color: #fff;
@@ -358,10 +377,15 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   backdrop-filter: blur(12px); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
 }
+/* min-width:0 is the flex twin of the minmax(0,1fr) grid trap this project already hit: `flex: 1`
+   is `flex: 1 1 0%` with min-width:auto, so a button can refuse to shrink below its label and push
+   the bar wider than the screen. Harmless at four tabs; the fifth ("Jobs", 2026-08-06) is what
+   makes "Downloads" the binding constraint on a 320px phone. Labels ellipsise instead. */
 .tabbar button {
-  flex: 1; background: none; border: 0; color: var(--muted); cursor: pointer;
+  flex: 1; min-width: 0; background: none; border: 0; color: var(--muted); cursor: pointer;
   padding: 8px 0 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px;
 }
+.tabbar button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tabbar button.active { color: var(--accent); }
 
 /* Toast */
@@ -380,12 +404,6 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 /* ── Audit tab ─────────────────────────────────────────────────────────────────
    Rows reuse .row / .grow / .title from the Library tab. The three section buttons ARE the
    headline figures — there is no separate stat strip above them. */
-
-.audit-progress {
-  margin-top: 10px; padding: 8px 12px; font-size: 12.5px; border-radius: 10px; text-align: center;
-  background: color-mix(in srgb, var(--accent) 12%, var(--card));
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-}
 
 /* Equal thirds, centred content: the figures are the point, so they sit dead-centre in each
    tile rather than ragged-left with whitespace to their right. */
@@ -582,6 +600,17 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .aud-cand.pick:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .aud-cand.pick:active { transform: scale(.99); }
 .aud-cand.pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* A release we already watched fail to connect. DIMMED, NOT HIDDEN, and still fully clickable —
+   swarms revive and the alternative may be worse, so this is a warning the human overrules, not a
+   decision made for them. The title keeps full contrast (it is what you read to identify the
+   release); only the supporting figures fade, and the "dead swarm" pill stays at full strength
+   because it is the reason the card looks like this. Hover restores it completely, so inspecting a
+   dead candidate never means squinting. */
+.aud-cand.dead { opacity: .55; transition: opacity .12s ease; }
+.aud-cand.dead:hover, .aud-cand.dead:focus-within { opacity: 1; }
+.aud-cand.dead .aud-cand-title { opacity: .85; text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--bad, #e5484d) 60%, transparent); }
+.aud-cand.dead .apill.seeds { opacity: 1; }
 /* A card mid-dry-run. Its children dim and a spinner is overlaid at full contrast — dimming
    the whole card the way this used to would fade the spinner along with everything else, which
    is how the tap ended up with no visible feedback at all. */
@@ -663,3 +692,159 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
    number worth comparing. */
 .aud-save.same { color: var(--muted); font-size: 13px; }
 .aud-save.same small { margin-left: 3px; }
+
+/* ── JOBS TAB: ONE COMPONENT, REPEATED ─────────────────────────────────────────────────────────
+   Every recurring thing the box does, across three runtimes (controller sweeps, Jellyfin scheduled
+   tasks, host systemd timers). A reader must not be able to tell which runtime a card came from.
+
+   FIXED GEOMETRY IS THE DESIGN. Every card is the SAME HEIGHT with the same three rows in the same
+   places, so the page reads as a grid of instruments rather than a stack of paragraphs (Brennan,
+   2026-08-06: "standardized to be even, fill width and height... the only text is the title and
+   maybe the desc, everything else is a bar, a colour, a badge").
+
+     row 1   title ........................... BADGE
+     row 2   live detail, else what it is for   (one line, ellipsised)
+     row 3   [========= bar =========]  figure  [btn]
+
+   Only rows 1-2 carry prose, both hard-clipped to a single line. The schedule/last-run line that
+   used to sit here is GONE — "every 6h · and on boot · started 5 min ago" is exactly the poorly
+   formatted text this redesign exists to delete. The bar encodes the same fact (how far through the
+   interval), and the words survive on the card's title attribute for anyone who wants them.
+
+   COLOUR CARRIES MEANING, because colour beats text: accent = running, amber = gated, red = failed,
+   green = finished. It is applied THREE times per card — the left rail, the badge, the bar — so the
+   state is legible at a glance, mid-scroll, without reading. */
+.jobs-list { display: flex; flex-direction: column; gap: 8px; }
+.job-card {
+  /* Fixed, not min: uniformity is the point, and every text node inside is clipped to one line so
+     nothing can push it taller. Sized to the three rows plus real breathing room — the first cut
+     was 80px with 5px gaps and read as cramped once the badges landed. */
+  height: 88px; padding: 10px 11px;
+  display: flex; flex-direction: column; justify-content: center; gap: 7px;
+  border-radius: 11px; background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--off);      /* the state rail — recoloured per state below */
+  overflow: hidden;
+}
+/* Peripheral-vision signal: find the working row and the broken row while scrolling, no reading. */
+.job-card.s-running { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--card)); }
+.job-card.s-error   { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--card)); }
+.job-card.s-waiting,
+.job-card.s-paused  { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 5%, var(--card)); }
+/* Healthy at rest — ran, succeeded, waiting for its next turn. The rail is the only place this is
+   said, deliberately: a green BADGE on 25 cards would drown the handful that need attention, but a
+   green edge reads as reassurance without competing for the eye. */
+.job-card.s-idle.ok { border-left-color: var(--ok); }
+
+/* ROW 1 — title + the single state token. */
+.job-head { display: flex; align-items: center; gap: 7px; min-height: 17px; }
+.job-name {
+  flex: 0 1 auto; min-width: 0; font-size: 13.5px; font-weight: 650; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Same tinted-pill recipe as the release .format pills and the audit .apill — one badge language
+   across the dashboard, not a third one invented for this tab. */
+/* ONE right-aligned cluster: cadence · area · STATE. State sits at the outer edge on purpose —
+   it is what the page is scanned for, so it gets the fixed right margin while the two reference
+   tags float inside it. The group never shrinks; the title ellipsises instead. */
+.job-tags { flex: 0 0 auto; margin-left: auto; display: flex; align-items: center; gap: 5px; }
+.job-badge {
+  flex: 0 0 auto;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  line-height: 1; padding: 3.5px 6px; border-radius: 4px;
+}
+.job-badge.run  { color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.job-badge.wait { color: var(--warn);   background: color-mix(in srgb, var(--warn) 18%, transparent); }
+.job-badge.bad  { color: var(--danger); background: color-mix(in srgb, var(--danger) 20%, transparent); }
+.job-badge.dim  { color: var(--off);    background: color-mix(in srgb, var(--off) 16%, transparent); }
+
+/* ROW 2 — the description, now full width. All three badges moved up into row 1 as a single
+   cluster, which both reads as one control strip and buys back the vertical room the card needed. */
+.job-sub {
+  margin: 0; font-size: 11.5px; line-height: 1.3; color: var(--muted); min-height: 15px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Quieter than the state badge on purpose: smaller, lower-contrast, no background on the cadence
+   tag. These are reference facts, not alerts — they must add information without adding noise. */
+.job-tag {
+  flex: 0 0 auto; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  line-height: 1; padding: 3px 5px; border-radius: 4px; white-space: nowrap;
+}
+.job-tag.cad { color: var(--off); border: 1px solid color-mix(in srgb, var(--off) 45%, transparent); }
+.job-tag.g-quality { color: var(--g-quality); background: color-mix(in srgb, var(--g-quality) 15%, transparent); }
+.job-tag.g-media   { color: var(--g-media);   background: color-mix(in srgb, var(--g-media) 15%, transparent); }
+.job-tag.g-meta    { color: var(--g-meta);    background: color-mix(in srgb, var(--g-meta) 15%, transparent); }
+.job-tag.g-dl      { color: var(--g-dl);      background: color-mix(in srgb, var(--g-dl) 15%, transparent); }
+.job-tag.g-sys     { color: var(--g-sys);     background: color-mix(in srgb, var(--g-sys) 15%, transparent); }
+/* A live detail is a fact about right now and gets full text colour; the static description stays
+   muted and recedes into the background. */
+.job-sub.live { color: var(--text); }
+.job-card.s-error .job-sub.live { color: var(--danger); }
+
+/* ROW 3 — bar, figure, button on ONE line. The fixed height is what keeps a card with a button the
+   same height as one without, which is the whole reason the page lines up. */
+.job-run { display: flex; align-items: center; gap: 9px; height: 22px; flex: none; }
+.job-bar { flex: 1 1 auto; min-width: 0; height: 6px; border-radius: 99px; overflow: hidden; background: var(--card-2); }
+.job-bar > i { display: block; height: 100%; border-radius: 99px; transition: width .4s ease, background .3s; }
+/* WORK bars are real progress and earn full contrast, coloured by the state that produced them. */
+.job-bar.work > i { background: var(--accent); }
+.job-bar.work.run > i  { background: var(--accent); }
+.job-bar.work.wait > i { background: var(--warn); }
+.job-bar.work.bad > i  { background: var(--danger); }
+.job-bar.work.done > i { background: var(--ok); }
+/* SCHEDULE bars are only "alive and on a clock" — thinner and dimmer so they can never be mistaken
+   for work in flight, while still filling the slot so every card has the same silhouette. */
+.job-bar.sched { height: 3px; background: color-mix(in srgb, var(--line) 70%, transparent); }
+.job-bar.sched > i { background: color-mix(in srgb, var(--off) 50%, transparent); }
+
+.job-right {
+  flex: 0 0 auto; font-size: 11px; font-weight: 650; color: var(--muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.job-card.s-running .job-right { color: var(--text); }
+
+.job-btn {
+  flex: 0 0 auto; height: 22px; padding: 0 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 700; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.job-btn:active { transform: scale(.96); }
+.job-btn:disabled { opacity: .55; }
+.job-btn.stop {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+}
+/* Armed (second tap commits). Red because the only armed action re-checks the whole library. */
+.job-btn.armed {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+/* The sub-hourly crons, banished to the bottom (Brennan: "any crons that run more than once per
+   hour, lets have them sort to the bottom regardless of if they're running or not"). Dimmed as
+   well as demoted — they are plumbing, and a running disk-gate should not pull the eye the way a
+   running probe does. */
+.job-card.chatty { opacity: .62; }
+.job-card.chatty .job-name { font-weight: 600; }
+
+/* Movie Mode's explanatory line: what is playing, or how long until everything resumes. */
+.mm-note { margin: -4px 0 12px; font-size: 12px; line-height: 1.4; color: var(--muted); }
+/* Auto-armed: disabled because playback owns the latch, not because it is broken. Dashed reads as
+   informational rather than dead — plain :disabled just looks greyed out and unexplained. */
+.movie-mode.locked { opacity: 1; background: color-mix(in srgb, var(--warn) 14%, var(--card)); border-style: dashed; }
+
+/* MEASURED vs ESTIMATED quality target, Brennan's call 2026-08-06: "showing estimated bpp+
+   (unprobed) with italics would be good, while confirmed ones can be bolded."
+     .meas  this film was probed — its 100 is its own. Heavier than the base .mbps 600.
+     .est   inferred from other films (same series, then source, then the library median).
+   Weight and slope rather than a glyph or an underline: both were tried and the dashed underline
+   read as a spellcheck error. This keeps the badge's own colour doing the quality work while the
+   typography carries confidence, which is a different axis and should look like one.
+   See bppSpan() in js/util.js. */
+.mbps.meas { font-weight: 750; }
+.mbps.est  { font-style: italic; }

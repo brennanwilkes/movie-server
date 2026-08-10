@@ -44,10 +44,9 @@
 
     <!-- DOWNLOADS -->
     <section id="tab-downloads" class="tab" hidden>
-      <button id="movie-mode-btn" class="movie-mode" aria-pressed="false">
-        <svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>
-        <span class="mm-label">Movie Mode · pause everything for streaming</span>
-      </button>
+      <!-- Movie Mode MOVED to the Jobs tab on 2026-08-06. It is the master switch over every
+           background job, not a downloads control, and it now also reports what playback armed it
+           automatically — which only makes sense next to the jobs it pauses. -->
       <div id="dl-summary" class="dl-summary" hidden></div>
       <h2 class="section-label">Recent</h2>
       <ul id="downloads" class="list"></ul>
@@ -71,15 +70,12 @@
          CACHED verdict on whether a better source actually exists (a live indexer search is
          5-21s, so it can't happen on load); the background verifier keeps them warm. -->
     <section id="tab-audit" class="tab" hidden>
-      <!-- Verdicts are cached for 14 days, which is right for a background sweep but means
-           "is there something better yet?" can't be asked on demand — indexer availability moves
-           much faster than a fortnight. This drops every cached verdict so the paced verifier
-           re-checks the whole library. Read-only: verification only searches. -->
-      <div class="audit-actions">
-        <button id="aud-rescan" class="btn-ghost">Re-check everything</button>
-        <span id="aud-rescan-note" class="sub"></span>
-      </div>
-      <div id="audit-progress" class="audit-progress" hidden></div>
+      <!-- The background-work panel that used to live here (probe progress, verify progress, the
+           "Re-check sources" button) MOVED to the Jobs tab on 2026-08-06. Brennan's call: every
+           background job on the box now reports in one place and one format, so a second, prettier
+           report of two of them on this tab would be the inconsistency the Jobs tab exists to end.
+           Per-ROW affordances stay here — re-checking a single title is about that title, not about
+           background work. The whole-library re-check is a job control and lives with the jobs. -->
 
       <!-- The sections ARE the headline figures — no separate stat strip above them.
            Each shows only what is CONFIRMED actionable, so the numbers fall as work is done.
@@ -133,6 +129,35 @@
       <div id="audit-more" hidden><span class="spinner sm"></span><span id="audit-more-label">Loading more…</span></div>
       <div id="audit-loading" class="loading" hidden><span class="spinner"></span>Loading audit…</div>
       <p id="audit-empty" class="empty" hidden>Nothing here.</p>
+    </section>
+
+    <!-- JOBS — every recurring thing this box does, in ONE format.
+         Built 2026-08-06. Before it, two jobs (audit, probe) had bespoke UI on the Audit tab and the
+         other ~25 were invisible: the only way to know whether the Oscar sweep had ever run was to
+         grep container logs. Three runtimes report here — in-process sweeps, Jellyfin scheduled
+         tasks, and host systemd timers — and the whole point is that you cannot tell which is which
+         from the card. See lib/jobs.js for the contract.
+
+         Ordered heaviest/most interesting first (a `weight` on each job), NOT grouped into
+         collapsible sections: the reason to open this tab is "what is the box doing right now", and
+         that answer must be at the top without a tap.
+
+         MOVIE MODE sits above the list because it is the master switch over everything below it.
+         The whole list is rendered from one poll, so the card and the jobs it pauses can never
+         disagree. -->
+    <section id="tab-jobs" class="tab" hidden>
+      <!-- Static DOM, not re-rendered by the poll: this button carries a busy state and, when
+           playback armed Movie Mode, a disabled state. Rebuilding it under the reader's thumb
+           would drop a tap. renderMovieMode() in js/jobs.js only patches its text/classes. -->
+      <button id="movie-mode-btn" class="movie-mode" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>
+        <span class="mm-label">Movie Mode · pause everything for streaming</span>
+      </button>
+      <p id="mm-note" class="mm-note" hidden></p>
+
+      <div id="jobs-list" class="jobs-list"></div>
+      <div id="jobs-loading" class="loading"><span class="spinner"></span>Loading jobs…</div>
+      <p id="jobs-error" class="empty" hidden></p>
     </section>
   </main>
 
@@ -251,6 +276,10 @@
       <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
       <span>Audit</span>
     </button>
+    <button data-tab="jobs" aria-label="Jobs">
+      <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
+      <span>Jobs</span>
+    </button>
   </nav>
 
   <!-- Split of the former app.js — classic scripts sharing global scope, so
@@ -263,6 +292,7 @@
   <script src="js/downloads.js"></script>
   <script src="js/library.js"></script>
   <script src="js/audit.js"></script>
+  <script src="js/jobs.js"></script>
   <script src="js/sheets.js"></script>
   <script src="js/main.js"></script>
 </body>

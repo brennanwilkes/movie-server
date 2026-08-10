@@ -62,6 +62,59 @@
 
 (function () {
 	'use strict';
+	// ---- ONE ROW PER SHOW ON THE HOME PAGE ------------------------------------------------------
+	// Brennan, 2026-08-09: "we should only ever have one episode showing from a given tv show, and
+	// I'm not finished episode 2, so both 2 and 1 shouldn't show at the same time."
+	//
+	// Jellyfin renders "Continue Watching" from /Users/{id}/Items/Resume and "Next Up" from
+	// /Shows/NextUp, and nothing reconciles them — so a series you are part-way through appears in
+	// BOTH. Measured on Blue Planet II (mid-episode 2):
+	//     E01 unwatched            NextUp = E01 One Ocean   Resume = E02   -> two rows
+	//     E01 watched, default     NextUp = E02 The Deep    Resume = E02   -> two rows, same episode
+	//     E01 watched, this patch  NextUp = (empty)         Resume = E02   -> one row
+	//
+	// `enableResumable=false` tells NextUp to skip a series whose next episode is one you are
+	// already part-way through — precisely "it's already in Continue Watching, don't repeat it".
+	// There is NO server or user setting for this (checked /Users/{id} Configuration and
+	// DisplayPreferences), so the request has to be rewritten client-side.
+	//
+	// Patched at module top level, NOT inside the main app's start(), because the home screen fires
+	// its NextUp request during ApiClient bootstrap — before start() waits for the API to be ready.
+	// Both transports are covered: jellyfin-web uses fetch, but its ApiClient has an XHR path too.
+	var NEXTUP_RE = /\/Shows\/NextUp/i;
+	function withNoResumable(url) {
+		try {
+			if (typeof url !== 'string' || !NEXTUP_RE.test(url)) return url;
+			if (/[?&]enableResumable=/i.test(url)) return url;   // caller was explicit — respect it
+			return url + (url.indexOf('?') === -1 ? '?' : '&') + 'enableResumable=false';
+		} catch (e) { return url; }
+	}
+	if (typeof window.fetch === 'function') {
+		var origFetch = window.fetch;
+		window.fetch = function (input, init) {
+			try {
+				if (typeof input === 'string') input = withNoResumable(input);
+				// Request objects are immutable, so a changed URL means rebuilding it.
+				else if (input && typeof input === 'object' && typeof input.url === 'string') {
+					var u = withNoResumable(input.url);
+					if (u !== input.url) input = new Request(u, input);
+				}
+			} catch (e) { /* never let this break a request */ }
+			return origFetch.call(this, input, init);
+		};
+	}
+	if (window.XMLHttpRequest && XMLHttpRequest.prototype.open) {
+		var origOpen = XMLHttpRequest.prototype.open;
+		XMLHttpRequest.prototype.open = function (method, url) {
+			var args = Array.prototype.slice.call(arguments);
+			try { args[1] = withNoResumable(url); } catch (e) { /* */ }
+			return origOpen.apply(this, args);
+		};
+	}
+})();
+
+(function () {
+	'use strict';
 
 	var TOP_100 = 'Top 100';
 	var ACCENT = '#00a4dc'; // jellyfin_blue, matches the app theme + the Firestick badges
@@ -480,7 +533,65 @@
 			'filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));}' +
 			'.nation-flag svg{display:block;width:100%;height:auto;}' +
 			'.curated-host-detail .nation-flag{max-width:52px;left:8px;top:8px;}' +
+			// HARD BACKSTOP against the plaque escaping its poster. Sizing it down (largePlaque in
+			// applyFlair) fixes the common case, but the rows are white-space:nowrap and a single
+			// festival row carries a free-text award name from the controller's -name-{DISPLAY}
+			// tag — arbitrarily long, so no font size makes it safe. Clamp to the host box and let
+			// a too-long row ellipsize instead of hanging over the artwork. Applies on touch
+			// layouts only; desktop posters have the room and the full text is worth having.
+			'html.layout-mobile .oscar-plaque{max-width:calc(100% - 8px);box-sizing:border-box;}' +
+			'html.layout-mobile .oscar-plaque > div{overflow:hidden;text-overflow:ellipsis;}' +
+
+			// ---- Award rows (detail page) ----
+			// Deliberately restrained: this block sits inside Jellyfin's own .itemDetailsGroup
+			// beside Genres/Director/Studios, so it inherits their type and spacing and adds only a
+			// colour per award kind plus a dot marking win vs nomination. Gold/silver match the
+			// poster plaque's statuettes and the festival hues match their badges, so a film's
+			// colours are the same wherever you meet it.
+			'.mn-awards{display:flex;flex-direction:column;gap:3px;}' +
+			'.mn-award{display:flex;align-items:baseline;gap:8px;line-height:1.5;}' +
+			// FIXED-WIDTH, CENTRED MARKER COLUMN. ● and ○ are different glyphs with different
+			// advance widths in the UI font, so an auto-width marker made every row's text start at
+			// a slightly different x — the dots didn't line up and the titles' left edge stepped in
+			// and out down the list (Brennan, 2026-08-09: "subtle but noticeable"). Reserving one
+			// em and centring the glyph inside it makes the column exact regardless of which mark
+			// lands there, and survives a font swap between the four themes.
+			'.mn-award-mark{flex:0 0 1em;width:1em;text-align:center;font-size:10px;line-height:1.9;}' +
+			'.mn-award-title{flex:1 1 auto;min-width:0;}' +
+			// The meta ("Won · 1968") is secondary and must not compete with the category name.
+			'.mn-award-meta{flex:0 0 auto;opacity:.62;font-size:88%;white-space:nowrap;}' +
+			'.mn-award-win .mn-award-mark,.mn-award-win .mn-award-title{color:#E6B94C;}' +
+			'.mn-award-nom .mn-award-mark,.mn-award-nom .mn-award-title{color:#C9CDD3;}' +
+			'.mn-award-cannes .mn-award-mark,.mn-award-cannes .mn-award-title{color:#9fb87f;}' +
+			'.mn-award-sundance .mn-award-mark,.mn-award-sundance .mn-award-title{color:#f26d3d;}' +
+			'.mn-award-win .mn-award-title,.mn-award-cannes .mn-award-title,' +
+			'.mn-award-sundance .mn-award-title{font-weight:600;}' +
+
+			// LABEL ON ITS OWN ROW ON MOBILE. Jellyfin lays a .detailsGroupItem out as a flex ROW
+			// whose .label reserves `flex-basis: 4.5em` — about 72px, roughly a fifth of a 390px
+			// screen — gone from every award line before any of them start. Genres and Director
+			// survive that because they are short comma lists; an award row is three columns
+			// (marker, title, meta), so it was the first thing to get squeezed — most visibly on a
+			// PERSON page, where the title is a whole film name (Brennan, 2026-08-09). Stacking the
+			// group into a column gives the rows the block's entire width.
+			//
+			// Applies to BOTH movie and person detail pages: they render the same .mn-awards-group,
+			// and every award row wants as much of a phone's width as it can get.
+			//
+			// NARROW SCREENS ONLY, and note it is a WIDTH QUERY rather than html.layout-mobile.
+			// layout-mobile is not a proxy for "not much room": Jellyfin sets it from UA/touch, so an
+			// iPad is layout-mobile at ANY size, 1366px landscape included (see the "Mobile & TABLET
+			// overrides" note in jellyfin-custom.css). Scoping this to layout-mobile would stack the
+			// label on a tablet that has ~630px of room going spare, breaking this block's alignment
+			// with the Genres/Director rows beside it to fix a problem only a phone has.
 			'@media (max-width:600px){' +
+			'.mn-awards-group{flex-direction:column !important;}' +
+			'.mn-awards-group > .mn-awards-label{flex-basis:auto !important;margin:0 0 .35em 0 !important;}' +
+			'.mn-awards-group > .mn-awards{width:100% !important;}' +
+			// Narrow screens: tighten the gap and shrink the meta so a long category still fits on
+			// one line at 390px before it has to wrap.
+			'.mn-award{gap:6px;}' +
+			'.mn-award-meta{font-size:84%;}' +
 			// theme-token corner geometry on the rank pill (reelone=square, canyon=pill);
 			// desktop keeps the stock 4px look
 			'.curated-rank{border-radius:var(--mn-pill-radius,4px);}' +
@@ -932,6 +1043,10 @@
 		ch: { h: ['R'], plus: 'W' }, gr: { special: 'gr' }, pt: { special: 'pt' },
 		il: { special: 'il' }, tw: { special: 'tw' },
 		hk: { h: ['R'], disc: { c: 'W', r: 4.8 } }, pe: { v: ['R', 'W', 'R'] },
+		// Lebanon. With no entry here flagContent() fell through to the navy code-pennant, so
+		// Capernaum and friends rendered as two letters on a rectangle — the only "flag" on the
+		// wall that was actually text. Same 1:2:1 band geometry as Spain, plus the cedar.
+		lb: { h: ['R', 'W', 'R'], hw: [1, 2, 1], cedar: true },
 	};
 	function flagStar(cx, cy, r, color) {
 		var pts = [];
@@ -1076,6 +1191,15 @@
 				s += '<line x1="18" y1="12" x2="' + (18 + sp.ring.r * Math.cos(a)).toFixed(2) + '" y2="' + (12 + sp.ring.r * Math.sin(a)).toFixed(2) + '" stroke="' + C(sp.ring.c) + '" stroke-width=".7"/>';
 			}
 		}
+		// Cedar of Lebanon — three stacked triangles on a short trunk, sized to sit inside the
+		// white band (y 6..18). Stylised to match the rest of the set: these are 36x24 luggage
+		// stickers, not accurate vexillology.
+		if (sp.cedar) {
+			s += '<rect x="17.4" y="15.2" width="1.2" height="2.4" fill="' + C('G') + '"/>'
+				+ '<polygon points="18,6.6 21.6,11 14.4,11" fill="' + C('G') + '"/>'
+				+ '<polygon points="18,8.9 23,13.4 13,13.4" fill="' + C('G') + '"/>'
+				+ '<polygon points="18,11.4 24,15.8 12,15.8" fill="' + C('G') + '"/>';
+		}
 		if (sp.star) s += flagStar(sp.star.cx, sp.star.cy, sp.star.r, C(sp.star.c));
 		return s;
 	}
@@ -1163,7 +1287,15 @@
 			var hostW = host.getBoundingClientRect ? host.getBoundingClientRect().width : 0;
 			var oscarMobile = document.documentElement.classList.contains('layout-mobile');
 			if (isDetail || !oscarMobile || hostW >= 180) {
-				host.insertAdjacentHTML('beforeend', oscarPlaqueHtml(osc.w, osc.l, osc.c, osc.s, osc.cName, osc.sName, isDetail || hostW >= 300));
+				// LARGE vs COMPACT. `isDetail` used to force the large plaque unconditionally, on the
+				// reasoning that a detail poster is big — true on desktop, false on a phone, where
+				// the detail poster is a ~120px thumbnail. At 13px with white-space:nowrap, a row
+				// like "3 OSCAR NOMINATIONS" is ~165px wide, so the plaque hung off the side of the
+				// artwork (Brennan, 2026-08-09: "overflows outside of the poster thumbnail. It needs
+				// to be the compact format"). Detail still always gets a PLAQUE rather than the
+				// mobile text pill — only its size now depends on whether there is room for it.
+				var largePlaque = (isDetail && !oscarMobile) || hostW >= 300;
+				host.insertAdjacentHTML('beforeend', oscarPlaqueHtml(osc.w, osc.l, osc.c, osc.s, osc.cName, osc.sName, largePlaque));
 			} else {
 				// Bottom-right corner pill (mobile only). Festival content rides along: Oscar
 				// segment (gold, mn-oscar-silver when noms-only) is gated on osc.w/osc.l so a
@@ -1445,6 +1577,210 @@
 	}
 
 
+	// ---- Trailer button → new tab (and the YouTube app when there is one) ----------------------
+	// Stock Jellyfin binds `.btnPlayTrailer` to playbackManager.playTrailers(item), which hands a
+	// RemoteTrailers URL to the in-app player. On web that means the YouTube page loads INSIDE the
+	// client — you lose your place in the library, and on a phone you get the mobile web player
+	// rather than the YouTube app you actually have installed.
+	//
+	// WHY THE URL IS PREFETCHED rather than looked up in the click handler: window.open() only
+	// survives a popup blocker when it runs in the same synchronous turn as the user gesture. An
+	// `await fetch(...)` first is exactly the pattern every mobile browser blocks. So the item's
+	// trailer URL is resolved when the detail page renders and parked on the button; the click
+	// handler then does nothing but read an attribute and open it.
+	//
+	// NO vnd.youtube:// INTENT URL. A plain https://youtube.com/watch link is claimed by the
+	// YouTube app through Android App Links / iOS Universal Links when it is installed, and falls
+	// back to the web player when it is not. An intent scheme buys nothing here and dead-ends on
+	// any device without the app.
+	var TRAILER_ATTR = 'data-mn-trailer';
+	// TMDb hands Jellyfin every promo clip a studio ever uploaded, in no useful order, and
+	// RemoteTrailers[0] is whatever happened to be first. Wuthering Heights (checked 2026-08-09)
+	// carries 41 entries whose first is "American Sign Language Trailer", followed by 30-odd
+	// marketing stings ("Happy New Fear!", "The hype is infectious."). Taking [0] would show the
+	// wrong clip on exactly the films with the most material. So: prefer an explicitly official
+	// trailer, then anything calling itself a trailer, then give up and take the first.
+	function pickTrailer(rt) {
+		var withUrl = (rt || []).filter(function (t) { return t && t.Url; });
+		if (!withUrl.length) return '';
+		var byName = function (re) {
+			for (var i = 0; i < withUrl.length; i++) {
+				if (re.test(String(withUrl[i].Name || ''))) return withUrl[i].Url;
+			}
+			return '';
+		};
+		return byName(/official\s+trailer/i) || byName(/\btrailer\b/i) || withUrl[0].Url;
+	}
+	// ONE item fetch, two consumers: the trailer button and the award rows. Formerly this bailed
+	// early when the page had no .btnPlayTrailer — which is every PERSON page, so the award rows
+	// never ran there (Brennan, 2026-08-09: "the oscar/festival wins don't appear" on person pages).
+	// The trailer half is now conditional instead of gating.
+	function decorateDetailExtras() {
+		var page = document.querySelector('.itemDetailPage:not(.hide)');
+		if (!page) return;
+		var id = itemIdFromHash();
+		if (!id) return;
+		// Guarded per ITEM, on the page element: the details page is reused across navigations, so
+		// without the id in the guard the next film would inherit the previous one's trailer.
+		if (page.getAttribute('data-mn-extras-id') === id) return;
+		page.setAttribute('data-mn-extras-id', id);
+		var btns = page.querySelectorAll('.btnPlayTrailer');
+		var a = api();
+		if (!a || typeof a.getJSON !== 'function') return;
+		// getJSON(getUrl(...)) rather than getItem(): it is the pattern every other loader in this
+		// file already uses, so it is known to exist on this ApiClient build.
+		// ProviderIds rides along for the awards rows below — one item fetch serves both, rather
+		// than two requests for the same record on every detail page.
+		a.getJSON(a.getUrl('Items', { Ids: id, Fields: 'RemoteTrailers,ProviderIds' })).then(function (res) {
+			var item = (res && res.Items && res.Items[0]) || null;
+			if (btns.length) {
+				var url = pickTrailer((item && item.RemoteTrailers) || []);
+				btns.forEach(function (b) {
+					// No remote trailer (a LOCAL trailer file, or none at all) → leave the attribute
+					// off so the click handler declines and stock behaviour plays the local file.
+					if (url) b.setAttribute(TRAILER_ATTR, url);
+					else b.removeAttribute(TRAILER_ATTR);
+				});
+			}
+			addAwardRows(id, item);
+		}, function () {
+			// Clear the guard so the next scan retries rather than leaving the page permanently
+			// undecorated after one transient failure.
+			page.removeAttribute('data-mn-extras-id');
+		});
+	}
+
+	// ---- AWARD ROWS on the detail page ---------------------------------------------------------
+	// Brennan, 2026-08-09: "rows that list each award, IE each oscar nomination, each oscar win, and
+	// each win from the two film festivals so that I can clearly see what it's won."
+	//
+	// The poster plaque says "1 OSCAR WIN / 4 NOMINATIONS" — a count. This says WHICH. Data comes
+	// from the controller's /api/awards (see oscar-tags.js for why it is an endpoint and not more
+	// Tags), keyed by the IMDb/TMDB ids Jellyfin already holds.
+	//
+	// RENDERED AS A NATIVE DETAILS GROUP. Jellyfin's own markup for the Genres/Director/Writers
+	// block is `.itemDetailsGroup > .detailsGroupItem > (.label + .content)`, so this builds exactly
+	// that shape and inherits the page's existing type, spacing and responsive behaviour for free —
+	// which is what makes it read as part of the page rather than something bolted on.
+	var CONTROLLER_PORT = 8088;
+	function controllerBase() {
+		// Same host as Jellyfin, fixed port — the same derivation the Fire TV fork uses
+		// (HomeRowsFragment.kt). Returns '' when it cannot be worked out, which disables the feature
+		// rather than throwing.
+		try {
+			var base = apiBase();
+			if (!base) return '';
+			var u = new URL(base, location.href);
+			return u.protocol + '//' + u.hostname + ':' + CONTROLLER_PORT;
+		} catch (e) { return ''; }
+	}
+	// Categories arrive SHOUTED ("VISUAL EFFECTS", "WRITING (Original Screenplay)") because that is
+	// how the Academy's own data is published. Full caps down a list reads as shouting next to the
+	// page's sentence-case labels, so title-case the all-caps words and leave anything already
+	// mixed-case (the parenthetical qualifiers) exactly as it is.
+	var SMALL_WORDS = /^(a|an|and|as|at|by|for|in|of|on|or|the|to)$/;
+	// Proper nouns the word-by-word rule cannot get right — it would render the Palme d'Or as
+	// "Palme D'or", capitalising the elision and lowercasing the actual noun.
+	var AWARD_EXACT = { "PALME D'OR": "Palme d'Or" };
+	function titleCaseAward(s) {
+		var exact = AWARD_EXACT[String(s || '').toUpperCase()];
+		if (exact) return exact;
+		return String(s || '').toLowerCase().replace(/[a-z][a-z']*/g, function (w, i) {
+			if (i > 0 && SMALL_WORDS.test(w)) return w;
+			return w.charAt(0).toUpperCase() + w.slice(1);
+		});
+	}
+	// Award category and nominee text is third-party data (the Academy dataset, and the curated
+	// festival names in data/oscars/festivals.json) going into innerHTML, so it gets escaped. This
+	// file has no existing helper — the rest of it builds SVG from its own literals.
+	function escHtml(s) {
+		return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+			return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+		});
+	}
+	function awardRowHtml(cls, mark, title, meta) {
+		return '<div class="mn-award ' + cls + '">'
+			+ '<span class="mn-award-mark">' + mark + '</span>'
+			+ '<span class="mn-award-title">' + escHtml(title) + '</span>'
+			+ (meta ? '<span class="mn-award-meta">' + escHtml(meta) + '</span>' : '')
+			+ '</div>';
+	}
+	function addAwardRows(id, item) {
+		var page = document.querySelector('.itemDetailPage:not(.hide)');
+		if (!page) return;
+		var group = page.querySelector('.itemDetailsGroup');
+		// Not rendered yet: release the per-item guard so the next scan() retries. Without this, a
+		// page whose details group lands after our fetch would stay awardless until you navigate.
+		if (!group) { page.removeAttribute('data-mn-extras-id'); return; }
+		// Idempotent per item: the details page is reused across navigations, so a stale block from
+		// the previous film must be removed rather than appended to.
+		var existing = group.querySelector('.mn-awards-group');
+		if (existing && existing.getAttribute('data-mn-awards-id') === id) return;
+		if (existing) existing.remove();
+		var pid = (item && item.ProviderIds) || {};
+		var imdb = pid.Imdb || pid.IMDB || '';
+		var tmdb = pid.Tmdb || pid.TMDB || '';
+		// PEOPLE go by name. A Jellyfin Person record usually carries no IMDb id at all, which is
+		// why the controller's tag sweep matches people by normalised name too — so send the name
+		// and let the server normalise it (one implementation, no drift).
+		var isPerson = item && item.Type === 'Person';
+		var q;
+		if (isPerson) {
+			if (!item.Name) return;
+			q = 'person=' + encodeURIComponent(item.Name);
+		} else {
+			if (!imdb && !tmdb) return;
+			q = 'imdb=' + encodeURIComponent(imdb) + '&tmdb=' + encodeURIComponent(tmdb);
+		}
+		var base = controllerBase();
+		if (!base) return;
+		fetch(base + '/api/awards?' + q)
+			.then(function (r) { return r.ok ? r.json() : null; })
+			.then(function (d) {
+				if (!d) return;
+				var rows = [];
+				(d.oscars && d.oscars.awards || []).forEach(function (aw) {
+					// On a PERSON the category alone is ambiguous — four "Directing" rows tell you
+					// nothing — so the film carries the row and the category joins the meta. On a
+					// FILM the category is the subject and the year is enough.
+					var title = aw.film ? aw.film : titleCaseAward(aw.category);
+					var meta = aw.film
+						? titleCaseAward(aw.category) + (aw.year ? ' · ' + aw.year : '')
+						: (aw.won ? 'Won' : 'Nominated') + (aw.year ? ' · ' + aw.year : '');
+					rows.push(awardRowHtml(
+						aw.won ? 'mn-award-win' : 'mn-award-nom',
+						aw.won ? '●' : '○', title, meta));
+				});
+				(d.festivals && d.festivals.cannes || []).forEach(function (n) {
+					rows.push(awardRowHtml('mn-award-cannes', '●', titleCaseAward(n), 'Cannes'));
+				});
+				(d.festivals && d.festivals.sundance || []).forEach(function (n) {
+					rows.push(awardRowHtml('mn-award-sundance', '●', titleCaseAward(n), 'Sundance'));
+				});
+				if (!rows.length) return;   // no awards — no empty header
+				// Re-resolve the page: the fetch is async and the user may have navigated away.
+				var p2 = document.querySelector('.itemDetailPage:not(.hide)');
+				var g2 = p2 && p2.querySelector('.itemDetailsGroup');
+				if (!g2 || itemIdFromHash() !== id) return;
+				if (g2.querySelector('.mn-awards-group[data-mn-awards-id="' + id + '"]')) return;
+				var el = document.createElement('div');
+				el.className = 'detailsGroupItem mn-awards-group';
+				el.setAttribute('data-mn-awards-id', id);
+				el.innerHTML = '<div class="label mn-awards-label">Awards</div>'
+					+ '<div class="content mn-awards">' + rows.join('') + '</div>';
+				// FIRST in the group, above Genres/Director/Writers/Studios: it is the most
+				// distinguishing thing on the page for the films that have any, and burying it under
+				// the studio list would defeat "clearly see what it's won".
+				g2.insertBefore(el, g2.firstChild);
+			})
+			.catch(function () { /* controller down — the page is simply awardless, never broken */ });
+	}
+
+	function itemIdFromHash() {
+		var m = /[?&]id=([^&]+)/.exec(location.hash || '');
+		return m ? decodeURIComponent(m[1]) : '';
+	}
+
 	// ---- Top 100 web showcase (NEXT-STEPS §6) --------------------------------------------------
 	// Decorates the Top 100 playlist page IN PLACE — the stock rows (and their drag handles for
 	// re-ranking, which web keeps unlike the TV app) stay intact; we add tier classes, rank
@@ -1583,7 +1919,16 @@
 						// Marquee's Palm Canyon Drive script renders wider than the other fonts at the
 						// same target, so give it a tighter fit to avoid slight overflow.
 						var DESKTOP_TARGETS = { marquee: 224 };
-						var TARGET = document.documentElement.classList.contains('layout-mobile') ? 140 : (DESKTOP_TARGETS[pick] || 222);
+						// PHONE 124, TABLET 140. At 140 the wordmark overflowed its bar and crowded the
+						// hamburger on a phone (Brennan, 2026-08-09 — "a bit big and slightly overflowing"),
+						// but layout-mobile also covers every iPad regardless of size, and 124px in a
+						// full-width tablet header just looks undersized. So key the shrink on actual width
+						// rather than on the touch layout. Desktop targets are unchanged — they fit a 250px
+						// docked drawer, a different constraint entirely.
+						var isTouchLayout = document.documentElement.classList.contains('layout-mobile');
+						var TARGET = isTouchLayout
+							? (window.innerWidth <= 600 ? 124 : 140)
+							: (DESKTOP_TARGETS[pick] || 222);
 						for (var pass = 0; pass < 4; pass++) {
 							var range = document.createRange();
 							range.selectNodeContents(el);
@@ -2332,6 +2677,7 @@
 		if ((location.hash || '').indexOf('/details') !== -1) {
 			playlistClicksToDetails();
 			showcaseTop100();
+			decorateDetailExtras();
 		}
 		// Drawer tasks: MUST run whenever the drawer exists — Jellyfin destroys & rebuilds the
 		// drawer nav on open/close, wiping our injected entries and inline styles. All four are
@@ -2402,6 +2748,21 @@
 		// live outside .mainContent — per-mutation work above is cheap and self-guarded enough.
 		obs.observe(document.body, { childList: true, subtree: true });
 		window.addEventListener('hashchange', function () { setTimeout(scan, 150); });
+		// ---- trailer → new tab (see decorateDetailExtras) ---------------------------------------
+		// CAPTURE phase on document, so this runs before the element's own bubble-phase handler and
+		// stopPropagation() can prevent playTrailers() from ever seeing the click. Declines (and
+		// lets stock behaviour through) whenever no remote URL was resolved for this item.
+		document.addEventListener('click', function (e) {
+			var btn = e.target && e.target.closest ? e.target.closest('.btnPlayTrailer') : null;
+			if (!btn) return;
+			var url = btn.getAttribute(TRAILER_ATTR);
+			if (!url) return;
+			e.preventDefault();
+			e.stopPropagation();
+			// 'noopener' both for the usual reverse-tabnabbing reason and because it stops the new
+			// tab holding a live reference back into a running Jellyfin player.
+			window.open(url, '_blank', 'noopener');
+		}, true);
 		// ---- mobile nav drawer auto-close (html.layout-mobile is THE mobile signal) ------------
 		// On phone/tablet the drawer is an overlay that stays open after tapping a nav link.
 		// Delegated capture listener on document (survives body wipes): after a navigation click

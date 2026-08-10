@@ -328,7 +328,15 @@ $('#review-accept').onclick = async function () {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ playlistId: state.playlistId, itemIds: sorted.map(it => it.Id) }),
     });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    // The reorder route now REFUSES rather than writing a partial list (see
+    // controller/lib/top100-write.js). A 409 means nothing was changed — usually this tab went stale
+    // because a file swap re-minted Jellyfin's item ids, or a library scan is in flight. Surface the
+    // server's own wording: it says whether to reload or just wait, and "HTTP 409" says neither.
+    if (!r.ok) {
+      let msg = `HTTP ${r.status}`;
+      try { const b = await r.json(); if (b && b.error) msg = b.error; } catch (_) { /* keep the status */ }
+      throw new Error(msg);
+    }
     $('#review-loading').hidden = true;
     $('#review-done').hidden = false;
     this.hidden = true;

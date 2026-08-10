@@ -26,16 +26,17 @@
 //             needs no verification at all (see show-stale-torrents.sh for the safety model).
 
 const metrics = require('../metrics');
+const jobs = require('./jobs');
 const app = require('./app');
 const { cfg, HOST } = require('./config');
 const { tfetch, tfetchJson, arrGet, arrDelete, arrOf, qbit } = require('./clients');
 // Read-only: used solely to learn the Top 100 playlist's ORDER for the Upgrade tab's ranking.
 const { jellyfinUserId } = require('./jellyfin');
 const { getQbitTorrents } = require('./arr-data');
-const { gpuTier, videoLabel, bppOf, bppBand, bppIndex, BPP_RANK, X265_EFFICIENCY } = require('./arr-inspect');
+const { gpuTier, videoLabel, bppOf, bppBand, bppIndex, bppBasis, BPP_RANK, X265_EFFICIENCY } = require('./arr-inspect');
 const { importViaManual, previewManualImport } = require('./importer');
 const {
-  auditVerdicts, auditPending, auditSwapped, gpuPending, persistState, isMasterPaused, swapForHash,
+  auditVerdicts, auditPending, auditSwapped, auditDead, gpuPending, persistState, persistVerdicts, isMasterPaused, swapForHash,
 } = require('./state');
 // Shared release-title heuristics — see ./release-rules for the case history behind each rule.
 // NOTE: TENBIT_RE is deliberately NOT imported; audit.js has its own stricter variant below.
@@ -72,7 +73,15 @@ const {
 // a stale "+2.7 Mbps" pill and a missing before->after figure, and both are baked into the cached
 // object rather than derived at render time. Cheap to redo here because the v13->v14 re-verify was
 // still in flight; letting them age out over 14 days would leave two units on screen at once.
-const VERDICT_VERSION = 17;  // v17: BPP+ is now square-rooted and HEVC is x1.6 (was x1.8), so both
+// v18 (2026-08-06, MANDATORY): THE PROBE CUTOVER. BPP+ is now divided by the film's own measured
+// complexity instead of the flat BPP_TARGET=0.13, so a v17 verdict's candidate bppPlus, bppBand and
+// bandWeak were all computed against a denominator that can be off by ~2x in either direction (the
+// first 69 measurements span 0.0436-0.3511, an 8.1x range). Those cached values are WRONG, not
+// merely stale, and bandWeak decides which candidates may lead the sheet — so serving them would
+// rank on exactly the bias this change removes. Re-verification is also not a one-off here: as the
+// probe measures more films their denominators change from estimated to measured, which is why
+// verdicts carry `cxBasis` and the paced verifier's normal TTL churn is the intended mechanism.
+const VERDICT_VERSION = 18;  // v17: BPP+ is now square-rooted and HEVC is x1.6 (was x1.8), so both
                              // the band a candidate lands in and the bandWeak ranking penalty can
                              // differ from a v16 verdict. See bppIndex() in arr-inspect.js.
                              // v10: NUC ok->no (10-bit) is now a hard refusal, and EDITION_BEST
@@ -322,15 +331,59 @@ function minRatioFor(genres, year) {
 // guessed from genre/year, which is a human call, and the one time that guess was tested it
 // pointed the wrong way (a CRF-12 reference of Lawrence of Arabia landed at 10.6 Mbps, White
 // Chicks at 24.5).
-function candidateBandOk(candBpp, curBpp, priority) {
-  const cand = bppBand(candBpp);
+//
+// `key` is the ROW's unit key, not the candidate's — a candidate for this film IS this film, so the
+// measured complexity of the copy on disk is the correct denominator for every release of it. This is
+// the whole point of keying the probe cache by film (Brennan, 2026-08-05: "we need to weight the
+// replacements' bpp+ by the probe result of the file on disk too"), and it fixes a bias that ran the
+// wrong way under the flat constant: a grainy film's candidates all read purple because their bits go
+// to grain, while a clean film's all read red. Both sides of the comparison now share one denominator,
+// so the band difference between them is real rather than an artefact of the film's content.
+function candidateBandOk(candBpp, curBpp, priority, key) {
+  const cand = bppBand(candBpp, key);
   if (!cand) return true;                       // unknown is never penalised on a guess
   const c = BPP_RANK[cand];
   if (priority) return c <= BPP_RANK.ok;
   if (c > BPP_RANK.warn) return false;
-  const cur = bppBand(curBpp);
+  const cur = bppBand(curBpp, key);
   return !cur || c <= BPP_RANK[cur] + 1;
 }
+// Is this title one we refuse to compromise on? Same rule at verify time and at serve time, so a
+// re-scored candidate is judged exactly as the verifier judged it.
+function candPriority(row) {
+  return !!(row.beloved || row.top100 || String(row.profile || '').startsWith('Beloved'));
+}
+
+// RE-SCORE A CACHED CANDIDATE AGAINST TODAY'S COMPLEXITY TARGET.
+//
+// A candidate's raw `bpp` is a property of the release (bytes / pixels / frames) and never changes.
+// Its bppPlus does, because the DENOMINATOR moves: the CRF probe measures films continuously, so a
+// verdict cached before its film was probed carries figures computed against an ESTIMATED target.
+// Verdicts live 14 days, so without this they stay wrong for up to a fortnight.
+//
+// THIS IS NOT COSMETIC, which is why it is worth the recompute on every serve. The ROW is rebuilt
+// from scratch on every load and therefore scores against the MEASURED target, while its cached
+// candidates kept the estimated one — so the replace sheet was comparing two numbers computed on
+// different scales. Measured live on The Big Lebowski (probed 2.5h AFTER its verdict was cached):
+// the row read 145 while its candidate read a frozen 136, when the candidate was really 168. The
+// sheet said "this replacement is slightly worse" about a file that is materially better.
+//
+// bandWeak is recomputed too: it comes from candidateBandOk(), which reads the same moving target
+// and decides whether a candidate is allowed to lead the sheet.
+//
+// Done on the way OUT, deliberately — same reasoning as rankCands above. The fix reaches every
+// verdict already on disk instead of needing a VERDICT_VERSION bump and hours of re-verification.
+function rescoreCand(c, row, priority) {
+  if (!c || c.bpp == null) return c;
+  return {
+    ...c,
+    bppPlus: bppIndex(c.bpp, row.key),
+    bppBand: bppBand(c.bpp, row.key),
+    cxBasis: bppBasis(row.key),
+    bandWeak: !candidateBandOk(c.bpp, row.bpp, priority, row.key),
+  };
+}
+
 // bpp for a row, from the representative mediaInfo plus the row's own bytes/seconds. The
 // size-derived total is the fallback because mediaInfo.videoBitrate is 0 on ~18% of movies
 // (154 of 859, measured 2026-08-01) — see bppOf() in arr-inspect.js.
@@ -422,7 +475,16 @@ async function buildRows(force = false) {
     // Picture quality in the one unit that is comparable across the library. Every section
     // below carries it so the UI never has to re-derive a band. See arr-inspect.js bppOf().
     const bpp = bppFor(mf.mediaInfo, mf.size || 0, sec);
-    const band = bppBand(bpp);
+    // THE UNIT KEY, and it is load-bearing since the 2026-08-06 probe cutover. Passing it into
+    // bppIndex/bppBand is what makes this film's score use ITS OWN measured complexity rather than a
+    // library-wide constant. It is the same string as the row key below, and the same string
+    // probe.js caches measurements under — both derived from the Radarr id, so they cannot drift.
+    const ukey = `mv:${m.id}`;
+    const band = bppBand(bpp, ukey);
+    // Whether that score came from THIS film or was inferred from others. Carried onto every row so
+    // the UI can mark an inferred number honestly (DESIGN-CRF-PROBE.md §6) instead of presenting a
+    // guess and a measurement with identical confidence.
+    const cxBasis = bppBasis(ukey);
     // EDITION: a film on the floor list whose copy is the wrong CUT. Independent of the other two
     // sections — Blade Runner is neither a CPU-decode nor a bitrate offender, it is simply the wrong
     // film. This is why it is a third section rather than a badge on Playback: an extended cut is
@@ -436,7 +498,7 @@ async function buildRows(force = false) {
     // then alphabetical. Deliberately NOT worst-quality-first — that is what Playback/Disk are for.
     upgrade.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
       title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-      bpp, bppPlus: bppIndex(bpp), bppBand: band,
+      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis,
       label: videoLabel(mf.mediaInfo), profile: prof, source: src,
       tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
       origLang: (m.originalLanguage || {}).name || null,
@@ -462,7 +524,7 @@ async function buildRows(force = false) {
     if (edFloor != null && ownEd.tier < edFloor) {
       edition.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-      bpp, bppPlus: bppIndex(bpp), bppBand: band,
+      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis,
         label: videoLabel(mf.mediaInfo), profile: prof, source: src,
         tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null,
@@ -479,7 +541,7 @@ async function buildRows(force = false) {
       // this row is not a problem to be solved.
       edition.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-      bpp, bppPlus: bppIndex(bpp), bppBand: band,
+      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis,
         label: videoLabel(mf.mediaInfo), profile: prof, source: src,
         tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null,
@@ -497,7 +559,7 @@ async function buildRows(force = false) {
       // in verifyRow's `else` (Disk-only) branch, so Playback still shows everything it did.
       cpu.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-      bpp, bppPlus: bppIndex(bpp), bppBand: band, top100: top100Rank, beloved: prof.startsWith('Beloved'),
+      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, top100: top100Rank, beloved: prof.startsWith('Beloved'),
         label: videoLabel(mf.mediaInfo), profile: prof,
         source: src, tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null, imdbId: m.imdbId || null,
@@ -524,7 +586,7 @@ async function buildRows(force = false) {
       if (band && BPP_RANK[band] <= BPP_RANK[BLOAT_BAND_BY_PROFILE(prof)]) {
         bitrate.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
           title, files: 1, bytes: mf.size || 0, mbps: +mbps.toFixed(1),
-          bpp, bppPlus: bppIndex(bpp), bppBand: band, top100: top100Rank, beloved: prof.startsWith('Beloved'),
+          bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, top100: top100Rank, beloved: prof.startsWith('Beloved'),
           // Sinks the row in the Disk ordering without hiding it — see the sort below.
           lowPriority: !!(top100Rank || prof.startsWith('Beloved') || gpuTier(mf.mediaInfo) !== 'ok'),
           label: videoLabel(mf.mediaInfo), profile: prof, source: src, target: +(mbps * 0.55).toFixed(1),
@@ -546,6 +608,10 @@ async function buildRows(force = false) {
   for (const [k, e] of bySeason) {
     const bad = e.files.filter((f) => f.mediaInfo && gpuTier(f.mediaInfo) !== 'ok');
     const prof = profNames.get(e.s.qualityProfileId) || '?';
+    // Same role as the movie branch's ukey. A season is one probe unit (measured from 2 interior
+    // episodes), so every row for this season shares one complexity — see probe.js buildUnits().
+    const ukey = `tv:${k}`;
+    const cxBasis = bppBasis(ukey);
     if (bad.length) {
       // Bitrate over the BAD files only, not the whole season. A Playback row's `bytes` counts
       // just the offending files, so dividing those bytes by the season's total runtime (e.sec)
@@ -557,7 +623,7 @@ async function buildRows(force = false) {
         title: `${e.s.title} — S${String(e.season).padStart(2, '0')}`,
         files: bad.length, bytes: badBytes,
         mbps: badSec ? +(badBytes * 8 / badSec / 1e6).toFixed(1) : null,
-        bpp: badBpp, bppPlus: bppIndex(badBpp), bppBand: bppBand(badBpp),
+        bpp: badBpp, bppPlus: bppIndex(badBpp, ukey), bppBand: bppBand(badBpp, ukey), cxBasis,
         label: videoLabel(bad[0].mediaInfo), profile: prof, tier: currentTier(bad[0].mediaInfo),
         source: ((bad[0].quality || {}).quality || {}).name || null,
         minRatio: minRatioFor(e.s.genres, e.s.year),
@@ -568,13 +634,13 @@ async function buildRows(force = false) {
     if (!e.sec) continue;
     const mbps = e.bytes * 8 / e.sec / 1e6;
     const seasonBpp = bppFor(e.files[0].mediaInfo, e.bytes, e.sec);
-    const seasonBand = bppBand(seasonBpp);
+    const seasonBand = bppBand(seasonBpp, ukey);
     // Band, not Mbps, and no longer x264-only — see the movie branch above for why.
     if (seasonBand && BPP_RANK[seasonBand] <= BPP_RANK[BLOAT_BAND_BY_PROFILE(prof)]) {
       bitrate.push({ key: `tv:${k}`, kind: 'season', app: 'sonarr', id: e.s.id, season: e.season,
         title: `${e.s.title} — S${String(e.season).padStart(2, '0')}`,
         files: e.files.length, bytes: e.bytes, mbps: +mbps.toFixed(1),
-        bpp: seasonBpp, bppPlus: bppIndex(seasonBpp), bppBand: seasonBand, beloved: prof.startsWith('Beloved'),
+        bpp: seasonBpp, bppPlus: bppIndex(seasonBpp, ukey), bppBand: seasonBand, cxBasis, beloved: prof.startsWith('Beloved'),
         lowPriority: !!(prof.startsWith('Beloved') || bad.length),
         label: videoLabel(e.files[0].mediaInfo), profile: prof,
         source: ((e.files[0].quality || {}).quality || {}).name || null,
@@ -851,8 +917,18 @@ function rankCands(cands, row, haveHashes) {
     // as well as at verify time so the verdicts cached BEFORE this guard existed are cleaned on
     // the way out, instead of each needing a manual re-check.
     && !(haveHashes && c.infoHash && haveHashes.has(String(c.infoHash).toLowerCase())));
-  return dedupeCands(safe).map((c) => enrichCand(c, row))
-    .sort((a, b) => (a.srcDrop - b.srcDrop)
+  return dedupeCands(safe).map((c) => {
+    // MARKED, NOT FILTERED. A release we watched fail is still the human's to choose — swarms
+    // revive, and the alternative might be worse — but it must arrive labelled and it must never
+    // lead the sheet. Silently hiding it would also make the tab lie about how many options exist.
+    const d = deadRelease(c.title);
+    const e = enrichCand(c, row);
+    return d ? { ...e, dead: true, deadAgeH: Math.max(1, Math.round((Date.now() - d.ts) / 3600000)) } : e;
+  })
+    // Dead LAST, ahead of every other tiebreak: a release that has already failed to deliver is
+    // worse than any quality difference between the ones that might.
+    .sort((a, b) => (Number(!!a.dead) - Number(!!b.dead))
+      || (a.srcDrop - b.srcDrop)
       || ((BAND_RANK[a.band] ?? 9) - (BAND_RANK[b.band] ?? 9))
       || (a.tier - b.tier)
       || (Number(a.reenc) - Number(b.reenc))
@@ -1066,7 +1142,7 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
     }
     // NOT a refusal — see candidateBandOk(). Carried onto the candidate so the sort can sink it
     // below the good trades while still offering it.
-    const bandWeak = !candidateBandOk(candBpp, row.bpp, priority);
+    const bandWeak = !candidateBandOk(candBpp, row.bpp, priority, row.key);
     // Retained for the UI's caution flag only — the refusal above is what actually protects the
     // library now. A candidate can still be "below the old content-aware floor" and perfectly
     // acceptable in absolute terms, which is precisely why this stopped being a rejection.
@@ -1099,7 +1175,7 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
       // "+2.7 Mbps" pill next to a "26 bpp+" figure asked the reader to hold two incompatible
       // scales at once. Falls back to the Mbps comparison only when bpp is unavailable on either
       // side, which is rare and better than saying nothing.
-      const curPlus = bppIndex(row.bpp), cndPlus = bppIndex(candBpp);
+      const curPlus = bppIndex(row.bpp, row.key), cndPlus = bppIndex(candBpp, row.key);
       if (curPlus && cndPlus && Math.abs(cndPlus - curPlus) / curPlus > 0.15) {
         (cndPlus > curPlus ? gains : losses).push(`${cndPlus} bpp+`);
       } else if (!curPlus && row.mbps && candMbps && Math.abs(candMbps - row.mbps) / row.mbps > 0.15) {
@@ -1152,7 +1228,8 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
       tier: cTier, play: TIER_NOTE[cTier], devices: deviceSupport(isHevc ? 'HEVC' : 'H.264', depth || 'unknown'),
       saveGb: gb(Math.max(0, row.bytes - r.size)),
       mbps: row.mbps ? +(row.mbps * (r.size / row.bytes)).toFixed(1) : null,
-      bpp: candBpp, bppPlus: bppIndex(candBpp), bppBand: bppBand(candBpp), bandWeak });
+      bpp: candBpp, bppPlus: bppIndex(candBpp, row.key), bppBand: bppBand(candBpp, row.key),
+      cxBasis: bppBasis(row.key), bandWeak });
   }
   // Rank: known 8-bit first, then seeders — availability matters as much as the numbers.
   // QUALITY first, then playback tier, then seeders. Ranking on seeders (or on savings)
@@ -1182,26 +1259,153 @@ function verdictFor(key, section) {
   return v;
 }
 
+// ---- night window + manual sessions (shared by BOTH paced audit sweeps) ──────────────────────
+//
+// Brennan, 2026-08-09: "This should be a nightly cron along with the existing audit cron… It should
+// only be running at this time of day if it was requested manually."
+//
+// Both sweeps used to tick around the clock — the source check every 45s, the upgrade scan every
+// 60s — which meant the box was running paced indexer searches while somebody was using it, and a
+// card reading `running` at 3pm looked like a job somebody had started when it was just the
+// schedule. Now they behave like the probe: work happens inside the night window, and daytime
+// running means exactly one thing — a human asked for it.
+//
+// Same window as the probe by default (01:00–06:00 local). They do not contend: the probe is CPU
+// (an x265 encode), these are network (one indexer search), and both defer to Movie Mode.
+const AUDIT_WINDOW_START = Number(cfg.AUDIT_WINDOW_START || 1);   // local hour, inclusive
+const AUDIT_WINDOW_END = Number(cfg.AUDIT_WINDOW_END || 6);       // local hour, exclusive
+
+function inAuditWindow(d = new Date()) {
+  const h = d.getHours();
+  // A window written START > END wraps midnight (e.g. 23 -> 6); handle both forms.
+  return AUDIT_WINDOW_START <= AUDIT_WINDOW_END
+    ? (h >= AUDIT_WINDOW_START && h < AUDIT_WINDOW_END)
+    : (h >= AUDIT_WINDOW_START || h < AUDIT_WINDOW_END);
+}
+
+// A manual session paces FASTER than the nightly sweep but is still paced. The 45–60s nightly
+// interval is a promise to public indexers, and it is affordable overnight because nobody is
+// waiting; a human who pressed Run is waiting, and 754 films at 60s is 12 hours, which is not a
+// thing anyone sits through. 10s puts a full upgrade pass at ~2h — which is the shape Brennan
+// already had in mind for the audit ("takes about 2hrs").
+const AUDIT_SESSION_GAP_MS = Number(cfg.AUDIT_SESSION_GAP_MS || 10000);
+
+// jobId -> { startedAt, searches, stopping }. Deliberately NOT persisted: unlike the probe (whose
+// session survives a restart because a 4-hour measuring run is expensive to lose), a re-checked
+// verdict is cached, so a restart mid-session loses nothing but the pacing.
+const auditSessions = new Map();
+const auditSessionSoon = new Map();
+// Filled in by startAudit() once the tick functions exist — a session drives its own sweep
+// back-to-back rather than waiting for the next interval, exactly like the probe.
+const AUDIT_TICKS = {};
+
+function auditSessionFor(jobId) {
+  const s = auditSessions.get(jobId);
+  return s && !s.stopping ? s : null;
+}
+
+function scheduleAuditSessionTick(jobId) {
+  if (!auditSessionFor(jobId) || auditSessionSoon.has(jobId)) return;
+  auditSessionSoon.set(jobId, setTimeout(() => {
+    auditSessionSoon.delete(jobId);
+    const fn = AUDIT_TICKS[jobId];
+    if (fn) fn().catch(() => { });
+  }, AUDIT_SESSION_GAP_MS));
+}
+
+function auditSessionStart(jobId) {
+  const live = auditSessionFor(jobId);
+  if (live) return live;
+  const s = { startedAt: Date.now(), searches: 0, stopping: false };
+  auditSessions.set(jobId, s);
+  console.log(`audit: MANUAL SESSION started for ${jobId} — ignoring the night window, one search`
+    + ` every ${Math.round(AUDIT_SESSION_GAP_MS / 1000)}s. Movie Mode still applies. Runs until stopped or done.`);
+  metrics.emitEvent('audit_session', { job: jobId, act: 'start' });
+  // Flip the button HERE rather than letting the next tick do it — see auditSessionStop().
+  jobs.report(jobId, { actions: ['stop-sweep'] });
+  scheduleAuditSessionTick(jobId);
+  return s;
+}
+
+function auditSessionStop(jobId, why = 'stopped by request') {
+  const s = auditSessions.get(jobId);
+  if (!s) return null;
+  s.stopping = true;
+  const t = auditSessionSoon.get(jobId);
+  if (t) { clearTimeout(t); auditSessionSoon.delete(jobId); }
+  const summary = { searches: s.searches, mins: Math.round((Date.now() - s.startedAt) / 60000) };
+  auditSessions.delete(jobId);
+  console.log(`audit: MANUAL SESSION ended for ${jobId} (${why}) — ${summary.searches} searches in ${summary.mins} min`);
+  metrics.emitEvent('audit_session', { job: jobId, act: 'stop', n: summary.searches, min: summary.mins, why });
+  // HAND THE CARD BACK ITS RUN BUTTON. This is the probe's hard-won lesson repeated: everything a
+  // session writes to the card is written PAST the window gate, so after a daytime stop the next
+  // tick returns at the gate and nothing downstream ever resets it — the card would keep a Stop
+  // button for a session that no longer exists, with no way back to Run. State a session owns must
+  // be cleared by the session's own end.
+  jobs.report(jobId, { actions: ['start-sweep'], stateOverride: null, detail: '', etaMs: null });
+  return summary;
+}
+
+// The gated (out-of-window, no session) path still wants the card to show where the backlog stands
+// — Brennan asked for progress bars that "essentially always render". Rebuilding rows for that
+// would be ~100 *arr calls every 45s all day, so this reports ONLY from a warm cache (warmTick
+// refreshes it every 9 min, inside the 12 min TTL) and otherwise leaves the last figures standing.
+function cachedRows() {
+  return (_rowCache.rows && Date.now() - _rowCache.ts < ROW_CACHE_MS) ? _rowCache.rows : null;
+}
+
+// The source check's backlog + its Jobs-tab figures, in one place so the gated path and the working
+// path can never disagree about what "left" means.
+//
+// Worst-first, and only rows with no fresh verdict. EDITION rows go FIRST regardless of size: there
+// are only a handful (5 today) and they are the only section where the current file is not merely
+// inefficient but the WRONG FILM, so making them wait behind ~140 size-ranked rows would leave them
+// unverified for hours.
+function verifyWorkList({ cpu, bitrate, edition }) {
+  return [...edition.map((r) => ['edition', r]), ...cpu.map((r) => ['cpu', r]), ...bitrate.map((r) => ['bitrate', r])]
+    .filter(([sec, r]) => !verdictFor(r.key, sec) || verdictFor(r.key, sec).stale)
+    .sort((a, b) => (a[0] === 'edition' ? -1 : 0) - (b[0] === 'edition' ? -1 : 0) || b[1].bytes - a[1].bytes);
+}
+
+function reportVerifyProgress(rows) {
+  const work = verifyWorkList(rows);
+  const total = rows.edition.length + rows.cpu.length + rows.bitrate.length;
+  // One search per tick, so remaining ticks × the gap IS the ETA — and the gap depends on who is
+  // driving. A session paces at AUDIT_SESSION_GAP_MS; the nightly sweep at VERIFY_EVERY_MS.
+  const gap = auditSessionFor('audit-verify') ? AUDIT_SESSION_GAP_MS : VERIFY_EVERY_MS;
+  jobs.report('audit-verify', { progress: { done: total - work.length, total }, etaMs: work.length * gap });
+  return work;
+}
+
 // ---- the paced background verifier ────────────────────────────────────────────────────────
 let verifyTimer = null;
 async function verifyTick() {
   if (isMasterPaused() || auditBusy) return;
+  const manual = !!auditSessionFor('audit-verify');
+  // NIGHTLY unless a human asked. Progress is still reported from cache so the card stays honest.
+  if (!manual && !inAuditWindow()) {
+    const rows = cachedRows();
+    if (rows) reportVerifyProgress(rows);
+    return;
+  }
   auditBusy = true;
   try {
     // buildRows is ~100 *arr calls on a cold cache, so re-check the pause flag immediately
     // before it and again before the indexer search: Movie Mode can be switched on at any
     // point during a tick, and the whole purpose is to leave the NUC alone while streaming.
     if (isMasterPaused()) return;
-    const { cpu, bitrate, edition, depthMap, seriesNorm } = await buildRows();
+    const rows = await buildRows();
+    const { depthMap, seriesNorm } = rows;
     if (isMasterPaused()) return;
-    // Worst-first, and only rows with no fresh verdict. One search per tick.
-    // EDITION rows go FIRST regardless of size. There are only a handful (5 today) and they are the
-    // only section where the current file is not merely inefficient but the WRONG FILM, so making
-    // them wait behind ~140 size-ranked rows would leave them unverified for hours.
-    const work = [...edition.map((r) => ['edition', r]), ...cpu.map((r) => ['cpu', r]), ...bitrate.map((r) => ['bitrate', r])]
-      .filter(([sec, r]) => !verdictFor(r.key, sec) || verdictFor(r.key, sec).stale)
-      .sort((a, b) => (a[0] === 'edition' ? -1 : 0) - (b[0] === 'edition' ? -1 : 0) || b[1].bytes - a[1].bytes);
-    if (!work.length) return;
+    // Report progress to the Jobs tab BEFORE the early return, so a fully-warm cache reads as
+    // "all verified" rather than freezing on whatever count the last incomplete pass left behind.
+    const work = reportVerifyProgress(rows);
+    if (!work.length) {
+      // Nothing left to check — a manual session has done what it was asked for and ends itself,
+      // handing the card its Run button back. The nightly sweep just idles until something goes stale.
+      if (manual) auditSessionStop('audit-verify', 'everything re-checked');
+      return;
+    }
     const [section, row] = work[0];
     try {
       const v = await verifyRow(row, section, depthMap, seriesNorm);
@@ -1213,10 +1417,124 @@ async function verifyTick() {
       auditVerdicts.set(`${section}:${row.key}`, { v: VERDICT_VERSION, ts: Date.now(), state: 'error', reason: String(e.message || e).slice(0, 120) });
       console.log(`audit: ${section} "${row.title}" verify failed — ${e.message || e}`);
     }
-    persistState();
+    persistVerdicts();
     metrics.emitEvent('audit_verify', { sec: section, ti: row.title, st: auditVerdicts.get(`${section}:${row.key}`).state, left: work.length - 1 });
   } catch (e) { console.log(`audit: verifier tick failed — ${e.message || e}`); }
-  finally { auditBusy = false; }
+  finally {
+    auditBusy = false;
+    // Straight into the next search while a session is live, rather than waiting out the interval.
+    // AFTER the lock is released, or the next tick would bounce off its own predecessor.
+    const s = auditSessions.get('audit-verify');
+    if (s && !s.stopping) { s.searches += 1; scheduleAuditSessionTick('audit-verify'); }
+  }
+}
+
+// ---- the paced background UPGRADE scanner ─────────────────────────────────────────────────────
+// THE UPGRADE TAB, PRE-WARMED. Until now the Upgrade tab was strictly lazy: 870 rows listing the
+// whole movie library, and a candidate search ran only when a human opened a row. The header on
+// GET /api/audit/upgrade justified that with "805 paced searches would be ~10 hours" — true, but it
+// made the tab a place you go to WAIT, one row at a time, which is not how anyone browses 870 films.
+//
+// Brennan, 2026-08-09: "I just mean to grab options automatically, same as if I went down the list
+// of all the good upgrade candidates… maybe we should be bold and do like any movies with a
+// bpp+ < 100. That said we never EVER actually do the replacement automatically, that is ALWAYS a
+// user decision."
+//
+// So this sweep does exactly, and only, what a human clicking every qualifying row would do: run
+// the search, cache the verdict. The tab then renders instantly from cache with no code change —
+// GET /api/audit/upgrade already decorates each paged row from `auditVerdicts`.
+//
+// THE INVARIANT, and it is the whole design: THIS SWEEP NEVER GRABS AND NEVER REPLACES. It writes
+// verdicts and nothing else. Replacement stays behind POST /api/audit/replace, which is only ever
+// reached by a human pressing a button on a row. Do not add a "just auto-swap the obvious wins"
+// path here — that is a different feature with a different risk profile (gpu-verify.js is the one
+// place that auto-swaps, deliberately scoped to decode-incompatible fresh imports, once per movie
+// ever). The Upgrade tab is the INVERSE of the Disk tab: Disk finds files that cost too much,
+// Upgrade finds films that deserve better, and in both cases the human decides.
+//
+// BPP+ < 100 means "below the target the probe measured for this specific film" — the `warn` and
+// `bad` bands — which today is 754 of 870 movies. At UPGRADE_EVERY_MS that is a long first pass;
+// after it, the 14-day verdict TTL leaves only ~54 refreshes a day, so the steady state is cheap.
+// The cost is entirely in the first sweep, and it is paced precisely so that cost is spread.
+const UPGRADE_EVERY_MS = Number(cfg.AUDIT_UPGRADE_EVERY_MS || 60000);
+// Below this the film is at or above its measured target and there is nothing to look for.
+const UPGRADE_BPP_PLUS_MAX = Number(cfg.AUDIT_UPGRADE_BPP_MAX || 100);
+
+// Same split as reportVerifyProgress: one definition of the backlog, shared by the gated path and
+// the working path.
+function reportUpgradeProgress(rows) {
+  // YIELD TO THE PRIMARY VERIFIER. Those sections are the actual offenders — files that will not
+  // play, or that waste disk — while this one is discretionary browsing data. Sharing one indexer
+  // between them is fine; letting the discretionary sweep delay a playback verdict is not.
+  const primaryLeft = verifyWorkList(rows).length;
+  // `upgrade` arrives already sorted by upgGroup() — Top 100 / Beloved with a poor picture first,
+  // then the rest alphabetically. That ordering was chosen for the tab, and it is exactly the right
+  // order to SEARCH in too: the films Brennan cares about get their options first.
+  const eligible = rows.upgrade.filter((r) => r.bppPlus != null && r.bppPlus < UPGRADE_BPP_PLUS_MAX);
+  const work = eligible.filter((r) => {
+    const v = verdictFor(r.key, 'upgrade');
+    return !v || v.stale;
+  });
+  const gap = auditSessionFor('audit-upgrade') ? AUDIT_SESSION_GAP_MS : UPGRADE_EVERY_MS;
+  jobs.report('audit-upgrade', {
+    progress: { done: eligible.length - work.length, total: eligible.length },
+    // One search per tick, so remaining ticks x the gap IS the ETA — same arithmetic the source
+    // check reports. Held at null while yielding, because a figure would be a lie if this sweep is
+    // not the one consuming those ticks.
+    etaMs: primaryLeft ? null : work.length * gap,
+    detail: primaryLeft ? `waiting for the source check (${primaryLeft} left)` : '',
+  });
+  return { primaryLeft, work };
+}
+
+async function upgradeScanTick() {
+  // Takes `auditBusy` — the SAME lock verifyTick uses, not a lock of its own. Both do one paced
+  // indexer search, and the pacing is the promise made to the indexers ("gentle on public
+  // indexers", VERIFY_EVERY_MS); two sweeps each honouring their own interval would still put two
+  // searches on the wire at once and quietly break it. One lock, one search in flight.
+  if (isMasterPaused() || auditBusy) return;
+  const manual = !!auditSessionFor('audit-upgrade');
+  // NIGHTLY unless a human asked — see the window/session block above verifyTick().
+  if (!manual && !inAuditWindow()) {
+    const rows = cachedRows();
+    if (rows) reportUpgradeProgress(rows);
+    return;
+  }
+  auditBusy = true;
+  try {
+    if (isMasterPaused()) return;
+    const rows = await buildRows();
+    const { depthMap, seriesNorm } = rows;
+    if (isMasterPaused()) return;
+    const { primaryLeft, work } = reportUpgradeProgress(rows);
+    if (primaryLeft || !work.length) {
+      // A session that has nothing left to do ends itself. It does NOT end merely because it is
+      // yielding to the source check — that is a pause, not completion, and a session that quit
+      // there would leave the backlog untouched with the card back on Run.
+      if (manual && !primaryLeft) auditSessionStop('audit-upgrade', 'every candidate re-checked');
+      return;
+    }
+    const row = work[0];
+    try {
+      const v = await verifyRow(row, 'upgrade', depthMap, seriesNorm);
+      auditVerdicts.set(`upgrade:${row.key}`, v);
+      console.log(`audit: upgrade "${row.title}" (BPP+ ${row.bppPlus}) -> ${v.state}`
+        + (v.best ? ` (best: ${v.best.codec} ${v.best.depth}, ${v.best.seeders} seeds)` : ''));
+    } catch (e) {
+      auditVerdicts.set(`upgrade:${row.key}`, { v: VERDICT_VERSION, ts: Date.now(), state: 'error',
+        reason: String(e.message || e).slice(0, 120) });
+      console.log(`audit: upgrade "${row.title}" verify failed — ${e.message || e}`);
+    }
+    persistVerdicts();
+    metrics.emitEvent('audit_verify', { sec: 'upgrade', ti: row.title,
+      st: auditVerdicts.get(`upgrade:${row.key}`).state, left: work.length - 1 });
+  } catch (e) { console.log(`audit: upgrade scan tick failed — ${e.message || e}`); }
+  finally {
+    auditBusy = false;
+    // Back-to-back while a session is live, and only after the lock is released. See verifyTick().
+    const s = auditSessions.get('audit-upgrade');
+    if (s && !s.stopping) { s.searches += 1; scheduleAuditSessionTick('audit-upgrade'); }
+  }
 }
 
 // Refresh both caches on a timer so the expensive work never lands on a user request.
@@ -1251,6 +1569,21 @@ const REPLACE_TIMEOUT_MS = 48 * 3600 * 1000;
 // observed byte. This is the swap's OWN sweep ending it — stallRecovery still leaves swaps alone.
 const SWAP_DEAD_MS = 90 * 60 * 1000;      // 0% with zero connected seeds this long → dead swarm
 const SWAP_STALLED_MS = 12 * 3600 * 1000; // partial download, no movement + no seeds this long → abandoned
+// Still in `metaDL` — no file list, so not one peer has ever been reached. Stronger evidence of a
+// dead swarm than plain zero-progress, so it gets a shorter clock than SWAP_DEAD_MS.
+//
+// 60 min, NOT the 10 min this was first written as. MEASURED, and the measurement is the whole
+// reason for the number: Gladiator 2000 Extended x264-OFT sat in metaDL for roughly 25-45 minutes
+// — eight working trackers, every one of them returning nobody — and then found a peer through DHT
+// and started downloading normally. A 10-minute abandon would have killed the exact download this
+// work exists to rescue, and it would have looked like proof the release was dead.
+//
+// The lesson generalises: on a thin public swarm, metadata can take tens of minutes to arrive via
+// DHT, because it has to find one of a handful of reachable peers rather than be handed a peer list
+// by a tracker. "No metadata yet" means "nobody found YET" far more often than it means "nobody
+// exists". 60 min still beats the 90-minute backstop, and sits comfortably above everything
+// observed. Do not lower it without a fresh measurement — see the branch in replaceSweepInner.
+const SWAP_NO_META_MS = 60 * 60 * 1000;
 // How long a dead-swarm release stays remembered (auditSwapped, reason:'dead') so it is not
 // re-offered. Mirrors the arrSweep negative-cache window for dead releases; after this the release
 // gets its chance back — swarms do revive.
@@ -1374,8 +1707,32 @@ async function queueHashFor(p) {
 // reason:'dead' so it is not offered again for DEAD_REFUSE_TTL_MS, and drop the dead torrent so it
 // stops sitting in the *arr queue as an import-rejected item. Used by the dead_swarm (0%) and
 // stalled_swarm (partial) branches of replaceSweepInner.
+// Release title -> the key auditDead is stored under. Lowercased and stripped of the punctuation
+// that differs between indexers listing the same pack ("Gladiator.2000.Extended" vs "Gladiator 2000
+// Extended"), so one corpse is recognised however it is spelled on the row.
+function deadKey(rel) {
+  return String(rel || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+// Is this release known dead, and still within the refusal window? Returns the record (for the age
+// shown in the UI) or null. Prunes on read, which is all the pruning this map needs.
+function deadRelease(rel) {
+  const key = deadKey(rel);
+  if (!key) return null;
+  const d = auditDead.get(key);
+  if (!d) return null;
+  if (Date.now() - d.ts > DEAD_REFUSE_TTL_MS) { auditDead.delete(key); return null; }
+  return d;
+}
+
 async function abandonDeadSwap(k, p, reason, ageMin) {
-  auditPending.delete(k); persistState();
+  auditPending.delete(k);
+  // REMEMBER THE RELEASE, not just the row. auditSwapped below is keyed per film and holds one
+  // entry, so a film that burns several dead releases in a row forgets all but the last — which is
+  // exactly how Gladiator (2000) came round to be offered a second corpse. See auditDead.
+  const dk = deadKey(p.rel);
+  if (dk) auditDead.set(dk, { ts: Date.now(), hash: String(p.hash || '').toLowerCase(), title: p.rel || '', reason });
+  persistState();
   auditSwapped.set(k, { hash: String(p.hash || '').toLowerCase(), rel: p.rel || null, reason: 'dead', ts: Date.now() });
   _rowCache = { ts: 0, rows: null };
   try {
@@ -1451,6 +1808,26 @@ async function replaceSweepInner() {
         // Only trust num_seeds when qBit actually reported it — an undefined count means we cannot
         // confirm the swarm is dead, so fail safe and let the 48h backstop handle it.
         const noSeeds = typeof t.num_seeds === 'number' && t.num_seeds === 0;
+        // NO-METADATA IS A STRONGER SIGNAL THAN NO-PROGRESS, so it gets a much shorter clock.
+        //
+        // `metaDL` means qBittorrent has not even fetched the torrent's file list. That is not "the
+        // download is slow" — it is "we have never successfully spoken to a single peer", because
+        // the metadata comes FROM a peer. A 0%-with-no-seeds torrent might still be a swarm we are
+        // about to connect to; a metaDL torrent that has sat past the announce grace has had every
+        // tracker in the file answer and produced nobody reachable.
+        //
+        // Public trackers keep scrape counters long after peers stop announcing, so "4 seeds" on the
+        // indexer row can be entirely ghosts — which is why the row's seed count cannot be trusted
+        // as a liveness signal and this branch exists at all.
+        //
+        // But BE PATIENT ABOUT IT (see SWAP_NO_META_MS). Gladiator (2000) x264-OFT, 2026-08-09, is
+        // the cautionary case in both directions: eight working trackers returning nobody for ~25-45
+        // minutes, then a peer via DHT and a normal download. Every tracker saying "no" is not the
+        // same as the swarm being empty — it means peer discovery has not landed yet.
+        if (noSeeds && t.state === 'metaDL' && now - p.ts > SWAP_NO_META_MS) {
+          await abandonDeadSwap(k, p, 'no_metadata', Math.round((now - p.ts) / 60000));
+          continue;
+        }
         if (noSeeds && stuckZero && now - p.ts > SWAP_DEAD_MS) {
           await abandonDeadSwap(k, p, 'dead_swarm', Math.round((now - p.ts) / 60000));
           continue;
@@ -1702,11 +2079,68 @@ function startAuditVerifier() {
     }
     metrics.emitEvent('audit_replace_resume', { n: auditPending.size });
   }
-  verifyTimer = setInterval(verifyTick, VERIFY_EVERY_MS);
-  setInterval(warmTick, WARM_EVERY_MS);
-  setInterval(replaceSweep, 60000);    // finalise completed swaps once a minute
-  setTimeout(warmTick, 45000);         // populate soon after boot so the first visit is fast
-  setTimeout(verifyTick, 8 * 60000);   // 8 min after boot — well clear of the startup rush
+  const tVerify = jobs.define({
+    // NAMED FOR THE THING SOMEONE GOES LOOKING FOR. "Source check" described the mechanism (it
+    // runs searches) and so hid the job: this IS the library audit behind the Audit tab — the long
+    // fortnightly pass over every file. Brennan scanned the Jobs tab for it on 2026-08-09, read
+    // straight past this row, and concluded the audit had no row at all. The schedule text made
+    // that worse: "one search every 45s while rows remain" is true of a tick and says nothing
+    // about the 14-day cycle or the ~85 min a full pass costs, which is exactly what someone
+    // deciding whether to re-run it needs.
+    // Both this and the probe are named "Audit …" because both are read FROM the Audit tab and are
+    // the two jobs a human is most likely to want to fire by hand. Weights 100/95 keep them the
+    // top two rows; the shared prefix keeps them adjacent and findable by the word someone is
+    // actually scanning for.
+    id: 'audit-verify', name: 'Audit · source check', group: 'Audit', weight: 95,
+    what: 'Re-checks every file for a better available source',
+    // `every: null` on purpose, exactly as the probe does it. The tick still fires every 45s, but
+    // outside the night window it returns at the gate — so a "next run in 45s" countdown would be
+    // true of the tick and a lie about the work. cadenceMs = the 14-day verdict TTL, which is how
+    // often a given file actually comes round; that is what the chip and the sort must use.
+    every: null, cadenceMs: VERDICT_TTL_MS,
+    scheduleText: `nightly ${String(AUDIT_WINDOW_START).padStart(2, '0')}:00–${String(AUDIT_WINDOW_END).padStart(2, '0')}:00`
+      + ` · each file re-checked every ${Math.round(VERDICT_TTL_MS / 86400000)} days`,
+    pausedByMovieMode: true,
+    // Run = a manual session: ignore the window and work through the backlog now, until stopped or
+    // done. Recheck = drop every cached verdict so the whole library comes round again.
+    actions: ['start-sweep', 'recheck-sources'],
+  }, verifyTick);
+  // Weight 94 — directly under the source check it yields to, so the three jobs someone opens the
+  // Audit tab to think about read as one block at the top.
+  const tUpgrade = jobs.define({
+    id: 'audit-upgrade', name: 'Audit · upgrade scan', group: 'Audit', weight: 94,
+    what: 'Finds replacement options for films below their quality target',
+    every: null, cadenceMs: VERDICT_TTL_MS,
+    scheduleText: `nightly ${String(AUDIT_WINDOW_START).padStart(2, '0')}:00–${String(AUDIT_WINDOW_END).padStart(2, '0')}:00`
+      + ` · every film under BPP+ ${UPGRADE_BPP_PLUS_MAX}, re-checked every ${Math.round(VERDICT_TTL_MS / 86400000)} days`
+      + ' · never replaces anything',
+    pausedByMovieMode: true,
+    actions: ['start-sweep', 'rescan-upgrades'],
+  }, upgradeScanTick);
+  // A session drives its sweep back-to-back rather than waiting out the interval, so it needs the
+  // TRACKED wrappers (not the bare ticks) — otherwise session work would not register as runs.
+  AUDIT_TICKS['audit-verify'] = tVerify;
+  AUDIT_TICKS['audit-upgrade'] = tUpgrade;
+  const tWarm = jobs.define({
+    id: 'audit-warm', name: 'Audit · row cache', group: 'Audit', weight: 48,
+    what: 'Keeps the Audit tab fast',
+    every: WARM_EVERY_MS, scheduleText: 'every 9 min', pausedByMovieMode: true,
+  }, warmTick);
+  const tReplace = jobs.define({
+    id: 'audit-replace', name: 'Audit · replacement finaliser', group: 'Audit', weight: 46,
+    what: 'Finishes file replacements',
+    every: 60000, scheduleText: 'every 60s', pausedByMovieMode: true,
+  }, replaceSweep);
+
+  verifyTimer = setInterval(tVerify, VERIFY_EVERY_MS);
+  setInterval(tWarm, WARM_EVERY_MS);
+  setInterval(tReplace, 60000);    // finalise completed swaps once a minute
+  setInterval(tUpgrade, UPGRADE_EVERY_MS);
+  setTimeout(tWarm, 45000);        // populate soon after boot so the first visit is fast
+  setTimeout(tVerify, 8 * 60000);  // 8 min after boot — well clear of the startup rush
+  // Later than tVerify on purpose: the source check should own the indexer for the first stretch
+  // after a restart, and the upgrade scan's own tick yields to it anyway.
+  setTimeout(tUpgrade, 12 * 60000);
 }
 
 // Mark rows with a swap ALREADY IN FLIGHT, and report its HEALTH rather than merely its existence.
@@ -1777,14 +2211,16 @@ app.get('/api/audit', async (req, res) => {
     const decorate = (rows, section) => rows.map((r) => {
       const v = verdictFor(r.key, section);
       if (!v) return { ...r, verdict: null };
-      const ranked = Array.isArray(v.candidates) ? rankCands(v.candidates, r, haveHashes) : [];
+      const prio = candPriority(r);
+      const fresh = Array.isArray(v.candidates) ? v.candidates.map((c) => rescoreCand(c, r, prio)) : null;
+      const ranked = fresh ? rankCands(fresh, r, haveHashes) : [];
       // NEVER fall back to the cached `v.best` when the row HAS a candidate list. `best` was
       // chosen at verify time, before the serve-time refusals existed, so the fallback resurrects
       // exactly what rankCands() just threw out: on 2026-07-28 it kept offering
       // Silicon.Valley.S0{1,2}.ITA as the headline pick with an empty candidate list underneath.
       // A row whose every candidate was refused is not improvable — it has nothing to offer.
       const hadList = Array.isArray(v.candidates);
-      const best = ranked[0] || (hadList ? null : v.best) || null;
+      const best = ranked[0] || (hadList ? null : rescoreCand(v.best, r, prio)) || null;
       const state = v.state === 'improvable' && !best ? 'none' : v.state;
       return { ...r, verdict: { state, ts: v.ts, stale: !!v.stale, reason: v.reason,
         best, candidates: ranked } };
@@ -1827,6 +2263,9 @@ app.get('/api/audit', async (req, res) => {
         // ones would hide the fact that the file is wrong, which is the thing worth knowing.
         editionRows: ed.length, editionFixable: act(ed).length,
         unverified: pend, etaMin: Math.ceil(pend * VERIFY_EVERY_MS / 60000),
+        // The DENOMINATOR pend is out of, so the client can draw a real progress bar instead of
+        // inventing a percentage from a count with nothing to divide by. Same row set pend counts.
+        verifyTotal: c.length + b.length + ed.length,
       },
       trend,
     });
@@ -1849,7 +2288,7 @@ app.post('/api/audit/verify', async (req, res) => {
     if (!row) return res.status(404).json({ error: 'row not found' });
     const v = await verifyRow(row, section, rows.depthMap, rows.seriesNorm);
     auditVerdicts.set(`${section}:${key}`, v);
-    persistState();
+    persistVerdicts();
     res.json({ key, section, verdict: v });
   } catch (e) {
     // LOG the stack, don't just hand a 500 to the browser. A 500 with no server-side trace is
@@ -1899,7 +2338,10 @@ app.get('/api/audit/upgrade', async (req, res) => {
     const rows = page.map((r) => {
       const v = verdictFor(r.key, 'upgrade');
       if (!v) return { ...r, verdict: null };
-      const ranked = Array.isArray(v.candidates) ? rankCands(v.candidates, r, haveHashes) : [];
+      // Re-scored against today's complexity target, exactly as decorate() does — see rescoreCand().
+      const prio = candPriority(r);
+      const fresh = Array.isArray(v.candidates) ? v.candidates.map((c) => rescoreCand(c, r, prio)) : null;
+      const ranked = fresh ? rankCands(fresh, r, haveHashes) : [];
       const best = ranked[0] || null;
       return { ...r, verdict: { state: v.state === 'improvable' && !best ? 'none' : v.state,
         ts: v.ts, stale: !!v.stale, reason: v.reason, best, candidates: ranked } };
@@ -1924,15 +2366,21 @@ app.get('/api/audit/upgrade', async (req, res) => {
 // `dryRun` reports what WOULD be re-checked and changes nothing — the same convention as
 // /api/audit/stale/reclaim. It exists so the endpoint can be exercised without spending an
 // ~85-minute library-wide re-scrape, and so a caller can show the cost before committing to it.
+// SCOPED to the source check's own verdicts. `upgrade:`-prefixed keys belong to the upgrade scan,
+// which is a separate row with a separate button and a much longer backlog (754 films at one search
+// a minute). A blanket clear() here would silently throw away hours of that sweep's progress as a
+// side effect of pressing a button labelled "re-check every SOURCE" — see /api/audit/upgrade-rescan.
+const isUpgradeKey = (k) => String(k).startsWith('upgrade:');
 app.post('/api/audit/rescan', async (req, res) => {
   try {
-    const before = auditVerdicts.size;
+    const keys = [...auditVerdicts.keys()].filter((k) => !isUpgradeKey(k));
+    const before = keys.length;
     if ((req.body || {}).dryRun) {
       return res.json({ dryRun: true, wouldDrop: before, paused: isMasterPaused(),
         etaMinutes: Math.round((before * VERIFY_EVERY_MS) / 60000) });
     }
-    auditVerdicts.clear();
-    persistState();
+    for (const k of keys) auditVerdicts.delete(k);
+    persistVerdicts();
     _rowCache = { ts: 0, rows: null };
     // Tell the truth about how long this takes, and about Movie Mode — the verifier is paused while
     // streaming, so a rescan started then would look silently broken.
@@ -1946,6 +2394,69 @@ app.post('/api/audit/rescan', async (req, res) => {
     console.log(`audit: ${req.method} ${req.path} failed — ${(e && e.stack) || e}`);
     res.status(500).json({ error: String(e.message || e) });
   }
+});
+
+// POST /api/audit/upgrade-rescan — the upgrade scan's equivalent of /api/audit/rescan.
+//
+// The sweep is self-driving (one search a minute, forever), so this is not "start it" — it is
+// "forget what you found and look again". Worth having its own button anyway: the scan's answer for
+// a given film is cached for 14 days, and indexer availability moves far faster than that, so
+// without this the only way to re-ask "is there something better yet?" for the whole upgrade list is
+// to wait out the TTL.
+//
+// READ-ONLY, exactly like the source-check rescan and for the same reason: this sweep SEARCHES and
+// caches. It never grabs and never replaces — a replacement is always a human pressing the button on
+// a row. The worst case here is spent indexer requests.
+app.post('/api/audit/upgrade-rescan', async (req, res) => {
+  try {
+    const keys = [...auditVerdicts.keys()].filter(isUpgradeKey);
+    const before = keys.length;
+    if ((req.body || {}).dryRun) {
+      return res.json({ dryRun: true, wouldDrop: before, paused: isMasterPaused(),
+        etaMinutes: Math.round((before * UPGRADE_EVERY_MS) / 60000) });
+    }
+    for (const k of keys) auditVerdicts.delete(k);
+    persistVerdicts();
+    _rowCache = { ts: 0, rows: null };
+    const paced = Math.round((before * UPGRADE_EVERY_MS) / 60000);
+    const paused = isMasterPaused();
+    console.log(`audit: manual upgrade rescan — dropped ${before} cached verdict(s); re-checking at `
+      + `one per ${Math.round(UPGRADE_EVERY_MS / 1000)}s (~${paced} min)`
+      + `${paused ? ' — PAUSED until Movie Mode is off' : ''}`);
+    metrics.emitEvent('audit_upgrade_rescan', { dropped: before, paused });
+    res.json({ ok: true, dropped: before, etaMinutes: paced, paused });
+  } catch (e) {
+    console.log(`audit: ${req.method} ${req.path} failed — ${(e && e.stack) || e}`);
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+// POST /api/audit/session/:job/(start|stop) — run a nightly audit sweep NOW.
+//
+// Both sweeps are gated to the night window, which is right for the schedule and wrong for a human
+// who wants an answer today. A session lifts the window gate for one sweep and paces it at
+// AUDIT_SESSION_GAP_MS until it is stopped or the backlog is empty. Everything else still applies:
+// Movie Mode pauses it, the shared auditBusy lock still allows exactly one indexer search in
+// flight, and NEITHER SWEEP EVER GRABS OR REPLACES — a session only fills the same verdict cache
+// the nightly run fills.
+//
+// :job is whitelisted rather than passed through, so this can never reach into the jobs registry
+// for an id it was not meant to drive.
+const SESSION_JOBS = new Set(['audit-verify', 'audit-upgrade']);
+app.post('/api/audit/session/:job/:act', (req, res) => {
+  const job = String(req.params.job || '');
+  const act = String(req.params.act || '');
+  if (!SESSION_JOBS.has(job)) return res.status(404).json({ error: `no such audit sweep: ${job}` });
+  if (act === 'start') {
+    const already = !!auditSessionFor(job);
+    auditSessionStart(job);
+    return res.json({ ok: true, started: !already, alreadyRunning: already, window: inAuditWindow() });
+  }
+  if (act === 'stop') {
+    const s = auditSessionStop(job, 'stopped by request');
+    return res.json({ ok: true, stopped: !!s, ...(s || {}) });
+  }
+  return res.status(400).json({ error: 'act must be start or stop' });
 });
 
 // POST /api/audit/stale/reclaim — the ONLY mutating endpoint on this tab.

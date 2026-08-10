@@ -587,6 +587,30 @@ else
   fi
 fi
 
+# 6d4. Webhook plugin (official Jellyfin repo) — pushes playback events to the controller so AUTO
+#      MOVIE MODE can quiet the box the instant a film starts, instead of up to a poll-interval
+#      later. Brennan chose the webhook over polling on 2026-08-06.
+#
+#      THIS PLUGIN IS LOAD-BEARING. Without it nothing arms Movie Mode automatically, and the only
+#      symptom is that the box keeps downloading during films — no error anywhere. The controller
+#      compensates for the other direction (a LOST event) by expiring playback sessions after 15
+#      min rather than trusting PlaybackStop; see lib/movie-mode.js. It cannot compensate for the
+#      plugin being absent, which is why this is provisioned rather than configured by hand.
+#      Its configuration is pushed in §9b, after the §7 restart activates the plugin.
+if grep -qxF "Webhook" <<<"$installed"; then
+  ok "Webhook plugin already installed"
+else
+  pkgs=${pkgs:-$(curl -fsS "$JF/Packages" -H "X-Emby-Token: $token")}
+  whguid=$(jq -r '.[]|select(.name=="Webhook").guid' <<<"$pkgs")
+  whver=$(jq -r '.[]|select(.name=="Webhook").versions[0].version' <<<"$pkgs")
+  if [[ -n "$whguid" && "$whguid" != "null" ]]; then
+    curl -fsS -X POST "$JF/Packages/Installed/Webhook?assemblyGuid=$whguid&version=$whver" -H "X-Emby-Token: $token" >/dev/null
+    ok "Webhook plugin installed ($whver) — restart below activates it"
+  else
+    warn "Webhook not found in plugin catalog — auto Movie Mode will not arm; re-run make provision s=jellyfin"
+  fi
+fi
+
 # 6e. PS4 DLNA device profile — the console is a PS4 (long mislabelled PS3): it identifies
 #     as "PLAYSTATION 4", so only a matching profile applies. Direct-plays MKV/MP4 with
 #     H.264 8-bit + AAC/AC3; everything else (E-AC3/DDP, DTS, HEVC, 10-bit) transcodes to
@@ -781,5 +805,66 @@ else
       -H 'Content-Type: application/json' --data-binary @"$js_tmp" >/dev/null
     rm -f "$js_tmp"
     ok "web flair script pushed to JavaScript Injector (served at /JavaScriptInjector/public.js; hard-refresh browser)"
+  fi
+fi
+
+# 9b. Webhook plugin configuration — the delivery path for AUTO MOVIE MODE. Installed in §6d4;
+#     configured here because the §7 restart is what activates it (a Configuration POST to an
+#     inactive plugin is silently dropped).
+#
+#     ONE generic destination, SendAllProperties=true. No Handlebars template on purpose: with
+#     SendAllProperties the plugin POSTs its whole property bag as flat JSON, so the controller
+#     parses field names rather than us maintaining a template in two places. lib/movie-mode.js
+#     accepts several spellings of each field for exactly this reason.
+#
+#     WHY ALL THREE NOTIFICATION TYPES:
+#       PlaybackStart     arms Movie Mode.
+#       PlaybackStop      releases it (after a grace period, so an episode boundary is not a flap).
+#       PlaybackProgress  the SAFETY NET, and the reason this is not just Start+Stop. A dropped Stop
+#                         would otherwise pin Movie Mode on forever and silently halt every
+#                         background job on the box. Progress pings refresh a session's timestamp,
+#                         so the controller can expire anything it has not heard from in 15 min.
+#
+#     Movies + Episodes only: music and photos do not compete for the USB disk in any way worth
+#     pausing downloads over. localhost works because Jellyfin runs network_mode: host.
+wh_id=$(curl -fsS "$JF/Plugins" -H "X-Emby-Token: $token" | jq -r '.[]|select(.Name=="Webhook" and .Status=="Active").Id // empty')
+if [[ -z "$wh_id" ]]; then
+  warn "Webhook plugin not active yet — auto Movie Mode will not arm; re-run: make provision s=jellyfin"
+else
+  wh_name="Auto Movie Mode (controller)"
+  wh_uri="http://localhost:${CONTROLLER_PORT:-8088}/api/jellyfin-webhook"
+  wh_cur=$(curl -fsS "$JF/Plugins/$wh_id/Configuration" -H "X-Emby-Token: $token")
+  # Matched by NAME so re-provisioning cannot pile up duplicate destinations (each one would double
+  # every event) — same lesson as the JS Injector dedup above.
+  #
+  # MERGED ONTO THE EXISTING ENTRY, not replacing it. The plugin serialises fields we do not set
+  # (EnableSongs, EnableVideos, EnableWebhook, Fields, SkipEmptyMessageBody) with their own
+  # defaults on save; a wholesale replace would drop them from the payload on every run, leaving the
+  # entry's enablement to whatever the C# default happens to be — and would make the config differ
+  # from `wh_desired` forever, so this block would POST on every single provision instead of being
+  # a no-op. Merging converges after the first run and preserves anything a future plugin version
+  # adds. EnableWebhook is set explicitly rather than relying on that default: it is the master
+  # switch for the destination, and auto Movie Mode silently does nothing if it is false.
+  wh_desired=$(jq --arg n "$wh_name" --arg u "$wh_uri" '
+    (.GenericOptions // []) as $g
+    | (($g | map(select(.WebhookName == $n)) | first) // {}) as $prev
+    | .GenericOptions = (($g | map(select(.WebhookName != $n))) + [$prev + {
+        WebhookName: $n,
+        WebhookUri: $u,
+        NotificationTypes: ["PlaybackStart","PlaybackStop","PlaybackProgress"],
+        SendAllProperties: true,
+        EnableWebhook: true,
+        EnableMovies: true,
+        EnableEpisodes: true,
+        EnableSeries: false,
+        EnableSeasons: false,
+        EnableAlbums: false
+      }])' <<<"$wh_cur")
+  if [[ "$(jq -S . <<<"$wh_cur")" == "$(jq -S . <<<"$wh_desired")" ]]; then
+    ok "Webhook destination already configured ($wh_uri)"
+  else
+    curl -fsS -X POST "$JF/Plugins/$wh_id/Configuration" -H "X-Emby-Token: $token" \
+      -H 'Content-Type: application/json' -d "$wh_desired" >/dev/null
+    ok "Webhook destination configured → $wh_uri (auto Movie Mode armed)"
   fi
 fi

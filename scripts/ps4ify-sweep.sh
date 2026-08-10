@@ -14,8 +14,27 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Report into the controller's Jobs tab. Sourced for job_status(); this script is a systemd oneshot
+# the controller cannot otherwise see. See scripts/lib.sh for why it is a status file.
+# shellcheck source=scripts/lib.sh
+source scripts/lib.sh
+export JOB_NAME='PS4 audio fix'
+export JOB_WHAT='Adds a PS4-playable audio track'
+export JOB_GROUP='Media processing'
+export JOB_WEIGHT=90
+export JOB_SCHEDULE='every 30 min · fresh imports only'
+export JOB_EVERY_MS=1800000
+# Report failure if we exit non-zero anywhere: set -e means an unexpected error would otherwise
+# leave the last "running" status behind, which reads as a hung job rather than a broken one.
+trap '[[ $? -eq 0 ]] || job_status ps4ify error "sweep exited $?"' EXIT
+
 # Movie Mode = someone is watching; don't compete for the disk.
-[[ "$(curl -sf --max-time 5 http://localhost:8088/api/downloads 2>/dev/null | jq -r '.masterPaused' 2>/dev/null)" == "true" ]] && exit 0
+if [[ "$(curl -sf --max-time 5 http://localhost:8088/api/downloads 2>/dev/null | jq -r '.masterPaused' 2>/dev/null)" == "true" ]]; then
+  job_status ps4ify paused 'someone is watching'
+  exit 0
+fi
+job_status ps4ify running
+SWEEP_START=$(date +%s)
 
 FF="nice -n 19 docker exec jellyfin /usr/lib/jellyfin-ffmpeg/ffmpeg"
 FP="docker exec jellyfin /usr/lib/jellyfin-ffmpeg/ffprobe"
@@ -73,3 +92,9 @@ for APP in radarr sonarr; do
         | [.date, (.data.importedPath // ""), (.movieId // .seriesId // 0)] | @tsv')
 done
 (( converted > 0 )) && echo "ps4fix: $converted file(s) normalized" || true
+
+JOB_LAST_MS=$(( ($(date +%s) - SWEEP_START) * 1000 ))
+export JOB_LAST_MS
+# The interesting number is how much it did, not how many candidates it looked at — the candidate
+# set is "everything imported in 48h", which is not a backlog anyone is waiting on.
+job_status ps4ify idle "$( (( converted > 0 )) && echo "$converted file(s) fixed last run" || echo 'nothing needed fixing' )"

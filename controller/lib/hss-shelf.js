@@ -6,6 +6,7 @@
 // server.js does the first registration once collections exist).
 
 const app = require('./app');
+const jobs = require('./jobs');
 const { cfg, HOST, NUC_IP } = require('./config');
 const { tfetch, tfetchJson } = require('./clients');
 const { jellyfinUserId } = require('./jellyfin');
@@ -112,12 +113,19 @@ async function registerHssShelf() {
   } catch (e) { console.log(`hssShelf: registration failed — ${e?.message || e}`); }
 }
 
+// Export is wrapped so bootSequence's registration counts (see collections.js for why).
+const tracked = jobs.define({
+  id: 'hss-shelf', name: 'Home shelves', group: 'Metadata', weight: 38,
+  what: 'Refreshes the Jellyfin home rows',
+  every: 1800000, scheduleText: 'every 30 min · and on boot',
+}, registerHssShelf);
+
 function startShelfTimer() {
-setInterval(registerHssShelf, 1800000);   // every 30 min: survives Jellyfin restarts, tracks hourly rotation (was 10min; shelf doesn't churn that fast)
+setInterval(tracked, 1800000);   // every 30 min: survives Jellyfin restarts, tracks hourly rotation (was 10min; shelf doesn't churn that fast)
 // Boot self-heal: on a cold start the box sets don't exist yet, so a bare shelf registration has
 // nothing to show. Wait for Jellyfin to answer, build the collections FIRST, then register shelves
 // off the fresh sets — no 3-min gap where the home page is empty. bootSequence() is defined below
 // (after collectionsSweep) and scheduled there so both functions are in scope.
 }
 
-module.exports = { registerHssShelf, startShelfTimer };
+module.exports = { registerHssShelf: tracked, startShelfTimer };

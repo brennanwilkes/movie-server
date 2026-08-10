@@ -31,6 +31,35 @@ chk "/api/downloads snapshot built (ts>0)" jqt "http://localhost:8088/api/downlo
 chk "/api/disk sane" jqt "http://localhost:8088/api/disk" '.total_bytes > 1e12'
 chk "/api/library (radarr) answers" jqt "http://localhost:8088/api/library?app=radarr" '.items | length > 0'
 
+echo "=== jobs tab (background work) ==="
+chk "/api/jobs answers with a full roster" jqt "http://localhost:8088/api/jobs" '.jobs | length >= 25'
+# All three runtimes must be present. Losing one is silent otherwise: the tab just shows fewer
+# cards, which looks like "nothing to report" rather than "a whole source stopped reporting".
+chk "jobs: controller sweeps reporting" jqt "http://localhost:8088/api/jobs" '[.jobs[]|select(.source=="controller")] | length >= 20'
+chk "jobs: jellyfin scheduled tasks reporting" jqt "http://localhost:8088/api/jobs" '[.jobs[]|select(.source=="jellyfin")] | length >= 5'
+chk "jobs: host systemd timers reporting (ps4fix)" jqt "http://localhost:8088/api/jobs" 'any(.jobs[]; .id=="host:ps4ify")'
+# A host job that stopped firing must read as an ERROR, not a permanently healthy "idle".
+chk "jobs: no host job has gone silent" jqt "http://localhost:8088/api/jobs" '[.jobs[]|select(.source=="host" and .state=="error")] | length == 0'
+# Every card must carry its plain-language description and a state the UI knows how to render.
+chk "jobs: every job has a description" jqt "http://localhost:8088/api/jobs" 'all(.jobs[]; (.what|length) > 0)'
+chk "jobs: every state is renderable" jqt "http://localhost:8088/api/jobs" 'all(.jobs[]; .state | IN("running","waiting","paused","idle","error","never","off"))'
+chk "jobs: heaviest-first ordering holds" jqt "http://localhost:8088/api/jobs" '[.jobs[].weight] | . == (sort | reverse)'
+
+echo "=== auto Movie Mode ==="
+chk "/api/movie-mode answers" jqt "http://localhost:8088/api/movie-mode" 'has("manual") and has("auto")'
+# The webhook plugin is load-bearing: without it nothing arms Movie Mode automatically, and the
+# only symptom is that the box keeps hammering the disk during films. Assert the delivery path.
+# Read the key here rather than relying on the jellyfin section's JFKEY — that is defined further
+# down the file, so using it above would silently skip every check in this block.
+JFKEY="${JFKEY:-$(grep -oP '^JELLYFIN_KEY=\K.*' /opt/appdata/controller/keys.env 2>/dev/null || true)}"
+if [[ -n "${JFKEY:-}" ]]; then
+  chk "jellyfin: Webhook plugin active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://localhost:8096/Plugins | jq -e 'any(.[]; .Name==\"Webhook\" and .Status==\"Active\")'"
+  chk "jellyfin: exactly one webhook destination, pointed at the controller" sh -c "ID=\$(curl -sf -H 'X-Emby-Token: $JFKEY' http://localhost:8096/Plugins | jq -r '.[]|select(.Name==\"Webhook\").Id'); curl -sf -H \"X-Emby-Token: $JFKEY\" \"http://localhost:8096/Plugins/\$ID/Configuration\" | jq -e '(.GenericOptions|length)==1 and (.GenericOptions[0].WebhookUri|test(\"/api/jellyfin-webhook\")) and .GenericOptions[0].EnableWebhook'"
+  # PlaybackProgress is the safety net, not a nicety: without it a dropped PlaybackStop pins Movie
+  # Mode on forever and every background job on this box stops with no error anywhere.
+  chk "jellyfin: webhook sends Start, Stop AND Progress" sh -c "ID=\$(curl -sf -H 'X-Emby-Token: $JFKEY' http://localhost:8096/Plugins | jq -r '.[]|select(.Name==\"Webhook\").Id'); curl -sf -H \"X-Emby-Token: $JFKEY\" \"http://localhost:8096/Plugins/\$ID/Configuration\" | jq -e '.GenericOptions[0].NotificationTypes | (index(\"PlaybackStart\") and index(\"PlaybackStop\") and index(\"PlaybackProgress\"))'"
+fi
+
 echo "=== *arr config (the grab algorithm) ==="
 RKEY=$(sed -n 's:.*<ApiKey>\(.*\)</ApiKey>.*:\1:p' /opt/appdata/radarr/config.xml | head -1)
 SKEY=$(sed -n 's:.*<ApiKey>\(.*\)</ApiKey>.*:\1:p' /opt/appdata/sonarr/config.xml | head -1)

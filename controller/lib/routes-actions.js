@@ -22,7 +22,7 @@ const {
   srcRank, REENC_RE, audioOf, refusedReason, scopeOf, SCOPE_LABEL, resOf, codecOf, TENBIT_RE,
   supersedes, editionRefusal, overResCeiling,
 } = require('./release-rules');
-const { videoLabel, gpuTier, bppOf, bppBand, bppIndex, arrTitle } = require('./arr-inspect');
+const { videoLabel, gpuTier, bppOf, bppBand, bppIndex, bppBasis, arrTitle } = require('./arr-inspect');
 
 // The Library tab's quality figure. bpp, NOT Mbps — see the block comment above bppOf() in
 // arr-inspect.js for why raw Mbps is not comparable across this library (only 171 of 860 movies
@@ -36,19 +36,26 @@ const { videoLabel, gpuTier, bppOf, bppBand, bppIndex, arrTitle } = require('./a
 // size-derived total is passed as a fallback. For a series, sizeBytes/runtimeMinutes is the
 // average across every episode while mediaInfo comes from one representative file — an
 // approximation, and the honest one available without walking every episode.
-function bppFields(mi, sizeBytes, runtimeMinutes) {
+// `key` is the probe unit key ('mv:<radarrId>' / 'tv:<sonarrId>:<season>') and is OPTIONAL: with it,
+// the film is scored against its own measured complexity (2026-08-06 cutover); without it, against
+// the flat fallback exactly as before. Callers that know which title they are describing should pass
+// it — otherwise this endpoint reports a different BPP+ than the Audit tab does for the same file.
+function bppFields(mi, sizeBytes, runtimeMinutes, key) {
   const fallback = (sizeBytes > 0 && runtimeMinutes > 0) ? (sizeBytes * 8) / (runtimeMinutes * 60) : null;
   const bpp = bppOf(mi, fallback);
   // bppPlus is what the UI renders: raw bpp lives between 0.02 and 0.44 across the whole library,
   // so the differences that matter are in the third decimal. See bppIndex() in arr-inspect.js.
-  return { bpp, bppPlus: bppIndex(bpp), bppBand: bppBand(bpp) };
+  return { bpp, bppPlus: bppIndex(bpp, key), bppBand: bppBand(bpp, key), cxBasis: bppBasis(key) };
 }
 const {
   buildDeletePlan, planItems, executeDelete, buildDeletePlanFromHash,
 } = require('./delete-plan');
 const {
-  declined, blocked, searchState, forceGrabImport, persistState, setMasterPaused,
+  declined, blocked, searchState, forceGrabImport, persistState, setMasterPaused, isAutoPaused,
 } = require('./state');
+// Auto Movie Mode. This module owns the pause/resume RECIPE and injects it downward via
+// setApplier(); movie-mode.js owns the latch lifecycle. One-directional, so no require cycle.
+const movieMode = require('./movie-mode');
 const {
   searchKeyClear, missingEpisodes, trackSearchDispatch, probeSearchGap, grabGapRelease,
 } = require('./search-engine');
@@ -111,7 +118,7 @@ app.get('/api/library', async (req, res) => {
           const mf = m.movieFile;
           const mi = mf && mf.mediaInfo;
           const sizeBytes = (mf && mf.size) || m.sizeOnDisk || 0;
-          const item = { id: m.id, title: m.title, year: m.year, hasFile: !!m.hasFile, sizeBytes, tmdbId: m.tmdbId, runtimeMinutes: m.runtime || 0, videoLabel: videoLabel(mi), gpuCompat: gpuTier(mi), source: (mf && mf.quality && mf.quality.quality && mf.quality.quality.name) || null, audioCodec: (mi && mi.audioCodec) || null, audioCh: (mi && mi.audioChannels) || null, ...bppFields(mi, sizeBytes, m.runtime || 0) };
+          const item = { id: m.id, title: m.title, year: m.year, hasFile: !!m.hasFile, sizeBytes, tmdbId: m.tmdbId, runtimeMinutes: m.runtime || 0, videoLabel: videoLabel(mi), gpuCompat: gpuTier(mi), source: (mf && mf.quality && mf.quality.quality && mf.quality.quality.name) || null, audioCodec: (mi && mi.audioCodec) || null, audioCh: (mi && mi.audioChannels) || null, ...bppFields(mi, sizeBytes, m.runtime || 0, `mv:${m.id}`) };
           if (!m.hasFile) {
             const qe = qByItemId[m.id];
             if (qe) {
@@ -141,7 +148,12 @@ app.get('/api/library', async (req, res) => {
           const mi = miBySeries[s.id];
           const sizeBytes = (s.statistics && s.statistics.sizeOnDisk) || 0;
           const runtimeMinutes = (s.runtime && s.statistics && s.statistics.episodeFileCount) ? s.runtime * s.statistics.episodeFileCount : 0;
-          const item = { id: s.id, title: s.title, year: s.year, hasFile: ((s.statistics && s.statistics.episodeFileCount) || 0) > 0, sizeBytes, tmdbId: s.tmdbId, runtimeMinutes, videoLabel: videoLabel(mi && mi.mi), gpuCompat: gpuTier(mi && mi.mi), source: (mi && mi.src) || null, audioCodec: (mi && mi.mi && mi.mi.audioCodec) || null, audioCh: (mi && mi.mi && mi.mi.audioChannels) || null, ...bppFields(mi && mi.mi, sizeBytes, runtimeMinutes) };
+          const item = { id: s.id, title: s.title, year: s.year, hasFile: ((s.statistics && s.statistics.episodeFileCount) || 0) > 0, sizeBytes, tmdbId: s.tmdbId, runtimeMinutes, videoLabel: videoLabel(mi && mi.mi), gpuCompat: gpuTier(mi && mi.mi), source: (mi && mi.src) || null, audioCodec: (mi && mi.mi && mi.mi.audioCodec) || null, audioCh: (mi && mi.mi && mi.mi.audioChannels) || null, // NO KEY for a series row, deliberately. The probe's unit is a SEASON, so a whole-series
+          // bpp has no single measured complexity to be scored against — seasons of one show can
+          // differ (a film-stock first season, a digital revival). Averaging them would invent a
+          // number no measurement supports, so this row keeps the flat fallback and the Audit tab,
+          // which IS per-season, is where a measured TV score appears.
+          ...bppFields(mi && mi.mi, sizeBytes, runtimeMinutes) };
           if (!item.hasFile) {
             const qe = qByItemId[s.id];
             if (qe) {
@@ -270,24 +282,48 @@ app.post('/api/torrent/resume', async (req, res) => {
 async function qbitSetAddStopped(v) {
   try { await qbit.fetch('/api/v2/app/setPreferences', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ json: JSON.stringify({ add_stopped_enabled: !!v }) }) }); } catch { /* qbit down */ }
 }
+
+// THE torrent side of Movie Mode, factored out so the manual button and auto Movie Mode run the
+// IDENTICAL recipe (Brennan's call, 2026-08-06 — auto behaves exactly like the button). Two copies
+// of this would drift, and a drift here means torrents left running during playback.
+//
+// KNOWN AND ACCEPTED: resume starts *all* torrents, including any you had deliberately paused
+// yourself — qBittorrent is not asked which were running before. That was a minor wart when only
+// a deliberate double-tap could trigger it; auto Movie Mode now fires it after every film, so a
+// hand-paused torrent will come back on. Flagged to Brennan, who chose this over snapshot/restore.
+// The fix, if it ever annoys: snapshot hashes of running torrents before pausing and resume only
+// those.
+async function applyMovieMode(on) {
+  await qbitSetAddStopped(on);          // on: grabs during Movie Mode land stopped; off: normal auto-start
+  let ok = false;
+  try { ok = (await qbitPauseResume('all', !on)).ok; } catch { /* qbit down — the latch still holds the sweeps */ }
+  bustDownloadsCache();
+  return ok;
+}
+movieMode.setApplier(applyMovieMode);
+
 app.post('/api/master-pause', async (_req, res) => {
   setMasterPaused(true); persistState();
-  await qbitSetAddStopped(true);                       // grabs during Movie Mode stay stopped
-  let ok = false;
-  try { ok = (await qbitPauseResume('all', false)).ok; } catch { /* qbit down — flag still set, sweeps paused */ }
-  console.log('master-pause: Movie Mode ON — torrents stopped, all sweeps paused');
-  bustDownloadsCache();
-  res.json({ ok: true, paused: true, qbit: ok });
+  const ok = await applyMovieMode(true);
+  console.log('master-pause: Movie Mode ON (manual) — torrents stopped, all sweeps paused');
+  res.json({ ok: true, paused: true, qbit: ok, ...movieMode.status() });
 });
 app.post('/api/master-resume', async (_req, res) => {
   setMasterPaused(false); persistState();
-  await qbitSetAddStopped(false);                      // back to normal auto-start
-  let ok = false;
-  try { ok = (await qbitPauseResume('all', true)).ok; } catch { /* qbit down */ }
+  // Clearing the MANUAL latch must not resume the box while something is still playing — the auto
+  // latch is a separate owner and is still holding it. Without this check, tapping the button after
+  // a film started would start every torrent mid-playback, which is the exact opposite of the ask.
+  if (isAutoPaused()) {
+    console.log('master-resume: manual hold cleared, but playback is live — staying paused (auto)');
+    return res.json({ ok: true, paused: true, qbit: true, ...movieMode.status() });
+  }
+  const ok = await applyMovieMode(false);
   console.log('master-resume: Movie Mode OFF — torrents + sweeps resumed');
-  bustDownloadsCache();
-  res.json({ ok: true, paused: false, qbit: ok });
+  res.json({ ok: true, paused: false, qbit: ok, ...movieMode.status() });
 });
+
+// What the Jobs tab's Movie Mode card reads: both latches, what is playing, and any pending resume.
+app.get('/api/movie-mode', (_req, res) => res.json(movieMode.status()));
 
 // Redownload a MOVIE at a chosen quality tier: deep-delete the current file + torrent(s) + Jellyfin
 // entry (the movie stays in Radarr), switch its quality profile to the tier, then trigger a fresh

@@ -118,11 +118,14 @@ function bppSource(mi, fallbackTotalBps = null) {
 // interesting differences are in the third decimal place. Brennan, 2026-08-01: index it the way
 // baseball indexes OPS+, where 100 is the reference and everything is a percentage of it.
 //
-//   BPP+ = round(100 * sqrt(bpp / BPP_TARGET))
+//   BPP+ = round(100 * sqrt(bpp / target))       target = this film's measured complexity,
+//                                                         or BPP_TARGET if it has not been probed
 //
-// 100 IS NOT "AVERAGE", IT IS "CORRECT". BPP_TARGET is the green threshold: the point where a
-// film looks its best on the hardware we actually own (native-720p projector, measured
-// 2026-08-01), while using no more disk than that needs.
+// 100 IS NOT "AVERAGE", IT IS "CORRECT" — and since 2026-08-06 it is correct PER FILM. The target is
+// the point where a film looks its best while using no more disk than that needs, and what that costs
+// is a property of the content: Casablanca's grain needs 4x the bits of Blade Runner 2049 to reach the
+// same quality. The nightly CRF probe measures it per title (lib/probe.js); BPP_TARGET remains only
+// as the fallback for films not yet probed. See bppTargetFor() below.
 //
 // WHY THE SQUARE ROOT (added 2026-08-01, was a straight ratio before).
 // The old index was linear in bitrate, so "200" meant "twice the bits" — a statement about disk,
@@ -150,24 +153,71 @@ function bppSource(mi, fallbackTotalBps = null) {
 // sqrt(0.6)=0.77), then rounded to the human numbers 125/100/75. The rounding is not quite free:
 // 77 -> 75 moves 8 of 860 movies from red to orange. Everything else is a pure relabel.
 //
-// KNOWN CONSERVATISM, DELIBERATELY NOT PATCHED: BPP_TARGET is anchored to CRF-18 transparency on a
-// 1080p display, but the projector is a native 1280x720 panel that discards 2.25x the pixels we
-// are charging files for. The real target is therefore somewhere below 0.13 and the whole library
-// should probably score higher than it does. 2.25x is an upper bound on that credit, not the right
-// credit, and no measurement we can currently make resolves it — SSIM is confounded by grain in
-// exactly this regime. Inventing a partial credit would be a guess wearing a decimal point. The
-// per-title CRF probe (docs/TODO-quality.md) replaces this constant with a measured value and is
-// the actual fix. Until then: read red as "compromised relative to a 1080p ideal".
+// BPP_TARGET IS NOW ONLY THE FALLBACK. Until 2026-08-06 it was the denominator for every file in
+// the library — one constant standing in for "how many bits does this content need". The nightly
+// CRF probe (lib/probe.js) measures that per film, and the first night's 69 measurements settled
+// the question of whether one constant could ever have worked: complexity ranges 0.0436 (Dune,
+// clean digital capture) to 0.3511 (Schindler's List, B&W with heavy grain) — an 8.1x spread. The
+// flat value was wrong by roughly 2x in BOTH directions, and systematically: it overrated grainy
+// film-stock transfers (whose bits buy grain reproduction, not detail) and underrated clean modern
+// digital ones.
+//
+// Notably the measured MEDIAN is 0.1237 — so 0.13 was a good library-wide average and a poor
+// per-film answer, which is exactly the failure mode you cannot see without measuring.
+//
+// It survives as the denominator for a film with no probe data at all (a brand-new arrival before
+// its first pass, or a call site with no unit key). That path is the pre-probe behaviour, unchanged.
 const BPP_TARGET = 0.13;
-const bppIndex = (bpp) => (bpp == null ? null : Math.round(100 * Math.sqrt(bpp / BPP_TARGET)));
+
+// THE DENOMINATOR RESOLVER, injected by probe.js at startup (see setComplexityResolver there).
+// Injected rather than required because probe.js already requires bppOf/bppIndex from THIS module,
+// so requiring it back would be a cycle. The upside is that this module remains the single owner of
+// the scoring math and knows nothing about how complexity is measured.
+//
+// Contract: resolve(key) -> { target, basis } | null
+//   target  the effective per-film bpp denominator (that film's measured complexity x the headroom
+//           anchor). Already includes the anchor, so this module never learns about CRF or headroom.
+//   basis   where the number came from: 'measured' (this film), 'measured:stale' (this film, from a
+//           copy since replaced — content is the same, so still valid), or 'estimated:*' (inferred
+//           from other films via probe.js's shrinkage ladder).
+// Null / absent resolver / a throw all mean "no usable probe data" -> flat BPP_TARGET.
+let _resolveTarget = null;
+function setComplexityResolver(fn) { _resolveTarget = fn; }
+
+// The denominator for one title, and where it came from. `key` is the unit key — 'mv:<radarrId>' or
+// 'tv:<sonarrId>:<season>' — which is the same key probe.js caches by. That agreement is not a
+// coincidence to be maintained by hand: audit.js builds row.key in exactly this form and probe.js
+// builds unit.key the same way, both from the *arr ids, so a row and its measurement cannot drift.
+function bppTargetFor(key) {
+  if (key && _resolveTarget) {
+    try {
+      const r = _resolveTarget(key);
+      if (r && r.target > 0) return { target: r.target, basis: r.basis || 'measured' };
+    } catch { /* a broken resolver must never take the whole Audit tab down with it */ }
+  }
+  return { target: BPP_TARGET, basis: 'flat' };
+}
+
+// BPP+ itself. `key` is OPTIONAL, and passing it is the entire cutover: with a key, a film that has
+// been probed is scored against its OWN transparent bitrate instead of the library-wide guess.
+// Without one — or for a film not yet probed — the result is bit-identical to the pre-probe value.
+//
+// This is why the signature was extended rather than replaced: there are 12 call sites, and a
+// mistake at any of them should degrade to the old behaviour rather than to a wrong number.
+const bppIndex = (bpp, key) => (bpp == null ? null
+  : Math.round(100 * Math.sqrt(bpp / bppTargetFor(key).target)));
 const BPP_INDEX_BANDS = [[125, 'wow'], [100, 'ok'], [75, 'warn'], [0, 'bad']];
 const BPP_RANK = { wow: 0, ok: 1, warn: 2, bad: 3 };
-function bppBand(bpp) {
-  const i = bppIndex(bpp);
+function bppBand(bpp, key) {
+  const i = bppIndex(bpp, key);
   if (i == null) return '';
   for (const [lo, cls] of BPP_INDEX_BANDS) if (i >= lo) return cls;
   return 'bad';
 }
+// The basis alone, for payloads that need to TELL the reader whether a score is measured or
+// inferred. The design's rule (DESIGN-CRF-PROBE.md §6) is that an estimated value must be visibly
+// marked, and that is enforced by carrying this onto every row rather than by hoping the UI guesses.
+const bppBasis = (key) => bppTargetFor(key).basis;
 // The dot rendering lives in web/js/util.js, not here — it is presentation, and it takes the BAND
 // (already computed and sent on the payload) rather than the raw value, so the browser never
 // re-derives a threshold. This module owns the numbers; the client owns how they look.
@@ -221,4 +271,5 @@ async function diagnose(app, id, seasons) {
 }
 
 module.exports = { videoLabel, gpuTier, dimsOf, bppOf, bppSource, bppBand, bppIndex,
+  bppBasis, bppTargetFor, setComplexityResolver,
   BPP_TARGET, BPP_INDEX_BANDS, BPP_RANK, X265_EFFICIENCY, freeUnderCap, arrTitle, arrHasActivity, diskOnlyBlocker, diagnose };

@@ -9,6 +9,7 @@ const { cfg, HOST, oscarWinners, intlLanguages } = require('./config');
 const { tfetch, tfetchJson } = require('./clients');
 const { jellyfinUserId } = require('./jellyfin');
 const { isMasterPaused } = require('./state');
+const jobs = require('./jobs');
 
 // ---- Auto-collections sweep: decade / genre / top-rated collections, maintained natively ──
 // "Automatic playlists by decade and genre" with NO third-party plugin: the controller derives
@@ -577,9 +578,18 @@ async function collectionsSweep() {
   finally { collSweepBusy = false; }
 }
 
+// Tracked for the Jobs tab. The EXPORT is the wrapped version so server.js's bootSequence calls —
+// which are how this sweep actually first runs on a cold start — are counted too; wrapping only
+// the interval would leave the tab reporting "never run" for the first six hours of every boot.
+const tracked = jobs.define({
+  id: 'collections', name: 'Auto-collections', group: 'Metadata', weight: 60,
+  what: 'Rebuilds Jellyfin box sets',
+  every: 6 * 3600000, scheduleText: 'every 6h · and on boot', pausedByMovieMode: true,
+}, collectionsSweep);
+
 function startCollectionsTimer() {
-setInterval(collectionsSweep, 6 * 3600000);   // twice a day keeps them fresh
+setInterval(tracked, 6 * 3600000);   // twice a day keeps them fresh
 }
 function collectionsBusy() { return collSweepBusy; }
 
-module.exports = { collectionsSweep, collectionsBusy, startCollectionsTimer };
+module.exports = { collectionsSweep: tracked, collectionsBusy, startCollectionsTimer };

@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const metrics = require('../metrics');
+const jobs = require('./jobs');
 const { cfg } = require('./config');
 const { qbit, arrGet, seerr } = require('./clients');
 const { getQbitTorrents, torrentApp, arrIdForHash, isForceGrabCategory } = require('./arr-data');
@@ -398,21 +399,50 @@ async function requestGate() {
   } finally { reqBusy = false; persistState(); }
 }
 
+// Five independent sweeps, five cards. They are grouped in one module because they share the
+// torrent/queue plumbing, not because they are one job — merging them in the UI would hide which
+// one is failing.
+const tDiskGate = jobs.define({
+  id: 'disk-gate', name: 'Disk gate', group: 'Downloads', weight: 26,
+  what: 'Blocks downloads that will not fit',
+  every: 30000, scheduleText: 'every 30s', pausedByMovieMode: true,
+}, diskGate);
+const tOrphan = jobs.define({
+  id: 'orphan-sweep', name: 'Orphan torrents', group: 'Downloads', weight: 24,
+  what: 'Clears torrents with no library item',
+  every: 300000, scheduleText: 'every 5 min', pausedByMovieMode: true,
+}, orphanSweep);
+const tDataless = jobs.define({
+  id: 'dataless-sweep', name: 'Dataless torrents', group: 'Downloads', weight: 22,
+  what: 'Finds torrents whose files vanished',
+  every: 3600000, scheduleText: 'hourly', pausedByMovieMode: true,
+}, datalessSweep);
+const tSeerr = jobs.define({
+  id: 'seerr-sweep', name: 'Request cleanup', group: 'Downloads', weight: 20,
+  what: 'Cleans up dead Jellyseerr requests',
+  every: 900000, scheduleText: 'every 15 min', pausedByMovieMode: true,
+}, seerrSweep);
+const tRequestGate = jobs.define({
+  id: 'request-gate', name: 'Request gate', group: 'Downloads', weight: 18,
+  what: 'Flags requests stuck on disk space',
+  every: 300000, scheduleText: 'every 5 min', pausedByMovieMode: true,
+}, requestGate);
+
 function startSweeps() {
-setInterval(diskGate, 30000); // 30s (was 8s); cheap (qbit info + statfs); 30s still catches a new torrent before it fills /data (3.7TB headroom)
-setTimeout(diskGate, 6000);
-setInterval(orphanSweep, 300000);   // every 5 min (was 60s); orphan torrents are harmless and don't trend in under 5 min
-setTimeout(orphanSweep, 15000);
-setInterval(seerrSweep, 900000); // every 15 min (was 5min); orphan cleanup doesn't need 5min resolution
-setTimeout(seerrSweep, 30000);   // first run after 30s
-setInterval(requestGate, 300000);   // every 5 min (was 60s); stuck Jellyseerr requests stay stuck for hours, not seconds
-setTimeout(requestGate, 15000);
+setInterval(tDiskGate, 30000); // 30s (was 8s); cheap (qbit info + statfs); 30s still catches a new torrent before it fills /data (3.7TB headroom)
+setTimeout(tDiskGate, 6000);
+setInterval(tOrphan, 300000);   // every 5 min (was 60s); orphan torrents are harmless and don't trend in under 5 min
+setTimeout(tOrphan, 15000);
+setInterval(tSeerr, 900000); // every 15 min (was 5min); orphan cleanup doesn't need 5min resolution
+setTimeout(tSeerr, 30000);   // first run after 30s
+setInterval(tRequestGate, 300000);   // every 5 min (was 60s); stuck Jellyseerr requests stay stuck for hours, not seconds
+setTimeout(tRequestGate, 15000);
 // Hourly, and late on first boot. A dataless torrent is pure bookkeeping drift — it costs nothing
 // while it sits, so this walks the disk rarely rather than competing with the useful sweeps. The
 // 90s first run is deliberately AFTER the import watchdog's recover pass (importer.js, 4s), so a
 // force-grab whose bookkeeping is still being rebuilt cannot be judged mid-restore.
-setInterval(datalessSweep, 3600000);
-setTimeout(datalessSweep, 90000);
+setInterval(tDataless, 3600000);
+setTimeout(tDataless, 90000);
 }
 
 module.exports = { diskGate, orphanSweep, datalessSweep, seerrSweep, requestGate, startSweeps };

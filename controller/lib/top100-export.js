@@ -18,6 +18,7 @@
 const fs = require('fs/promises');
 const path = require('path');
 const { cfg, HOST } = require('./config');
+const jobs = require('./jobs');
 const { tfetchJson } = require('./clients');
 const { jellyfinUserId } = require('./jellyfin');
 
@@ -86,9 +87,15 @@ async function exportTop100() {
   } catch (e) { console.log(`top100Export: failed — ${e.message || e}`); }
 }
 
+const tracked = jobs.define({
+  id: 'top100-export', name: 'Top 100 snapshot', group: 'Metadata', weight: 42,
+  what: 'Backs up the Top 100 order',
+  every: 7 * 24 * 3600000, scheduleText: 'weekly · and on boot',
+}, exportTop100);
+
 function startTop100ExportTimer() {
-  setInterval(exportTop100, 7 * 24 * 3600000);            // weekly
-  setTimeout(exportTop100, 120000);                       // and once shortly after boot
+  setInterval(tracked, 7 * 24 * 3600000);                 // weekly
+  setTimeout(tracked, 120000);                            // and once shortly after boot
 }
 
 module.exports = { exportTop100, startTop100ExportTimer };

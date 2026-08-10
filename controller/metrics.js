@@ -6,7 +6,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const METRICS_DIR = '/config/metrics';
+// Overridable so the test suites can point at a scratch directory instead of writing real metrics.
+// In the container this is always the default — nothing sets the env var in production.
+const METRICS_DIR = path.join(process.env.CONTROLLER_CONFIG_DIR || '/config', 'metrics');
 
 // ── Helpers ──
 

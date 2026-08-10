@@ -64,6 +64,8 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `data/oscars/SOURCE.md` | Source docs for the datasets; how to update after future ceremonies/festivals |
 | `data/oscars/latest-winners.json` | Supplementary winners for years not yet in the upstream dataset (merged by `build.sh`) |
 | `controller/oscar-winners.json` | Award winner lookup keyed by collection name → `[{tmdb_id, title, year}]`, sorted newest-first. Oscar categories + Cannes/Sundance (from `data/oscars/festivals.json`) |
+| `controller/film-awards.json` | Per-FILM Oscar data, IMDb-keyed: `{noms, wins, a:[{y,c,w,n}]}`. Counts feed the poster badge tags; `a` is the per-award list (year / CanonicalCategory / won / nominees) added 2026-08-09 for the detail-page Awards rows. Ordered wins-first then by category, so clients render it as-is. Built by `data/oscars/build-awards.sh` |
+| `controller/person-awards.json` | Per-PERSON Oscar data, keyed by NORMALIZED NAME (people mostly lack IMDb ids in Jellyfin): `{name, noms, wins, a:[…]}`. Same `a` shape but `n` is the FILM they were cited for, not nominees — and person rows sort wins-first then most-recent-first, because a career spans decades where a film's nominations are one ceremony |
 
 ## Service Architecture
 
@@ -89,6 +91,24 @@ explicitly by server.js — full loop table incl. first-run delays in
 `controller/README.md`). Each is independent, has its own interval, and pauses
 under Movie Mode (`isMasterPaused()`).
 
+**Every sweep below reports to the JOBS TAB** (`lib/jobs.js`, `GET /api/jobs`,
+dashboard tab "Jobs"). A sweep joins it by wrapping its interval callback in
+`jobs.define({id, name, what, group, weight, every, scheduleText,
+pausedByMovieMode}, fn)` — the wrapper records running/last-run/duration/errors
+with no change to the sweep's own body, and the module's EXPORT is set to the
+wrapped function so direct callers (e.g. `bootSequence()`) are counted too.
+Richer state (the probe's per-film progress, the audit verifier's queue) is
+pushed with `jobs.report(id, {progress, etaMs, detail, stateOverride, actions})`.
+**Adding a sweep without a `jobs.define` makes it invisible** — that was the
+pre-2026-08-06 status quo for ~25 of them, and the reason the tab exists.
+
+The tab merges three runtimes behind one contract, and a reader must not be able
+to tell them apart: controller sweeps, Jellyfin `/ScheduledTasks` (trickplay,
+library scan, chapter images…), and HOST systemd timers. The container cannot see
+host systemd at all, so host jobs push a status file into `/config/host-jobs/`
+via `job_status()` in `scripts/lib.sh` (see `ps4ify-sweep.sh`); the controller
+flags one as failed when its heartbeat stops.
+
 | Sweep | Interval | Module | What it does |
 |-------|----------|------------|-------------|
 | `buildDownloads` / `refreshDownloads` | 5s | `lib/downloads.js` | Polls all services → builds unified `_dl` snapshot |
@@ -103,6 +123,8 @@ under Movie Mode (`isMasterPaused()`).
 | `jfLibraryRefresh` | event + 5min safety net | `lib/jf-scan.js` | Trigger Jellyfin library scan after imports (trickplay-aware) |
 | `gpuVerifySweep` | 15min | `lib/gpu-verify.js` | Post-import ground truth, ZERO-GAP: a movie imported <48h ago whose mediaInfo is 10-bit/HDR/AV1/VP9 gets a strictly-better H.264 release grabbed (search-first, playstate-guarded); the OLD FILE STAYS until the replacement completes (`gpuPending` persisted), then swap+import. Once per movie ever (`gpuSwapped`); UI labels the download "Auto-upgrade". Log prefix `gpuVerify:` |
 | `auditVerifier` | 45s | `lib/audit.js` | Audit tab: one indexer search per tick, worst-first, over rows that lack a fresh verdict. Answers "does a genuinely better source exist?" — cached in `auditVerdicts` (persisted, 14-day TTL, `VERDICT_VERSION`) because a search is 5-21s and a full enrich is ~114 of them. Requires 8-bit; filters wrong-show matches via `mappedSeasonNumber`/`mappedMovieId`. Candidates are RANKED (not refused) by an absolute bpp test (`candidateBandOk`): Beloved/Top-100 below green, or anything more than one band below the current file, sorts last via `bandWeak`. READ-ONLY. Log prefix `audit:` |
+| `upgradeScanTick` | 60s | `lib/audit.js` | **Pre-warms the Upgrade tab.** Runs the candidate search for every movie under BPP+ `AUDIT_UPGRADE_BPP_MAX` (100 — the `warn`+`bad` bands, 754 of 870 today), worst-of-your-favourites first (the tab's own `upgGroup` order), and caches the verdict so opening a row is instant instead of a 5-21 s wait. **NEVER GRABS AND NEVER REPLACES** — it writes verdicts and nothing else; replacement stays behind a human pressing Replace (`POST /api/audit/replace`). Do not add an auto-swap path here; `gpu-verify.js` is the one place that auto-swaps and is deliberately scoped to decode-incompatible fresh imports. Takes the SAME `auditBusy` lock as `verifyTick` (one indexer search in flight, honouring the pacing promise) and yields entirely while the source check still has work. Log prefix `audit: upgrade` |
+| `probeTick` | 60s (2s during a manual session) | `lib/probe.js` | **THE CRF PROBE.** Measures per-film content complexity — 8x4s samples re-encoded at CRF 20/medium/1920 wide, so the resulting bitrate *is* the content's cost. One unit = one film, or one TV season (2 interior episodes). Runs **01:00-06:00, 240 min/night**, ~200 s/unit, so ~69 units/night over 1014. Cached forever in `/config/probe-cache.json`, **keyed by FILM not file** (a re-download marks an entry stale, never invalid). Feeds every BPP+ in the app via `installScoring()`. **Two classes of gate and the distinction is load-bearing:** SCHEDULE gates (night window, night budget) are waived for a manual run; SAFETY gates (Movie Mode, anyone watching, CPU >= 95C, optionally Jellyfin heavy tasks) are **never** bypassable and are re-checked every 15 s *during* an encode, killing it mid-unit. READ-ONLY — `/data` is mounted `:ro`. Log prefix `probe:` |
 | `cpuCensusSweep` | 6h | `lib/cpu-census.js` | Counts library files that can't hardware-decode (reuses `gpuTier()`), emits the `cpu_census` event — the trend line behind the Audit tab. Report-only. Log prefix `cpuCensus:` |
 | `collectionsSweep` | 6h + boot | `lib/collections.js` | Maintains native auto-collections from library metadata: decades, top-8 + curated genres, Critically Loved, Short & Sweet, Epic Runtimes, and 26 award-winner categories (8 Oscar Best Picture/Director/Acting/Editing/Cinematography + 10 Cannes + 10 Sundance, drawn from `data/oscars/build.sh` via `controller/oscar-winners.json`). Vibes shuffle at random; award collections sort year-descending (newest first). Auto-sets each collection's poster from its best-rated member. Pure Jellyfin Collections API. Log prefix `collectionsSweep:`. **Boot:** `bootSequence()` (search it) waits for Jellyfin to answer, then runs the sweep BEFORE the first `registerHssShelf` so the home shelves have box sets to show on first load — no cold-start empty-home gap. **Manual:** `POST /api/collections/build` runs the sweep + shelf re-register on demand (409 if already running). |
 
@@ -362,8 +384,42 @@ candidate cards and the Upgrade sort. Do not add a second scale.
 
 ```
 bpp  = videoBitrate / (width * height * fps)      then x1.6 if HEVC
-BPP+ = round(100 * sqrt(bpp / 0.13))              the number humans read
+BPP+ = round(100 * sqrt(bpp / complexity))        the number humans read
 ```
+
+**THE DENOMINATOR IS MEASURED PER FILM (cutover 2026-08-06).** `complexity` is what a visually
+transparent (CRF-20) encode of *that specific film* costs, measured overnight by the CRF probe —
+not a constant. Call `bppIndex(bpp, key)` / `bppBand(bpp, key)` with the unit key
+(`mv:<radarrId>` or `tv:<sonarrId>:<season>`) and the film's own measurement is used; call them
+without a key and you get the flat `BPP_TARGET = 0.13` fallback, which is the pre-probe behaviour.
+**Always pass the key when you know which title you are scoring**, or your endpoint will disagree
+with the Audit tab about the same file.
+
+Why one constant could never have worked, from the first 69 measurements:
+
+| | complexity | vs flat 0.13 |
+|---|---|---|
+| Schindler's List (1993) — B&W, heavy grain | 0.3511 | 2.7x more demanding |
+| Casablanca (1943) | 0.2785 | 2.1x |
+| *measured median* | *0.1237* | *the flat value was a good AVERAGE* |
+| Blade Runner 2049 (2017) | 0.0670 | 1.9x less |
+| Dune (2021) — clean digital | 0.0436 | 3.0x less |
+
+**8.1x spread, and the error was systematic**: the flat constant overrated grainy film-stock
+transfers (whose bits buy grain reproduction, not detail) and underrated clean modern digital ones.
+Casablanca fell 183 -> 125, Blade Runner 2049 rose 137 -> 191, Schindler's List fell 94 -> 57.
+
+Every payload that carries `bppPlus` also carries **`cxBasis`**: `measured` (this film),
+`measured:stale` (this film, from a copy since replaced — still valid, content is unchanged), or
+`estimated:series|source|kind|global` (inferred from other films via shrinkage). Do not present the
+two as equally confident. The UI carries it in **typography, not colour** — measured is bold
+(`.mbps.meas`), estimated is italic (`.mbps.est`) — because the badge's colour is already spoken for
+by quality, and confidence is a different axis. A missing `cxBasis` gets neither class and renders as
+it always did.
+
+**A candidate release is scored with the ROW's key, never its own** — a candidate for a film IS
+that film, so the complexity measured from the copy on disk is the right denominator for every
+release of it. This is why the probe cache is keyed by film rather than by file.
 
 **BPP+ IS SQUARE-ROOTED ON PURPOSE (2026-08-01).** It used to be a straight ratio, so "200"
 meant "twice the bits" — a statement about disk, not picture. Measured on this library's own
@@ -387,14 +443,29 @@ bits per frame; and HEVC needs ~55% of H.264's bits for the same picture.
 | orange | 75-99 | >= 0.073 | `warn` | ~4 Mbps. Diminished even today; may still be fine — human call |
 | red | < 75 | < 0.073 | `bad` | Worse. The YTS family (41% of the movie library) sits ~65 |
 
-**KNOWN CONSERVATISM.** `BPP_TARGET = 0.13` is anchored to CRF-18 transparency on a *1080p*
-display, but the projector is a native 1280x720 panel discarding 2.25x the pixels we charge
-files for. The whole library therefore probably scores low. 2.25x is an upper bound on the
-credit, not the credit, and nothing we can currently measure resolves it — SSIM is confounded by
-grain in exactly this regime and no no-reference metric survives it either
-(`docs/audit-2026-07-31/raw/RESEARCH-quality-metrics-2026-08-01.md`). The per-title CRF probe
-replaces the constant with a measurement and is the actual fix. **Do not invent a partial
-credit.**
+The `bpp` column above is the FALLBACK scale (flat 0.13). Under the probe the same BPP+ means a
+different raw bpp for every film — which is the point.
+
+**WHAT IS STILL NOT CALIBRATED: where 100 sits.** The per-film *ranking* is measured and correct.
+The absolute *level* rests on one global constant, `HEADROOM_TARGET = 1.0` in `lib/probe.js`, which
+asserts that Brennan's "perfect tradeoff" is exactly CRF-20 transparency. That is the standard
+figure for 1080p, not a measurement of his eyes. Pinning it needs ~10 films he has judged
+(`docs/DESIGN-CRF-PROBE.md` §12 Q1) — **still outstanding**.
+
+It is safe to run unpinned because the anchor is one read-time multiplier applied equally to every
+title: it can move the whole scale but cannot reorder it, and moving it requires **no re-probing**
+(x265 runs ~-15%/CRF point, so a preference for CRF 22 is just `HEADROOM_TARGET ~= 0.72`). Night
+one confirmed the level is close anyway — the library median moved 68 -> 69.
+
+Measured 2026-08-06: **90% of files sit BELOW CRF-20 transparency** (median R 0.49), so the typical
+title has about half the bits of a transparent encode and the library median BPP+ is ~69. Whether
+that is a problem or fine on a native-720p projector is the open judgement, not a bug.
+
+**Do not re-anchor 100 to the library median.** `maybeCalibrate()` reports what the median implies
+and deliberately does **not** apply it: a moving anchor is unimprovable (upgrade fifty films and
+every score re-centres to where it was), it breaks comparability across cached verdict versions, and
+it assumes the conclusion — "what I already own is correct on average" is the exact proposition the
+probe exists to test.
 
 **COLOUR IS OBJECTIVE; INTENT LIVES IN THE QUALITY PROFILE.** A 2005 romcom on
 `Low (save space)` sitting in red is correct and must not be flagged. The same bpp on a
@@ -431,6 +502,49 @@ Two data traps, both real bugs caught by running the model against the live libr
 
 Pinned by `scripts/test-bpp.js` and `scripts/test-bpp-floor.js`. Changing a band boundary or the
 Disk rule without running both is how this silently drifts.
+
+### The CRF probe — how to drive it
+
+Full design and history: `docs/DESIGN-CRF-PROBE.md`. Loop details in the table above.
+
+```
+GET  /api/probe                  coverage, complexity distribution, gate state, session state
+GET  /api/probe?detail=1         every measurement (complexity, R, spread, block/blur, timings)
+GET  /api/probe/score            flat-vs-live BPP+ for every unit — the audit trail for the cutover
+GET  /api/probe/find?q=title     unit key lookup, so you never guess an *arr id
+POST /api/probe/run?key=mv:123   probe ONE title now, ignoring the schedule
+POST /api/probe/session/start    probe continuously until stopped, ignoring the schedule
+POST /api/probe/session/stop     end it, killing any encode in flight
+```
+
+A **manual session** is Brennan's "the box is free for the next few hours" control (added
+2026-08-06). It waives only the schedule, keeps every safety gate, reports *why* it is idling via
+`session.waiting`, and **persists across a restart** — a session must survive `make deploy` or
+"until I tell it to stop" is not a promise the code keeps. UI: the Quality panel at the top of the
+Audit tab, which also shows the `auditVerifier` queue (one box, two bars).
+
+**A SESSION AND THE NIGHTLY RUN CANNOT COLLIDE, via three separate mechanisms** — worth knowing
+because the first cut of this got it wrong:
+1. **`_tickLock`, claimed synchronously** at the top of `probeTick`. Checking a flag and setting it
+   *after* an `await` is not mutual exclusion: the gate checks and queue build take seconds, and any
+   nightly tick firing in that window would also pass. Two concurrent encodes would overwrite the
+   single `_child` handle, leaving an **orphaned 3-thread x265 encode no safety gate can kill**.
+   `/api/probe/run` takes the same lock, for the same reason.
+2. **One queue, one cursor.** `nextUnit()` returns the first never-measured unit, so whichever path
+   runs next resumes where the other stopped. A killed unit was never cached, so it is simply next.
+3. **The night budget is shared on purpose.** Session encodes bill to `_night.spentMs`, so a session
+   running 01:00–03:00 leaves the nightly run ~120 min. That is correct, not double-counting: the
+   budget caps how long the box runs hot *at night*, and a manual encode at 02:00 heats it the same.
+   Daytime session time never touches it — `nightKey()` buckets by the window's start date.
+
+**Two things not to do.** Do not bump `PROBE_VERSION` for a scoring change — it invalidates the
+cache and throws away weeks of nights; it exists for changes to how a measurement is *taken*
+(reference width, CRF, sample count). Do enable `PROBE_YIELD_TO_JELLYFIN` only with care: one wedged
+Jellyfin task then costs weeks of probing, which is why it is off by default.
+
+**Verifying a night's work:** `tail /opt/appdata/controller/probe-watch.log` (a cron watcher samples
+`/api/probe` every 5 min — the timeline is what tells you whether it started, stalled, or was
+blocked), then `docker logs controller 2>&1 | grep "probe:"` for per-film results.
 
 ### Playback ground truth (MEASURED 2026-08-01, not assumed)
 
@@ -667,6 +781,7 @@ docker exec qbittorrent sh -c 'curl -s -c /tmp/j -d "username=brennan&password=b
 
 **Controller internals** (files on the host):
 - `/opt/appdata/controller/state.json` — `forceGrabImport`/`completedForceGrabs` (LOWERCASE infoHash keys), `searchState` (keyed `sonarr:{id}`), `declined`, `blocked`, `gpuSwapped`, `masterPaused`. To hand-edit: `docker stop controller`, edit, `docker start controller` (avoids the running process overwriting on its persist timer).
+- `/opt/appdata/controller/audit-verdicts.json` — **the audit's cached verdicts, split out of `state.json` on 2026-08-09.** They were 3.72 MB of a 3.79 MB `state.json` (~9.9 KB each — a verdict carries up to `MAX_CANDIDATES`=12 decorated releases), and `state.json` is rewritten IN FULL, SYNCHRONOUSLY, on a 500 ms debounce from a dozen call sites — so every torrent state change was stringifying and fsyncing ~4 MB. The upgrade scan's 754 extra verdicts would have taken it to ~11 MB on a 4-core box that also transcodes. Same split, same reasoning, as `probe-cache.json`. **Do not move verdicts back into `state.json`**; writers call `persistVerdicts()`, not `persistState()`. Losing the file is safe — it is a cache, so it only re-runs searches — and `loadState()` migrates an old embedded copy across once, automatically.
 - `/opt/appdata/controller/metrics/events/$(date +%F).jsonl` — event log (in-container: `/config/metrics/events/`). `jq -c 'select(.e=="fg_verify")'` etc.
 
 ## Log Query Patterns
@@ -741,6 +856,43 @@ The controller persists its state to `/config/state.json` on every sweep mutatio
 - `blocked` (request-gate entries)
 - `searchState` (cooldown/block timers)
 - `gpuSwapped` (movies already GPU-swapped once — the verifier's never-loop guard)
-- `masterPaused` (Movie Mode)
+- `masterPaused` (the MANUAL Movie Mode latch only — see below)
 
 This prevents reboot-triggered re-search storms.
+
+## Movie Mode — two latches
+
+Movie Mode pauses every torrent and every background sweep so the NUC's CPU and
+the single USB disk are free for playback. It has **two independent owners**, and
+`isMasterPaused()` is the OR of them — no sweep knows or cares which is holding it.
+
+| Latch | Set by | Persisted? | Cleared by |
+|-------|--------|-----------|-----------|
+| **manual** | the button on the Jobs tab | yes (`masterPaused` in state.json) | only an explicit second tap |
+| **auto** | Jellyfin playback, via webhook | **no** | playback stopping, + a grace period |
+
+The auto latch is deliberately not persisted: it is a claim about *right now*, and
+a restored "someone is watching" would be a guess about a session we can no longer
+see. It re-arms within a minute from the next `PlaybackProgress` event.
+
+Rules that fall out of the split, all asserted in `scripts/test-jobs.js`:
+- A film ending **never** clears a manual hold.
+- Clearing the manual hold mid-film does **not** resume the box — auto still holds it.
+- While auto holds it and manual does not, the button renders **disabled** ("Paused
+  automatically · something is playing"). If manual is *also* set the button stays
+  live, or starting a film would trap a manual pause on.
+
+**The auto latch is derived from a session table, not flipped by events.** A dropped
+`PlaybackStop` would otherwise halt every background job on the box forever with no
+error anywhere. `PlaybackProgress` refreshes each session's timestamp and anything
+unheard-from for 15 min is expired (`lib/movie-mode.js`). Delivery is the Jellyfin
+**Webhook plugin**, installed and configured by `scripts/provision/jellyfin.sh`
+(§6d4 + §9b) — it is load-bearing infrastructure, not a hand-configured convenience.
+
+**Known and accepted** (Brennan's call, 2026-08-06): auto-resume runs the same
+recipe as the manual button, which starts *all* torrents — including any paused by
+hand. The fix, if it ever annoys, is to snapshot running hashes before pausing and
+restore only those (`applyMovieMode()` in `lib/routes-actions.js`).
+
+Diagnosing "auto Movie Mode did nothing": `curl -s localhost:8088/api/movie-mode | jq`.
+`webhook.lastEvent` null after a film has played means the plugin is not delivering.

@@ -16,7 +16,36 @@ const compression = require('compression');
 const app = require('./lib/app');
 app.use(compression());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'web'), { maxAge: '1h' }));
+// CORS FOR SAFE METHODS, so the Jellyfin web client can read this API. jellyfin-web is served from
+// :8096 and the controller answers on :8088 — a different port is a different ORIGIN, so the browser
+// discards the response unless we say otherwise. Without this the detail page's award rows (which
+// fetch /api/awards) fail silently in the browser while `curl` shows a perfectly good 200 — exactly
+// the kind of bug that reads as "the feature just didn't ship".
+//
+// SECURITY: this widens nothing. The controller is LAN-only and deliberately unauthenticated (see
+// AGENTS.md §Auth — "the controller dashboard stays unauthenticated"), and serves no per-user data,
+// so anything a page can now read cross-origin it could already read by being on the network.
+// Scoped to safe methods regardless: GET/HEAD/OPTIONS only, so no mutating route (replace, delete,
+// reclaim) becomes cross-origin callable and no browser can be induced to fire one.
+app.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  return next();
+});
+// NO max-age ON THE APP'S OWN ASSETS. It used to be '1h', and that made every UI deploy invisible
+// for up to an hour: the browser served cached js/css without asking, so a change that WAS live on
+// the server looked like a change that had not shipped. Diagnosed 2026-08-06 after a UI fix appeared
+// absent while `curl` confirmed the new file was being served.
+//
+// `etag: true` (Express's default) + no max-age is the right trade here rather than a cache-busting
+// build step: the browser still revalidates with If-None-Match and still gets a 304 with an empty
+// body on the common case, so the bandwidth saving survives while correctness stops depending on the
+// reader remembering to hard-refresh. This is a LAN dashboard, not a CDN-fronted site — a
+// conditional request costs nothing worth measuring, and there is no build pipeline to hash names in.
+app.use(express.static(path.join(__dirname, 'web'), { etag: true, lastModified: true, maxAge: 0 }));
 
 const { cfg, PORT, NUC_IP, HOST } = require('./lib/config');
 const { tfetch } = require('./lib/clients');
@@ -29,6 +58,11 @@ state.loadState();
 // Route modules register their endpoints on the shared app as they load
 // (the middleware above is already applied). Order mirrors the original file.
 require('./lib/routes-system');
+// The job registry must load before any module that registers a job, and it owns /api/jobs.
+// Required explicitly here (rather than relying on a transitive require) so the Jobs tab does not
+// silently lose its endpoint if the last module that happened to import it is ever removed.
+require('./lib/jobs');
+const movieMode = require('./lib/movie-mode');
 const downloads = require('./lib/downloads');
 require('./lib/routes-elo');
 const { registerHssShelf, startShelfTimer } = require('./lib/hss-shelf');
@@ -49,6 +83,7 @@ const { startTop100GuardTimer } = require('./lib/top100-guard');
 const sweeps = require('./lib/sweeps');
 const searchEngine = require('./lib/search-engine');
 const jfScan = require('./lib/jf-scan');
+const probe = require('./lib/probe');
 
 // Cold-boot ordering: build collections, THEN register the shelves that read them, so the home
 // page is populated on first load instead of after the old 3-min gap. Polls Jellyfin (up to ~5
@@ -98,5 +133,11 @@ metricsRecorders.startRecorders();
 sweeps.startSweeps();
 searchEngine.startSearchEngine();
 jfScan.startJfScanTimers();
+movieMode.startMovieMode(); // auto Movie Mode: Jellyfin webhook arms it on playback, a 30s sweep
+                            // expires dead sessions and runs the release grace period.
+probe.startProbe();         // nightly CRF probe: measures per-film content complexity 01:00-06:00,
+                            // and installs it as the BPP+ denominator app-wide (installScoring()).
+                            // Must come before app.listen so no request is served with the flat
+                            // fallback after a restart. See docs/DESIGN-CRF-PROBE.md.
 
 app.listen(PORT, () => console.log(`controller listening on :${PORT} (NUC_IP=${NUC_IP}, keys ${cfg.RADARR_KEY ? 'loaded' : 'NOT provisioned'})`));

@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 const metrics = require('../metrics');
+const jobs = require('./jobs');
 const { cfg, HOST } = require('./config');
 const { tfetch, qbit, arrGet, arrOf } = require('./clients');
 const { getQbitTorrents, getQueueMap, getEpisodeHasFile } = require('./arr-data');
@@ -704,6 +705,26 @@ async function importWatchdog() {
         // points into the incomplete/ tree until completion. Wait for the next sweep.
         if ((liveTorrent.progress || 0) < 1) { fg.folder = null; continue; }
         if (liveTorrent.content_path) fg.folder = liveTorrent.content_path;
+        // STUCK COMPLETION MOVE — a wedge nothing downstream can recover from, so it must be LOUD.
+        // qBit is finished and has already set save_path to the category's complete dir, but
+        // content_path still points into incomplete/: the move out of the incomplete tree never
+        // happened. qBit does not retry it, and the guard below correctly refuses to import from
+        // there, so without this the item sits at "Importing" forever — no log line, no fail counter,
+        // no attention flag — while the missing-item scan re-searches it on a loop. Beach Party (1963)
+        // did exactly that for a full day (2026-08-09 → 08-10). The cause is almost always that the
+        // category dir is not writable by PUID, because provision.sh's mkdir runs as root; that origin
+        // is fixed in scripts/provision/qbittorrent.sh, and this is the detector for any other cause
+        // (full disk, cross-device rename, read-only remount).
+        if (String(fg.folder || '').includes('/torrents/incomplete/')) {
+          const dest = liveTorrent.save_path || CAT_PATH;
+          const prev = importState.get(fg.folder) || {};
+          if (!prev.reason) console.log(`watchdog: "${fg.seriesTitle}" finished downloading but qBittorrent never moved it out of the incomplete tree (${fg.folder} -> ${dest}) — check that ${dest} is writable by PUID`);
+          importState.set(fg.folder, {
+            lastTry: now, fails: (prev.fails || 0) + 1, backoff: IMPORT_BACKOFF_MIN,
+            reason: `stuck in incomplete/ — qBittorrent could not move it to ${dest} (check that path is writable by PUID)`,
+          });
+          continue;
+        }
       } else if (!fg.folder) {
         // Torrent gone from qBittorrent but may still have files on disk. Scan the force category
         // folder for a directory matching the item title.
@@ -925,10 +946,21 @@ async function recoverForceGrabImport() {
   } catch (e) { console.log('recover: forceGrabImport error —', e.message || e); }
 }
 
+const tWatchdog = jobs.define({
+  id: 'import-watchdog', name: 'Import rescue', group: 'Downloads', weight: 36,
+  what: 'Imports downloads the *arrs missed',
+  every: 60000, scheduleText: 'every 60s', pausedByMovieMode: true,
+}, importWatchdog);
+const tFgVerify = jobs.define({
+  id: 'fg-verify', name: 'Force-grab verify', group: 'Downloads', weight: 34,
+  what: 'Checks forced grabs landed correctly',
+  every: 60000, scheduleText: 'every 60s', pausedByMovieMode: true,
+}, forceGrabVerifySweep);
+
 function startWatchdog() {
-setInterval(forceGrabVerifySweep, 60000);
-setInterval(importWatchdog, 60000); // sweep every 60s (was 30s); imports take minutes, per-folder exponential backoff + batch cap bound real attempts
-setTimeout(importWatchdog, 8000);
+setInterval(tFgVerify, 60000);
+setInterval(tWatchdog, 60000); // sweep every 60s (was 30s); imports take minutes, per-folder exponential backoff + batch cap bound real attempts
+setTimeout(tWatchdog, 8000);
 setTimeout(recoverForceGrabImport, 4000);  // after loadState, before 1st watchdog at ~6s
 }
 

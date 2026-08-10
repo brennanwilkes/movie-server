@@ -20,10 +20,12 @@
 // SAFETY (memory: storm 2026-07-07): metadata Tags only. Never deletes items, triggers
 // searches/grabs, or touches user policies. oscar* tags must NEVER be added to any BlockedTags.
 
+const app = require('./app');
 const { cfg, HOST, filmAwards, personAwards, oscarWinners } = require('./config');
 const { tfetch, tfetchJson } = require('./clients');
 const { jellyfinUserId } = require('./jellyfin');
 const { isMasterPaused } = require('./state');
+const jobs = require('./jobs');
 
 const OSCAR_TAG_RE = /^oscar(s|-wins-\d+|-noms-\d+)$/;
 const FESTIVAL_TAG_RE = /^festival(?:-(cannes|sundance)(?:-(?:\d+|name-.+))?)?$/;
@@ -252,8 +254,81 @@ async function oscarTagsSweep() {
   finally { oscarTagsBusy = false; }
 }
 
+// Tracked for the Jobs tab; the export is wrapped so bootSequence's call counts (see collections.js).
+const tracked = jobs.define({
+  id: 'oscar-tags', name: 'Oscar badges', group: 'Metadata', weight: 56,
+  what: 'Tags films and people with Oscar wins',
+  every: 24 * 3600000, scheduleText: 'daily · and on boot', pausedByMovieMode: true,
+}, oscarTagsSweep);
+
 function startOscarTagsTimer() {
-  setInterval(oscarTagsSweep, 24 * 3600000);   // yearly-changing data — daily is plenty
+  setInterval(tracked, 24 * 3600000);   // yearly-changing data — daily is plenty
 }
 
-module.exports = { oscarTagsSweep, startOscarTagsTimer, getPersonOscarIndex, personOscarIndexAge };
+// ---- PER-AWARD DETAIL, for the detail pages ---------------------------------------------------
+// The Tags carry COUNTS ("oscar-wins-1"), which is all a poster badge needs. A detail page wants
+// the LIST — which award, which year, won or merely nominated (Brennan, 2026-08-09). That does not
+// belong in Tags: a film with 11 nominations would need 11 more of them, and Jellyfin renders Tags
+// verbatim in the detail page's own Tags line, where the existing three are already visible. So
+// the list is served from here instead.
+//
+// Both clients can reach this. The web flair JS is same-host; the Fire TV fork already derives a
+// controller base URL from the Jellyfin host and calls /api/hss/rows (HomeRowsFragment.kt), with a
+// graceful fallback when the controller is unreachable — the same pattern applies here.
+//
+// Keyed by IMDb for Oscars (how film-awards.json is keyed) and by TMDB for festivals (how
+// oscar-winners.json is keyed); a caller passes whichever ids Jellyfin gave it and gets back
+// whatever matched. Read-only, and no heavier than a map lookup, so it is safe on every page load.
+// ONE year, not a split season. The first six ceremonies covered an August-to-July eligibility
+// window, so the dataset carries "1932/33" for them (Katharine Hepburn's Morning Glory, and every
+// other award from those years). Seven characters where every neighbouring row has four throws the
+// column's spacing out (Brennan, 2026-08-09), and the second half adds nothing a viewer wants.
+//
+// Take the leading year, which is the FILM's year — consistent with what the four-digit rows
+// already show, and with the year rendered elsewhere on the detail page.
+//
+// Normalised HERE rather than in build-awards.sh or in each client: the raw value stays intact in
+// film-awards.json for archival, and the web flair script and the Fire TV fetcher both consume this
+// endpoint, so doing it once server-side means the two can never drift apart on it.
+const shortYear = (y) => {
+  const m = /^(\d{4})/.exec(String(y || ''));
+  return m ? m[1] : String(y || '');
+};
+
+app.get('/api/awards', (req, res) => {
+  try {
+    const imdb = String(req.query.imdb || '').trim();
+    const tmdb = String(req.query.tmdb || '').trim();
+    // PEOPLE are matched by normalised NAME, not by id — Jellyfin's person records mostly carry no
+    // IMDb id, which is why the tag sweep matches them this way too (see MATCHING at the top of
+    // this file). normName() here and norm_name() in build-awards.sh must stay identical.
+    const person = String(req.query.person || '').trim();
+    const film = imdb ? filmAwards[imdb] : (person ? personAwards[normName(person)] : null);
+    // Festivals are film awards; a person has none, so this stays empty on a person lookup.
+    const fest = tmdb && !person ? festivalByTmdb.get(tmdb) : null;
+    res.json({
+      imdb: imdb || null,
+      tmdb: tmdb || null,
+      person: person || null,
+      oscars: {
+        wins: (film && film.wins) || 0,
+        noms: (film && film.noms) || 0,
+        // build-awards.sh already orders these wins-first then by category; passed through in that
+        // order so every client renders the same list without re-deriving the sort.
+        // `a.n` carries the row's OTHER party, and which party that is depends on the lookup: on a
+        // film it is the people cited (pipe-delimited), on a person it is the film they were cited
+        // for. Split into two distinctly-named fields rather than one ambiguous `nominees`, so a
+        // client cannot render an actor's filmography under a "Nominees" label by accident.
+        awards: ((film && film.a) || []).map((a) => (person
+          ? { year: shortYear(a.y), category: a.c, won: !!a.w, film: a.n || '', nominees: [] }
+          : { year: shortYear(a.y), category: a.c, won: !!a.w, film: '', nominees: a.n ? a.n.split('|').filter(Boolean) : [] })),
+      },
+      festivals: {
+        cannes: (fest && fest.cannes) || [],
+        sundance: (fest && fest.sundance) || [],
+      },
+    });
+  } catch (e) { res.status(500).json({ error: String((e && e.message) || e) }); }
+});
+
+module.exports = { oscarTagsSweep: tracked, startOscarTagsTimer, getPersonOscarIndex, personOscarIndexAge };

@@ -68,10 +68,27 @@ prefs=$(jq -n --arg u "$QBIT_USER" --arg p "$QBIT_PASS" '{
   # = kernel crypto overhead. 150 global connections is plenty for throughput
   # and cuts WireGuard CPU by ~70% vs the default 500.
   max_connec: 150,
-  # DHT: behind gluetun/WireGuard, 340 constant DHT nodes = measurable crypto CPU
-  # for minimal benefit (trackers + PEX suffice). Kill it.
-  dht: (if env.QBIT_HOST == "gluetun" then false else true end),
-  pex: false,
+  # PEER DISCOVERY (revised 2026-08-09). Every indexer here is PUBLIC — there is no private tracker
+  # whose ratio accounting DHT/PeX would break, which is the only real reason to disable them.
+  # qBittorrent honours the per-torrent private flag by itself, so this stays safe if a private
+  # indexer is ever added. (No apostrophes in this block — it lives inside a single-quoted jq -n.)
+  #
+  # Both were off, and the DHT comment justified itself with "trackers + PEX suffice" while PEX was
+  # ALSO off — so the fallback that argument leaned on did not exist. The tracker was the single
+  # source of peer addresses, and public trackers keep SCRAPE COUNTERS for peers long after they
+  # stop announcing. Net effect: a magnet whose swarm is dead advertises "4 seeds", sits in metaDL
+  # forever, and there is no second opinion. Observed on Easy Rider (0 peers, 8 working trackers);
+  # it started downloading within a minute of DHT coming up.
+  #
+  # PEX is free — gossip over peer connections that already exist, no node table, no extra crypto.
+  # DHT is the one with a real cost on this 2c/4t Skylake behind WireGuard (~340 nodes of constant
+  # small-packet traffic, which is why it was killed). It is ON because the failure it fixes is the
+  # one actually wasting time here, and PEX cannot substitute: PEX needs one live peer to gossip
+  # with, which is exactly what a dead-tracker magnet does not have. Set QBIT_DHT=false in .env to
+  # give the NUC that headroom back; PEX should stay on either way.
+  dht: (env.QBIT_DHT != "false"),
+  pex: true,
+  # LSD stays off: multicast discovery scoped to the local subnet, which behind the VPN finds nobody.
   lsd: false,
   # Reject known-dangerous file extensions at download time so they never hit disk.
   # Substring match — a filename containing ".exe" (e.g. "crack.exe") is excluded.
@@ -89,6 +106,14 @@ qb_login "$QBIT_USER" "$QBIT_PASS"
 existing=$(curl -s -b "$jar" "$QB/api/v2/torrents/categories")
 for cat in radarr sonarr sonarr-force radarr-force; do
   mkdir -p "/data/torrents/complete/$cat"   # so Radarr/Sonarr's path-exists check passes
+  # ...and hand it to PUID, because this script runs as ROOT. A root-owned drwxr-xr-x category dir is
+  # unwritable by qBittorrent (PUID=1000), so the completion move out of incomplete/ fails with EACCES
+  # — SILENTLY. qBit still reports save_path as the complete dir (its intent) while content_path keeps
+  # pointing into incomplete/, and importer.js then refuses to import from the incomplete tree (by
+  # design), so the title sits at "Importing" forever while the missing-scan re-searches it on a loop.
+  # radarr-force was created by this very line on 2026-08-02 and wedged Beach Party (1963) for a day;
+  # the older categories only escaped because qBittorrent itself had created them first.
+  chown "${PUID:-1000}:${PGID:-1000}" "/data/torrents/complete/$cat" 2>/dev/null || true
   if echo "$existing" | jq -e --arg c "$cat" 'has($c)' >/dev/null 2>&1; then
     curl -s -b "$jar" --data-urlencode "category=$cat" --data-urlencode "savePath=/data/torrents/complete/$cat" "$QB/api/v2/torrents/editCategory" >/dev/null
     ok "category '$cat' present (path updated)"

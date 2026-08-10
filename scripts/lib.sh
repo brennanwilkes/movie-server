@@ -27,6 +27,45 @@ arr_apikey() {
   sed -n 's:.*<ApiKey>\(.*\)</ApiKey>.*:\1:p' "$f" | head -n1
 }
 
+# job_status ID STATE [DETAIL] — publish a status file the controller's Jobs tab can read.
+#
+# WHY A FILE: host-side jobs run as systemd timers, and the controller is a container with no
+# /run/systemd and no systemctl binary — it cannot see them at all. ${CONFIG}/controller is already
+# bind-mounted into the controller as /config (see docker-compose.yml), so a small JSON file there
+# is the cheapest possible bridge. Same push-a-status-file shape the tailscale sidecar already uses.
+#
+# Write is tmp+rename so the controller can never read a half-written file. One file per job id, so
+# two host scripts cannot clobber each other. Never fails the caller: a reporting side-channel must
+# not be able to break the job it is reporting on, which is why every failure path returns 0.
+#
+# Optional metadata via env (set once at the top of the script): JOB_NAME, JOB_WHAT, JOB_GROUP,
+# JOB_WEIGHT, JOB_SCHEDULE, JOB_EVERY_MS (drives the controller's no-heartbeat staleness check),
+# JOB_DONE/JOB_TOTAL (progress bar), JOB_LAST_MS, JOB_RUNS.
+job_status() {
+  local id=$1 state=$2 detail=${3:-}
+  local dir="${CONTROLLER_CONFIG:-/opt/appdata/controller}/host-jobs"
+  command -v jq >/dev/null 2>&1 || return 0
+  mkdir -p "$dir" 2>/dev/null || return 0
+  local now ok_ts
+  now=$(( $(date +%s) * 1000 ))
+  ok_ts=0; [[ "$state" != error ]] && ok_ts=$now
+  jq -n \
+    --arg id "$id" --arg name "${JOB_NAME:-$id}" --arg what "${JOB_WHAT:-}" \
+    --arg group "${JOB_GROUP:-Media processing}" --arg state "$state" --arg detail "$detail" \
+    --arg sched "${JOB_SCHEDULE:-}" \
+    --argjson weight "${JOB_WEIGHT:-50}" --argjson every "${JOB_EVERY_MS:-0}" \
+    --argjson ts "$now" --argjson lastOk "$ok_ts" \
+    --argjson lastMs "${JOB_LAST_MS:-0}" --argjson runs "${JOB_RUNS:-0}" \
+    --argjson done "${JOB_DONE:-0}" --argjson total "${JOB_TOTAL:-0}" \
+    '{ id:$id, name:$name, what:$what, group:$group, weight:$weight, state:$state,
+       detail:$detail, scheduleText:$sched, every:$every, ts:$ts, lastRun:$ts,
+       lastOk:$lastOk, lastMs:$lastMs, runs:$runs }
+     + (if $total > 0 then { progress: { done:$done, total:$total } } else {} end)' \
+    > "$dir/$id.json.tmp" 2>/dev/null \
+    && mv -f "$dir/$id.json.tmp" "$dir/$id.json" 2>/dev/null
+  return 0
+}
+
 # require CMD... — fail early if a required tool is missing.
 require() { for c in "$@"; do command -v "$c" >/dev/null || die "missing required tool: $c"; done; }
 

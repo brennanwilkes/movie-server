@@ -8,7 +8,8 @@
 // once, and two of the bugs below were found by running the model against the live library rather
 // than by reading the code.
 const {
-  bppOf, bppBand, bppSource, bppIndex, dimsOf, BPP_TARGET, BPP_RANK, X265_EFFICIENCY,
+  bppOf, bppBand, bppSource, bppIndex, bppBasis, dimsOf, BPP_TARGET, BPP_RANK, X265_EFFICIENCY,
+  setComplexityResolver,
 } = require('../controller/lib/arr-inspect');
 
 let pass = 0; let fail = 0;
@@ -112,6 +113,69 @@ ok(bppIndex(0.0543) === 65, '...reading as 65 — roughly 1.5x the visible error
 // Ordering must match the rank map every consumer sorts by.
 ok(BPP_RANK.wow < BPP_RANK.ok && BPP_RANK.ok < BPP_RANK.warn && BPP_RANK.warn < BPP_RANK.bad,
   'BPP_RANK orders best-to-worst, which is what the Upgrade sort and the band floor assume');
+
+// ---- THE PROBE CUTOVER (2026-08-06) ---------------------------------------------------------
+// bppIndex(bpp, key) divides by the film's OWN measured complexity instead of the flat BPP_TARGET.
+// Four properties matter and all four are load-bearing:
+//   1. no key  -> bit-identical to the pre-probe value. 12 call sites were changed; a missed one
+//                 must degrade to the old number, never to a wrong one.
+//   2. a key with a measurement -> that film's denominator.
+//   3. a key WITHOUT one, or a resolver that throws -> flat fallback. The probe must never be able
+//                 to take the Audit tab down or blank a badge.
+//   4. basis is reported, so an inferred number can be marked in the UI rather than passed off as
+//                 measured (DESIGN-CRF-PROBE.md §6).
+//
+// The expected values are the real 2026-08-06 measurements, so this suite also pins the two films
+// that motivated the whole probe. Casablanca and Blade Runner 2049 move in OPPOSITE directions —
+// which is the property no single global constant can have.
+const CX = {                    // measured complexity, H.264-equivalent bpp per pixel per frame
+  'mv:casablanca': 0.27853,     // B&W, heavy grain — 2.1x more demanding than the flat 0.13
+  'mv:br2049': 0.06700,         // clean modern digital — 1.9x less
+};
+setComplexityResolver((k) => (CX[k] ? { target: CX[k], basis: 'measured' } : null));
+
+// 1. Unkeyed calls are untouched by the cutover.
+ok(bppIndex(0.43593) === 183, 'no key: Casablanca still scores 183 against the flat target');
+ok(bppIndex(0.0543) === 65, 'no key: the YTS figure above is unchanged');
+ok(bppBasis(undefined) === 'flat', 'no key reports basis "flat", not a fake measurement');
+
+// 2. A measured film is scored against its own content.
+ok(bppIndex(0.43593, 'mv:casablanca') === 125,
+  'Casablanca falls 183 -> 125: its bitrate buys grain, so it was never as over-provisioned as it looked');
+ok(bppIndex(0.245, 'mv:br2049') === 191,
+  'Blade Runner 2049 rises 137 -> 191: clean digital needs few bits, so its copy is genuinely lavish');
+ok(bppBasis('mv:casablanca') === 'measured', 'a measured film says so');
+// The direction of the correction is the point — opposite signs from one constant is impossible.
+ok(bppIndex(0.43593, 'mv:casablanca') < bppIndex(0.43593)
+  && bppIndex(0.245, 'mv:br2049') > bppIndex(0.245),
+  'the probe moves grainy films DOWN and clean films UP — the systematic bias a flat target cannot fix');
+
+// 3. Every failure path falls back rather than breaking.
+ok(bppIndex(0.43593, 'mv:never-probed') === 183, 'an unmeasured key falls back to the flat target');
+ok(bppBasis('mv:never-probed') === 'flat', '...and reports it as flat');
+setComplexityResolver((k) => (k === 'mv:zero' ? { target: 0, basis: 'measured' } : null));
+ok(bppIndex(0.43593, 'mv:zero') === 183, 'a zero/garbage target is rejected, not divided by');
+setComplexityResolver(() => { throw new Error('probe exploded'); });
+ok(bppIndex(0.43593, 'mv:casablanca') === 183, 'a THROWING resolver cannot break scoring');
+ok(bppBand(0.43593, 'mv:casablanca') === 'wow', '...and cannot blank a band either');
+
+// 4. Bands follow the keyed value, not the flat one. Schindler's List is the case that matters:
+// the flat target scored it 94 — orange, "diminished but maybe fine" — when its content is the most
+// demanding measured so far (0.3511, B&W with heavy grain). The honest figure is 57, deep red.
+// Getting this wrong is what hid the library's best upgrade candidate behind a survivable colour.
+setComplexityResolver((k) => (k === 'mv:schindler' ? { target: 0.35110, basis: 'measured' } : null));
+ok(bppIndex(0.115, 'mv:schindler') === 57, "Schindler's List is 57, not 94");
+ok(bppBand(0.115, 'mv:schindler') === 'bad' && bppBand(0.115) === 'warn',
+  '...and its BAND flips orange -> red, which is what makes it visible as underserved');
+
+// An estimated basis must be distinguishable from a measured one — the UI marks it with a ~.
+setComplexityResolver(() => ({ target: 0.1237, basis: 'estimated:global' }));
+ok(bppBasis('mv:anything') === 'estimated:global', 'an inferred denominator reports itself as estimated');
+// The measured median (0.1237) is within 5% of the flat 0.13, which is why the cutover barely moved
+// the 93% of the library that had no measurement yet. Verified live: median move was 2 points.
+ok(Math.abs(bppIndex(0.13, 'mv:anything') - bppIndex(0.13)) <= 3,
+  'an unmeasured film moves by at most a couple of points — the cutover was near-free for most titles');
+setComplexityResolver(null);    // leave the module as we found it
 
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

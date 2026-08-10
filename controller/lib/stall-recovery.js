@@ -6,6 +6,7 @@
 // every 5 min, first run at 20s.
 
 const metrics = require('../metrics');
+const jobs = require('./jobs');
 const { tfetch, qbit, arrGet, arrOf } = require('./clients');
 const { getQbitTorrents, getQueueMap, torrentApp, isForceGrabCategory } = require('./arr-data');
 const { forceGrabImport, auditPending, isMasterPaused } = require('./state');
@@ -172,9 +173,15 @@ async function stallRecovery() {
   }
 }
 
+const tracked = jobs.define({
+  id: 'stall-recovery', name: 'Stall recovery', group: 'Downloads', weight: 32,
+  what: 'Restarts downloads that stopped moving',
+  every: 300000, scheduleText: 'every 5 min', pausedByMovieMode: true,
+}, stallRecovery);
+
 function startStallRecovery() {
-  setInterval(stallRecovery, 300000); // every 5 min — STALL_DEAD/throttles gate the actual actions
-  setTimeout(stallRecovery, 20000);
+  setInterval(tracked, 300000); // every 5 min — STALL_DEAD/throttles gate the actual actions
+  setTimeout(tracked, 20000);
 }
 
 module.exports = { stallRecovery, startStallRecovery, _stallSince, isAcceptedRare, STALL_DEAD };

@@ -68,7 +68,9 @@ const sz = (g) => (g >= 1024 ? `${(g / 1024).toFixed(1)} TB` : `${Math.round(g)}
 // key/value table: the arrow carries the comparison that the "NOW / BEST" labels used to.
 // Depth is only shown for HEVC. For H.264 it is noise — 10-bit H.264 (Hi10P) is caught by
 // the title regex and excluded, so anything reaching here plays everywhere regardless.
-const pill = (t, cls = '') => `<span class="apill ${cls}">${esc(t)}</span>`;
+// `tip` is optional and lands in title="" — for the pills whose label is shorter than the caveat
+// behind it (the seed count is the indexer's claim, not a live measurement; see seedPill).
+const pill = (t, cls = '', tip = '') => `<span class="apill ${cls}"${tip ? ` title="${esc(tip)}"` : ''}>${esc(t)}</span>`;
 // An in-flight swap must show whether it is actually MOVING. Audit swaps are exempt from
 // stallRecovery on purpose (it was deleting live swaps), so a dead swarm sits until the 48 h
 // abandon with nothing retrying it — and "swapping · 445 min" made that look like progress.
@@ -114,7 +116,22 @@ const DEV_CLS = { ok: 'ok', tx: 'warn', no: 'bad' };
 // meaning at 0-2 seeders is "this will probably never finish" — every stall we have chased this week
 // (Wire S05, American Gods S01, Rings of Power S01, Challengers) began as a low-seed grab that looked
 // merely cautionary. 3-4 stays amber; the >=5 threshold is unchanged.
-const seedPill = (n) => pill(`${n} seeds`, `seeds ${n < 3 ? 'bad' : (n < 5 ? 'warn' : '')}`);
+// THE SEED COUNT IS NOT A LIVE MEASUREMENT, and the tooltip now says so. It is the indexer's
+// figure, which comes from a tracker SCRAPE COUNTER — and public trackers keep counting peers long
+// after they stop announcing. A row can read "4 seeds" with nobody reachable in the swarm at all
+// (Gladiator 2000 Extended, 2026-08-09: eight working trackers, scrape counters claiming 1-3 seeds,
+// zero peers ever connected, twice). deadPill below is the live half of the story.
+const seedPill = (n) => pill(`${n} seeds`, `seeds ${n < 3 ? 'bad' : (n < 5 ? 'warn' : '')}`,
+  'reported by the indexer when this was searched, not a live count');
+
+// WE ACTUALLY TRIED THIS ONE AND IT NEVER CONNECTED. Set by the server from auditDead, which
+// records every release a swap was abandoned on (see abandonDeadSwap). Unlike the seed count this
+// is evidence, not a claim — so it earns the strongest treatment on the card. The candidate stays
+// pickable on purpose: swarms revive, and the alternative may be worse. It just never leads, and it
+// never surprises anyone again.
+const deadPill = (c) => (c.dead
+  ? pill('dead swarm', 'seeds bad', `tried ${c.deadAgeH < 48 ? `${c.deadAgeH}h` : `${Math.round(c.deadAgeH / 24)}d`} ago — never connected to a peer. Still selectable; swarms do come back.`)
+  : '');
 
 // Playback candidates may legitimately be BIGGER now that source upgrades are allowed there, so
 // this has to render a gain as well as a saving. It previously showed "−0GB" for a candidate 2 GB
@@ -266,7 +283,7 @@ function auditRowHtml(r) {
   // bitrate too, a bare swap to Mbps would have cost that tab the codec — the one thing it exists
   // to fix. Codec first (it is why the row is listed), bitrate second.
   const rate = [esc(r.label || ''), r.bpp != null && b.bpp != null
-    ? `${bppSpan(r.bppPlus, r.bppBand)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand)}` : '']
+    ? `${bppSpan(r.bppPlus, r.bppBand, r.cxBasis)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand, b.cxBasis)}` : '']
     .filter(Boolean).join('<i>·</i>');
   // A swap already in flight: the row is NOT actionable, so it does not pretend to be. No
   // data-key, no role=button — tapping it does nothing rather than opening a sheet whose Replace
@@ -295,7 +312,15 @@ function auditRowHtml(r) {
         <span class="aud-delta">${fmtBytes(r.bytes)}<i>→</i>${fmtBytes(b.bytes)}</span>
         <span class="aud-rate">${rate}</span>
       </div>
-      <div class="aud-pills">${devPills(b)}</div>
+      <!-- DEVICE PILLS DESCRIBE THE COPY ON DISK, not the suggested replacement. Brennan,
+           2026-08-06: "when we've got a row that's being recommended for replacement, the badges at
+           the bottom for device compatibility should be for the current copy, not the potential
+           replacement." Right, and it was backwards: this list answers "which of these do I actually
+           need to deal with?", which is a question about what you OWN. Showing the candidate's
+           compatibility made a row look healthy because its proposed fix would be — the row would go
+           green for a problem that is still entirely present. The candidate's own pills are on its
+           card in the sheet, which is where a comparison belongs. -->
+      <div class="aud-pills">${devPills(currentAsCandidate(r))}</div>
     </span>
     <span class="aud-right">${savePill(r.bytes, b.bytes)}${seedPill(b.seeders)}</span>
   </li>`;
@@ -357,7 +382,11 @@ function auditEditionRowHtml(r) {
       </div>
       <!-- NO esc() around pill() arguments: pill() escapes internally, so wrapping it double-encoded
            and rendered a literal "Director&#39;s Cut" on screen. See the note above pill(). -->
-      <div class="aud-pills">${badge}${b ? pill(b.edition || 'cut unstated', 'ok') : ''}${b ? devPills(b) : ''}</div>
+      <!-- The EDITION pill is the candidate's (it is what the row is offering), but the DEVICE pills
+           are the current copy's — same reasoning as auditRowHtml above. Unconditional now rather
+           than gated on a candidate existing: an edition row is shown whether or not a replacement
+           was found, and the compatibility of the file you hold is worth knowing either way. -->
+      <div class="aud-pills">${badge}${b ? pill(b.edition || 'cut unstated', 'ok') : ''}${devPills(currentAsCandidate(r))}</div>
     </span>
     <span class="aud-right">${b ? seedPill(b.seeders) : ''}</span>
   </li>`;
@@ -407,10 +436,10 @@ function renderAudit() {
   // browse surface. Falls back to an em dash until the section has been opened once.
   fill('upgrade', upgLibTotal ? String(upgLibTotal) : '–', upgLibTotal ? 'movies · pick a better copy' : 'browse the library');
 
-  if (t.unverified > 0) {
-    setText('#audit-progress', `Verifying · ${t.unverified} left · ~${t.etaMin} min`);
-    setHidden('#audit-progress', false);
-  } else { setHidden('#audit-progress', true); }
+  // Verification progress is reported on the Jobs tab now ("Source check"), fed by the verifier
+  // itself rather than by whatever /api/audit last returned — so it stays live even when this tab
+  // has never been opened. t.unverified / t.verifyTotal / t.etaMin are still served for anything
+  // else that wants them; nothing on this tab draws them any more.
 
   // Reclaim is offered only on the Stale section, and only when the server reports rows it
   // has itself judged COVERED.
@@ -534,7 +563,7 @@ function renderAudSheet() {
         <span class="aud-age">checked ${auditAge(v.ts)} ago</span>
       </div>
       <div class="aud-line">
-        <span class="aud-delta">${fmtBytes(r.bytes)}${r.bppPlus != null ? `<i>·</i>${bppSpan(r.bppPlus, r.bppBand)}` : ''}</span>
+        <span class="aud-delta">${fmtBytes(r.bytes)}${r.bppPlus != null ? `<i>·</i>${bppSpan(r.bppPlus, r.bppBand, r.cxBasis)}` : ''}</span>
         <span class="aud-rate">${esc(r.label || '')}</span>
         <span class="aud-inline">${srcPill(r.source, 0)}</span>
       </div>
@@ -547,13 +576,13 @@ function renderAudSheet() {
   // a discrete choice is redundant, and on a phone it cost a whole extra row per candidate.
   // Only cards carrying a guid are actionable; the CURRENT card above has none.
   $('#aud-results').innerHTML = cands.length ? cands.map((c) => `
-    <div class="aud-cand${c.guid ? ' pick' : ''}"${c.guid ? ` data-guid="${esc(c.guid)}" role="button" tabindex="0"` : ''}>
+    <div class="aud-cand${c.guid ? ' pick' : ''}${c.dead ? ' dead' : ''}"${c.guid ? ` data-guid="${esc(c.guid)}" role="button" tabindex="0"` : ''}>
       <div class="aud-cand-head">
         <span class="aud-cand-title" title="${esc(c.title)}">${esc(c.title)}</span>
-        ${savePill(r.bytes, c.bytes, 'sm')}
+        ${deadPill(c)}${savePill(r.bytes, c.bytes, 'sm')}
       </div>
       <div class="aud-line">
-        <span class="aud-delta">${fmtBytes(c.bytes)}${c.bppPlus != null ? `<i>·</i>${bppSpan(c.bppPlus, c.bppBand)}` : ''}</span>
+        <span class="aud-delta">${fmtBytes(c.bytes)}${c.bppPlus != null ? `<i>·</i>${bppSpan(c.bppPlus, c.bppBand, c.cxBasis)}` : ''}</span>
         <span class="aud-rate">${esc(c.codec === 'H.264' ? c.codec : `${c.codec} ${c.depth}`)}</span>
         <span class="aud-inline">${srcPill(c.source, c.srcDrop || 0)}${audioPill(c, 'wide-only')}</span>
       </div>
@@ -736,64 +765,11 @@ function recError(msg) {
 $('#rec-cancel').addEventListener('click', closeRec);
 $('#rec-backdrop').addEventListener('click', (e) => { if (e.target === $('#rec-backdrop')) closeRec(); });
 
-// Re-check everything: drop every cached verdict so the paced background verifier re-searches the
-// whole library. Verdicts are trusted for 14 days, which is right for a background sweep but means
-// "is there something better yet?" could not be asked on demand.
-//
-// TWO CLICKS, not a modal. A full re-check is ~2.5 hours of paced indexer searching, far too much to
-// start from one stray tap — but it is also not destructive (verification only SEARCHES; grabbing and
-// deleting are /api/audit/replace, always human-driven), so it does not deserve a confirmation
-// dialog either. First click DRY RUNS and puts the real cost on the button; second click commits.
-let rescanArmed = false;
-function rescanDisarm() {
-  rescanArmed = false;
-  const btn = $('#aud-rescan');
-  if (btn && !isBusy(btn)) btn.textContent = 'Re-check everything';
-  setText('#aud-rescan-note', '');
-}
-$('#aud-rescan').addEventListener('click', async () => {
-  const btn = $('#aud-rescan');
-  if (isBusy(btn)) return;
-  if (!rescanArmed) {
-    btnBusy(btn, 'Checking…');
-    try {
-      const j = await postJSON('/api/audit/rescan', { dryRun: true });
-      btnIdle(btn);
-      rescanArmed = true;
-      btn.textContent = `Re-check ${j.wouldDrop} titles — tap again`;
-      // Movie Mode pauses the verifier, so say so BEFORE committing: a rescan started while
-      // streaming would otherwise look like a button that did nothing at all.
-      setText('#aud-rescan-note', j.paused
-        ? `about ${j.etaMinutes} min · will not start until Movie Mode is off`
-        : `about ${j.etaMinutes} min, one search at a time`);
-    } catch (e) {
-      btnIdle(btn);
-      setText('#aud-rescan-note', '');
-      toast(`Could not check: ${e.message || ''}`);
-    }
-    return;
-  }
-  btnBusy(btn, 'Clearing…');
-  try {
-    const j = await postJSON('/api/audit/rescan', {});
-    toast(j.paused ? 'Cleared — will run once Movie Mode is off' : `Re-checking ${j.dropped} titles`);
-    rescanArmed = false;
-    btnIdle(btn);
-    btn.textContent = 'Re-check everything';
-    setText('#aud-rescan-note', j.paused
-      ? `${j.dropped} verdicts cleared — paused while Movie Mode is on`
-      : `Re-checking ${j.dropped} titles · about ${j.etaMinutes} min`);
-    loadAudit(true);
-  } catch (e) {
-    toast(`Could not start the re-check: ${e.message || ''}`);
-    btnIdle(btn);
-    rescanDisarm();
-  }
-});
-// An armed button must not survive the user's attention moving elsewhere on the tab.
-$('#tab-audit').addEventListener('click', (e) => {
-  if (rescanArmed && !e.target.closest('#aud-rescan')) rescanDisarm();
-});
+// The whole-library "Re-check sources" control MOVED to the Jobs tab on 2026-08-06 (it is a job
+// control, and it now sits on the job it drives). Its two-tap arm moved with it. The dry-run cost
+// preview did not: the Jobs tab shows the resulting ETA on the Source check bar the moment the pass
+// starts, which is the same fact one tap later and without a second round-trip.
+// Per-ROW re-checks stay on this tab — those are about a title, not about background work.
 
 $('#aud-reclaim').addEventListener('click', async () => {
   const safe = (auditData.stale.rows || []).filter((r) => r.cov === 'COVERED' && r.hash);
@@ -1026,8 +1002,8 @@ function auditUpgradeRowHtml(r) {
   // read as though the number described the candidate, which is the one thing it does not.
   const facts = [size, r.bppPlus != null
     ? (b && b.bppPlus != null
-      ? `${bppSpan(r.bppPlus, r.bppBand)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand)}`
-      : bppSpan(r.bppPlus, r.bppBand))
+      ? `${bppSpan(r.bppPlus, r.bppBand, r.cxBasis)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand, b.cxBasis)}`
+      : bppSpan(r.bppPlus, r.bppBand, r.cxBasis))
     : ''].filter(Boolean).join('<i>·</i>');
   const none = !b && v.state ? '<span class="aud-none">nothing better found</span>' : '';
   return `<li class="row aud upg${qbarCls(r.bppBand)}" data-key="${esc(r.key)}" role="button" tabindex="0">
@@ -1057,3 +1033,9 @@ function gainPills(b) {
   const l = (b.losses || []).map((x) => pill(`− ${x}`, 'bad')).join('');
   return g + l;
 }
+
+// The QUALITY PANEL that lived here (probe progress, source-verification progress, and the
+// probe start/stop control) MOVED to the Jobs tab on 2026-08-06, along with the whole-library
+// "Re-check sources" button. Brennan's call: every background job now reports in one place and one
+// format, so keeping a second, prettier report of two of them here would recreate exactly the
+// inconsistency the Jobs tab was built to remove. See web/js/jobs.js.

@@ -27,6 +27,7 @@
 // cannot see this; ffprobe already did.
 
 const metrics = require('../metrics');
+const jobs = require('./jobs');
 const { arrGet } = require('./clients');
 const { gpuTier, videoLabel } = require('./arr-inspect');
 const { isMasterPaused } = require('./state');
@@ -95,9 +96,15 @@ async function cpuCensusSweep() {
   } finally { censusBusy = false; }
 }
 
+const tracked = jobs.define({
+  id: 'cpu-census', name: 'Decode census', group: 'Quality', weight: 50,
+  what: 'Counts files that cannot hardware-decode',
+  every: 6 * 3600000, scheduleText: 'every 6h', pausedByMovieMode: true,
+}, cpuCensusSweep);
+
 function startCpuCensus() {
-  setInterval(cpuCensusSweep, 6 * 3600000);   // 6h — the backlog moves slowly; this is a trend line
-  setTimeout(cpuCensusSweep, 300000);         // 5 min after boot, well clear of the startup rush
+  setInterval(tracked, 6 * 3600000);   // 6h — the backlog moves slowly; this is a trend line
+  setTimeout(tracked, 300000);         // 5 min after boot, well clear of the startup rush
 }
 
-module.exports = { cpuCensusSweep, startCpuCensus };
+module.exports = { cpuCensusSweep: tracked, startCpuCensus };

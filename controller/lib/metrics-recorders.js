@@ -7,6 +7,7 @@
 
 const fs = require('fs');
 const app = require('./app');
+const jobs = require('./jobs');
 const metrics = require('../metrics');
 const { HOST } = require('./config');
 const { tfetch } = require('./clients');
@@ -64,12 +65,23 @@ app.get('/api/metrics', (req, res) => {
   res.json({ stream, data, info, count: data.length });
 });
 
+const tSystem = jobs.define({
+  id: 'metrics-system', name: 'System metrics', group: 'System', weight: 8,
+  what: 'Records CPU, memory and disk',
+  every: 10000, scheduleText: 'every 10s',
+}, recordSystemMetrics);
+const tServices = jobs.define({
+  id: 'metrics-services', name: 'Service probes', group: 'System', weight: 6,
+  what: 'Checks each service is up',
+  every: 30000, scheduleText: 'every 30s',
+}, recordServiceMetrics);
+
 function startRecorders() {
 // Fire at 2s, then every 10s via a chained setInterval so the first
 // callback and all subsequent repeats keep a consistent offset.
-setTimeout(() => { recordSystemMetrics(); setInterval(recordSystemMetrics, 10000); }, 2000);
+setTimeout(() => { tSystem(); setInterval(tSystem, 10000); }, 2000);
 // Fire at 7s (5s after system first fire), then every 10s.
-setTimeout(() => { recordServiceMetrics(); setInterval(recordServiceMetrics, 30000); }, 7000);   // 30s (was 10s): service up/down is meaningful at 30s; cuts Jellyfin auth-challenge frequency ~67%
+setTimeout(() => { tServices(); setInterval(tServices, 30000); }, 7000);   // 30s (was 10s): service up/down is meaningful at 30s; cuts Jellyfin auth-challenge frequency ~67%
 }
 
 module.exports = { startRecorders };

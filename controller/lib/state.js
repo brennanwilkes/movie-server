@@ -52,17 +52,54 @@ const auditPending = new Map();
 // recorded infoHash/title is precise; a size-and-source heuristic is NOT — it would reject the
 // legitimate 10-bit → 8-bit swap at the same source and size, which is this section's whole job.
 const auditSwapped = new Map();
+// RELEASES PROVEN DEAD, keyed by the release TITLE (lowercased): -> { ts, hash, title }.
+//
+// Separate from auditSwapped, which is keyed by ROW and therefore holds exactly one entry per film
+// — the last release swapped to. That is the wrong shape for remembering corpses, because a film
+// with a dead swarm burns SEVERAL releases in a row: Gladiator (2000) lost CiNEFiLE, and then the
+// record was about to be overwritten by OFT, forgetting the first. Keying by release means every
+// one that failed stays remembered, and remembered ACROSS films — the same dead pack is often
+// listed by several indexers under near-identical names.
+//
+// Written only by abandonDeadSwap(); read at serve time to mark candidates in the Audit tab so a
+// human is not offered a corpse with no warning. Entries expire after DEAD_REFUSE_TTL_MS (7 days)
+// because swarms do revive, so this map stays small and self-pruning.
+const auditDead = new Map();
 // "Movie Mode" master switch: when true, ALL background work (downloads + every sweep) is paused so
-// the NUC's CPU + the single USB disk are free for smooth Jellyfin playback. Persisted so it stays
-// off/on across a controller restart — only an explicit resume turns it back on.
-let masterPaused = false;
+// the NUC's CPU + the single USB disk are free for smooth Jellyfin playback.
+//
+// TWO INDEPENDENT LATCHES, because the switch now has two owners with different lifetimes:
+//   manualPause  the button on the Processes tab. PERSISTED — it stays on across a controller
+//                restart and is cleared only by an explicit tap. This is a human saying "leave
+//                the box alone", and a deploy must not silently override that.
+//   autoPause    playback detected via the Jellyfin webhook (see movie-mode.js). NOT persisted:
+//                it is a statement about right now, and a restored-from-disk "someone is
+//                watching" would be a guess about a session we can no longer see. On restart it
+//                starts false and the next PlaybackProgress event re-arms it within a minute.
+//
+// isMasterPaused() is the OR of the two, so all ten gating modules keep working unchanged — none
+// of them needs to care why the box is quiet, only that it is.
+let manualPause = false;
+let autoPause = false;
+// THE AUTO LATCH IS NOT PERSISTED, BUT ITS SIDE EFFECT IS. Stopping every torrent and setting
+// add_stopped_enabled lives in qBittorrent's own config, which survives a controller restart — so a
+// deploy (or a crash) while auto Movie Mode was holding the box would clear the latch on boot and
+// leave the torrents stopped with nothing left that knows to resume them. Downloads would silently
+// never restart until someone toggled Movie Mode by hand.
+//
+// This records that AUTO — not the human — is the reason qBittorrent is currently held down, so
+// startMovieMode() can undo exactly that on boot and nothing else. Deliberately narrow: it is never
+// set for a manual pause, so a restart can never override a deliberate human hold.
+let autoHeldQbit = false;
 // Persist declined + blocked tombstones across restarts so the "Declined" rows
 // survive a controller reboot.
 function persistState() {
   clearTimeout(persistState._timer);
   persistState._timer = setTimeout(() => {
     try {
-      const obj = { declined: {}, blocked: {}, searchState: {}, gpuSwapped: {}, gpuPending: {}, masterPaused, forceGrabImport: {}, completedForceGrabs: {}, auditVerdicts: {}, auditPending: {}, auditSwapped: {} };
+      // NOTE: `auditVerdicts` is deliberately NOT in here — it lives in its own file. See
+      // persistVerdicts() below for why.
+      const obj = { declined: {}, blocked: {}, searchState: {}, gpuSwapped: {}, gpuPending: {}, masterPaused: manualPause, autoHeldQbit, forceGrabImport: {}, completedForceGrabs: {}, auditPending: {}, auditSwapped: {}, auditDead: {} };
       for (const [k, v] of declined) obj.declined[k] = v;
       for (const [k, v] of blocked) obj.blocked[k] = v;
       for (const [k, v] of searchState) obj.searchState[k] = v;
@@ -70,9 +107,9 @@ function persistState() {
       for (const [k, v] of gpuPending) obj.gpuPending[k] = v;
       for (const [k, v] of forceGrabImport) obj.forceGrabImport[k] = v;
       for (const [k, v] of completedForceGrabs) obj.completedForceGrabs[k] = v;
-      for (const [k, v] of auditVerdicts) obj.auditVerdicts[k] = v;
       for (const [k, v] of auditPending) obj.auditPending[k] = v;
       for (const [k, v] of auditSwapped) obj.auditSwapped[k] = v;
+      for (const [k, v] of auditDead) obj.auditDead[k] = v;
       // Atomic replace (temp + rename on the same filesystem): a kill/crash mid-write can never
       // truncate the live file — a truncated state.json is silently parsed as empty by loadState,
       // which wipes every persisted guard (gpuSwapped, searchState, declined, blocked, auditPending…).
@@ -82,6 +119,56 @@ function persistState() {
     } catch { /* */ }
   }, 500);
 }
+// ---- AUDIT VERDICTS: THEIR OWN FILE ─────────────────────────────────────────────────────────
+// Measured 2026-08-09: state.json was 3.79 MB, of which auditVerdicts was 3.72 MB — 98% of it, at
+// ~9.9 KB per verdict (each carries up to MAX_CANDIDATES=12 decorated releases). state.json is
+// rewritten IN FULL, SYNCHRONOUSLY, on a 500 ms debounce from a dozen call sites, so every one of
+// those writes was already stringifying and fsyncing ~4 MB to say that one torrent changed state.
+//
+// The upgrade scanner would have made that untenable rather than merely wasteful: it verdicts every
+// movie under BPP+ 100, which is 754 titles today, taking the file to roughly 11 MB on a 4-core NUC
+// that is also transcoding. A synchronous multi-megabyte write on the event loop, several times a
+// minute, is exactly the kind of background cost that shows up as playback stutter.
+//
+// Same split, and the same reasoning, as probe.js's /config/probe-cache.json — see the comment
+// there. Verdicts change on their own slow cadence (one search per 45-60 s), so they get their own
+// debounce and their own file, and the hot state.json path goes back to being small.
+//
+// LOSS MODEL: a verdict is a cache, not a fact. Losing this file re-runs searches; it cannot
+// corrupt the library or drop a persisted guard. That is why it is safe to split out and why the
+// read path below fails silently to empty rather than shouting.
+const VERDICTS_PATH = '/config/audit-verdicts.json';
+// 5 s, not 500 ms: nothing reads this file while the process is up, so the only thing the debounce
+// buys is crash-window narrowing on a cache. Coalescing hard is the better trade.
+function persistVerdicts() {
+  clearTimeout(persistVerdicts._timer);
+  persistVerdicts._timer = setTimeout(() => {
+    try {
+      const obj = {};
+      for (const [k, v] of auditVerdicts) obj[k] = v;
+      const tmp = `${VERDICTS_PATH}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify({ verdicts: obj, ts: Date.now() }));
+      fs.renameSync(tmp, VERDICTS_PATH);
+    } catch { /* a cache that cannot be written is still a working cache in memory */ }
+  }, 5000);
+}
+
+function loadVerdicts() {
+  let raw;
+  try { raw = fs.readFileSync(VERDICTS_PATH, 'utf8'); }
+  catch { return false; }                  // no file yet — caller migrates from state.json
+  try {
+    const obj = JSON.parse(raw);
+    for (const [k, v] of Object.entries((obj && obj.verdicts) || {})) auditVerdicts.set(k, v);
+    return true;
+  } catch {
+    // Corrupt cache: drop it and re-verify rather than refusing to boot. Loud, because silently
+    // re-running ~400 paced indexer searches would otherwise look like the sweep had gone rogue.
+    console.log('WARN state: /config/audit-verdicts.json is corrupt — discarding, verdicts will re-verify');
+    return true;
+  }
+}
+
 function loadState() {
   // Separate the READ (first boot — no file yet → silent) from the PARSE (corrupt file → loud, backed
   // up). A silently-empty parse is how the persisted guards used to be wiped without a trace.
@@ -101,18 +188,47 @@ function loadState() {
     if (obj.searchState) for (const [k, v] of Object.entries(obj.searchState)) searchState.set(k, v);
     if (obj.gpuSwapped) for (const [k, v] of Object.entries(obj.gpuSwapped)) gpuSwapped.set(Number(k), v);
     if (obj.gpuPending) for (const [k, v] of Object.entries(obj.gpuPending)) gpuPending.set(Number(k), v);
-    if (typeof obj.masterPaused === 'boolean') masterPaused = obj.masterPaused;
+    // On-disk key stays `masterPaused` so an existing state.json keeps working with no migration.
+    if (typeof obj.masterPaused === 'boolean') manualPause = obj.masterPaused;
+    if (typeof obj.autoHeldQbit === 'boolean') autoHeldQbit = obj.autoHeldQbit;
     // Lowercase keys on load to migrate any pre-fix state written with an UPPERCASE infoHash.
     if (obj.forceGrabImport) for (const [k, v] of Object.entries(obj.forceGrabImport)) forceGrabImport.set(String(k).toLowerCase(), v);
     if (obj.completedForceGrabs) for (const [k, v] of Object.entries(obj.completedForceGrabs)) completedForceGrabs.set(String(k).toLowerCase(), v);
-    if (obj.auditVerdicts) for (const [k, v] of Object.entries(obj.auditVerdicts)) auditVerdicts.set(k, v);
+    // ONE-TIME MIGRATION. Verdicts now live in their own file (see persistVerdicts). Prefer it;
+    // fall back to the copy still embedded in an old state.json and write the new file immediately,
+    // so the very next persistState() drops ~3.7 MB from the hot path. The embedded copy is simply
+    // left behind — it stops being written, so it disappears on that same write.
+    if (!loadVerdicts() && obj.auditVerdicts) {
+      for (const [k, v] of Object.entries(obj.auditVerdicts)) auditVerdicts.set(k, v);
+      console.log(`state: migrated ${auditVerdicts.size} audit verdicts out of state.json into ${VERDICTS_PATH}`);
+      persistVerdicts();
+    }
     if (obj.auditPending) for (const [k, v] of Object.entries(obj.auditPending)) auditPending.set(k, v);
     if (obj.auditSwapped) for (const [k, v] of Object.entries(obj.auditSwapped)) auditSwapped.set(k, v);
+    if (obj.auditDead) for (const [k, v] of Object.entries(obj.auditDead)) auditDead.set(k, v);
   } catch { /* */ }
 }
 
-function isMasterPaused() { return masterPaused; }
-function setMasterPaused(v) { masterPaused = !!v; }
+// The only question the sweeps ask, and the only one they should: is the box meant to be quiet?
+function isMasterPaused() { return manualPause || autoPause; }
+// setMasterPaused keeps its name and its meaning — it is the MANUAL button's setter, which is the
+// only thing that ever called it. Renaming it would touch every call site to no benefit.
+function setMasterPaused(v) { manualPause = !!v; }
+function isManualPaused() { return manualPause; }
+function isAutoPaused() { return autoPause; }
+function setAutoPaused(v) { autoPause = !!v; }
+function isAutoHeldQbit() { return autoHeldQbit; }
+function setAutoHeldQbit(v) { autoHeldQbit = !!v; }
+// Manual wins the description when both are set: it is the one the user can act on, and the one
+// that will still be holding the box after the credits roll.
+function pauseReason() {
+  if (manualPause) return 'held on manually';
+  if (autoPause) return 'someone is watching';
+  return '';
+}
+function movieModeStatus() {
+  return { on: isMasterPaused(), manual: manualPause, auto: autoPause, reason: pauseReason() };
+}
 
 // ---- AUDIT SWAP IDENTITY ───────────────────────────────────────────────────────────────────
 // "Is this torrent an in-flight Audit replacement?" — the question that decides whether a delete may
@@ -136,8 +252,11 @@ function swapForHash(hash) {
 const isSwapHash = (hash) => !!swapForHash(hash);
 
 module.exports = {
-  declined, blocked, gpuSwapped, gpuPending, searchState, auditVerdicts, auditPending, auditSwapped,
+  declined, blocked, gpuSwapped, gpuPending, searchState, auditVerdicts, auditPending, auditSwapped, auditDead,
   forceGrabImport, completedForceGrabs, importState,
-  persistState, loadState, isMasterPaused, setMasterPaused,
+  persistState, persistVerdicts, loadState, isMasterPaused, setMasterPaused,
+  // The two-latch Movie Mode accessors. isMasterPaused() stays the only thing the sweeps use.
+  isManualPaused, isAutoPaused, setAutoPaused, pauseReason, movieModeStatus,
+  isAutoHeldQbit, setAutoHeldQbit,
   swapForHash, isSwapHash,
 };

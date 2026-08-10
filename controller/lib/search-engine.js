@@ -8,11 +8,12 @@
 // every 5 min (first at 30s).
 
 const metrics = require('../metrics');
+const jobs = require('./jobs');
 const { cfg, HOST } = require('./config');
 const { tfetch, tfetchJson, qbit, arrGet, arrPost, arrOf, arrDelete } = require('./clients');
 const { getQbitTorrents, torrentApp, getIndexerSnapshot } = require('./arr-data');
 const { cachedFetch } = require('./cache');
-const { searchState, gpuPending, auditPending, persistState, isMasterPaused } = require('./state');
+const { searchState, gpuPending, auditPending, persistState, isMasterPaused, forceGrabImport, completedForceGrabs } = require('./state');
 
 // ---- *arr sweep: auto-recover stuck queue items + trigger search for missing monitored items ----
 let arrSweepBusy = false;
@@ -841,8 +842,34 @@ async function arrSweep() {
         const inflight = DL_STATES.has(state);
         if (inflight) activeDl++;                                // global active-download count
         if (torrentApp(t) !== app) continue;
-        const id = hashToId.get((t.hash || '').toLowerCase());
-        if (id == null) continue;
+        const th = (t.hash || '').toLowerCase();
+        const id = hashToId.get(th);
+        // FORCE-GRABS ARE INVISIBLE TO hashToId. The controller grabs them itself into
+        // radarr-force/sonarr-force precisely so *arr can't auto-import the wrong item, which means
+        // *arr has neither a queue nor a history record for them — and hashToId is built from exactly
+        // those two (see above). So such a torrent was skipped entirely and its item never entered
+        // hasTorrentIds, leaving a title that is already downloaded (or at 100% waiting on the import
+        // watchdog) looking un-downloaded to the recovery pass below — which dispatches MoviesSearch,
+        // *arr's AUTOMATIC search. It grabs. The reward for force-grabbing was a redundant second copy
+        // of something already on the box. Found 2026-08-09 via Beach Party (1963): 100% in
+        // radarr-force, mid-import, with a recovery search armed for 10 minutes out.
+        //
+        // forceGrabImport/completedForceGrabs are the authoritative hash→id record for these
+        // (state.js), and both are persisted, so the guard survives the restart that would otherwise
+        // re-open the window. This id is deliberately kept SEPARATE from `id` and feeds ONLY
+        // hasTorrentIds — i.e. only the decision "don't search for this again", which grabs nothing
+        // and deletes nothing. It must NEVER reach inflightById/completedById below: those are the
+        // dedup and supersede passes, they delete torrents with deleteFiles:true, and the files under
+        // a force-grab are exactly the ones the import watchdog has not consumed yet. Feeding them a
+        // force-grab would hand a delete pass authority over the user's deliberately chosen copy —
+        // the same shape as the bug that wiped Cosmos 1980 (see downloads.js:319).
+        let guardId = id;
+        if (guardId == null) {
+          const fg = forceGrabImport.get(th) || completedForceGrabs.get(th);
+          // `app` is category-derived (the torrentApp check above), so it is the authority on
+          // ownership; a recorded app that disagrees means stale bookkeeping, not a second opinion.
+          if (fg && fg.id != null && (!fg.app || fg.app === app)) guardId = fg.id;
+        }
         // "A torrent exists for this id, so don't re-search" is only sound for a MOVIE, where one
         // torrent is the whole item. A SERIES id covers every season, so a seeding S03 pack says
         // nothing about a gap in S05 — and because this set drives noteResolved() below, counting it
@@ -850,8 +877,10 @@ async function arrSweep() {
         // seeding pack from recovery. That is what kept The Wire S05 E08–E10 missing (2026-07-28).
         // Same defect as the one fixed in downloads.js beingFetched(); this is an independent copy,
         // and it is the one that actually gates recovery searches. For TV, only an IN-FLIGHT torrent
-        // counts as "already handled".
-        if (state !== 'missingFiles' && (app === 'radarr' || inflight)) hasTorrentIds.add(id);
+        // counts as "already handled" — which is why a force-grabbed SEASON PACK still can't mask a
+        // hole in another season once it finishes: it reaches this line by the same rule as any other.
+        if (guardId != null && state !== 'missingFiles' && (app === 'radarr' || inflight)) hasTorrentIds.add(guardId);
+        if (id == null) continue;                                 // delete passes below: *arr-linked torrents ONLY
         if (inflight) {
           if (!inflightById.has(id)) inflightById.set(id, []);
           inflightById.get(id).push(t);
@@ -1028,10 +1057,16 @@ async function arrSweep() {
   finally { arrSweepBusy = false; }
 }
 
+const trackedArrSweep = jobs.define({
+  id: 'arr-sweep', name: 'Missing-item search', group: 'Downloads', weight: 64,
+  what: 'Searches for missing films and episodes',
+  every: 300000, scheduleText: 'every 5 min', pausedByMovieMode: true,
+}, arrSweep);
+
 function startSearchEngine() {
   setTimeout(rehydrateSearchProbes, 8000);  // after loadState() + a brief settle for the *arr stack
-  setInterval(arrSweep, 300000); // every 5 min
-  setTimeout(arrSweep, 30000);    // first run after 30s
+  setInterval(trackedArrSweep, 300000); // every 5 min
+  setTimeout(trackedArrSweep, 30000);    // first run after 30s
 }
 
 module.exports = {

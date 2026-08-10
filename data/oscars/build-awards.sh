@@ -67,9 +67,20 @@ DROP_CLASSES = {"Special", "SciTech"}
 
 noms = defaultdict(int)
 wins = defaultdict(int)
+# PER-AWARD DETAIL, added 2026-08-09. The counts above answer "how many"; a detail page needs
+# "which" — one row per nomination naming the category, the year and whether it won (Brennan:
+# "rows that list each award, IE each oscar nomination, each oscar win"). Built in the SAME pass
+# over the SAME filtered rows as the counts, so the list can never disagree with the number
+# rendered beside it.
+#
+# CanonicalCategory, not Category: the raw Category is the exact wording used at that ceremony and
+# drifts over a century ("ACTOR" in 1928 vs "ACTOR IN A LEADING ROLE" now), which would render as a
+# pile of near-duplicate labels. CanonicalCategory is the dataset's own normalisation of that.
+awards = defaultdict(list)
 # Per-PERSON counts, keyed by IMDb person id (nm...) for accuracy, plus that id's display name.
 pnoms = defaultdict(int)
 pwins = defaultdict(int)
+pawards = defaultdict(list)
 pname = {}
 
 with open(src, newline="") as f:
@@ -87,6 +98,16 @@ with open(src, newline="") as f:
                 noms[f_id] += 1
                 if won:
                     wins[f_id] += 1
+                # `who` is the nominee(s) for person-attached categories (acting, directing,
+                # writing) and empty for film-level ones like Best Picture, where the studio
+                # credit adds nothing a viewer wants on the row. Kept short deliberately: this
+                # file ships inside the controller image and is read on every detail page.
+                awards[f_id].append({
+                    "y": (row.get("Year") or "").strip(),
+                    "c": (row.get("CanonicalCategory") or row.get("Category") or "").strip(),
+                    "w": 1 if won else 0,
+                    "n": (row.get("Nominees") or "").strip(),
+                })
 
         # People: NomineeIds (nm... ids) aligned with Nominees (display names).
         nids = (row.get("NomineeIds") or "").strip()
@@ -101,12 +122,38 @@ with open(src, newline="") as f:
                     pwins[nm] += 1
                 if nm not in pname and i < len(names) and names[i].strip():
                     pname[nm] = names[i].strip()
+                # Per-award detail for people, same shape as the film list. `n` here is the FILM
+                # (a person's row wants "Directing — Barry Lyndon", not their own name repeated);
+                # Film is pipe-delimited for the rare multi-film citation, so take the first.
+                pawards[nm].append({
+                    "y": (row.get("Year") or "").strip(),
+                    "c": (row.get("CanonicalCategory") or row.get("Category") or "").strip(),
+                    "w": 1 if won else 0,
+                    "n": ((row.get("Film") or "").split("|")[0]).strip(),
+                })
 
-# Emit { imdb_id: {"noms": N, "wins": M} }, sorted by id for stable diffs.
-result = {k: {"noms": noms[k], "wins": wins.get(k, 0)} for k in sorted(noms)}
+# Emit { imdb_id: {"noms": N, "wins": M, "a": [...]} }, sorted by id for stable diffs.
+# `a` is ordered WINS FIRST, then by category name, so a detail page can render the list as-is
+# without re-sorting and the thing the viewer cares about leads. Year is not the sort key: a film's
+# nominations are almost always one ceremony, so sorting by year would be arbitrary within it.
+def _award_sort(x):
+    return (0 if x["w"] else 1, x["c"])
+result = {}
+for k in sorted(noms):
+    result[k] = {"noms": noms[k], "wins": wins.get(k, 0),
+                 "a": sorted(awards.get(k, []), key=_award_sort)}
 with open(out, "w") as f:
     json.dump(result, f, separators=(",", ":"), sort_keys=True)
     f.write("\n")
+
+# Wins first, then most recent first. Unlike a film — whose nominations are almost always a single
+# ceremony — a career spans decades, so recency is the meaningful secondary order. Year is a string
+# and can be a split season ("1927/28"), so sort on its leading 4 digits.
+def _year_num(s):
+    head = (s or "")[:4]
+    return int(head) if head.isdigit() else 0
+def _person_award_sort(x):
+    return (0 if x["w"] else 1, -_year_num(x["y"]), x["c"])
 
 # Collapse per-nm person counts to normalized-name keys. When two distinct nm ids share a
 # normalized name (rare — a common name), keep the MORE-awarded person rather than summing a
@@ -116,7 +163,8 @@ for nm, n in sorted(pnoms.items()):
     key = norm_name(pname.get(nm, ""))
     if not key:
         continue
-    entry = {"noms": n, "wins": pwins.get(nm, 0), "name": pname.get(nm, "")}
+    entry = {"noms": n, "wins": pwins.get(nm, 0), "name": pname.get(nm, ""),
+             "a": sorted(pawards.get(nm, []), key=_person_award_sort)}
     prev = by_name.get(key)
     if prev is None or entry["noms"] > prev["noms"]:
         by_name[key] = entry

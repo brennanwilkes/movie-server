@@ -5,6 +5,7 @@
 // 45s startup catch-up scan.
 
 const { cfg, HOST } = require('./config');
+const jobs = require('./jobs');
 const { tfetch } = require('./clients');
 const { isMasterPaused } = require('./state');
 
@@ -142,20 +143,27 @@ function startJfScanTimers() {
 // If no scan has succeeded in 10 minutes AND trickplay isn't running, fire one.
 // This catches media that *arr imported while the controller was down or the
 // notification missed.
-setInterval(() => {
+setInterval(jobs.define({
+  id: 'jf-scan', name: 'Library scan trigger', group: 'Media processing', weight: 30,
+  what: 'Tells Jellyfin to look for new files',
+  every: 300000, scheduleText: 'every 5 min · plus on every import', pausedByMovieMode: true,
+}, async () => {
   if (!cfg.JELLYFIN_KEY) return;
   if (isMasterPaused()) { return; }   // Movie Mode: scans hammer the USB drive mid-playback
   // No _lastScan pre-check here any more — it reads 0 on a fresh controller and so always looked
   // overdue. triggerJellyfinScan({minAgeMs}) makes the call after refreshing state from Jellyfin.
-  isTrickplayBusy().then(busy => {
-    if (busy) { console.log('jfScan: trickplay running — deferring scan'); return; }
-    triggerJellyfinScan({ minAgeMs: 600000 });
-  });
-}, 300000);   // 5 min (was 120s); scans are heavy and this already defers while trickplay runs — less frequent is safer
+  // Awaited (was a floating .then) so the Jobs tab times the actual work rather than the 2ms it
+  // takes to kick it off.
+  if (await isTrickplayBusy()) { console.log('jfScan: trickplay running — deferring scan'); return; }
+  await triggerJellyfinScan({ minAgeMs: 600000 });
+}), 300000);   // 5 min (was 120s); scans are heavy and this already defers while trickplay runs — less frequent is safer
 // On controller start, wait for Jellyfin to be ready then do a catch-up scan so media imported
 // during downtime gets discovered — but skip it if Jellyfin scanned recently anyway. Three
 // deploys in one session on 2026-07-27 fired three full scans back-to-back.
 setTimeout(() => { if (cfg.JELLYFIN_KEY) { console.log('jfScan: startup catch-up scan'); triggerJellyfinScan({ minAgeMs: 600000 }); } }, 45000);
 }
 
-module.exports = { triggerJellyfinScan, startJfScanTimers };
+// isLibraryScanRunning is exported for top100-write.js's scan gate: a scan re-mints the item id of
+// any renamed file, so rewriting a playlist mid-scan can write ids that are already dead. It fails
+// closed, which is what that caller wants too.
+module.exports = { triggerJellyfinScan, startJfScanTimers, isLibraryScanRunning };

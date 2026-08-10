@@ -27,9 +27,11 @@
 const fs = require('fs/promises');
 const path = require('path');
 const { cfg, HOST } = require('./config');
+const jobs = require('./jobs');
 const { tfetch, tfetchJson } = require('./clients');
 const { jellyfinUserId } = require('./jellyfin');
 const { isMasterPaused } = require('./state');
+const { safeRewrite } = require('./top100-write');
 
 const STORE = '/config/top100-membership.json';
 const SNAP_DIR = '/config/top100-snapshots';
@@ -250,57 +252,31 @@ async function reconcile({ commit = false, useSnapshots = false } = {}) {
   //
   // THIS WRITE IS NOT ATOMIC and cannot be made so: Jellyfin's MoveItem 400s under API-key auth (see
   // routes-elo.js), so repositioning means DELETE-all then POST-all — two calls, with a window where
-  // the playlist is empty. Since it cannot be atomic it is instead made RECOVERABLE and CHECKED:
-  //   1. a pre-write backup on disk, so a crash mid-write always leaves the old order somewhere;
-  //   2. compare-and-swap against a fresh read, so a concurrent in-app edit is never clobbered;
-  //   3. a post-write verify with automatic rollback, so a partial add cannot pass silently.
+  // the playlist is empty. Since it cannot be atomic it is instead made RECOVERABLE and CHECKED, by
+  // top100-write.js::safeRewrite: scan gate, no-drop check, rolling backup, compare-and-swap, and a
+  // post-write verify with rollback. That used to be written out inline here; it now lives in the
+  // shared helper because the Elo tuner's reorder route needed the identical protections and did not
+  // have them — which is how the whole playlist came to be wiped on 2026-08-09. See that header.
   if (restore.length) {
     // Invariant check on the splice: every surviving entry plus every restored one, exactly once. A
     // logic error in the anchor walk could drop an id, and after a clear-then-add that entry is gone.
+    // safeRewrite's no-drop check backstops this, but the arithmetic is specific to planOrder and
+    // belongs where the plan is built.
     if (desired.length !== plan.liveCount + restore.length || new Set(desired).size !== desired.length) {
       return { ...plan, ok: false, reason: `refusing to rewrite: built ${desired.length} ids (${new Set(desired).size} unique) for ${plan.liveCount}+${restore.length} expected` };
     }
-    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
-    const readNow = async () => ((await tfetchJson(`${HOST.jellyfin}/Playlists/${live.playlistId}/Items?${new URLSearchParams({ UserId: live.uid, Limit: '500' })}`, { headers: h }, 15000)).Items) || [];
-
-    // (2) COMPARE-AND-SWAP. The plan was built from a read taken seconds ago; if Brennan reordered or
-    // edited the playlist in the meantime, writing the plan would silently discard his change. Bail
-    // instead — the next hourly tick re-plans against whatever he left behind. A missed restore costs
-    // one more hour; a clobbered hand-reorder is unrecoverable.
-    const cur = await readNow();
-    const before = cur.map((it) => it.Id);
-    if (before.join(',') !== live.items.map((it) => it.Id).join(',')) {
-      return { ...plan, ok: false, reason: 'playlist changed while the plan was being built — skipped, will retry next tick' };
-    }
-
-    // (1) PRE-WRITE BACKUP, on disk, before anything is destroyed. This is the artifact that makes a
-    // crash between DELETE and POST survivable.
-    await fs.mkdir(SNAP_DIR, { recursive: true }).catch(() => {});
-    const bak = path.join(SNAP_DIR, 'pre-rewrite-backup.txt');
-    await fs.writeFile(bak, `# pre-rewrite backup — ${new Date().toISOString()}\n# ${before.length} ids, playlist ${live.playlistId}\n${before.join('\n')}\n`, 'utf8');
-
-    const entryIds = cur.map((it) => it.PlaylistItemId).filter(Boolean);
-    if (entryIds.length) {
-      const del = await tfetch(`${HOST.jellyfin}/Playlists/${live.playlistId}/Items?${new URLSearchParams({ entryIds: entryIds.join(',') })}`, { method: 'DELETE', headers: h }, 20000);
-      if (!del.ok) return { ...plan, ok: false, reason: `clearing playlist failed: HTTP ${del.status} — nothing was changed` };
-    }
-    const add = await tfetch(`${HOST.jellyfin}/Playlists/${live.playlistId}/Items?${new URLSearchParams({ ids: desired.join(','), userId: live.uid })}`, { method: 'POST', headers: h }, 30000);
-
-    // (3) POST-WRITE VERIFY + ROLLBACK. Trusting HTTP 200 is not enough — a truncated add still
-    // returns 200. Confirm the playlist really holds what was planned, and if it does not, put the
-    // ORIGINAL ids back immediately rather than leaving a mangled list behind.
-    const after = await readNow().catch(() => []);
-    const okNow = add.ok && after.length === desired.length && after.map((it) => it.Id).join(',') === desired.join(',');
-    if (!okNow) {
-      console.log(`top100Guard: rewrite verify FAILED (wanted ${desired.length}, got ${after.length}) — rolling back to the ${before.length} ids in ${bak}`);
-      const undoEntries = after.map((it) => it.PlaylistItemId).filter(Boolean);
-      if (undoEntries.length) await tfetch(`${HOST.jellyfin}/Playlists/${live.playlistId}/Items?${new URLSearchParams({ entryIds: undoEntries.join(',') })}`, { method: 'DELETE', headers: h }, 20000).catch(() => {});
-      const undo = await tfetch(`${HOST.jellyfin}/Playlists/${live.playlistId}/Items?${new URLSearchParams({ ids: before.join(','), userId: live.uid })}`, { method: 'POST', headers: h }, 30000).catch(() => null);
-      const rolled = undo && undo.ok;
-      return { ...plan, ok: false, rolledBack: !!rolled, backup: bak,
-        reason: rolled ? 'rewrite failed verification — playlist rolled back to its previous state, nothing lost'
-          : `rewrite failed AND rollback failed — restore the ids in ${bak} by hand` };
-    }
+    // expectBefore is the read the plan was built from: if Brennan reordered in the meantime, writing
+    // the plan would silently discard his change, so safeRewrite bails and the next hourly tick
+    // re-plans against whatever he left behind. A missed restore costs an hour; a clobbered
+    // hand-reorder is unrecoverable.
+    const w = await safeRewrite({
+      playlistId: live.playlistId,
+      uid: live.uid,
+      desired,
+      expectBefore: live.items.map((it) => it.Id),
+      tag: 'guard',
+    });
+    if (!w.ok) return { ...plan, ok: false, rolledBack: w.rolledBack, backup: w.backup, reason: w.reason };
     console.log(`top100Guard: restored ${restore.length} orphaned title(s): ${restore.map((r) => r.name).join(', ')}`);
   }
 
@@ -352,9 +328,15 @@ const handler = (commitAllowed) => async (req, res) => {
 app.get('/api/top100/reconcile', handler(false));
 app.post('/api/top100/reconcile', handler(true));
 
+const trackedGuard = jobs.define({
+  id: 'top100-guard', name: 'Top 100 guard', group: 'Metadata', weight: 44,
+  what: 'Repairs the Top 100 after file swaps',
+  every: 3600000, scheduleText: 'hourly',
+}, guardSweep);
+
 function startTop100GuardTimer() {
-  setInterval(guardSweep, 3600000);        // hourly: swaps finalise on their own schedule
-  setTimeout(guardSweep, 300000);          // and once 5 min after boot, past the initial scan storm
+  setInterval(trackedGuard, 3600000);        // hourly: swaps finalise on their own schedule
+  setTimeout(trackedGuard, 300000);          // and once 5 min after boot, past the initial scan storm
 }
 
 module.exports = { reconcile, observe, guardSweep, startTop100GuardTimer, planOrder, parseSnapshot, mergedSnapshots };

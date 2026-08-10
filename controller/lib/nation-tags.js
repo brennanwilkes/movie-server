@@ -32,6 +32,7 @@ const { cfg, HOST } = require('./config');
 const { tfetch, tfetchJson, arrGet } = require('./clients');
 const { jellyfinUserId } = require('./jellyfin');
 const { isMasterPaused } = require('./state');
+const jobs = require('./jobs');
 
 const NATION_TAG_RE = /^nation(-[a-z]{2})?$/;
 
@@ -422,8 +423,15 @@ async function nationTagsSweep() {
   finally { nationTagsBusy = false; }
 }
 
+// Tracked for the Jobs tab; the export is wrapped so bootSequence's call counts (see collections.js).
+const tracked = jobs.define({
+  id: 'nation-tags', name: 'Nation flags', group: 'Metadata', weight: 54,
+  what: 'Tags foreign films with their country',
+  every: 24 * 3600000, scheduleText: 'daily · and on boot', pausedByMovieMode: true,
+}, nationTagsSweep);
+
 function startNationTagsTimer() {
-  setInterval(nationTagsSweep, 24 * 3600000);   // country-of-origin never changes — daily re-check is plenty
+  setInterval(tracked, 24 * 3600000);   // country-of-origin never changes — daily re-check is plenty
 }
 
-module.exports = { nationTagsSweep, startNationTagsTimer, resolveNation };
+module.exports = { nationTagsSweep: tracked, startNationTagsTimer, resolveNation };

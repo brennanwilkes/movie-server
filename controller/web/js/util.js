@@ -32,11 +32,29 @@ const esc = (s) => String(s == null ? '' : s)
 //   orange (warn) >=0.08  diminished even today; may still be fine, that is the human call
 //   red    (bad)   <0.08  worse than that. The YTS family sits around 0.05.
 const BPP_HELP = 'BPP+ — bits per pixel per frame, indexed so 100 is exactly what a film needs to '
-  + 'look its best on this hardware. Normalised for resolution, frame rate and codec (HEVC x1.6), '
-  + 'so it is comparable across the whole library. The scale is square-rooted, so it tracks picture '
-  + 'rather than bits: 200 is roughly half as much visible error as 100, and 50 is roughly double. '
-  + '125+ is more than the projector can resolve (it starts to pay off after a hardware upgrade); '
-  + 'under 75 is compromised.';
+  + 'look its best on this hardware. 100 is measured PER FILM: the nightly CRF probe encodes eight '
+  + 'samples at a fixed quality, so 100 means "as many bits as a visually transparent encode of THIS '
+  + 'film", which costs Casablanca four times what it costs Blade Runner 2049. Normalised for '
+  + 'resolution, frame rate and codec (HEVC x1.6), so it is comparable across the whole library. The '
+  + 'scale is square-rooted, so it tracks picture rather than bits: 200 is roughly half as much '
+  + 'visible error as 100, and 50 is roughly double. 125+ is more than the projector can resolve (it '
+  + 'starts to pay off after a hardware upgrade); under 75 is compromised.';
+// CONFIDENCE, carried by typography — Brennan, 2026-08-06: "showing estimated bpp+ (unprobed) with
+// italics would be good, while confirmed ones can be bolded."
+//
+// It has to be shown somehow (DESIGN-CRF-PROBE.md §6): a value whose denominator came from five other
+// films is not the same claim as one measured from this film, and rendering them identically is fake
+// precision. Weight/slope is the right channel because the badge's COLOUR is already spoken for by
+// quality — confidence is a different axis and should not compete for the same signal. Earlier
+// attempts at a leading `~` and a dashed underline both read as an error marker rather than a
+// qualifier.
+const BPP_EST_HELP = 'Estimated — this film has not been probed yet, so 100 is inferred from films '
+  + 'that have (same series, then same source, then the library median). The colour and ranking are '
+  + 'usable; the exact number will shift once this title is measured.';
+const BPP_MEAS_HELP = 'Measured — this film has been probed, so 100 is what a visually transparent '
+  + 'encode of THIS film actually costs.';
+const bppEstimated = (basis) => !!basis && basis !== 'measured' && basis !== 'measured:stale';
+const bppMeasured = (basis) => basis === 'measured' || basis === 'measured:stale';
 // A one-word name per band, used ONLY in tooltips and aria-labels — never rendered as a row
 // label. Brennan, 2026-08-01: colour and number carry the meaning; prose does not.
 const BPP_WORD = { wow: 'beyond what this display can show', ok: 'looks its best on current hardware',
@@ -50,9 +68,22 @@ const BPP_WORD = { wow: 'beyond what this display can show', ok: 'looks its best
 const qbarCls = (band) => (band ? ` qbar q-${band}` : '');
 // The number. BPP+ (see bppIndex in lib/arr-inspect.js) rather than raw bpp: 0.033 vs 0.043 is
 // unreadable, 25 vs 33 is not. `bppPlus` is computed server-side and arrives on the payload.
-const bppSpan = (plus, band) => (plus == null ? ''
-  : `<span class="mbps ${band || ''}" title="${esc(BPP_HELP)}"`
-    + ` aria-label="${esc(BPP_WORD[band] || '')}">${plus}<small>bpp+</small></span>`);
+// `basis` is optional and arrives on the payload as `cxBasis` — see bppTargetFor() in
+// lib/arr-inspect.js. Absent (an older cached verdict, or a payload that predates the probe) renders
+// exactly as before, so no row can break for want of it.
+const bppSpan = (plus, band, basis) => {
+  if (plus == null) return '';
+  const est = bppEstimated(basis);
+  const meas = bppMeasured(basis);
+  const tip = est ? `${BPP_HELP}\n\n${BPP_EST_HELP}`
+    : (meas ? `${BPP_HELP}\n\n${BPP_MEAS_HELP}` : BPP_HELP);
+  // Neither class when basis is absent (an older cached verdict, or a payload predating the probe) —
+  // the badge then renders exactly as it always did rather than claiming a confidence we do not have.
+  const cls = est ? ' est' : (meas ? ' meas' : '');
+  return `<span class="mbps ${band || ''}${cls}" title="${esc(tip)}"`
+    + ` aria-label="${esc(BPP_WORD[band] || '')}${est ? ', estimated' : (meas ? ', measured' : '')}">`
+    + `${plus}<small>bpp+</small></span>`;
+};
 
 // ── AUDIO ────────────────────────────────────────────────────────────────────────────────────
 // NO LONGER A QUALITY LADDER, AND NO LONGER COLOURED AT ALL. Two separate findings forced this:

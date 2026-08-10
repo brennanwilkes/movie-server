@@ -6,6 +6,7 @@
 // every 15 min, first at 60s.
 
 const metrics = require('../metrics');
+const jobs = require('./jobs');
 const { cfg, HOST } = require('./config');
 const { tfetch, qbit, arrGet, arrDelete, arrOf } = require('./clients');
 const { getQbitTorrents, getQueueMap, torrentApp } = require('./arr-data');
@@ -181,9 +182,15 @@ async function gpuVerifySweep() {
   } finally { gpuVerifyBusy = false; }
 }
 
+const tracked = jobs.define({
+  id: 'gpu-verify', name: 'GPU compatibility', group: 'Quality', weight: 70,
+  what: 'Fixes imports the Fire Stick cannot decode',
+  every: 900000, scheduleText: 'every 15 min · fresh imports only', pausedByMovieMode: true,
+}, gpuVerifySweep);
+
 function startGpuVerify() {
-setInterval(gpuVerifySweep, 900000); // every 15 min (was 10min); well within the 48h swap window; per-cycle cap + once-per-movie guard bound the work
-setTimeout(gpuVerifySweep, 60000);
+setInterval(tracked, 900000); // every 15 min (was 10min); well within the 48h swap window; per-cycle cap + once-per-movie guard bound the work
+setTimeout(tracked, 60000);
 }
 
-module.exports = { gpuVerifySweep, startGpuVerify };
+module.exports = { gpuVerifySweep: tracked, startGpuVerify };
