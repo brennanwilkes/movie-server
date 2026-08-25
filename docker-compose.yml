@@ -12,6 +12,16 @@ services:
       # container from a clean layer and wipes them (reboots are fine — same container restarts).
       # Provision (§6a) populates this host dir; the mount makes the files durable across image updates.
       - ${CONFIG}/jellyfin-web/fonts:/usr/share/jellyfin/web/fonts
+      # Trickplay tiles (11 GB / 12.5k files as of 2026-08-21) off the 221 GB boot SSD and onto the
+      # 7.3 TB USB drive. ${CONFIG} is on `/`, which is the binding storage constraint — see
+      # "Research corpora & scratch data" in AGENTS.md. A symlink does NOT work here: only
+      # ${DATA}/media is mounted into this container, so a host symlink into /data would dangle
+      # inside it and Jellyfin would silently fail to write tiles. Hence a nested bind mount over
+      # the default trickplay path (Docker orders mounts by destination depth, so /config lands
+      # first and this lands on top of it). Deliberately NOT applied to data/metadata/{People,library}
+      # — those are on the web-load hot path and this USB disk is write-through with no UAS, so small
+      # random reads are its worst case.
+      - ${DATA}/jellyfin-cache/trickplay:/config/data/data/trickplay
     # Host networking so the PS4 can discover Jellyfin over DLNA/SSDP (UDP 1900 multicast doesn't
     # cross Docker's bridge). Jellyfin still serves on the NUC's IP :8096 exactly as before — only
     # internal container refs changed (now reach it at ${NUC_IP}:8096, not the 'jellyfin' DNS name).
@@ -211,9 +221,27 @@ services:
     volumes:
       - ${CONFIG}/controller:/config
       - ${DATA}:/data:ro
+      # A SECOND ffmpeg, read-only, for CAMBI banding measurement ONLY. The image's own ffmpeg
+      # (5.1) has no libvmaf and CANNOT be upgraded: its x265 produced every complexity
+      # measurement in the probe cache and is the only ruler for them, so swapping it would make
+      # all stored measurements incomparable with future ones. Populated by
+      # scripts/setup-vmaf-tool.sh; the banding job reports state 'off' when the directory is
+      # empty, so a fresh box explains itself instead of failing silently. :ro because nothing
+      # should ever write here.
+      - ./tools:/tools:ro
     # Published on :80 so the dashboard has a clean, no-port URL (http://<hostname>),
     # plus :8088 kept for compatibility / direct access.
     ports: ["0.0.0.0:80:${CONTROLLER_PORT:-8088}", "0.0.0.0:${CONTROLLER_PORT:-8088}:${CONTROLLER_PORT:-8088}"]
+    # REAP ORPHANED GRANDCHILDREN. Without this, PID 1 in the container is `node server.js`, and node
+    # does not call wait() on processes it did not spawn itself. The probe spawns its scripts with
+    # detached:true so killProbe() can take down the whole process group (the image has no pkill, so a
+    # group kill is the only way to stop the ffmpeg under the shell). When that kill lands, the shell
+    # dies first and its ffmpeg/ffprobe/awk children are reparented to PID 1 — which never reaps them.
+    # Measured 2026-08-17: stopping one probe session left 3 permanent zombies (sh, ffprobe, awk).
+    # They cost only a PID slot each, but nothing clears them short of restarting the container, and
+    # every interrupted probe adds more — i.e. every time someone presses play during the night window.
+    # `init: true` puts tini at PID 1, whose entire job is to reap them.
+    init: true
     restart: unless-stopped
     depends_on: [jellyfin, qbittorrent, radarr, sonarr, jellyseerr]
 

@@ -62,6 +62,23 @@ method is: dump computed styles → if an override isn't winning, dump the *matc
 specificity math → write the minimal higher-specificity rule. A reusable probe lives at
 `scripts/branding-console-probe.js` (paste into DevTools console, logged in as brennan/brennan).
 
+**Debugging a :hover bug (2026-08-20).** `scripts/hover-probe-console.js` is the hover-specific
+probe: paste it with the pointer OFF the target, then hover — it prints the rest→hover computed
+diff for the whole card subtree plus rect deltas.
+- **Headless CDP cannot set `:hover` by dispatching mouse events.** `Input.dispatchMouseEvent
+  {type:'mouseMoved'}` at the element centre reports success and changes *nothing* — an all-zero
+  diff that reads as "no bug here" and sent this investigation down the wrong path once. Use
+  **`CSS.forcePseudoState {nodeId, forcedPseudoClasses:['hover']}`** instead (needs `CSS.enable`,
+  and a `nodeId` from `DOM.querySelector` — tag the element with an attribute first so the forced
+  node and the measured node are definitely the same one).
+- **Headless is `layout-desktop` unless you emulate touch**, because the layout class comes from
+  UA/touch and not viewport width. `Emulation.setTouchEmulationEnabled` + an Android UA override
+  gets you `layout-mobile`. Many of these bugs live on exactly one of the two branches, so testing
+  the wrong branch silently "passes" — the poster-hover bug was invisible on `layout-desktop`
+  because scyfin pins that branch to `position:static !important`.
+- Jellyfin keeps **more than one `.itemDetailPage` in the DOM**; `querySelector` often returns a
+  detached/unlaid-out one whose rect is all zeros. Pick the largest-area match.
+
 **Deploy & caching model (established, do NOT re-investigate):**
 - Live CSS is byte-identical to `jellyfin-custom.css` (provision writes `branding.xml`, §7a sha256-verifies). Live flair JS is byte-identical to `jellyfin-web-flair.js` (JS Injector serves it at a versioned `public.js?v=<ticks>` URL). If a change isn't showing, it's almost never caching — check specificity/scoping first.
 - CSS/JS changes ship ONLY via `make provision s=jellyfin`, **never** `make deploy` (deploy just pulls+restarts).

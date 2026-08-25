@@ -36,18 +36,35 @@ change them there and `make provision s=radarr` — never edit scores in the *ar
               AND the pulled Docker images. After this, nothing but this code remains.
 
 ## Where things live
-- Stack/config-as-code: this repo (`/home/brennan/movie-server`)
-- App config:           /opt/appdata
-- Media + torrents:     /data   (single disk for now; ~10 GB cap — see below)
+- Stack/config-as-code: this repo (`/home/brennan/movie-server`) — **on the boot SSD**
+- App config:           /opt/appdata — **on the boot SSD**
+- Media + torrents:     /data (7.3 TB external USB drive)
+- Research corpora:     /data/research (never in the repo — see below)
 
-## Storage cap (hard, 20 GB)
-`/data` is a fixed-size loopback ext4 image (`DATA_IMG`=/opt/media-data.img,
-`DATA_IMG_SIZE`=20G in .env), created+mounted by `make bootstrap` and kept in
-/etc/fstab (`loop,nofail`) so it remounts on boot before Docker. The inner filesystem
-cannot exceed the cap — writes fail past 20 GB — but it's sparse, so it only uses real
-disk as it fills. qBittorrent is also set to pause on low free space (graceful backstop).
-To grow / move to a real drive: `make down`, blank DATA_IMG and set DATA=/mnt/<drive>
-in .env, migrate the data, then `make bootstrap && make deploy`.
+## Storage: two filesystems, and the small one is the one that bites
+
+| Mount | Device | Size | Holds |
+|-------|--------|------|-------|
+| `/` | `/dev/sdb2` (internal SSD) | **221 GB** | OS, **this repo**, `/opt/appdata`, Docker, journals |
+| `/data` | `/dev/sda1` (USB, label `media`) | 7.3 TB | media, torrents, research corpora |
+
+`/data` is a real 8 TB WD My Book, mounted by UUID in `/etc/fstab`
+(`defaults,nofail,x-systemd.device-timeout=10s`). The old hard cap — a sparse 20 GB
+loopback image at `/opt/media-data.img` — was **removed on 2026-06-29** and no longer
+exists. `make resize-data` / `DATA_IMG` in `.env` are vestiges of it.
+
+**So there is no storage cap any more, and the 221 GB boot SSD is now the binding
+constraint.** `/data` is a *mount, not a quota*: nothing stops a script from writing to the
+SSD instead. Anything written inside this repo lands on `/`. On 2026-08-21 a research-corpus
+download did exactly that and took `/` to zero bytes — see **Research corpora & scratch
+data** in `AGENTS.md`.
+
+Two things to know:
+- **Bulk data goes to `/data/research/<name>/`**, symlinked into the repo if a script wants
+  a repo-relative path. Preflight big fetches with `df` on the *target* filesystem.
+- **The controller's disk gate does not protect `/`.** It calls `statfs('/data')`, so it will
+  report terabytes free while the SSD fills. qBittorrent's pause-on-low-free-space is also
+  scoped to its own save path on `/data`.
 
 ## Ports
 8096 Jellyfin · 8080 qBittorrent · 9696 Prowlarr · 7878 Radarr · 8989 Sonarr
@@ -78,7 +95,7 @@ must end in `.local` (mDNS only handles that suffix); edit `MDNS_NAME` in `.env`
 (space-separated list, keep it quoted). Works great on iPhone/Mac; older Android has
 weak mDNS support.
 
-Three tabs: **Home** (service health + free space vs the 20 GB cap + Watch/Request
+Three tabs: **Home** (service health + `/data` free space + Watch/Request
 buttons), **Downloads** (live pipeline: Downloading → Importing → In library, with a
 backend watchdog that rescues dropped imports), and **Library** (search a watched title
 → one-click *remove it everywhere*: Radarr/Sonarr → qBittorrent → Jellyfin → Jellyseerr,

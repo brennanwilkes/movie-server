@@ -4,7 +4,7 @@
 // so an id this function drops is a permanently lost entry in the one piece of non-regenerable state
 // on the box. Weighted accordingly — most of these are "must not lose / must not duplicate / must
 // not promote", not "lands in the prettiest spot".
-const { planOrder, parseSnapshot, mergedSnapshots } = require('../controller/lib/top100-guard');
+const { planOrder, classifyMissing, parseSnapshot, mergedSnapshots } = require('../controller/lib/top100-guard');
 
 let pass = 0; let fail = 0;
 const ok = (c, why) => { if (c) pass++; else { fail++; console.log(`FAIL  ${why}`); } };
@@ -103,6 +103,32 @@ eq(keys(planOrder(live('a', 'b'), want('a', 'b'), [])), 'ab', 'no restore, no re
 ok(parseSnapshot('').length === 0, 'empty snapshot parses to nothing');
 ok(parseSnapshot('# only a comment\n').length === 0, 'comment-only snapshot parses to nothing');
 ok(typeof mergedSnapshots === 'function', 'mergedSnapshots is exported');
+
+// ---- the orphan-vs-removal discriminator ----------------------------------------------------------
+// REGRESSION (2026-08-18): the guard used to probe survival with a user-less GET /Items/{id}, which
+// Jellyfin ALWAYS 400s under API-key auth — so every removed title read as "orphaned by a swap" and
+// was re-added the same hour. classifyMissing() decides on a LOCAL compare of the stored id against
+// the library's current id for that movie, so a deliberate removal must survive while a re-minted id
+// (file swap) still restores. This file's "dead id" wording in the snapshot test above predates the
+// fix and refers to the compare's INPUT, not to a network probe.
+{
+  const lib = new Map([
+    ['tmdb:1', { Id: 'IDa', Name: 'A' }],            // alive, id unchanged
+    ['tmdb:2', { Id: 'NEWb', Name: 'B' }],           // alive but id re-minted by a file swap
+  ]);
+  const missing = [
+    { k: 'tmdb:1', name: 'A', lastId: 'IDa' },       // removed by hand, item intact
+    { k: 'tmdb:2', name: 'B', lastId: 'OLDb' },      // removed by hand, then its file was swapped
+    { k: 'tmdb:9', name: 'D', lastId: 'IDd' },       // gone from the library entirely
+  ];
+  const { restore, forget, gone } = classifyMissing(missing, lib);
+  eq(forget, [{ k: 'tmdb:1', name: 'A', lastId: 'IDa' }],
+    'id still matches the library → deliberate removal, forget (NOT re-added)');
+  eq(restore, [{ k: 'tmdb:2', name: 'B', lastId: 'OLDb', newId: 'NEWb' }],
+    'id re-minted by a swap → orphan, restore with the CURRENT id');
+  eq(gone, [{ k: 'tmdb:9', name: 'D', lastId: 'IDd' }],
+    'not in the library at all → gone, nothing to restore');
+}
 
 console.log(`\ntop100-order: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

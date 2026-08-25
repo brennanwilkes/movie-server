@@ -85,7 +85,47 @@ function dimsOf(mi) {
 // (size * 8 / runtime). Total includes audio, so it overstates the video rate by roughly
 // 0.1-0.8 Mbps — acceptable as a fallback, wrong as a default. Video bitrate always wins when
 // it is there, and `bppSource()` says which was used so the UI can hedge if it ever needs to.
-function bppOf(mi, fallbackTotalBps = null) {
+// How much of a size-derived total is audio, as far as we can honestly tell. Returns 0 when we know
+// nothing. Capped at 40% of the container: a believable audio share even for a 6-track remux, and a
+// backstop against a bogus audioBitrate wiping out the video figure entirely.
+const AUDIO_SHARE_CAP = 0.40;
+
+// THE AUDIO RESOLVER, injected by probe.js at startup — same pattern and same cycle-avoidance reason
+// as setComplexityResolver above. Contract: resolve(key) -> measured total audio bps, or null.
+//
+// The measurement sums packet sizes across EVERY audio stream (probe-film.sh), which is the only way
+// to see tracks *arr omits: Lawrence of Arabia declares 448k of AC3 and reports NOTHING for its
+// DTS-HD MA track, while the packets say 2.59 Mb/s in total. That missing 2.14 Mb/s of a 16.6 Mb/s
+// container was being scored as picture.
+let _resolveAudio = null;
+function setAudioResolver(fn) { _resolveAudio = fn; }
+
+
+// GRACEFUL DEGRADATION IS THE WHOLE CONTRACT HERE. Three tiers, best available always wins, and a
+// missing tier is never an error — it just means a slightly more conservative number:
+//   1. MEASURED  every track, from packets. Exact. Only exists for probed units.
+//   2. *arr      one track. A ceiling, because the tracks it omits stay charged to video.
+//   3. nothing   subtract nothing, which is exactly the pre-2026-08-13 behaviour.
+// The 40% cap stays on ALL of them: it is a backstop against a bogus figure wiping out the video
+// rate entirely, and a measurement can be bogus too (a mis-muxed file, a packet interval landing in
+// a silent passage).
+function audioToSubtract(mi, totalBps, key) {
+  if (!(totalBps > 0)) return 0;
+  let ab = 0;
+  if (key && _resolveAudio) {
+    try { ab = Number(_resolveAudio(key)) || 0; } catch { ab = 0; }
+  }
+  if (ab <= 0) ab = Number((mi || {}).audioBitrate) || 0;
+  if (ab <= 0) return 0;
+  return Math.min(ab, totalBps * AUDIO_SHARE_CAP);
+}
+// Did we use a real measurement, or *arr's single-track claim? Drives bppSource()'s reporting so the
+// UI can say whether a bpp is exact or a ceiling.
+function audioIsMeasured(key) {
+  if (!key || !_resolveAudio) return false;
+  try { return (Number(_resolveAudio(key)) || 0) > 0; } catch { return false; }
+}
+function bppOf(mi, fallbackTotalBps = null, key = null) {
   const d = dimsOf(mi);
   const fps = Number((mi || {}).videoFps) || 0;
   if (!d || !fps) return null;
@@ -98,19 +138,45 @@ function bppOf(mi, fallbackTotalBps = null) {
   // Disk section as bloat. The video track cannot out-rate the whole container, so anything above
   // the size-derived total is not believable; 1.05 allows for container-overhead rounding only.
   const trustVb = vb > 0 && (total <= 0 || vb <= total * 1.05);
-  const bps = trustVb ? vb : total;
+  // AUDIO MUST NOT BE CHARGED TO VIDEO. bpp is bits per pixel of VIDEO, so when we fall back to the
+  // size-derived total (videoBitrate is 0 on ~18% of the library) every audio track inflates it.
+  // The old comment below put this at "0.1-0.8 Mbps"; that is true only for lossy stereo. Measured on
+  // Lawrence of Arabia (2026-08-13): AC3 448k + DTS-HD MA 2.18 Mb/s = 2.63 Mb/s of a 16.61 Mb/s
+  // container, i.e. bpp overstated ~19% and BPP+ ~9% (134 -> ~123).
+  //
+  // The bias runs the WRONG WAY for our purposes: it flatters multi-dub and lossless-audio releases
+  // most, which is exactly the class of release we do not want to be flattered.
+  //
+  // WHAT WE CAN AND CANNOT SUBTRACT: *arr reports `audioBitrate` for ONE track (the default), not the
+  // sum — Lawrence has audioStreamCount 2 and reports only the 448k AC3. So this subtracts what is
+  // KNOWN and never guesses the rest: with more than one track the result is still a ceiling, which
+  // bppSource() reports as 'total-minus-audio-partial' so callers can tell. Under-subtracting keeps
+  // bpp slightly high, the same direction it has always erred; over-subtracting would invent quality.
+  const bps = trustVb ? vb : Math.max(0, total - audioToSubtract(mi, total, key));
   if (bps <= 0) return null;
   const c = String((mi || {}).videoCodec || '').toLowerCase();
   const hevc = c.includes('x265') || c.includes('hevc') || c.includes('h265');
   const raw = bps / (d[0] * d[1] * fps);
   return +(hevc ? raw * X265_EFFICIENCY : raw).toFixed(5);
 }
-// Which figure bppOf() actually used, mirroring the trust rule above. 'total' means either the
-// file reported no videoBitrate (~18% of movies) or the one it reported was not believable.
-function bppSource(mi, fallbackTotalBps = null) {
+// Which figure bppOf() actually used, mirroring the trust rule above. Three outcomes now:
+//   'video'                      — mediaInfo.videoBitrate, believable, exact.
+//   'total-minus-audio'          — size-derived, with the single reported audio track removed. Exact
+//                                  as far as audio goes when audioStreamCount <= 1.
+//   'total-minus-audio-partial'  — same, but there are MORE audio tracks than *arr gave bitrates for,
+//                                  so some audio is still charged to video and bpp remains a CEILING.
+//   'total'                      — no audio figure at all; the whole container counts as video.
+function bppSource(mi, fallbackTotalBps = null, key = null) {
   const vb = Number((mi || {}).videoBitrate) || 0;
   const total = Number(fallbackTotalBps) || 0;
-  return (vb > 0 && (total <= 0 || vb <= total * 1.05)) ? 'video' : 'total';
+  if (vb > 0 && (total <= 0 || vb <= total * 1.05)) return 'video';
+  if (audioToSubtract(mi, total, key) <= 0) return 'total';
+  // A measurement covers EVERY track, so unlike the *arr path it is not a ceiling — it is the only
+  // fallback state that is exact.
+  if (audioIsMeasured(key)) return 'total-minus-audio-measured';
+  return (Number((mi || {}).audioStreamCount) || 1) > 1
+    ? 'total-minus-audio-partial'
+    : 'total-minus-audio';
 }
 
 // ---- BPP+ : the number a human actually reads ────────────────────────────────────────────────
@@ -218,6 +284,50 @@ function bppBand(bpp, key) {
 // inferred. The design's rule (DESIGN-CRF-PROBE.md §6) is that an estimated value must be visibly
 // marked, and that is enforced by carrying this onto every row rather than by hoping the UI guesses.
 const bppBasis = (key) => bppTargetFor(key).basis;
+
+// ---- HOW MUCH TO TRUST A BPP+ ────────────────────────────────────────────────────────────────
+// BPP+ divides by a MEASURED complexity, and that measurement has a standard error. Until 2026-08-18
+// nothing carried it, so a number pinned to +/-3% and one pinned to +/-40% were printed identically —
+// and the Audit tab would act on either, flagging an upgrade off a denominator that was barely a
+// guess.
+//
+// THE SQUARE ROOT HALVES THE ERROR. BPP+ = 100*sqrt(bpp/target), so a relative error `e` on the
+// target becomes ~e/2 on the index: a complexity known only to +/-24% still yields a BPP+ good to
+// about +/-12%. That is why the threshold here is looser than it first looks — the index is
+// intrinsically more stable than the thing it is built from.
+//
+// Returns the RELATIVE error of the INDEX (already halved), or null when unknown. Null means "not
+// measured" — a film scored against the flat fallback has no error bar at all, which bppBasis()
+// already reports separately and more usefully.
+const BPP_RSE_LOOSE = 0.10;                     // >10% on the index = show it as provisional
+function bppRSE(key) {
+  if (!key || !_resolveTarget) return null;
+  try {
+    const r = _resolveTarget(key);
+    if (!r || !(r.target > 0) || r.rse == null) return null;
+    return +(r.rse / 2).toFixed(4);             // sqrt() halves relative error
+  } catch { return null; }
+}
+// Is this BPP+ solid enough to print bare? A null RSE is treated as CONFIDENT rather than doubtful:
+// most of the library has no per-sample data yet, and marking 1000 films provisional would make the
+// mark meaningless. The mark is for films we KNOW are loosely measured.
+// Bitrate adequacy for a unit: srcBitrate / the bitrate a transparent encode of THIS FILE costs.
+// >1 means the file spends more than reproducing itself takes. Null when unprobed.
+// NOT A QUALITY MEASURE — see the OVER-SUPPLY block in audit.js for why the distinction matters.
+// How badly the sampled episodes of a SEASON disagreed with each other (0 = identical). Meaningless
+// for movies, which are one file. Null when unprobed.
+function bppDisagree(key) {
+  if (!key || !_resolveTarget) return null;
+  try { const r = _resolveTarget(key); return r && r.disagree != null ? r.disagree : null; } catch { return null; }
+}
+function bppRatioR(key) {
+  if (!key || !_resolveTarget) return null;
+  try { const r = _resolveTarget(key); return r && r.R > 0 ? r.R : null; } catch { return null; }
+}
+const bppConfident = (key) => {
+  const e = bppRSE(key);
+  return e == null ? true : e <= BPP_RSE_LOOSE;
+};
 // The dot rendering lives in web/js/util.js, not here — it is presentation, and it takes the BAND
 // (already computed and sent on the payload) rather than the raw value, so the browser never
 // re-derives a threshold. This module owns the numbers; the client owns how they look.
@@ -271,5 +381,5 @@ async function diagnose(app, id, seasons) {
 }
 
 module.exports = { videoLabel, gpuTier, dimsOf, bppOf, bppSource, bppBand, bppIndex,
-  bppBasis, bppTargetFor, setComplexityResolver,
+  bppBasis, bppRSE, bppConfident, bppRatioR, bppDisagree, BPP_RSE_LOOSE, bppTargetFor, setComplexityResolver, setAudioResolver,
   BPP_TARGET, BPP_INDEX_BANDS, BPP_RANK, X265_EFFICIENCY, freeUnderCap, arrTitle, arrHasActivity, diskOnlyBlocker, diagnose };

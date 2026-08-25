@@ -209,6 +209,88 @@ function supersedes(neu, old) {
 // Remastered" and "THEATRICAL REMASTERED" — remaster/restored describes the transfer, never the cut,
 // so it must not enter the ladder or a remastered theatrical would outrank a plain extended.
 const RESTORED_RE = /\bremaster(?:ed)?\b|\brestored\b|\brestoration\b|\b4k\.?restoration\b/i;
+// ---- FRAMING: IMAX / OPEN MATTE — A THIRD AXIS, NOT A TIER ───────────────────────────────────
+// An IMAX version is the SAME EDIT with MORE PICTURE: the expanded sequences open up from 2.39:1 to
+// roughly 1.90:1 (or 1.43:1 on true IMAX film), so you get image that the scope framing crops away.
+// Runtime is unchanged. That makes it orthogonal to the cut ladder in exactly the way `restored` is,
+// and until 2026-08-18 it was NOT modelled that way — `imax edition` sat in the Extended tier, which
+// made a framing difference masquerade as a longer cut and let a plain Extended release look like a
+// straight upgrade over an IMAX copy. It has been removed from that tier and lives here instead.
+//
+// The old pattern also required the literal phrase "imax edition", so the way releases are ACTUALLY
+// named — "Top Gun Maverick 2022 IMAX 1080p BluRay" — matched nothing at all and scored as unstated.
+//
+// OPEN MATTE IS DELIBERATELY INCLUDED BUT IS NOT ALWAYS A WIN. It opens the top and bottom of a
+// matted 1.85 frame, which sometimes reveals what the framing was hiding (rigging, boom mics) and is
+// not the director's composition. So detection here NEVER implies "better" on its own — that
+// judgement lives in IMAX_BEST below, per title.
+const IMAX_RE = /\bimax\b|\bopen[\s._-]?matte\b|\bexpanded[\s._-]?aspect\b/i;
+// "IMAX Enhanced" is a DTS/audio-and-HDR licensing badge that can appear on a disc with entirely
+// ordinary scope framing, so on its own it is not evidence of expanded picture. Matched separately
+// so it can be detected without being trusted as framing.
+const IMAX_ENHANCED_RE = /\bimax[\s._-]?enhanced\b/i;
+const imaxOf = (text) => {
+  const t = String(text || '');
+  if (!IMAX_RE.test(t)) return false;
+  // "IMAX Enhanced" and nothing else: audio/HDR branding, not more picture.
+  if (IMAX_ENHANCED_RE.test(t) && !/\bimax\b(?![\s._-]?enhanced)/i.test(t)) return false;
+  return true;
+};
+// FILMS WHERE THE EXPANDED FRAMING IS GENUINELY THE ONE TO OWN — curated, exactly like EDITION_BEST,
+// and for the same reason: a blanket "IMAX wins" rule would be wrong. It is only a real gain for
+// films with sequences actually SHOT on IMAX or large format; for everything else an "IMAX" tag may
+// be marketing, an upscale, or a fan re-frame. Add a title only when the expanded version is known
+// to carry more image.
+//
+// ASPECT RATIO ALONE CANNOT DECIDE THIS, which is why there is a list rather than a measurement:
+// open matte and PAN-AND-SCAN both move a 2.39 film toward 1.78, but the first ADDS picture and the
+// second CROPS the sides off. Without knowing the intended framing per title, a 1.78 copy of a scope
+// film is as likely to be vandalism as a gift.
+// KEYED WITH YEAR, unlike EDITION_BEST — and that is not a stylistic difference, it is a bug fix.
+// normEdTitle() strips "(year)", so a bare 'dune' key matched BOTH Villeneuve's Dune (2021) and
+// Lynch's Dune (1984). The 1984 film has no large-format anything, and it duly appeared on the
+// Edition tab asking for IMAX framing — a good copy marked as bad, which is the exact failure this
+// section must not produce. Any franchise with a remake is exposed to this, so the year is part of
+// the key here and imaxBestFor() falls back to a bare-title lookup only for titles that carry no
+// year at all.
+// ---- MAINTENANCE ────────────────────────────────────────────────────────────────────────────
+// THIS LIST IS A SEED, NOT THE MECHANISM. audit.js also detects large-format films EMPIRICALLY, by
+// noticing that an IMAX-labelled release exists for a film we hold in scope framing (see
+// imaxCandidateSeen). That path needs no maintenance and catches anything that actually circulates,
+// so a film missing from this list is a delayed suggestion, not a permanent blind spot.
+//
+// WHY THERE IS NO LOOKUP TO REPLACE IT: TMDB was checked on 2026-08-18 and carries no imax /
+// large-format / 65mm / aspect keyword on Dune, Dune: Part Two or Oppenheimer. There is no metadata
+// source for "was this shot large-format", which is why a hand list exists at all.
+//
+// WHEN TO UPDATE IT: alongside the awards data — controller/oscar-winners.json and
+// controller/film-awards.json — since that is already a recurring manual pass over "notable films of
+// the year", and the large-format releases are almost always in that same set. Add a title only when
+// the film has sequences genuinely SHOT on IMAX or large format, and key it "title year" (see the
+// note on the Set below for why the year is mandatory).
+//
+// KNOWN PENDING: The Odyssey (2026, Nolan, shot entirely on IMAX film) — add when it enters the
+// library. Mission: Impossible - Ghost Protocol (2011) has ~25 min of IMAX 15/70 but its home
+// release is 2.35 throughout, so it is deliberately OMITTED: there is nothing wider to acquire.
+const IMAX_BEST = new Set([
+  'the dark knight 2008',             // 28 min shot on IMAX 15/70
+  'the dark knight rises 2012',       // 72 min
+  'interstellar 2014',                // ~1 hour
+  'dunkirk 2017',                     // majority of the film
+  'tenet 2020',
+  'oppenheimer 2023',                 // first film shot on IMAX black-and-white film
+  'mission impossible fallout 2018',
+  'mission impossible dead reckoning part one 2023',
+  'mission impossible the final reckoning 2025',
+  'top gun maverick 2022',
+  'dune 2021',                        // NOT Lynch's Dune (1984) — see the note above
+  'dune part two 2024',
+  'avengers infinity war 2018',       // first Hollywood film shot entirely on IMAX digital
+  'avengers endgame 2019',
+  'first man 2018',
+  'transformers age of extinction 2014',
+]);
+
 // Higher wins. The gaps between named tiers are deliberate: Brennan relaxed the Final-vs-Redux
 // requirement ("if we end up doing a longer redux cut of apocolypse over the more desirable but
 // shorter final cut, its not the end of the world"), so tiers 3 and 4 are a PREFERENCE, while the
@@ -216,7 +298,7 @@ const RESTORED_RE = /\bremaster(?:ed)?\b|\brestored\b|\brestoration\b|\b4k\.?res
 const EDITION_TIER = [
   [/\bfinal[\s._-]?cut\b|\bultimate[\s._-]?(?:cut|edition)\b/i, 4, 'Final Cut'],
   [/\bdirector.?s?[\s._-]?cut\b|\bdirectors[\s._-]?cut\b|\bdc\b/i, 3, "Director's Cut"],
-  [/\bextended\b|\bredux\b|\broadshow\b|\bintegral\b|\bthe[\s._-]?complete\b|\bimax[\s._-]?edition\b|\bspecial[\s._-]?edition\b|\buncut\b|\bunrated\b/i, 2, 'Extended'],
+  [/\bextended\b|\bredux\b|\broadshow\b|\bintegral\b|\bthe[\s._-]?complete\b|\bspecial[\s._-]?edition\b|\buncut\b|\bunrated\b/i, 2, 'Extended'],
   [/\btheatrical\b/i, 0, 'Theatrical'],
 ];
 const EDITION_UNSTATED = 1;   // between Theatrical(0) and Extended(2): worse than a known long cut, better than an explicit theatrical
@@ -225,9 +307,9 @@ const EDITION_UNSTATED = 1;   // between Theatrical(0) and Extended(2): worse th
 function editionOf(text) {
   const t = String(text || '');
   for (const [re, tier, label] of EDITION_TIER) {
-    if (re.test(t)) return { tier, label, restored: RESTORED_RE.test(t) };
+    if (re.test(t)) return { tier, label, restored: RESTORED_RE.test(t), imax: imaxOf(t) };
   }
-  return { tier: EDITION_UNSTATED, label: null, restored: RESTORED_RE.test(t) };
+  return { tier: EDITION_UNSTATED, label: null, restored: RESTORED_RE.test(t), imax: imaxOf(t) };
 }
 // Films whose theatrical cut must never be on disk, keyed by normalised title. The general rule
 // ("never go below the edition you already own") cannot help when the copy you own is ALREADY the
@@ -306,6 +388,61 @@ function editionUpgradeFor(title, mine) {
   if (floor != null && tier < floor) return null;    // below floor: a refusal, not a preference
   return tier < best ? best : null;
 }
+// Is the expanded framing the one to own for this title? Curated — see IMAX_BEST.
+// `year` is REQUIRED in practice even though the signature allows omitting it. *arr's `title` field
+// carries NO year (it is a separate `year` property), and an earlier cut of this read the year out
+// of the title string only — so every caller fell through to a bare-title lookup that matched
+// nothing and the whole feature silently returned zero rows. Accept it from either place.
+//
+// NO YEAR AT ALL means we cannot disambiguate a remake, and guessing is what put Lynch's Dune (1984)
+// on the Edition tab. So a yearless title matches nothing: a missed suggestion is recoverable, a
+// good copy marked as bad is the failure this section exists to avoid.
+function imaxBestFor(title, year) {
+  const base = normEdTitle(title);
+  const y = year || (/\((19|20)\d{2}\)/.exec(String(title || '')) || [])[0];
+  if (!y) return false;
+  return IMAX_BEST.has(`${base} ${String(y).replace(/[()]/g, '')}`);
+}
+// Do we hold the narrower cut of a film that exists in a wider one? Returns true only when the
+// expanded version is known to be the better framing AND what we hold is not already it. This is the
+// EDITION-TAB question; the refusal question is imaxDowngrade() below.
+// ASPECT RATIO IS THE DECIDING EVIDENCE, and checking it turned 10 suggestions into 4.
+//
+// Measured against the live library 2026-08-18: the Nolan large-format titles ALREADY carry their
+// expanded framing and simply do not say so in the filename. Interstellar, The Dark Knight,
+// Oppenheimer are all 1920x1080 (1.78:1); Dunkirk and Tenet are 1920x1072 (1.79:1). That IS the
+// IMAX framing — those discs ship variable aspect ratio, and the large-format sequences open up to
+// fill the full 1.78 frame. Suggesting an "IMAX version" for them would be telling Brennan to
+// re-acquire something he already has.
+//
+// The genuinely narrow ones sit at 1920x800 (2.40:1) — Dune, Dune Part Two, Mission: Impossible
+// Fallout and Dead Reckoning — i.e. scope-cropped, missing the expanded picture.
+//
+// So: a held file already wider-than-scope in the vertical sense (AR below ~2.0) is already
+// expanded, whatever its name says. Only a scope-framed copy of a large-format title is a real gap.
+// The 2.0 cut sits in genuinely empty space — the two populations are 1.78-1.90 and 2.35-2.40, with
+// nothing between them.
+const IMAX_AR_MAX = 2.0;
+const arOf = (resolution) => {
+  const m = /^(\d+)\s*x\s*(\d+)$/.exec(String(resolution || '').trim());
+  return m && +m[2] > 0 ? +m[1] / +m[2] : null;
+};
+function imaxUpgradeFor(title, mine, resolution, year) {
+  if (!imaxBestFor(title, year)) return false;
+  if (mine && mine.imax) return false;               // says so on the tin
+  const ar = arOf(resolution);
+  if (ar != null && ar < IMAX_AR_MAX) return false;  // already expanded, just not labelled
+  return true;
+}
+// Would this swap LOSE expanded framing? A hard refusal for curated titles, mirroring the edition
+// floor: trading an IMAX copy for a scope one throws away picture, and no bitrate gain replaces
+// image that is not in the file. Without this the tier change above would have let a plain Extended
+// release outrank an IMAX copy, which is the exact regression removing `imax edition` from the tier
+// ladder could otherwise have introduced.
+function imaxDowngrade(title, mine, cand, year) {
+  if (!imaxBestFor(title, year)) return false;
+  return !!(mine && mine.imax) && !(cand && cand.imax);
+}
 // WHAT DO WE ALREADY OWN? Take the BEST of *arr's edition field and our own filename, because
 // measured against the live library (2026-07-30, 806 files) each one knows things the other does not:
 //   - the field usually wins, since renaming strips the edition from the name — The Exorcist,
@@ -320,11 +457,19 @@ function editionUpgradeFor(title, mine) {
 // here and the tests caught it: Blade Runner's field says "Theatrical Cut" (tier 0) while its renamed
 // file says nothing (unstated, tier 1), so max() laundered a known-bad edition into "unknown" and
 // lost the very fact the floor check needs. Among explicit labels, the higher tier wins.
-function ownEditionOf(edition, relativePath) {
-  const a = editionOf(edition), b = editionOf(relativePath);
-  const restored = a.restored || b.restored;
-  const stated = [a, b].filter((e) => e.label !== null);
-  if (!stated.length) return { ...a, restored };
+//   - and the ORIGINAL FILE PATH knows more than either when *arr's own parser did not recognise the
+//     tag. This is the Das Boot case (2026-08-10): the release was
+//     "Das.Boot.1981.DC.1080p.BluRay.x264.EAC3-SARTRE", *arr's edition field came back EMPTY because
+//     its edition regex does not accept a bare "DC", and renaming then flattened the name to
+//     "Das Boot (1981) Bluray-1080p.mkv". Both of the first two sources were blank, so a correctly
+//     downloaded Director's Cut read as EDITION UNKNOWN and sat on the Upgrade tab permanently,
+//     asking to be replaced by the copy it already was. `originalFilePath` is *arr's own record of
+//     the pre-rename release path, so it survives the rename and OUR regex does accept "DC".
+function ownEditionOf(edition, relativePath, originalFilePath) {
+  const parts = [editionOf(edition), editionOf(relativePath), editionOf(originalFilePath)];
+  const restored = parts.some((e) => e.restored);
+  const stated = parts.filter((e) => e.label !== null);
+  if (!stated.length) return { ...parts[0], restored };
   const best = stated.reduce((x, y) => (y.tier > x.tier ? y : x));
   return { ...best, restored };
 }
@@ -347,6 +492,15 @@ function editionRefusal(candidateTitle, mine, title) {
   // upgrade path), and a higher tier is exactly what we want to encourage.
   if (cand.tier < own.tier) {
     return `${cand.label || 'no edition stated'} is a downgrade from your ${own.label} copy`;
+  }
+  // FRAMING, checked AFTER the cut ladder because it is a separate axis (see IMAX_RE). Losing the
+  // expanded framing throws away picture that is simply not present in the narrower file, and no
+  // bitrate gain can put it back — so for a curated large-format title this is a refusal, exactly
+  // like dropping below the edition floor. It is also the guard that makes it safe to have removed
+  // `imax edition` from the Extended tier: without it, a plain Extended release would now outrank an
+  // IMAX copy and read as an upgrade.
+  if (imaxDowngrade(title, own, cand)) {
+    return 'not the IMAX/expanded framing — your copy has more picture than this one';
   }
   return null;
 }
@@ -438,20 +592,103 @@ const isExcusableCf = (name) => isSizeCf(name) || AUDIO_TRANSCODE_CF.has(String(
 // Sum a format list's score, counting only the formats that are allowed to DECIDE this. `scoreByName`
 // is the profile's own formatItems, so this is *arr's arithmetic rather than a re-implementation of
 // it. A format the profile does not score contributes 0, which is also how *arr treats it.
-function nonSizeCfScore(formats, scoreByName) {
+const cfScoreOf = (name, scoreByName) => Number(
+  (scoreByName instanceof Map ? scoreByName.get(name) : (scoreByName || {})[name]) || 0);
+function sumCf(formats, scoreByName, skip) {
   let n = 0;
   for (const f of (formats || [])) {
     const name = typeof f === 'string' ? f : (f && f.name);
-    if (!name || isExcusableCf(name)) continue;
-    n += Number((scoreByName instanceof Map ? scoreByName.get(name) : (scoreByName || {})[name]) || 0);
+    if (!name || skip(name)) continue;
+    n += cfScoreOf(name, scoreByName);
   }
   return n;
+}
+function nonSizeCfScore(formats, scoreByName) {
+  return sumCf(formats, scoreByName, isExcusableCf);
+}
+// ---- THE EDITION CUSTOM FORMATS, and why they sometimes have to be set aside ─────────────────
+// Gladiator (2000), 2026-08-12. `Gladiator.2000.EXTENDED.1080p.BluRay.x264-CiNEFiLE` downloaded over
+// several days and was then refused, with the deficit reported as:
+//   New:      [H.264 (GPU), Original-language audio, Size 10-15 GB]                        (-220)
+//   Existing: [Extended / Long Cut, H.264 (GPU), Original-language audio, Size 1.5-3 GB]  (3360)
+// The candidate did not match "Extended / Long Cut" (+3000) DESPITE EXTENDED BEING IN ITS NAME. The
+// custom format is not at fault (live Radarr id 20 carries exactly the provisioner's regex, which
+// matches that string): *arr scores the RELEASE TITLE when it grabs, and the FILE INSIDE THE TORRENT
+// when it imports. A release whose internal filename omits the edition tag therefore loses 3000
+// points somewhere between those two moments, and the import reads as an edition DOWNGRADE.
+//
+// Brennan's reasoning, 2026-08-12, which is what this implements: "are all the choices theatrical? If
+// they are then they shouldn't show up as suggestions at all... If it wasnt theatrical then it
+// shouldnt have been rejected." Measured: all 24 Gladiator candidates parse as Extended and not one
+// is theatrical, so the edition filter had already done its job — the refusal was a false positive.
+//
+// SO WE ASK OUR OWN PARSER RATHER THAN TRUSTING *ARR'S FILENAME SCORE. editionOf() reads the release
+// title we actually chose, and it is the same function (and the same 103-assertion test file) that
+// the Edition section and the candidate filter already rely on. When it says the release is at least
+// the tier we hold, an edition-CF deficit is a NAMING artifact and is set aside; the moment it says
+// otherwise, every edition CF counts in full and the refusal stands.
+//
+// THIS DOES NOT SOFTEN THE HARD RULE — "a theatrical cut of apocalypse, LOTR, or blade runner is
+// garbage and should never be on disk, ever, for any reason". A genuine theatrical release parses to
+// tier 0, never clears the tier test, and is refused exactly as before. The evidence used here is the
+// edition CLAIM in the title, which is the same evidence the tab used to offer the release in the
+// first place — so this only makes the two ends of one swap agree with each other.
+const EDITION_CF = new Set([
+  'Extended / Long Cut', 'Theatrical Cut', 'Directors Cut', 'Final / Ultimate Cut',
+]);
+const isEditionCf = (name) => EDITION_CF.has(String(name || '').trim());
+// True when the release we CHOSE is not an edition downgrade from what is on disk, per our own parse.
+// Ties pass: holding an unstated-edition copy and replacing it with another unstated one disputes
+// nothing. `newTitle` is the release title; `oldEdition` is ownEditionOf() for the existing file.
+function editionNotWorse(newTitle, oldEditionTier) {
+  const want = Number.isFinite(oldEditionTier) ? oldEditionTier : EDITION_UNSTATED;
+  return editionOf(newTitle).tier >= want;
+}
+// The formats actually responsible for a refusal, worst first — so the UI can say WHICH thing is
+// worse instead of "scored it below the copy you already have", which on Gladiator pointed a human at
+// size and quality when the entire deficit was one edition tag. Excusable formats are omitted
+// because they are, by definition, not why anything was refused.
+// *arr states BOTH format lists in the rejection itself:
+//   "Not a Custom Format upgrade for existing movie file(s). New: [10-bit (CPU), Original-language
+//    audio, Size 6-10 GB] (30) do not improve on Existing: [H.264 (GPU), ...] (360)"
+// So the candidate's formats can be read straight out of its own words, with no extra plumbing
+// through previewManualImport and no risk of the two disagreeing. Returns empty arrays when the
+// phrasing does not match — a future *arr wording change degrades to the old vague message rather
+// than to a wrong one.
+const CF_REJECT_LISTS_RE = /new:\s*\[([^\]]*)\][^[]*existing:\s*\[([^\]]*)\]/i;
+function cfFormatsFromRejection(reason) {
+  const m = CF_REJECT_LISTS_RE.exec(String(reason || ''));
+  if (!m) return { newFormats: [], oldFormats: [] };
+  const split = (s) => String(s).split(',').map((x) => x.trim()).filter(Boolean);
+  return { newFormats: split(m[1]), oldFormats: split(m[2]) };
+}
+function cfDeficits(oldFormats, newFormats, scoreByName, opts = {}) {
+  const skip = opts.editionOk ? ((n) => isExcusableCf(n) || isEditionCf(n)) : isExcusableCf;
+  const nameOf = (f) => (typeof f === 'string' ? f : (f && f.name)) || '';
+  const newSet = new Set((newFormats || []).map(nameOf).filter(Boolean));
+  const oldSet = new Set((oldFormats || []).map(nameOf).filter(Boolean));
+  const out = [];
+  for (const n of oldSet) {                       // had it, lost it, and it was worth something
+    if (skip(n) || newSet.has(n)) continue;
+    const s = cfScoreOf(n, scoreByName);
+    if (s > 0) out.push({ name: n, delta: -s });
+  }
+  for (const n of newSet) {                       // gained something that scores against us
+    if (skip(n) || oldSet.has(n)) continue;
+    const s = cfScoreOf(n, scoreByName);
+    if (s < 0) out.push({ name: n, delta: s });
+  }
+  return out.sort((a, b) => a.delta - b.delta);
 }
 // True when nothing that MATTERS is worse — i.e. the refusal is about bytes, or about an audio track
 // a client will transcode, and not about picture, language or the cut.
 // Ties count as excusable: equal on everything that matters means nothing real is in dispute.
-function cfRefusalIsExcusable(oldFormats, newFormats, scoreByName) {
-  return nonSizeCfScore(newFormats, scoreByName) >= nonSizeCfScore(oldFormats, scoreByName);
+// `opts.editionOk` is set by the caller ONLY when our own parse of the chosen release title says the
+// edition is not a downgrade (see editionNotWorse). It widens the exemption to the edition CFs, which
+// is what lets a mis-named extended cut import; without it those count in full, as they always did.
+function cfRefusalIsExcusable(oldFormats, newFormats, scoreByName, opts = {}) {
+  const skip = opts.editionOk ? ((n) => isExcusableCf(n) || isEditionCf(n)) : isExcusableCf;
+  return sumCf(newFormats, scoreByName, skip) >= sumCf(oldFormats, scoreByName, skip);
 }
 // *arr's own phrasing for the Custom Format arm of the upgrade check. Radarr says "movie file(s)",
 // Sonarr "episode file(s)". Kept separate from importer.js's UPGRADE_REJECT_RE (the plain-quality
@@ -459,8 +696,61 @@ function cfRefusalIsExcusable(oldFormats, newFormats, scoreByName) {
 // when cfRefusalIsExcusable agrees.
 const CF_UPGRADE_REJECT_RE = /not a custom format upgrade/i;
 
+// ---- RUNTIME: IS THIS FILE THE WHOLE FILM? ──────────────────────────────────────────────────
+// Chinatown (1974), 2026-08-10: a 6.78 GB "1080p BluRay x264" release contained 68 minutes of a
+// 130-minute film — full bitrate, valid container, correct name, HALF THE MOVIE. It swapped in over
+// a good 1.71 GB copy and the good copy was already deleted by the time anything noticed. The
+// existing check DID fire ("short: 68 min replacing 131 min (52%)") but it ran AFTER the delete, and
+// its only repair was to re-import the same inherently-short torrent — twice — before giving up.
+//
+// So runtime becomes a PREFLIGHT gate, and this is the arithmetic behind it. Kept pure and here (not
+// in audit.js) so it can be unit-tested against the real library's numbers — see
+// scripts/test-runtime-guard.js, which pins the whole measured distribution.
+//
+// TWO YARDSTICKS, and we demand the file clear BOTH:
+//   filmSecs — the runtime *arr got from TMDB. The authority on "how long is this film", and the
+//     only one that works when the copy being replaced is ITSELF short (which is the case this
+//     gate must not be blind to, or one truncated import licenses the next).
+//   oldSecs  — the copy on disk. Catches a film whose TMDB runtime is missing or zero, and stops a
+//     swap from quietly shortening what you already had.
+// Taking the max of the two and testing once is the same thing as testing both, and reads better in
+// the log line. `basis` records which one decided it, because "shorter than TMDB says" and "shorter
+// than the file you had" are different bugs to a human reading the history.
+//
+// MIN_RATIO IS DELIBERATELY LOOSE. Measured over all 881 movie files on 2026-08-12: the two genuine
+// truncations sit at 0.16 (a Star Wars Holiday Special .VOB fragment) and 0.52 (Chinatown). The
+// worst LEGITIMATE file is 0.82 — and above it live every normal source of runtime disagreement:
+// PAL speedup, missing/extra credits, TMDB counting a roadshow intermission (The Brutalist 200.6 vs
+// 215), and TMDB listing a longer cut than the one released (The Hateful Eight 167.7 theatrical vs
+// 188 roadshow). 0.6 sits in the empty gap between 0.52 and 0.82. It must stay there: a FALSE
+// positive here refuses a perfectly good replacement, and a false negative only means one more
+// truncation gets caught by the post-import check instead.
+const RUNTIME_MIN_RATIO = 0.6;
+// 'unknown' is a first-class answer and callers MUST treat it as permission to proceed. No duration
+// (ffprobe failed, the container lies, the file is unreadable) and no yardstick (a film with no TMDB
+// runtime replacing nothing) both mean we have no evidence — and unproven is not the same as wrong.
+// Every guard in this subsystem fails open for exactly this reason: the alternative is refusing
+// healthy swaps on an ffprobe hiccup.
+function runtimeVerdict({ gotSecs, filmSecs = 0, oldSecs = 0, minRatio = RUNTIME_MIN_RATIO } = {}) {
+  const got = Number(gotSecs) || 0;
+  const want = Math.max(Number(filmSecs) || 0, Number(oldSecs) || 0);
+  if (got <= 0 || want <= 0) return { verdict: 'unknown', wantSecs: want, gotSecs: got, ratio: null, basis: null };
+  const basis = (Number(filmSecs) || 0) >= (Number(oldSecs) || 0) ? 'tmdb' : 'disk';
+  const ratio = got / want;
+  return { verdict: ratio < minRatio ? 'short' : 'ok', wantSecs: want, gotSecs: got, ratio, basis };
+}
+// The sentence a human reads in the log, the Audit history row and the metrics event. One place, so
+// all three agree.
+function runtimeShortDetail(v) {
+  return `${Math.round(v.gotSecs / 60)} min of a ${Math.round(v.wantSecs / 60)} min`
+    + ` ${v.basis === 'tmdb' ? 'film' : 'existing copy'} (${Math.round(v.ratio * 100)}%)`;
+}
+
 module.exports = {
+  imaxOf, imaxBestFor, imaxUpgradeFor, imaxDowngrade, IMAX_BEST, arOf,
+  RUNTIME_MIN_RATIO, runtimeVerdict, runtimeShortDetail,
   SIZE_CF_RE, isSizeCf, AUDIO_TRANSCODE_CF, isExcusableCf,
+  EDITION_CF, isEditionCf, editionNotWorse, cfDeficits, cfFormatsFromRejection,
   nonSizeCfScore, cfRefusalIsExcusable, CF_UPGRADE_REJECT_RE,
   SRC_RANK, srcRank, REENC_RE,
   AUDIO_RE, audioOf, AUDIO_RANK,

@@ -468,10 +468,23 @@ provision_arr() {
         elif $name=="PS4-native audio (AC3)" then 15
         elif $name=="HD/lossless audio (transcode)" then -20
         elif $name=="AV1 (CPU)" or $name=="VP9 (CPU)" then -1000
+        # SIZE BANDS ARE ABSOLUTE GiB AND RUNTIME-BLIND, a real limitation of the Radarr
+        # SizeSpecification — the same band means a different bitrate for every film. Two `normal`
+        # scores were recalibrated on 2026-08-11 after Blazing Saddles:
+        #   Size <1.5 GB   30 -> 0    A +30 REWARD for being thin. It scored a 2.1 Mbps YIFY BRRip
+        #                             (64 bpp+, warn band) at 310, above every better encode on the
+        #                             indexers, so the audit tab could offer nothing that would
+        #                             import. Rewarding a small 1080p file fights everything else
+        #                             this profile is for; the Disk tab and bpp+ cover space.
+        #   Size 6-10 GB -150 -> -20  For a 93-minute film that band is 9-15 Mbps, i.e. exactly
+        #                             where grain on 70s film stock stops smearing. The penalty
+        #                             excluded the best available copy of every short film.
+        # Deliberately unchanged: `low` (whose whole purpose IS to prefer small), `beloved` (already
+        # rewards 6-10 GB at +100), and the sonarr table (all-zero on normal, so TV never had this).
         elif ($name|startswith("Size")) then
           ((if $app=="sonarr"
             then {"Size <1.5 GB":{low:30,normal:0,beloved:-40},"Size 1.5-3 GB":{low:20,normal:0,beloved:-20},"Size 3-6 GB":{low:0,normal:0,beloved:-10},"Size 6-10 GB":{low:-10,normal:0,beloved:0},"Size 10-15 GB":{low:-20,normal:0,beloved:20},"Size >15 GB":{low:-40,normal:0,beloved:40}}
-            else {"Size <1.5 GB":{low:150,normal:30,beloved:-500},"Size 1.5-3 GB":{low:-100,normal:80,beloved:-150},"Size 3-6 GB":{low:-200,normal:40,beloved:-20},"Size 6-10 GB":{low:-500,normal:-150,beloved:100},"Size 10-15 GB":{low:-1500,normal:-500,beloved:30},"Size >15 GB":{low:-3000,normal:-1500,beloved:-50}}
+            else {"Size <1.5 GB":{low:150,normal:0,beloved:-500},"Size 1.5-3 GB":{low:-100,normal:80,beloved:-150},"Size 3-6 GB":{low:-200,normal:40,beloved:-20},"Size 6-10 GB":{low:-500,normal:-20,beloved:100},"Size 10-15 GB":{low:-1500,normal:-500,beloved:30},"Size >15 GB":{low:-3000,normal:-1500,beloved:-50}}
             end)[$name][$tier])
         else 0 end;
       [$ids|to_entries[]|{format:.value,name:.key,score:(sc(.key) // 0)}]'

@@ -84,6 +84,7 @@ const sweeps = require('./lib/sweeps');
 const searchEngine = require('./lib/search-engine');
 const jfScan = require('./lib/jf-scan');
 const probe = require('./lib/probe');
+const banding = require('./lib/banding');
 
 // Cold-boot ordering: build collections, THEN register the shelves that read them, so the home
 // page is populated on first load instead of after the old 3-min gap. Polls Jellyfin (up to ~5
@@ -139,5 +140,10 @@ probe.startProbe();         // nightly CRF probe: measures per-film content comp
                             // and installs it as the BPP+ denominator app-wide (installScoring()).
                             // Must come before app.listen so no request is served with the flat
                             // fallback after a restart. See docs/DESIGN-CRF-PROBE.md.
+banding.startBanding();     // the SECOND quality axis: CAMBI banding, the one artifact BPP+ is
+                            // structurally blind to. Shares the probe's gates and its ONE night
+                            // budget, so total nightly encode time is unchanged. Never touches
+                            // BPP+ - reported beside it. AFTER startProbe because it calls into
+                            // probe.js for gating. See docs/REPORT-cambi-2026-08-20.md.
 
 app.listen(PORT, () => console.log(`controller listening on :${PORT} (NUC_IP=${NUC_IP}, keys ${cfg.RADARR_KEY ? 'loaded' : 'NOT provisioned'})`));

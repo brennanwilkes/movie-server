@@ -611,6 +611,22 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .aud-cand.dead .aud-cand-title { opacity: .85; text-decoration: line-through;
   text-decoration-color: color-mix(in srgb, var(--bad, #e5484d) 60%, transparent); }
 .aud-cand.dead .apill.seeds { opacity: 1; }
+/* REFUSED — the same visual language as .dead, one step further: not merely discouraged but
+   genuinely unpickable, because *arr rejecting this release is arithmetic rather than luck. The
+   card carries no data-guid, so `cursor: default` is telling the truth rather than suppressing a
+   handler. Hover still restores it fully — reading why a card is struck through must never require
+   squinting. Sits AFTER .dead so a release that is both refused and dead reads as refused. */
+.aud-cand.refused { opacity: .5; cursor: default; transition: opacity .12s ease; }
+.aud-cand.refused:hover, .aud-cand.refused:focus-within { opacity: 1; }
+.aud-cand.refused .aud-cand-title { opacity: .85; text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--bad, #e5484d) 60%, transparent); }
+.aud-cand.refused .apill.seeds { opacity: 1; }
+
+/* RECENT REPLACEMENTS feed. Sits under the section list, collapsed by default — it is a reference,
+   not the job. History rows are inert, so the pointer must not promise otherwise. */
+/* History rows are inert — nothing to open, so the pointer must not promise a target. */
+.row.aud.hist { cursor: default; }
+.row.aud.hist:active { transform: none; }
 /* A card mid-dry-run. Its children dim and a spinner is overlaid at full contrast — dimming
    the whole card the way this used to would fade the spinner along with everything else, which
    is how the tap ended up with no visible feedback at all. */
@@ -730,7 +746,10 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .job-card.s-running { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--card)); }
 .job-card.s-error   { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--card)); }
 .job-card.s-waiting,
-.job-card.s-paused  { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 5%, var(--card)); }
+.job-card.s-paused,
+/* Stopped early (runtime cap / shutdown / by hand) is amber like the other "not running, not
+   broken" states — never the red rail, which is reserved for something that actually went wrong. */
+.job-card.s-cancelled { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 5%, var(--card)); }
 /* Healthy at rest — ran, succeeded, waiting for its next turn. The rail is the only place this is
    said, deliberately: a green BADGE on 25 cards would drown the handful that need attention, but a
    green edge reads as reassurance without competing for the eye. */
@@ -848,3 +867,19 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
    See bppSpan() in js/util.js. */
 .mbps.meas { font-weight: 750; }
 .mbps.est  { font-style: italic; }
+
+/* PROVISIONAL BPP+ — the trailing "*" on a loosely-measured score (Brennan, 2026-08-17: "if
+   uncertainty is above a certain threshold we do bpp+* instead of bpp+... on hover show a tooltip
+   with the actual number").
+   The asterisk is the whole signal, so it must be legible but must NOT compete with the badge's
+   colour, which is doing the quality work. Dimmed and raised like a footnote marker: it reads as a
+   caveat on the number rather than as part of it.
+   Deliberately NOT a colour change — colour already means "how good", and overloading it with "how
+   sure" would make both unreadable. Same reasoning that put confidence on weight/slope for
+   .meas/.est above; this is the third value on that same axis. */
+.prov-mark {
+  font-size: 0.85em;
+  opacity: 0.65;
+  margin-left: 0.5px;
+  font-weight: 700;
+}

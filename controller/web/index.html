@@ -109,6 +109,17 @@
           <span class="at-val" id="at-val-stale">–</span>
           <span class="at-sub" id="at-sub-stale"></span>
         </button>
+        <!-- RECENT — what HAPPENED, not what needs doing. A finished replacement used to leave no
+             trace anywhere in the UI: the row just stopped saying "swapping" whether it had
+             succeeded, been refused, or died at 95%. Sixty overnight failures were invisible until
+             the logs were read by hand, and `make deploy` destroys those logs. A peer section
+             rather than a footnote under the list, because the Upgrade list is 877 rows of
+             infinite scroll and anything below it is unreachable. -->
+        <button data-sec="history">
+          <span class="at-label">Recent</span>
+          <span class="at-val" id="at-val-history">–</span>
+          <span class="at-sub" id="at-sub-history"></span>
+        </button>
       </div>
 
       <!-- Verified-only is now permanent: an unactionable row is noise. Kept in the DOM,
@@ -129,6 +140,7 @@
       <div id="audit-more" hidden><span class="spinner sm"></span><span id="audit-more-label">Loading more…</span></div>
       <div id="audit-loading" class="loading" hidden><span class="spinner"></span>Loading audit…</div>
       <p id="audit-empty" class="empty" hidden>Nothing here.</p>
+
     </section>
 
     <!-- JOBS — every recurring thing this box does, in ONE format.

@@ -1,0 +1,6808 @@
+[
+ {
+  "Name": "The 100",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "183d41ec4c6f34e35cf082d92610c77f",
+  "DateCreated": "2026-06-30T04:02:24.597612Z",
+  "SortName": "0000000100",
+  "PremiereDate": "2014-03-19T00:00:00.0000000Z",
+  "Path": "/media/tv/The 100",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Drama",
+   "Mystery",
+   "Science Fiction",
+   "Suspense",
+   "Thriller"
+  ],
+  "CommunityRating": 7.5,
+  "RunTimeTicks": 25200000000,
+  "ProductionYear": 2014,
+  "ProviderIds": {
+   "Imdb": "tt2661044",
+   "Tmdb": "48866",
+   "TvMaze": "6",
+   "TvRage": "34770",
+   "Tvdb": "268592"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "The CW",
+    "Id": "c6a7b9b98037a5ce989ad1d90a2ebb46"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   },
+   {
+    "Name": "Suspense",
+    "Id": "8199e032a96e168bb81b2def8b2eda31"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "based on novel or book",
+   "self-discovery",
+   "space colony",
+   "space travel",
+   "post-apocalyptic future",
+   "space",
+   "survival",
+   "apocalypse",
+   "nuclear catastrophe",
+   "based on young adult novel"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2020-09-30T00:00:00.0000000Z"
+ },
+ {
+  "Name": "1883",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "c54a18eda1d01b86b1df41ecab1d3d11",
+  "DateCreated": "2026-07-15T07:05:14.3539455Z",
+  "SortName": "0000001883",
+  "PremiereDate": "2021-12-19T00:00:00.0000000Z",
+  "Path": "/media/tv/1883",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Western"
+  ],
+  "CommunityRating": 8.6,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2021,
+  "ProviderIds": {
+   "Imdb": "tt13991232",
+   "Tmdb": "118357",
+   "TvMaze": "53327",
+   "TvRage": "0",
+   "Tvdb": "396390"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Paramount+",
+    "Id": "ec5c0a0cdf8eb46ae77efcbb36ac23be"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Western",
+    "Id": "a64ff36d22e03d8479fbac2360725aea"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "texas",
+   "frontier",
+   "miniseries",
+   "family drama",
+   "historical",
+   "convoy",
+   "wild west",
+   "indian attack",
+   "civil war veteran",
+   "wagon",
+   "journey",
+   "pinkertons",
+   "19th century",
+   "oregon trail",
+   "riveting",
+   "dramatic",
+   "violence"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2022-02-27T00:00:00.0000000Z"
+ },
+ {
+  "Name": "1923",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "42277e36feff0decd0c69fb8b610aea8",
+  "DateCreated": "2026-07-15T06:47:23.2186903Z",
+  "SortName": "0000001923",
+  "PremiereDate": "2022-12-18T00:00:00.0000000Z",
+  "Path": "/media/tv/1923",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Western"
+  ],
+  "CommunityRating": 8.3,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2022,
+  "ProviderIds": {
+   "Imdb": "tt18335752",
+   "Tmdb": "157744",
+   "TvMaze": "60550",
+   "Tvdb": "416491"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Paramount+",
+    "Id": "ec5c0a0cdf8eb46ae77efcbb36ac23be"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Western",
+    "Id": "a64ff36d22e03d8479fbac2360725aea"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "africa",
+   "montana",
+   "prequel",
+   "range war",
+   "cattle ranch",
+   "yellowstone",
+   "1920s",
+   "big game hunter",
+   "20th century",
+   "gritty",
+   "western",
+   "indian residential school system"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2025-04-06T00:00:00.0000000Z"
+ },
+ {
+  "Name": "American Gods",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "3c64948b30c479692b5c21b6f0442f25",
+  "DateCreated": "2026-07-06T10:45:00.7705987Z",
+  "SortName": "american gods",
+  "PremiereDate": "2017-04-30T00:00:00.0000000Z",
+  "Path": "/media/tv/American Gods",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Fantasy",
+   "Mystery"
+  ],
+  "CommunityRating": 7.6,
+  "RunTimeTicks": 36000000000,
+  "ProductionYear": 2017,
+  "ProviderIds": {
+   "Imdb": "tt1898069",
+   "Tmdb": "46639",
+   "TvMaze": "3182",
+   "TvRage": "28779",
+   "Tvdb": "253573"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "STARZ",
+    "Id": "b08df42a4b754b31c641572fab4d82ea"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Fantasy",
+    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "based on novel or book",
+   "allegory",
+   "mythology",
+   "con man",
+   "road trip",
+   "god",
+   "conspiracy",
+   "mysterious man",
+   "ex-con",
+   "folklore"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2021-03-21T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Andor",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "dcc82bb8ee41fb4e1bd0cea94124aa7a",
+  "DateCreated": "2026-07-01T02:06:06.5732193Z",
+  "SortName": "andor",
+  "PremiereDate": "2022-09-21T00:00:00.0000000Z",
+  "Path": "/media/tv/Andor",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Drama",
+   "Science Fiction"
+  ],
+  "CommunityRating": 8.6,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2022,
+  "ProviderIds": {
+   "Imdb": "tt9253284",
+   "Tmdb": "83867",
+   "TvMaze": "52341",
+   "Tvdb": "393189"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Disney+",
+    "Id": "20d264313828d2206d85c42b68e2f024"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "space war",
+   "prequel",
+   "space",
+   "rebellion",
+   "revolutionary",
+   "imperialism",
+   "political thriller",
+   "spy thriller",
+   "audacious"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2025-05-13T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Archer (2009)",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "9d22c409d5319c3c6068cfd38569714f",
+  "DateCreated": "2026-06-30T04:39:12.03557Z",
+  "SortName": "archer (0000002009)",
+  "PremiereDate": "2009-09-17T00:00:00.0000000Z",
+  "Path": "/media/tv/Archer (2009)",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Animation",
+   "Comedy",
+   "Fantasy"
+  ],
+  "CommunityRating": 8.6,
+  "RunTimeTicks": 13200000000,
+  "ProductionYear": 2009,
+  "ProviderIds": {
+   "Imdb": "tt1486217",
+   "Tmdb": "10283",
+   "TvMaze": "315",
+   "TvRage": "23354",
+   "Tvdb": "110381"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "FXX",
+    "Id": "3f79a09c454e34ab80fb1f1b39e9ade5"
+   },
+   {
+    "Name": "FX",
+    "Id": "689ac7d1eea98cdc45ec3d569dbef8c8"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Animation",
+    "Id": "074229225b7254292f131f9f49f8dcd6"
+   },
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Fantasy",
+    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "spy",
+   "central intelligence agency (cia)",
+   "secret agent",
+   "workplace",
+   "dark comedy",
+   "drugs",
+   "adult animation",
+   "sitcom",
+   "workplace comedy",
+   "deadpan",
+   "spies",
+   "witty",
+   "action",
+   "assertive",
+   "melodramatic"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2023-12-17T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Arrested Development",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "2d75f29cd3d02b06266f352f0aa88df6",
+  "DateCreated": "2026-07-06T18:00:29.0551281Z",
+  "SortName": "arrested development",
+  "PremiereDate": "2003-11-02T00:00:00.0000000Z",
+  "Path": "/media/tv/Arrested Development",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy"
+  ],
+  "CommunityRating": 8.6,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2003,
+  "ProviderIds": {
+   "Imdb": "tt0367279",
+   "Tmdb": "4589",
+   "TvMaze": "321",
+   "TvRage": "2649",
+   "Tvdb": "72173"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Netflix",
+    "Id": "411cb7d6c12c8bf0d3c1caed22120c6f"
+   },
+   {
+    "Name": "FOX",
+    "Id": "c8c691835c5f665e548dd89b93fb6674"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "prison",
+   "narration",
+   "dysfunctional family",
+   "dark comedy",
+   "family relationships",
+   "sexual humor",
+   "mockumentary",
+   "psychotic",
+   "fake documentary",
+   "orange county, california",
+   "sitcom",
+   "deadpan",
+   "offbeat",
+   "sharp"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2019-03-15T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Band of Brothers",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "5e0ba74d9ff75bce5517757cbf420519",
+  "DateCreated": "2026-07-02T21:20:50.7918809Z",
+  "SortName": "band of brothers",
+  "PremiereDate": "2001-09-09T00:00:00.0000000Z",
+  "Path": "/media/tv/Band of Brothers",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Drama",
+   "History",
+   "Mini-Series",
+   "War"
+  ],
+  "CommunityRating": 9.4,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2001,
+  "ProviderIds": {
+   "Imdb": "tt0185906",
+   "Tmdb": "4613",
+   "TvMaze": "465",
+   "TvRage": "2708",
+   "Tvdb": "74205"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "History",
+    "Id": "7e6f6b834496507dc07db3b9623caef4"
+   },
+   {
+    "Name": "Mini-Series",
+    "Id": "dbf22211466b5038f7a47c1dce71abe7"
+   },
+   {
+    "Name": "War",
+    "Id": "f8dbf7a2ab1427f4b038db28cd08f8ab"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "based on novel or book",
+   "world war ii",
+   "us army",
+   "paratroops",
+   "miniseries",
+   "historical",
+   "combat",
+   "historical drama",
+   "tank battle",
+   "war in europe",
+   "paratrooper",
+   "1940s",
+   "war",
+   "awestruck"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2001-11-04T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Battlestar Galactica (2003)",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "a07a0f6ef18b888153a4b5e68ed864da",
+  "DateCreated": "2026-07-07T08:06:46.0355131Z",
+  "SortName": "battlestar galactica (0000002003)",
+  "PremiereDate": "2005-01-14T00:00:00.0000000Z",
+  "CriticRating": 83,
+  "Path": "/media/tv/Battlestar Galactica (2003)",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Drama",
+   "Science Fiction"
+  ],
+  "CommunityRating": 8.7,
+  "RunTimeTicks": 54000000000,
+  "ProductionYear": 2005,
+  "ProviderIds": {
+   "Imdb": "tt0407362",
+   "Tmdb": "1972",
+   "TvMaze": "166",
+   "Tvdb": "73545"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "SYFY",
+    "Id": "61810c77538914a122ec94884c99eb25"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "space marine",
+   "miniseries",
+   "planet",
+   "genocide",
+   "cybernetic",
+   "quest",
+   "battlestar galactica",
+   "cautionary"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2009-03-20T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The Bear",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "8f68a44506bc55c3535d470cf1154a22",
+  "DateCreated": "2026-06-29T22:08:44.1709719Z",
+  "SortName": "bear",
+  "PremiereDate": "2022-06-23T00:00:00.0000000Z",
+  "Path": "/media/tv/The Bear",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy",
+   "Drama",
+   "Food"
+  ],
+  "CommunityRating": 8.5,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2022,
+  "ProviderIds": {
+   "Imdb": "tt14452776",
+   "Tmdb": "136315",
+   "TvMaze": "54198",
+   "Tvdb": "403294"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Hulu",
+    "Id": "de873e4b49970a1876abaa177ede4554"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Food",
+    "Id": "53d0837f86951fc1d6b47876152ed79e"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "suicide",
+   "chicago, illinois",
+   "restaurant",
+   "group therapy",
+   "family business ",
+   "community",
+   "workplace",
+   "grief",
+   "food industry",
+   "chef",
+   "death of brother",
+   "small business",
+   "culinary arts",
+   "fine dining",
+   "panic attack",
+   "chosen family",
+   "drama"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2026-06-25T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Better Call Saul",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "b2485a324ba8dfd58f9401c9224f453f",
+  "DateCreated": "2026-07-01T19:30:35.5801716Z",
+  "SortName": "better call saul",
+  "PremiereDate": "2015-02-08T00:00:00.0000000Z",
+  "Path": "/media/tv/Better Call Saul",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama"
+  ],
+  "CommunityRating": 9,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2015,
+  "ProviderIds": {
+   "Imdb": "tt3032476",
+   "Tmdb": "60059",
+   "TvMaze": "618",
+   "TvRage": "37780",
+   "Tvdb": "273181"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "AMC",
+    "Id": "072771d94e42aaf0e27a71f474a6482f"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "new mexico",
+   "moral conflict",
+   "crooked lawyer",
+   "prequel",
+   "romance",
+   "dark comedy",
+   "family relationships",
+   "tragedy",
+   "lawyer",
+   "brother against brother",
+   "spin off",
+   "neo-western",
+   "albuquerque, new mexico",
+   "criminal lawyer",
+   "fall from grace",
+   "aggressive",
+   "neo-noir",
+   "mexican cartel",
+   "legal drama",
+   "gritty",
+   "offbeat",
+   "hilarious",
+   "forceful"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2022-08-15T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Billions",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "d8d76f52716a4db97b4e74426ff32c17",
+  "DateCreated": "2026-07-01T02:33:12.2808765Z",
+  "SortName": "billions",
+  "PremiereDate": "2016-01-17T00:00:00.0000000Z",
+  "Path": "/media/tv/Billions",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama"
+  ],
+  "CommunityRating": 8.3,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2016,
+  "ProviderIds": {
+   "Imdb": "tt4270492",
+   "Tmdb": "62852",
+   "TvMaze": "3606",
+   "TvRage": "41376",
+   "Tvdb": "279536"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Paramount+ with Showtime",
+    "Id": "86142dfe58fec2c017c489f4ce722585"
+   },
+   {
+    "Name": "Showtime",
+    "Id": "fbf07644543a4bc78bc5a2824593dc94"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "new york city",
+   "wall street",
+   "finances",
+   "wealth",
+   "stock market",
+   "hedge fund",
+   "white collar criminal"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2023-10-29T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Black Mirror",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "74891139a6554278b488cde8906a1ff4",
+  "DateCreated": "2026-07-06T09:51:42.121844Z",
+  "SortName": "black mirror",
+  "PremiereDate": "2011-12-04T00:00:00.0000000Z",
+  "Path": "/media/tv/Black Mirror",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Science Fiction",
+   "Thriller"
+  ],
+  "CommunityRating": 8.7,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2011,
+  "ProviderIds": {
+   "Imdb": "tt2085059",
+   "Tmdb": "42009",
+   "TvMaze": "305",
+   "TvRage": "30348",
+   "Tvdb": "253463"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Netflix",
+    "Id": "411cb7d6c12c8bf0d3c1caed22120c6f"
+   },
+   {
+    "Name": "Channel 4",
+    "Id": "2d0c8245f62a7e666bb3aee81b621a22"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "technology",
+   "dystopia",
+   "satire",
+   "anthology",
+   "dark comedy",
+   "punishment",
+   "social satire",
+   "alternative reality",
+   "disturbed",
+   "humanity",
+   "thoughtful",
+   "cyber thriller",
+   "near future",
+   "inspirational",
+   "social sci-fi",
+   "critical",
+   "horror",
+   "crime"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2025-04-10T07:00:00.0000000Z"
+ },
+ {
+  "Name": "The Blacklist",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "6c294d53b60a1b499ab66cfed6e2623d",
+  "DateCreated": "2026-06-30T06:57:13.610056Z",
+  "SortName": "blacklist",
+  "PremiereDate": "2013-09-23T00:00:00.0000000Z",
+  "Path": "/media/tv/The Blacklist",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Crime",
+   "Drama",
+   "Mystery",
+   "Thriller"
+  ],
+  "CommunityRating": 7.9,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2013,
+  "ProviderIds": {
+   "Imdb": "tt2741602",
+   "Tmdb": "46952",
+   "TvMaze": "69",
+   "TvRage": "35048",
+   "Tvdb": "266189"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "NBC",
+    "Id": "786503487dee61267bfc1bedc8991ee3"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "fbi",
+   "investigation",
+   "terrorism",
+   "criminal mastermind",
+   "crime lord",
+   "hidden identity",
+   "criminal consultant"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2023-07-13T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Bloodline",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "de3848f838b907905986c7b8690471e1",
+  "DateCreated": "2026-06-30T23:25:18.7511922Z",
+  "SortName": "bloodline",
+  "PremiereDate": "2015-03-20T00:00:00.0000000Z",
+  "Path": "/media/tv/Bloodline",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Thriller"
+  ],
+  "CommunityRating": 7.8,
+  "RunTimeTicks": 36000000000,
+  "ProductionYear": 2015,
+  "ProviderIds": {
+   "Imdb": "tt3520702",
+   "Tmdb": "61986",
+   "TvMaze": "1372",
+   "TvRage": "45824",
+   "Tvdb": "287314"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Netflix",
+    "Id": "411cb7d6c12c8bf0d3c1caed22120c6f"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "sibling relationship",
+   "florida",
+   "florida keys",
+   "dysfunctional family",
+   "psychological thriller",
+   "psychotic",
+   "mind game",
+   "family disharmony",
+   "dark",
+   "psychological",
+   "suspenseful",
+   "thriller",
+   "antagonistic",
+   "callous"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2017-05-26T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Blue Mountain State",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "2fc5de39678cf114e96911d6cbbf2181",
+  "DateCreated": "2026-07-27T23:38:29.7504889Z",
+  "SortName": "blue mountain state",
+  "PremiereDate": "2010-01-11T00:00:00.0000000Z",
+  "Path": "/media/tv/Blue Mountain State",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy",
+   "Sport"
+  ],
+  "CommunityRating": 8.3,
+  "RunTimeTicks": 13200000000,
+  "ProductionYear": 2010,
+  "ProviderIds": {
+   "Imdb": "tt1344204",
+   "Tmdb": "31941",
+   "TvMaze": "730",
+   "TvRage": "22667",
+   "Tvdb": "134511"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Spike",
+    "Id": "e917ebf005c36c49b7fa7ca0c6189c8b"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Sport",
+    "Id": "38d1d324295e7b98896184f04eabec7f"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "american football",
+   "college",
+   "sports",
+   "burlesque",
+   "young adult"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2011-11-30T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The Blue Planet",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "763cca93b783d45ede6875ca05a83c36",
+  "DateCreated": "2026-07-06T06:33:50.7764395Z",
+  "SortName": "blue planet",
+  "PremiereDate": "2001-09-12T00:00:00.0000000Z",
+  "Path": "/media/tv/The Blue Planet",
+  "OfficialRating": "0+",
+  "ChannelId": null,
+  "Genres": [
+   "Documentary"
+  ],
+  "CommunityRating": 9,
+  "RunTimeTicks": 30600000000,
+  "ProductionYear": 2001,
+  "ProviderIds": {
+   "Imdb": "tt0296310",
+   "Tmdb": "13579",
+   "TvMaze": "7103",
+   "Tvdb": "74372"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "BBC One",
+    "Id": "12866fd30af0d5dba7a35a18d1477510"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Documentary",
+    "Id": "818912eba0fc399e496b109d438effe9"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "ocean",
+   "sea",
+   "fish",
+   "wildlife",
+   "miniseries",
+   "animals",
+   "nature",
+   "nature documentary",
+   "wild sea",
+   "underwater world",
+   "underwater life",
+   "marine life",
+   "oceans",
+   "seas"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2001-10-31T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Blue Planet II",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "8f2330812b244bb28a4e0dcadb82d017",
+  "DateCreated": "2026-07-06T06:43:53.595618Z",
+  "SortName": "blue planet ii",
+  "PremiereDate": "2017-10-29T00:00:00.0000000Z",
+  "Path": "/media/tv/Blue Planet II",
+  "OfficialRating": "TV-PG",
+  "ChannelId": null,
+  "Genres": [
+   "Documentary",
+   "Mini-Series"
+  ],
+  "CommunityRating": 9.3,
+  "RunTimeTicks": 36000000000,
+  "ProductionYear": 2017,
+  "ProviderIds": {
+   "Imdb": "tt6769208",
+   "Tmdb": "74313",
+   "TvMaze": "25504",
+   "Tvdb": "330942"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "BBC One",
+    "Id": "12866fd30af0d5dba7a35a18d1477510"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Documentary",
+    "Id": "818912eba0fc399e496b109d438effe9"
+   },
+   {
+    "Name": "Mini-Series",
+    "Id": "dbf22211466b5038f7a47c1dce71abe7"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "ocean",
+   "sea",
+   "fish",
+   "deep sea",
+   "miniseries",
+   "oceanic expedition",
+   "oceanography",
+   "scientific expedition",
+   "underwater photography",
+   "science and technology",
+   "water planet",
+   "nature documentary",
+   "expert opinion",
+   "underwater world",
+   "deep-sea dive",
+   "planet earth",
+   "marine life",
+   "oceans",
+   "underwater facility",
+   "deep blue",
+   "animals & nature",
+   "sea animals"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2017-12-10T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Bob's Burgers",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "7d6863bcdae783ce23522164797d02bb",
+  "DateCreated": "2026-06-30T05:57:09.6955417Z",
+  "SortName": "bobs burgers",
+  "PremiereDate": "2011-01-09T00:00:00.0000000Z",
+  "Path": "/media/tv/Bob's Burgers",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Animation",
+   "Comedy"
+  ],
+  "CommunityRating": 8.2,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2011,
+  "ProviderIds": {
+   "Imdb": "tt1561755",
+   "Tmdb": "32726",
+   "TvMaze": "107",
+   "TvRage": "24607",
+   "Tvdb": "194031"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "FOX",
+    "Id": "c8c691835c5f665e548dd89b93fb6674"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Animation",
+    "Id": "074229225b7254292f131f9f49f8dcd6"
+   },
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "sibling relationship",
+   "new jersey",
+   "puberty",
+   "restaurant",
+   "singing",
+   "cynical",
+   "menu",
+   "adult animation",
+   "seaside town",
+   "witty",
+   "hilarious"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2026-05-17T07:00:00.0000000Z"
+ },
+ {
+  "Name": "Breaking Bad",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "0103bf114d246eff2e430b236d57c65a",
+  "DateCreated": "2026-07-03T00:47:36.5011394Z",
+  "SortName": "breaking bad",
+  "PremiereDate": "2008-01-20T00:00:00.0000000Z",
+  "CriticRating": 96,
+  "Path": "/media/tv/Breaking Bad",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Thriller",
+   "Western"
+  ],
+  "CommunityRating": 9.5,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2008,
+  "ProviderIds": {
+   "Imdb": "tt0903747",
+   "Tmdb": "1396",
+   "TvMaze": "169",
+   "TvRage": "18164",
+   "Tvdb": "81189"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "AMC",
+    "Id": "072771d94e42aaf0e27a71f474a6482f"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   },
+   {
+    "Name": "Western",
+    "Id": "a64ff36d22e03d8479fbac2360725aea"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "new mexico",
+   "drug dealer",
+   "narcissism",
+   "psychopath",
+   "terminal illness",
+   "outlaw",
+   "dark comedy",
+   "cancer",
+   "tragedy",
+   "drugs",
+   "criminal",
+   "meth lab",
+   "drug lord",
+   "high school teacher",
+   "dea agent",
+   "neo-western",
+   "albuquerque, new mexico",
+   "criminal lawyer",
+   "fall from grace",
+   "cartel",
+   "mexican cartel",
+   "male egos",
+   "crystal meth",
+   "dark",
+   "methamphetamine",
+   "dramatic",
+   "thriller",
+   "exhilarated",
+   "violent",
+   "tortured genius"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2013-09-29T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Brooklyn Nine-Nine",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "75771d35f6c1482da31e8611d45dfcb0",
+  "DateCreated": "2026-07-27T22:26:39.3389444Z",
+  "SortName": "brooklyn ninenine",
+  "PremiereDate": "2013-09-18T00:00:00.0000000Z",
+  "Path": "/media/tv/Brooklyn Nine-Nine",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy"
+  ],
+  "CommunityRating": 8.4,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2013,
+  "ProviderIds": {
+   "Imdb": "tt2467372",
+   "Tmdb": "48891",
+   "TvMaze": "49",
+   "TvRage": "35774",
+   "Tvdb": "269586"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "NBC",
+    "Id": "786503487dee61267bfc1bedc8991ee3"
+   },
+   {
+    "Name": "FOX",
+    "Id": "c8c691835c5f665e548dd89b93fb6674"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "new york city",
+   "detective",
+   "police",
+   "workplace",
+   "big city",
+   "brooklyn, new york city",
+   "nypd",
+   "sitcom",
+   "workplace comedy",
+   "amused",
+   "sharp"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2021-09-16T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Charmed",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "a30c9db51af6610e02aabe2686adfe83",
+  "DateCreated": "2026-06-30T06:51:17.4652396Z",
+  "SortName": "charmed",
+  "PremiereDate": "1998-10-07T00:00:00.0000000Z",
+  "Path": "/media/tv/Charmed",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Fantasy",
+   "Mystery",
+   "Romance",
+   "Suspense"
+  ],
+  "CommunityRating": 7.2,
+  "RunTimeTicks": 0,
+  "ProductionYear": 1998,
+  "ProviderIds": {
+   "Imdb": "tt0158552",
+   "Tmdb": "1981",
+   "TvMaze": "506",
+   "TvRage": "3039",
+   "Tvdb": "70626"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "The WB",
+    "Id": "8c68d0f60c32929ee201358a372bf579"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Fantasy",
+    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Romance",
+    "Id": "1ffc72e19987e5fa4047c6a6870646cf"
+   },
+   {
+    "Name": "Suspense",
+    "Id": "8199e032a96e168bb81b2def8b2eda31"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "sibling relationship",
+   "witch",
+   "magic",
+   "warrior woman",
+   "female protagonist",
+   "demon",
+   "succubus"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2006-05-21T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Cheers",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "38abe14cfa09aa5604a5372ecdf3e97c",
+  "DateCreated": "2026-07-19T01:59:22.1518286Z",
+  "SortName": "cheers",
+  "PremiereDate": "1982-09-30T00:00:00.0000000Z",
+  "Path": "/media/tv/Cheers",
+  "OfficialRating": "TV-PG",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy",
+   "Drama"
+  ],
+  "CommunityRating": 8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 1982,
+  "ProviderIds": {
+   "Imdb": "tt0083399",
+   "Tmdb": "141",
+   "TvMaze": "553",
+   "Tvdb": "77623"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "NBC",
+    "Id": "786503487dee61267bfc1bedc8991ee3"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "boston, massachusetts",
+   "bartender",
+   "postal worker",
+   "sitcom",
+   "workplace comedy",
+   "bar",
+   "celebratory"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "1993-05-20T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Chernobyl",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "ae6a371e2759c48aa9663308679ad761",
+  "DateCreated": "2026-07-02T01:03:07.5514064Z",
+  "SortName": "chernobyl",
+  "PremiereDate": "2019-05-06T00:00:00.0000000Z",
+  "Path": "/media/tv/Chernobyl",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "History",
+   "Mini-Series",
+   "Thriller"
+  ],
+  "CommunityRating": 9.3,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2019,
+  "ProviderIds": {
+   "Imdb": "tt7366338",
+   "Tmdb": "87108",
+   "TvMaze": "30770",
+   "Tvdb": "360893"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "History",
+    "Id": "7e6f6b834496507dc07db3b9623caef4"
+   },
+   {
+    "Name": "Mini-Series",
+    "Id": "dbf22211466b5038f7a47c1dce71abe7"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "based on true story",
+   "disaster",
+   "miniseries",
+   "nuclear catastrophe",
+   "1980s",
+   "chernobyl, ukraine"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2019-06-03T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Cosmos",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "bf7f569206c4f94cd00d7fbb276f731e",
+  "DateCreated": "2026-07-10T03:29:09.3898998Z",
+  "SortName": "cosmos",
+  "PremiereDate": "1980-09-28T00:00:00.0000000Z",
+  "Path": "/media/tv/Cosmos",
+  "OfficialRating": "TP",
+  "ChannelId": null,
+  "Genres": [
+   "Documentary"
+  ],
+  "CommunityRating": 9.3,
+  "RunTimeTicks": 36000000000,
+  "ProductionYear": 1980,
+  "ProviderIds": {
+   "Imdb": "tt0081846",
+   "Tmdb": "1430",
+   "TvMaze": "1127",
+   "TvRage": "2231",
+   "Tvdb": "74995"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "PBS",
+    "Id": "69693e9fefd022f88830c3d35c11f510"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Documentary",
+    "Id": "818912eba0fc399e496b109d438effe9"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "nuclear war",
+   "greenhouse effect",
+   "space travel",
+   "exploration",
+   "astronomer",
+   "scientist",
+   "universe",
+   "evolution",
+   "astronomy",
+   "solar system",
+   "humanity",
+   "cosmic calendar",
+   "science"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "1980-12-21T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Cosmos (2014)",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "0534b2fa3ea81f31bea7dfe0f7dfaa1c",
+  "DateCreated": "2026-07-10T03:03:16.4166043Z",
+  "SortName": "cosmos (0000002014)",
+  "PremiereDate": "2014-03-09T00:00:00.0000000Z",
+  "Path": "/media/tv/Cosmos (2014)",
+  "OfficialRating": "TV-PG",
+  "ChannelId": null,
+  "Genres": [
+   "Documentary"
+  ],
+  "CommunityRating": 9.2,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2014,
+  "ProviderIds": {
+   "Imdb": "tt2395695",
+   "Tmdb": "58474",
+   "TvMaze": "1128",
+   "TvRage": "29336",
+   "Tvdb": "260586"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "National Geographic",
+    "Id": "ea83d8911031c4e77dc13a2bf3d5c3b9"
+   },
+   {
+    "Name": "FOX",
+    "Id": "c8c691835c5f665e548dd89b93fb6674"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Documentary",
+    "Id": "818912eba0fc399e496b109d438effe9"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "melancholy",
+   "biology",
+   "space",
+   "cosmology",
+   "astronomy",
+   "astrophysics",
+   "curious",
+   "astrobiology",
+   "spacetime",
+   "cosmos",
+   "admiring"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2020-04-20T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Curb Your Enthusiasm",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "63d0a66df3591d09852e40cad3a9cb87",
+  "DateCreated": "2026-06-29T22:31:33.0293085Z",
+  "SortName": "curb your enthusiasm",
+  "PremiereDate": "2000-10-15T00:00:00.0000000Z",
+  "Path": "/media/tv/Curb Your Enthusiasm",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy"
+  ],
+  "CommunityRating": 8.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2000,
+  "ProviderIds": {
+   "Imdb": "tt0264235",
+   "Tmdb": "4546",
+   "TvMaze": "551",
+   "TvRage": "3188",
+   "Tvdb": "76203"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "writing",
+   "observational comedy",
+   "los angeles, california",
+   "writer",
+   "improvisation",
+   "eccentric man",
+   "antisocial behavior",
+   "social norms",
+   "arguing couple",
+   "melodramatic"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2024-04-07T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Dexter",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "0da5b8205c678c78f8cd0f841c4e5632",
+  "DateCreated": "2026-06-30T04:20:18.7246926Z",
+  "SortName": "dexter",
+  "PremiereDate": "2006-10-01T00:00:00.0000000Z",
+  "Path": "/media/tv/Dexter",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Mystery",
+   "Suspense",
+   "Thriller"
+  ],
+  "CommunityRating": 8.6,
+  "RunTimeTicks": 36000000000,
+  "ProductionYear": 2006,
+  "ProviderIds": {
+   "Imdb": "tt0773262",
+   "Tmdb": "1405",
+   "TvMaze": "161",
+   "Tvdb": "79349"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Paramount+ with Showtime",
+    "Id": "86142dfe58fec2c017c489f4ce722585"
+   },
+   {
+    "Name": "Showtime",
+    "Id": "fbf07644543a4bc78bc5a2824593dc94"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Suspense",
+    "Id": "8199e032a96e168bb81b2def8b2eda31"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "miami, florida",
+   "based on novel or book",
+   "double life",
+   "homicide",
+   "vigilante",
+   "murder",
+   "serial killer",
+   "psychological thriller",
+   "killer",
+   "forensic science",
+   "murder investigation",
+   "crime investigation",
+   "dark secret",
+   "police department",
+   "neo-noir",
+   "dark",
+   "police procedural",
+   "psychological drama",
+   "violence",
+   "thriller"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2013-09-22T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Dexter: New Blood",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "b5ed38361ba66d933ddc13920c24290b",
+  "DateCreated": "2026-06-29T07:40:03.827847Z",
+  "SortName": "dexter: new blood",
+  "PremiereDate": "2021-11-07T00:00:00.0000000Z",
+  "Path": "/media/tv/Dexter - New Blood",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Mystery"
+  ],
+  "CommunityRating": 8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2021,
+  "ProviderIds": {
+   "Imdb": "tt14164730",
+   "Tmdb": "131927",
+   "TvMaze": "58846",
+   "Tvdb": "412366"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Paramount+ with Showtime",
+    "Id": "86142dfe58fec2c017c489f4ce722585"
+   },
+   {
+    "Name": "Showtime",
+    "Id": "fbf07644543a4bc78bc5a2824593dc94"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "based on novel or book",
+   "log cabin",
+   "police",
+   "vigilante",
+   "sequel",
+   "murder",
+   "serial killer",
+   "snow",
+   "miniseries",
+   "father son relationship",
+   "new york"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2022-01-09T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Dexter: Original Sin",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "68f759354975d39b47f2d9afd7189d72",
+  "DateCreated": "2026-07-02T01:23:30.237234Z",
+  "SortName": "dexter: original sin",
+  "PremiereDate": "2024-12-15T00:00:00.0000000Z",
+  "Path": "/media/tv/Dexter - Original Sin",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama"
+  ],
+  "CommunityRating": 8.1,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2024,
+  "ProviderIds": {
+   "Imdb": "tt32252772",
+   "Tmdb": "219937",
+   "TvMaze": "67316",
+   "Tvdb": "430780"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Paramount+ with Showtime",
+    "Id": "86142dfe58fec2c017c489f4ce722585"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "miami, florida",
+   "based on novel or book",
+   "sequel",
+   "prequel",
+   "serial killer",
+   "1990s",
+   "based on tv series"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2025-02-16T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Dexter: Resurrection",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "cb758b05cde22d709059572fa676037c",
+  "DateCreated": "2026-07-01T23:58:08.753563Z",
+  "SortName": "dexter: resurrection",
+  "PremiereDate": "2025-07-13T00:00:00.0000000Z",
+  "Path": "/media/tv/Dexter - Resurrection",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Mystery",
+   "Suspense",
+   "Thriller"
+  ],
+  "CommunityRating": 9,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2025,
+  "ProviderIds": {
+   "Imdb": "tt33043892",
+   "Tmdb": "259909",
+   "TvMaze": "78665",
+   "Tvdb": "452595"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Paramount+ with Showtime",
+    "Id": "86142dfe58fec2c017c489f4ce722585"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Suspense",
+    "Id": "8199e032a96e168bb81b2def8b2eda31"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "new york city",
+   "miami, florida",
+   "based on novel or book",
+   "police",
+   "sequel",
+   "murder",
+   "serial killer",
+   "father son relationship",
+   "new york"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2025-09-07T07:00:00.0000000Z"
+ },
+ {
+  "Name": "Fargo",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "22326efbb7209cc8aa3109eb446310e5",
+  "DateCreated": "2026-06-30T05:10:11.7435076Z",
+  "SortName": "fargo",
+  "PremiereDate": "2014-04-15T00:00:00.0000000Z",
+  "Path": "/media/tv/Fargo",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Thriller"
+  ],
+  "CommunityRating": 8.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2014,
+  "ProviderIds": {
+   "Imdb": "tt2802850",
+   "Tmdb": "60622",
+   "TvMaze": "32",
+   "TvRage": "35276",
+   "Tvdb": "269613"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "FX",
+    "Id": "689ac7d1eea98cdc45ec3d569dbef8c8"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "detective",
+   "minnesota",
+   "winter",
+   "deputy",
+   "north dakota",
+   "anthology",
+   "dark comedy",
+   "criminal",
+   "police officer",
+   "psychotic",
+   "murder investigation",
+   "based on movie",
+   "disturbed",
+   "neo-noir",
+   "absurd",
+   "violence",
+   "baffled",
+   "compassionate",
+   "disgusted"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2024-01-16T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Friends",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "c77bed520b031aec9443b19167a628e7",
+  "DateCreated": "2026-07-01T16:11:12.1399762Z",
+  "SortName": "friends",
+  "PremiereDate": "1994-09-22T00:00:00.0000000Z",
+  "Path": "/media/tv/Friends",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy"
+  ],
+  "CommunityRating": 8.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 1994,
+  "ProviderIds": {
+   "Imdb": "tt0108778",
+   "Tmdb": "1668",
+   "TvMaze": "431",
+   "TvRage": "3616",
+   "Tvdb": "79168"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "NBC",
+    "Id": "786503487dee61267bfc1bedc8991ee3"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "new york city",
+   "roommates",
+   "friendship",
+   "cafe",
+   "apartment building",
+   "group of friends",
+   "manhattan, new york city",
+   "sitcom",
+   "young adult",
+   "searching for love",
+   "apartment",
+   "best friends"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2004-05-06T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Fringe",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "7bc0a1840720dd4ba1a9666fd553a351",
+  "DateCreated": "2026-07-02T03:19:33.5616113Z",
+  "SortName": "fringe",
+  "PremiereDate": "2008-09-09T00:00:00.0000000Z",
+  "Path": "/media/tv/Fringe",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Mystery",
+   "Science Fiction",
+   "Suspense",
+   "Thriller"
+  ],
+  "CommunityRating": 8.4,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2008,
+  "ProviderIds": {
+   "Imdb": "tt1119644",
+   "Tmdb": "1705",
+   "TvMaze": "158",
+   "TvRage": "18388",
+   "Tvdb": "82066"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "FOX",
+    "Id": "c8c691835c5f665e548dd89b93fb6674"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   },
+   {
+    "Name": "Suspense",
+    "Id": "8199e032a96e168bb81b2def8b2eda31"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "fbi",
+   "supernatural",
+   "alternate dimension",
+   "mad scientist",
+   "fringe science"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2013-01-18T00:00:00.0000000Z"
+ },
+ {
+  "Name": "FROM",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "53d36db50e2e33c383312e3f91d1498d",
+  "DateCreated": "2026-07-02T07:19:12.2145381Z",
+  "SortName": "from",
+  "PremiereDate": "2022-02-20T00:00:00.0000000Z",
+  "Path": "/media/tv/FROM",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Horror",
+   "Mystery",
+   "Science Fiction",
+   "Thriller"
+  ],
+  "CommunityRating": 7.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2022,
+  "ProviderIds": {
+   "Imdb": "tt9813792",
+   "Tmdb": "124364",
+   "TvMaze": "54729",
+   "Tvdb": "401003"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "MGM+",
+    "Id": "5884dc5fece69b48a5c460454d65fe49"
+   },
+   {
+    "Name": "Epix",
+    "Id": "4a98c3b62e1901e066945275d2c8d3a0"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Horror",
+    "Id": "8b9bd9a3eddad02f2b759b4938fdd0b8"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "sheriff",
+   "small town",
+   "gore",
+   "trapped",
+   "cynical",
+   "folk horror",
+   "supernatural horror",
+   "lovecraftian",
+   "suspense",
+   "violence",
+   "horror",
+   "apathetic",
+   "cruel"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2026-06-28T07:00:00.0000000Z"
+ },
+ {
+  "Name": "Frozen Planet",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "feebe1d8cea4bf98f88a0221cdf4b22d",
+  "DateCreated": "2026-07-06T07:33:52.2835665Z",
+  "SortName": "frozen planet",
+  "PremiereDate": "2011-10-26T00:00:00.0000000Z",
+  "Path": "/media/tv/Frozen Planet",
+  "OfficialRating": "TV-G",
+  "ChannelId": null,
+  "Genres": [
+   "Documentary"
+  ],
+  "CommunityRating": 9,
+  "RunTimeTicks": 30000000000,
+  "ProductionYear": 2011,
+  "ProviderIds": {
+   "Imdb": "tt2092588",
+   "Tmdb": "8724",
+   "TvMaze": "4000",
+   "Tvdb": "251418"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "BBC One",
+    "Id": "12866fd30af0d5dba7a35a18d1477510"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Documentary",
+    "Id": "818912eba0fc399e496b109d438effe9"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "penguin",
+   "polar bear",
+   "arctic polar circle region",
+   "reindeer",
+   "antarctica",
+   "struggle for survival",
+   "four seasons",
+   "killer whale",
+   "endangered species",
+   "nature documentary",
+   "animal life",
+   "arctic wildlife",
+   "animals & nature",
+   "wildlife documentary",
+   "antarctic"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2011-12-07T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Frozen Planet II",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "b3c17dc21ede76cb9d1240fc7358b7f0",
+  "DateCreated": "2026-07-06T06:39:35.8450806Z",
+  "SortName": "frozen planet ii",
+  "PremiereDate": "2022-09-11T00:00:00.0000000Z",
+  "Path": "/media/tv/Frozen Planet II",
+  "OfficialRating": "TV-G",
+  "ChannelId": null,
+  "Genres": [
+   "Documentary",
+   "Mini-Series"
+  ],
+  "CommunityRating": 9,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2022,
+  "ProviderIds": {
+   "Imdb": "tt9805678",
+   "Tmdb": "116155",
+   "TvMaze": "40919",
+   "Tvdb": "417395"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "BBC One",
+    "Id": "12866fd30af0d5dba7a35a18d1477510"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Documentary",
+    "Id": "818912eba0fc399e496b109d438effe9"
+   },
+   {
+    "Name": "Mini-Series",
+    "Id": "dbf22211466b5038f7a47c1dce71abe7"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "miniseries",
+   "antarctica",
+   "animals",
+   "nature documentary",
+   "arctic wildlife",
+   "frozen planet"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2022-10-16T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Game of Thrones",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "46fa9c71e0369b37b6357fd660340821",
+  "DateCreated": "2026-06-30T04:11:28.911963Z",
+  "SortName": "game of thrones",
+  "PremiereDate": "2011-04-17T00:00:00.0000000Z",
+  "Path": "/media/tv/Game of Thrones",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Drama",
+   "Fantasy"
+  ],
+  "CommunityRating": 9.2,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2011,
+  "ProviderIds": {
+   "Imdb": "tt0944947",
+   "Tmdb": "1399",
+   "TvMaze": "82",
+   "TvRage": "24493",
+   "Tvdb": "121361"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Fantasy",
+    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "based on novel or book",
+   "kingdom",
+   "dragon",
+   "king",
+   "intrigue",
+   "fantasy world"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2019-05-19T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The Good Doctor",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "81c17b186feefd0640c5a112c52dcd59",
+  "DateCreated": "2026-07-27T23:25:11.6446674Z",
+  "SortName": "good doctor",
+  "PremiereDate": "2017-09-25T00:00:00.0000000Z",
+  "Path": "/media/tv/The Good Doctor",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Drama"
+  ],
+  "CommunityRating": 8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2017,
+  "ProviderIds": {
+   "Imdb": "tt6470478",
+   "Tmdb": "71712",
+   "TvMaze": "21845",
+   "Tvdb": "328634"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "ABC (US)",
+    "Id": "ff412a16d1f10159b651253fe2aa1e0c"
+   },
+   {
+    "Name": "ABC",
+    "Id": "96b48893d56b599270991d22c7a88280"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "nurse",
+   "san francisco, california",
+   "medicine",
+   "autism",
+   "remake",
+   "hospital",
+   "asperger's syndrome",
+   "medical drama",
+   "medical",
+   "based on tv series",
+   "clich\u00e9"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2024-05-21T00:00:00.0000000Z"
+ },
+ {
+  "Name": "House",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "209a5439107ae4d54e4b5b63c967ef55",
+  "DateCreated": "2026-07-27T20:58:41.4454928Z",
+  "SortName": "house",
+  "PremiereDate": "2004-11-16T00:00:00.0000000Z",
+  "Path": "/media/tv/House",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Mystery",
+   "Suspense"
+  ],
+  "CommunityRating": 8.7,
+  "RunTimeTicks": 26400000000,
+  "ProductionYear": 2004,
+  "ProviderIds": {
+   "Imdb": "tt0412142",
+   "Tmdb": "1408",
+   "TvMaze": "118",
+   "TvRage": "3908",
+   "Tvdb": "73255"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "FOX",
+    "Id": "c8c691835c5f665e548dd89b93fb6674"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Suspense",
+    "Id": "8199e032a96e168bb81b2def8b2eda31"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "medicine",
+   "drug addiction",
+   "misanthrophy",
+   "hospital",
+   "doctor",
+   "disease",
+   "patient",
+   "illness",
+   "taunting",
+   "diagnosis",
+   "medical drama",
+   "thoughtful",
+   "colleague",
+   "rare disease",
+   "thought provoking",
+   "medical",
+   "medical ethics",
+   "drug addict",
+   "symptom",
+   "dramatic",
+   "suspenseful",
+   "excited",
+   "informative",
+   "tortured genius"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2012-05-21T00:00:00.0000000Z"
+ },
+ {
+  "Name": "House of Cards (US)",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "d01ab3c92ba913f7b75996f3b255eb4e",
+  "DateCreated": "2026-07-01T09:17:10.6256956Z",
+  "SortName": "house of cards (us)",
+  "PremiereDate": "2013-02-01T00:00:00.0000000Z",
+  "Path": "/media/tv/House of Cards (US)",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama"
+  ],
+  "CommunityRating": 8.6,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2013,
+  "ProviderIds": {
+   "Imdb": "tt1856010",
+   "Tmdb": "1425",
+   "TvMaze": "175",
+   "TvRage": "27822",
+   "Tvdb": "262980"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Netflix",
+    "Id": "411cb7d6c12c8bf0d3c1caed22120c6f"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "corruption",
+   "usa president",
+   "manipulation",
+   "politics",
+   "revenge",
+   "breaking the fourth wall",
+   "power politics",
+   "cynical",
+   "political corruption",
+   "vice president",
+   "usa politics",
+   "dark",
+   "political",
+   "cerebral",
+   "power",
+   "united states of america (usa)",
+   "thriller"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2018-11-02T00:00:00.0000000Z"
+ },
+ {
+  "Name": "House of the Dragon",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "c597f23d1956aba569d39579cf9358b9",
+  "DateCreated": "2026-07-01T22:44:18.6989046Z",
+  "SortName": "house of dragon",
+  "PremiereDate": "2022-08-21T00:00:00.0000000Z",
+  "Path": "/media/tv/House of the Dragon",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Drama",
+   "Fantasy",
+   "War"
+  ],
+  "CommunityRating": 8.3,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2022,
+  "ProviderIds": {
+   "Imdb": "tt11198330",
+   "Tmdb": "94997",
+   "TvMaze": "44778",
+   "TvRage": "0",
+   "Tvdb": "371572"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Fantasy",
+    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+   },
+   {
+    "Name": "War",
+    "Id": "f8dbf7a2ab1427f4b038db28cd08f8ab"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "based on novel or book",
+   "kingdom",
+   "melancholy",
+   "prequel",
+   "dysfunctional family",
+   "knight",
+   "dragon",
+   "king",
+   "blunt",
+   "fantasy world",
+   "dark fantasy",
+   "power struggle",
+   "angry",
+   "hopeless",
+   "thoughtful",
+   "reflective",
+   "power madness",
+   "grimdark",
+   "apathetic",
+   "bold",
+   "disheartening",
+   "excited",
+   "foreboding",
+   "tragic"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2026-06-28T07:00:00.0000000Z"
+ },
+ {
+  "Name": "Human Planet",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "fa4202b8727bd0c8201ec87a7b5778b6",
+  "DateCreated": "2026-07-06T19:41:48.3166604Z",
+  "SortName": "human planet",
+  "PremiereDate": "2011-01-13T00:00:00.0000000Z",
+  "Path": "/media/tv/Human Planet",
+  "OfficialRating": "TV-G",
+  "ChannelId": null,
+  "Genres": [
+   "Documentary"
+  ],
+  "CommunityRating": 9,
+  "RunTimeTicks": 36000000000,
+  "ProductionYear": 2011,
+  "ProviderIds": {
+   "Imdb": "tt1806234",
+   "Tmdb": "32062",
+   "TvMaze": "1654",
+   "TvRage": "27134",
+   "Tvdb": "180831"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "BBC One",
+    "Id": "12866fd30af0d5dba7a35a18d1477510"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Documentary",
+    "Id": "818912eba0fc399e496b109d438effe9"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "human evolution",
+   "miniseries",
+   "prehistoric man",
+   "nature documentary",
+   "planet earth",
+   "home planet",
+   "human in nature",
+   "nature and people",
+   "people and nature",
+   "man and nature"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2011-03-03T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The Inbetweeners",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "4974a9a9082514af96ae47c7b93e7649",
+  "DateCreated": "2026-07-27T22:47:28.8274804Z",
+  "SortName": "inbetweeners",
+  "PremiereDate": "2008-05-01T00:00:00.0000000Z",
+  "Path": "/media/tv/The Inbetweeners",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy"
+  ],
+  "CommunityRating": 8.4,
+  "RunTimeTicks": 15000000000,
+  "ProductionYear": 2008,
+  "ProviderIds": {
+   "Imdb": "tt1220617",
+   "Tmdb": "7317",
+   "TvMaze": "953",
+   "TvRage": "18753",
+   "Tvdb": "81950"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "E4",
+    "Id": "9a0cc54aacb1b0521d09d990de900316"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "london, england",
+   "adolescence",
+   "parent child relationship",
+   "male friendship",
+   "high school",
+   "crude humor",
+   "coming of age",
+   "sexual humor",
+   "family abandonment",
+   "single mother",
+   "teenage boy",
+   "teen comedy",
+   "teenage sexuality",
+   "nostalgic",
+   "sitcom",
+   "hilarious",
+   "amused",
+   "comprehensive school"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2010-10-18T00:00:00.0000000Z"
+ },
+ {
+  "Name": "It's Always Sunny in Philadelphia",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "4cf3a7d0a6028fa68223279fb56f4332",
+  "DateCreated": "2026-07-07T02:16:26.1950857Z",
+  "SortName": "its always sunny in philadelphia",
+  "PremiereDate": "2005-08-04T00:00:00.0000000Z",
+  "Path": "/media/tv/It's Always Sunny in Philadelphia",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy"
+  ],
+  "CommunityRating": 8.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2005,
+  "ProviderIds": {
+   "Imdb": "tt0472954",
+   "Tmdb": "2710",
+   "TvMaze": "347",
+   "TvRage": "4004",
+   "Tvdb": "75805"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "FXX",
+    "Id": "3f79a09c454e34ab80fb1f1b39e9ade5"
+   },
+   {
+    "Name": "FX",
+    "Id": "689ac7d1eea98cdc45ec3d569dbef8c8"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "philadelphia, pennsylvania",
+   "sibling relationship",
+   "parent child relationship",
+   "male friendship",
+   "slacker",
+   "crude humor",
+   "dysfunctional family",
+   "dark comedy",
+   "family relationships",
+   "politically incorrect",
+   "sitcom",
+   "bar",
+   "pub",
+   "farcical",
+   "sincere"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2025-08-20T07:00:00.0000000Z"
+ },
+ {
+  "Name": "Jericho (2006)",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "36eeaa9e56da01a38f2dc0ed97e9f812",
+  "DateCreated": "2026-07-02T06:49:48.7647777Z",
+  "SortName": "jericho (0000002006)",
+  "PremiereDate": "2006-09-20T00:00:00.0000000Z",
+  "Path": "/media/tv/Jericho (2006)",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Drama",
+   "Mystery",
+   "Science Fiction",
+   "Suspense"
+  ],
+  "CommunityRating": 7.9,
+  "RunTimeTicks": 36000000000,
+  "ProductionYear": 2006,
+  "ProviderIds": {
+   "Imdb": "tt0805663",
+   "Tmdb": "365",
+   "TvMaze": "795",
+   "TvRage": "8141",
+   "Tvdb": "79330"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "CBS",
+    "Id": "0f59424070d17d52775061ff61a822b8"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   },
+   {
+    "Name": "Suspense",
+    "Id": "8199e032a96e168bb81b2def8b2eda31"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "small town",
+   "kansas, usa",
+   "survival",
+   "conspiracy",
+   "family drama",
+   "post nuclear",
+   "no electricity",
+   "jericho",
+   "rural",
+   "rural drama",
+   "community drama"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2008-03-25T00:00:00.0000000Z"
+ },
+ {
+  "Name": "King of the Hill",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "e85ebbfa606b6c0d22e429418b311d15",
+  "DateCreated": "2026-07-27T20:18:02.7417386Z",
+  "SortName": "king of hill",
+  "PremiereDate": "1997-01-12T00:00:00.0000000Z",
+  "Path": "/media/tv/King of the Hill",
+  "OfficialRating": "TV-PG",
+  "ChannelId": null,
+  "Genres": [
+   "Animation",
+   "Comedy",
+   "Drama"
+  ],
+  "CommunityRating": 7.6,
+  "RunTimeTicks": 13200000000,
+  "ProductionYear": 1997,
+  "ProviderIds": {
+   "Imdb": "tt0118375",
+   "Tmdb": "2122",
+   "TvMaze": "115",
+   "TvRage": "4134",
+   "Tvdb": "73903"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Hulu",
+    "Id": "de873e4b49970a1876abaa177ede4554"
+   },
+   {
+    "Name": "FOX",
+    "Id": "c8c691835c5f665e548dd89b93fb6674"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Animation",
+    "Id": "074229225b7254292f131f9f49f8dcd6"
+   },
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "texas",
+   "family",
+   "propane",
+   "adult animation"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2026-07-20T07:00:00.0000000Z"
+ },
+ {
+  "Name": "A Knight of the Seven Kingdoms",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "dc753d3bdb38c4a72509d0bb735c6802",
+  "DateCreated": "2026-06-29T07:43:08.4563811Z",
+  "SortName": "knight of seven kingdoms",
+  "PremiereDate": "2026-01-18T00:00:00.0000000Z",
+  "Path": "/media/tv/A Knight of the Seven Kingdoms",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Drama",
+   "Fantasy"
+  ],
+  "CommunityRating": 8.6,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2026,
+  "ProviderIds": {
+   "Imdb": "tt27497448",
+   "Tmdb": "224372",
+   "TvMaze": "53063",
+   "Tvdb": "433631"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Fantasy",
+    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "based on novel or book",
+   "prequel",
+   "knight",
+   "spin off",
+   "cynical",
+   "blunt",
+   "fantasy world",
+   "squire",
+   "satirical",
+   "complex",
+   "loving",
+   "mischievous",
+   "cautionary",
+   "wistful",
+   "provocative",
+   "understated",
+   "suspenseful",
+   "tense",
+   "hilarious",
+   "romantic",
+   "whimsical",
+   "adoring",
+   "bold",
+   "cheerful",
+   "comforting",
+   "compassionate",
+   "complicated",
+   "cruel",
+   "distressing",
+   "enthusiastic",
+   "exuberant",
+   "matter of fact",
+   "sincere",
+   "straightforward",
+   "sympathetic"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2026-02-22T08:00:00.0000000Z"
+ },
+ {
+  "Name": "Landman",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "c37e5e556c8ad71d5b9d5acd3c8e46a1",
+  "DateCreated": "2026-07-19T02:15:20.6638368Z",
+  "SortName": "landman",
+  "PremiereDate": "2024-11-17T00:00:00.0000000Z",
+  "Path": "/media/tv/Landman",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Western"
+  ],
+  "CommunityRating": 8.2,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2024,
+  "ProviderIds": {
+   "Imdb": "tt14186672",
+   "Tmdb": "157741",
+   "TvMaze": "53777",
+   "Tvdb": "397424"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Paramount+",
+    "Id": "ec5c0a0cdf8eb46ae77efcbb36ac23be"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Western",
+    "Id": "a64ff36d22e03d8479fbac2360725aea"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "texas",
+   "oil industry",
+   "upstairs downstairs",
+   "oil boom",
+   "based on podcast",
+   "western",
+   "dramatic",
+   "hilarious"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2026-01-18T08:00:00.0000000Z"
+ },
+ {
+  "Name": "Last Week Tonight with John Oliver",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "b45f5b7140828349699952770fadd949",
+  "DateCreated": "2026-07-06T05:19:11.4057597Z",
+  "SortName": "last week tonight with john oliver",
+  "PremiereDate": "2014-04-27T00:00:00.0000000Z",
+  "Path": "/media/tv/Last Week Tonight with John Oliver",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy",
+   "News",
+   "Talk Show"
+  ],
+  "CommunityRating": 8.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2014,
+  "ProviderIds": {
+   "Imdb": "tt3530232",
+   "Tmdb": "60694",
+   "TvMaze": "263",
+   "TvRage": "40882",
+   "Tvdb": "278518"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "News",
+    "Id": "ed1edc90e96b1ecda3342a652ebf213b"
+   },
+   {
+    "Name": "Talk Show",
+    "Id": "fd5d052f9c753292c83496431e384c72"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "political satire",
+   "global politics",
+   "late-night show"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2026-06-28T07:00:00.0000000Z"
+ },
+ {
+  "Name": "The Lord of the Rings: The Rings of Power",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "b26cc35a755c5af2615efd3678c459a9",
+  "DateCreated": "2026-06-30T03:46:44.3562123Z",
+  "SortName": "lord of rings: rings of power",
+  "PremiereDate": "2022-09-01T00:00:00.0000000Z",
+  "Path": "/media/tv/The Lord of the Rings - The Rings of Power",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Drama",
+   "Fantasy",
+   "Mystery"
+  ],
+  "CommunityRating": 6.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2022,
+  "ProviderIds": {
+   "Imdb": "tt7631058",
+   "Tmdb": "84773",
+   "TvMaze": "33352",
+   "Tvdb": "367506"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Prime Video",
+    "Id": "4218c9396bdb422a9ae9502ac47bd567"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Fantasy",
+    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "elves",
+   "dwarf",
+   "based on novel or book",
+   "prequel",
+   "troll",
+   "battle",
+   "fantasy world",
+   "mysterious stranger",
+   "high fantasy",
+   "sword and sorcery",
+   "adoring"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2024-10-03T07:00:00.0000000Z"
+ },
+ {
+  "Name": "Lost",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "2ca5aba918e1c400f0ab9de05f135cb6",
+  "DateCreated": "2026-07-02T12:34:19.5251595Z",
+  "SortName": "lost",
+  "PremiereDate": "2004-09-22T00:00:00.0000000Z",
+  "CriticRating": 80,
+  "Path": "/media/tv/Lost",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Drama",
+   "Fantasy",
+   "Mystery",
+   "Science Fiction",
+   "Thriller"
+  ],
+  "CommunityRating": 8.3,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2004,
+  "ProviderIds": {
+   "Imdb": "tt0411008",
+   "Tmdb": "4607",
+   "TvMaze": "123",
+   "TvRage": "4284",
+   "Tvdb": "73739"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "ABC (US)",
+    "Id": "ff412a16d1f10159b651253fe2aa1e0c"
+   },
+   {
+    "Name": "ABC",
+    "Id": "96b48893d56b599270991d22c7a88280"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Fantasy",
+    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "island",
+   "airplane crash",
+   "uncharted"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2010-05-23T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Mad Men",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "41682b5bedd8cce1a431d8efe92a4abc",
+  "DateCreated": "2026-07-06T05:52:06.8063468Z",
+  "SortName": "mad men",
+  "PremiereDate": "2007-07-19T00:00:00.0000000Z",
+  "Path": "/media/tv/Mad Men",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Drama"
+  ],
+  "CommunityRating": 8.7,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2007,
+  "ProviderIds": {
+   "Imdb": "tt0804503",
+   "Tmdb": "1104",
+   "TvMaze": "385",
+   "TvRage": "16356",
+   "Tvdb": "80337"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "AMC",
+    "Id": "072771d94e42aaf0e27a71f474a6482f"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "work",
+   "marketing",
+   "marriage",
+   "workplace",
+   "period drama",
+   "advertising",
+   "historical",
+   "advertising agency",
+   "executive",
+   "madison avenue",
+   "1960s",
+   "sexual attitudes",
+   "dark",
+   "workplace harassment",
+   "understated",
+   "intense",
+   "workplace politics"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2015-05-17T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The Mandalorian",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "dbba379997af54b06e9865ae1a49aae4",
+  "DateCreated": "2026-07-06T07:28:20.6722206Z",
+  "SortName": "mandalorian",
+  "PremiereDate": "2019-11-12T00:00:00.0000000Z",
+  "Path": "/media/tv/The Mandalorian",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Fantasy",
+   "Science Fiction"
+  ],
+  "CommunityRating": 8.6,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2019,
+  "ProviderIds": {
+   "Imdb": "tt8111088",
+   "Tmdb": "82856",
+   "TvMaze": "38963",
+   "Tvdb": "361753"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Disney+",
+    "Id": "20d264313828d2206d85c42b68e2f024"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Fantasy",
+    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "bounty hunter",
+   "affectation",
+   "space western",
+   "space opera",
+   "space exploration",
+   "quest"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2023-04-19T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The Mentalist",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "56b8fb30e2f80fb61a110881938eb555",
+  "DateCreated": "2026-06-30T23:18:10.250705Z",
+  "SortName": "mentalist",
+  "PremiereDate": "2008-09-23T00:00:00.0000000Z",
+  "Path": "/media/tv/The Mentalist",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Mystery",
+   "Suspense",
+   "Thriller"
+  ],
+  "CommunityRating": 8.2,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2008,
+  "ProviderIds": {
+   "Imdb": "tt1196946",
+   "Tmdb": "5920",
+   "TvMaze": "116",
+   "TvRage": "18967",
+   "Tvdb": "82459"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "CBS",
+    "Id": "0f59424070d17d52775061ff61a822b8"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Suspense",
+    "Id": "8199e032a96e168bb81b2def8b2eda31"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "california",
+   "con man",
+   "cop",
+   "serial killer",
+   "criminal investigation",
+   "forensic psychology",
+   "criminal consultant",
+   "police procedural",
+   "adoring"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2015-02-18T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Modern Family",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "87cfeb2e79f688ea6771f087970269ba",
+  "DateCreated": "2026-07-27T21:36:25.1108396Z",
+  "SortName": "modern family",
+  "PremiereDate": "2009-09-23T00:00:00.0000000Z",
+  "Path": "/media/tv/Modern Family",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy"
+  ],
+  "CommunityRating": 8.5,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2009,
+  "ProviderIds": {
+   "Imdb": "tt1442437",
+   "Tmdb": "1421",
+   "TvMaze": "80",
+   "TvRage": "22622",
+   "Tvdb": "95011"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "ABC (US)",
+    "Id": "ff412a16d1f10159b651253fe2aa1e0c"
+   },
+   {
+    "Name": "ABC",
+    "Id": "96b48893d56b599270991d22c7a88280"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "family relationships",
+   "breaking the fourth wall",
+   "family",
+   "sitcom",
+   "blended family"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2020-04-08T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Mr. Robot",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "b7e3799ef69aebc3ab608ddc9d7390ed",
+  "DateCreated": "2026-07-06T07:48:42.1794958Z",
+  "SortName": "mr  robot",
+  "PremiereDate": "2015-06-24T00:00:00.0000000Z",
+  "Path": "/media/tv/Mr. Robot",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Thriller"
+  ],
+  "CommunityRating": 8.5,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2015,
+  "ProviderIds": {
+   "Imdb": "tt4158110",
+   "Tmdb": "62560",
+   "TvMaze": "1871",
+   "TvRage": "42422",
+   "Tvdb": "289590"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "USA Network",
+    "Id": "c280ea0e8a17215f964a667ef3773132"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "hacker",
+   "secret society",
+   "childhood trauma",
+   "psychological thriller",
+   "social anxiety",
+   "nature of reality",
+   "complex"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2019-12-22T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Mr Inbetween",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "07d8a949122c38a9bd110833061c9e2a",
+  "DateCreated": "2026-06-29T05:36:05.0471873Z",
+  "SortName": "mr inbetween",
+  "PremiereDate": "2018-09-25T00:00:00.0000000Z",
+  "Path": "/media/tv/Mr Inbetween",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy",
+   "Crime",
+   "Drama"
+  ],
+  "CommunityRating": 8.7,
+  "RunTimeTicks": 13800000000,
+  "ProductionYear": 2018,
+  "ProviderIds": {
+   "Imdb": "tt7472896",
+   "Tmdb": "81358",
+   "TvMaze": "34268",
+   "Tvdb": "349743"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "FX",
+    "Id": "689ac7d1eea98cdc45ec3d569dbef8c8"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "dark comedy",
+   "macabre",
+   "aggressive",
+   "introspective"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2021-07-13T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Narcos",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "e93dfeaa0fae292463384cf2516461f0",
+  "DateCreated": "2026-07-06T07:28:20.6672878Z",
+  "SortName": "narcos",
+  "PremiereDate": "2015-08-28T00:00:00.0000000Z",
+  "Path": "/media/tv/Narcos",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Crime",
+   "Drama",
+   "Thriller"
+  ],
+  "CommunityRating": 8.7,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2015,
+  "ProviderIds": {
+   "Imdb": "tt2707408",
+   "Tmdb": "63351",
+   "TvMaze": "2705",
+   "TvRage": "37241",
+   "Tvdb": "282670"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Netflix",
+    "Id": "411cb7d6c12c8bf0d3c1caed22120c6f"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "cocaine",
+   "drug dealer",
+   "outlaw",
+   "based on true story",
+   "drug cartel",
+   "conflict",
+   "drugs",
+   "drug lord",
+   "illegal drugs",
+   "dea",
+   "narcotics",
+   "angry",
+   "cartel",
+   "1980s",
+   "escobar",
+   "pablo escobar",
+   "dark",
+   "narcos",
+   "colombia",
+   "gritty",
+   "thriller",
+   "action",
+   "harsh"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2017-09-01T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The Office (US)",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "da977a16df04a7aaa8b682d858a4b5f5",
+  "DateCreated": "2026-07-27T20:36:49.2492515Z",
+  "SortName": "office (us)",
+  "PremiereDate": "2005-03-24T00:00:00.0000000Z",
+  "Path": "/media/tv/The Office (US)",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy"
+  ],
+  "CommunityRating": 9,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2005,
+  "ProviderIds": {
+   "Imdb": "tt0386676",
+   "Tmdb": "2316",
+   "TvMaze": "526",
+   "TvRage": "6061",
+   "Tvdb": "73244"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "NBC",
+    "Id": "786503487dee61267bfc1bedc8991ee3"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "office",
+   "work",
+   "boss",
+   "remake",
+   "mockumentary",
+   "employer employee relationship",
+   "sitcom",
+   "employment",
+   "workplace comedy"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2013-05-16T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Ozark",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "97468aa62defcb1aa47425167b708e8b",
+  "DateCreated": "2026-06-30T03:53:41.1618972Z",
+  "SortName": "ozark",
+  "PremiereDate": "2017-07-21T00:00:00.0000000Z",
+  "Path": "/media/tv/Ozark",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Thriller"
+  ],
+  "CommunityRating": 8.4,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2017,
+  "ProviderIds": {
+   "Imdb": "tt5071412",
+   "Tmdb": "69740",
+   "TvMaze": "13417",
+   "Tvdb": "329089"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Netflix",
+    "Id": "411cb7d6c12c8bf0d3c1caed22120c6f"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "money laundering",
+   "investigation",
+   "missouri",
+   "drug cartel",
+   "biting",
+   "kingpin",
+   "ozarks",
+   "bearer bonds",
+   "financial advisor",
+   "fbi agent",
+   "financial investor",
+   "bold"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2022-04-29T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The Pacific",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "86fdc4960d485258f52d0c0d9492c594",
+  "DateCreated": "2026-07-12T23:59:38.0509533Z",
+  "SortName": "pacific",
+  "PremiereDate": "2010-03-14T00:00:00.0000000Z",
+  "Path": "/media/tv/The Pacific",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Drama",
+   "History",
+   "Mini-Series",
+   "War"
+  ],
+  "CommunityRating": 8.3,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2010,
+  "ProviderIds": {
+   "Imdb": "tt0374463",
+   "Tmdb": "16997",
+   "TvMaze": "464",
+   "TvRage": "19316",
+   "Tvdb": "85539"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "History",
+    "Id": "7e6f6b834496507dc07db3b9623caef4"
+   },
+   {
+    "Name": "Mini-Series",
+    "Id": "dbf22211466b5038f7a47c1dce71abe7"
+   },
+   {
+    "Name": "War",
+    "Id": "f8dbf7a2ab1427f4b038db28cd08f8ab"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "world war ii",
+   "marine corps",
+   "okinawa",
+   "pacific war",
+   "miniseries",
+   "historical",
+   "military life",
+   "guadalcanal",
+   "iwo jima",
+   "pacific theater",
+   "military",
+   "japanese soldier",
+   "historical drama",
+   "paratrooper",
+   "1940s",
+   "war",
+   "modern history",
+   "military drama",
+   "violence"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2010-05-16T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Peaky Blinders",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "447698f0ec76a7bf46046dcce8c5f85d",
+  "DateCreated": "2026-06-30T03:02:03.0292313Z",
+  "SortName": "peaky blinders",
+  "PremiereDate": "2013-09-12T00:00:00.0000000Z",
+  "Path": "/media/tv/Peaky Blinders",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama"
+  ],
+  "CommunityRating": 8.7,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2013,
+  "ProviderIds": {
+   "Imdb": "tt2442560",
+   "Tmdb": "60574",
+   "TvMaze": "269",
+   "TvRage": "37240",
+   "Tvdb": "270915"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "BBC One",
+    "Id": "12866fd30af0d5dba7a35a18d1477510"
+   },
+   {
+    "Name": "BBC Two",
+    "Id": "6679acee50cb777a68baa04201e6258f"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "england",
+   "gypsy",
+   "corruption",
+   "gangster",
+   "outlaw",
+   "murder",
+   "drugs",
+   "criminal",
+   "period drama",
+   "historical",
+   "british history",
+   "protection racket",
+   "illegal gambling",
+   "historical drama",
+   "bookmaker",
+   "1920s",
+   "1910s",
+   "birmingham",
+   "modern history",
+   "violence",
+   "suspenseful"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2022-04-03T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Person of Interest",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "94195b6204e5bb9ae5f421e4f281dca2",
+  "DateCreated": "2026-06-30T05:44:42.8284543Z",
+  "SortName": "person of interest",
+  "PremiereDate": "2011-09-22T00:00:00.0000000Z",
+  "Path": "/media/tv/Person of Interest",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Crime",
+   "Drama",
+   "Mystery",
+   "Science Fiction",
+   "Suspense",
+   "Thriller"
+  ],
+  "CommunityRating": 8.5,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2011,
+  "ProviderIds": {
+   "Imdb": "tt1839578",
+   "Tmdb": "1411",
+   "TvMaze": "2",
+   "TvRage": "28376",
+   "Tvdb": "248742"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "CBS",
+    "Id": "0f59424070d17d52775061ff61a822b8"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   },
+   {
+    "Name": "Suspense",
+    "Id": "8199e032a96e168bb81b2def8b2eda31"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "new york city",
+   "artificial intelligence (a.i.)",
+   "anti hero",
+   "hacker",
+   "police",
+   "vigilante",
+   "surveillance",
+   "government agent",
+   "procedural",
+   "thoughtful",
+   "philosophical",
+   "lyrical",
+   "complex",
+   "police profiling",
+   "techno thriller",
+   "critical",
+   "admiring",
+   "amused"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2016-06-21T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Planet Earth",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "1aec06933a234c3ba8e7636fbcbf20df",
+  "DateCreated": "2026-07-10T03:17:11.3850096Z",
+  "SortName": "planet earth",
+  "PremiereDate": "2006-03-05T00:00:00.0000000Z",
+  "Path": "/media/tv/Planet Earth",
+  "OfficialRating": "TV-G",
+  "ChannelId": null,
+  "Genres": [
+   "Documentary"
+  ],
+  "CommunityRating": 9.4,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2006,
+  "ProviderIds": {
+   "Imdb": "tt0795176",
+   "Tmdb": "1044",
+   "TvMaze": "768",
+   "TvRage": "8077",
+   "Tvdb": "79257"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "BBC One",
+    "Id": "12866fd30af0d5dba7a35a18d1477510"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Documentary",
+    "Id": "818912eba0fc399e496b109d438effe9"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "climate change",
+   "wildlife",
+   "miniseries",
+   "animals",
+   "nature",
+   "four seasons",
+   "inspiring",
+   "nature documentary",
+   "wildlife photographer",
+   "planet earth",
+   "landscape photography",
+   "animals & nature",
+   "captivating",
+   "relaxing",
+   "wildlife documentary",
+   "animal photography"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2006-12-10T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Planet Earth II",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "fbe31b6a9b6518a2fe56570fa2686e4b",
+  "DateCreated": "2026-07-06T06:39:35.8555752Z",
+  "SortName": "planet earth ii",
+  "PremiereDate": "2016-11-06T00:00:00.0000000Z",
+  "Path": "/media/tv/Planet Earth II",
+  "OfficialRating": "TV-G",
+  "ChannelId": null,
+  "Genres": [
+   "Documentary"
+  ],
+  "CommunityRating": 9.4,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2016,
+  "ProviderIds": {
+   "Imdb": "tt5491994",
+   "Tmdb": "68595",
+   "TvMaze": "22036",
+   "Tvdb": "318408"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "BBC One",
+    "Id": "12866fd30af0d5dba7a35a18d1477510"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Documentary",
+    "Id": "818912eba0fc399e496b109d438effe9"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "ocean",
+   "sea",
+   "mountain",
+   "fish",
+   "island",
+   "climate change",
+   "earth",
+   "forest",
+   "savannah",
+   "jungle",
+   "miniseries",
+   "desert",
+   "animals",
+   "nature",
+   "cities",
+   "inspiring",
+   "nature documentary",
+   "sea creature",
+   "captivating",
+   "relaxing"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2016-12-11T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Planet Earth III",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "9bf99c85999dfd1dd0504f3b34c72fcc",
+  "DateCreated": "2026-07-06T05:30:21.4601321Z",
+  "SortName": "planet earth iii",
+  "PremiereDate": "2023-10-22T00:00:00.0000000Z",
+  "Path": "/media/tv/Planet Earth III",
+  "OfficialRating": "TV-PG",
+  "ChannelId": null,
+  "Genres": [
+   "Documentary",
+   "Mini-Series"
+  ],
+  "CommunityRating": 9.1,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2023,
+  "ProviderIds": {
+   "Imdb": "tt9805674",
+   "Tmdb": "116156",
+   "TvMaze": "40918",
+   "Tvdb": "413197"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "BBC One",
+    "Id": "12866fd30af0d5dba7a35a18d1477510"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Documentary",
+    "Id": "818912eba0fc399e496b109d438effe9"
+   },
+   {
+    "Name": "Mini-Series",
+    "Id": "dbf22211466b5038f7a47c1dce71abe7"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "animals",
+   "nature documentary",
+   "environmental activist",
+   "save the planet",
+   "planet earth",
+   "animal behaviour",
+   "climate change activism",
+   "climate activism"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2023-12-10T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Prison Break",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "af5a697971015646a5f6bbbb102a5910",
+  "DateCreated": "2026-07-27T21:12:14.112628Z",
+  "SortName": "prison break",
+  "PremiereDate": "2005-08-29T00:00:00.0000000Z",
+  "Path": "/media/tv/Prison Break",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Crime",
+   "Drama",
+   "Mystery",
+   "Suspense",
+   "Thriller"
+  ],
+  "CommunityRating": 8.3,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2005,
+  "ProviderIds": {
+   "Imdb": "tt0455275",
+   "Tmdb": "2288",
+   "TvMaze": "541",
+   "Tvdb": "360115"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "FOX",
+    "Id": "c8c691835c5f665e548dd89b93fb6674"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Suspense",
+    "Id": "8199e032a96e168bb81b2def8b2eda31"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "prison",
+   "prisoner",
+   "brother",
+   "conspiracy",
+   "escape",
+   "fugitive",
+   "wrongful imprisonment",
+   "ex-con",
+   "escaped prisoner",
+   "effects from the past",
+   "excited"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2017-05-30T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The Queen's Gambit",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "9f5da22a2de1df15e86b4f882fddb7c3",
+  "DateCreated": "2026-07-06T08:34:53.0890399Z",
+  "SortName": "queens gambit",
+  "PremiereDate": "2020-10-23T00:00:00.0000000Z",
+  "Path": "/media/tv/The Queen's Gambit",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Mini-Series",
+   "Sport"
+  ],
+  "CommunityRating": 8.5,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2020,
+  "ProviderIds": {
+   "Imdb": "tt10048342",
+   "Tmdb": "87739",
+   "TvMaze": "41428",
+   "Tvdb": "387115"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Netflix",
+    "Id": "411cb7d6c12c8bf0d3c1caed22120c6f"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mini-Series",
+    "Id": "dbf22211466b5038f7a47c1dce71abe7"
+   },
+   {
+    "Name": "Sport",
+    "Id": "38d1d324295e7b98896184f04eabec7f"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "chess",
+   "based on novel or book",
+   "kentucky",
+   "female friendship",
+   "addiction",
+   "orphanage",
+   "coming of age",
+   "miniseries",
+   "orphan",
+   "historical",
+   "suicide of mother",
+   "substance abuse",
+   "historical drama",
+   "social issues",
+   "fictional biography",
+   "mysterious",
+   "1950s",
+   "1960s",
+   "american history",
+   "cerebral",
+   "intimate",
+   "cold war era",
+   "modern history",
+   "overcoming the odds",
+   "tortured genius"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2020-10-23T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Rick and Morty",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "93e5e21a9cf410fd37a4cd1f88c8092b",
+  "DateCreated": "2026-06-30T04:40:40.0307896Z",
+  "SortName": "rick and morty",
+  "PremiereDate": "2013-12-02T00:00:00.0000000Z",
+  "Path": "/media/tv/Rick and Morty",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Adventure",
+   "Animation",
+   "Comedy",
+   "Science Fiction"
+  ],
+  "CommunityRating": 9,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2013,
+  "ProviderIds": {
+   "Imdb": "tt2861424",
+   "Tmdb": "60625",
+   "TvMaze": "216",
+   "TvRage": "33381",
+   "Tvdb": "275274"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Adult Swim",
+    "Id": "bfd9d5965122dfe03d7b7ae19bd7f545"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Animation",
+    "Id": "074229225b7254292f131f9f49f8dcd6"
+   },
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "time travel",
+   "grandfather",
+   "alcoholism",
+   "alien",
+   "dysfunctional family",
+   "mad scientist",
+   "scientist",
+   "adult animation",
+   "father figure",
+   "machinist",
+   "multiple dimensions",
+   "spaceship"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2026-06-28T07:00:00.0000000Z"
+ },
+ {
+  "Name": "The Rookie",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "5631c49bd93c03e2c887a0acac014d17",
+  "DateCreated": "2026-07-27T19:52:29.7600866Z",
+  "SortName": "rookie",
+  "PremiereDate": "2018-10-16T00:00:00.0000000Z",
+  "Path": "/media/tv/The Rookie",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Crime",
+   "Drama",
+   "Thriller"
+  ],
+  "CommunityRating": 8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2018,
+  "ProviderIds": {
+   "Imdb": "tt7587890",
+   "Tmdb": "79744",
+   "TvMaze": "32938",
+   "Tvdb": "350665"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "ABC (US)",
+    "Id": "ff412a16d1f10159b651253fe2aa1e0c"
+   },
+   {
+    "Name": "ABC",
+    "Id": "96b48893d56b599270991d22c7a88280"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "police chase",
+   "los angeles, california",
+   "police officer",
+   "police detective",
+   "street crime",
+   "lapd",
+   "police training",
+   "crime investigation",
+   "dramedy",
+   "police department",
+   "procedural",
+   "police drama",
+   "cautionary",
+   "dramatic"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2026-05-04T07:00:00.0000000Z"
+ },
+ {
+  "Name": "The Secret Lives of Mormon Wives",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "8cb1bcda5d8ddd145133e4817dedb97b",
+  "DateCreated": "2026-07-02T07:05:10.6763808Z",
+  "SortName": "secret lives of mormon wives",
+  "PremiereDate": "2024-09-06T00:00:00.0000000Z",
+  "Path": "/media/tv/The Secret Lives of Mormon Wives",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Family",
+   "Reality"
+  ],
+  "CommunityRating": 5.5,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2024,
+  "ProviderIds": {
+   "Imdb": "tt31091039",
+   "Tmdb": "261102",
+   "TvMaze": "78970",
+   "Tvdb": "452714"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Hulu",
+    "Id": "de873e4b49970a1876abaa177ede4554"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Family",
+    "Id": "ccbd8d9008aab2b5e749e1cc4bc458a4"
+   },
+   {
+    "Name": "Reality",
+    "Id": "50a8b2b84e7429cd9c2d87ea25570ea8"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "swinger",
+   "mormon",
+   "reality tv",
+   "melodramatic"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2026-03-12T07:00:00.0000000Z"
+ },
+ {
+  "Name": "Seinfeld",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "f6795b7783fd8d2c58f1833a9464efae",
+  "DateCreated": "2026-06-30T07:26:22.2544714Z",
+  "SortName": "seinfeld",
+  "PremiereDate": "1989-07-05T00:00:00.0000000Z",
+  "Path": "/media/tv/Seinfeld",
+  "OfficialRating": "TV-PG",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy"
+  ],
+  "CommunityRating": 8.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 1989,
+  "ProviderIds": {
+   "Imdb": "tt0098904",
+   "Tmdb": "1400",
+   "TvMaze": "530",
+   "TvRage": "5145",
+   "Tvdb": "79169"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "NBC",
+    "Id": "786503487dee61267bfc1bedc8991ee3"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "new york city",
+   "observational comedy",
+   "manhattan, new york city",
+   "sitcom",
+   "stand-up comedian",
+   "irreverent",
+   "witty",
+   "sharp"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "1998-05-14T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Severance",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "930515b1032357d4dee138a14373a432",
+  "DateCreated": "2026-07-27T18:38:57.6933599Z",
+  "SortName": "severance",
+  "PremiereDate": "2022-02-18T00:00:00.0000000Z",
+  "Path": "/media/tv/Severance",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Mystery",
+   "Science Fiction",
+   "Thriller"
+  ],
+  "CommunityRating": 8.6,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2022,
+  "ProviderIds": {
+   "Imdb": "tt11280740",
+   "Tmdb": "95396",
+   "TvMaze": "44933",
+   "Tvdb": "371980"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Apple TV",
+    "Id": "865e87e3544b4bcd5f1fcd3f7b8358e8"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "office",
+   "workplace",
+   "memory",
+   "office politics",
+   "brain surgery",
+   "thriller"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2025-03-20T07:00:00.0000000Z"
+ },
+ {
+  "Name": "Sh\u014dgun",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "c2205a598cd47dcca5c6a27944382beb",
+  "DateCreated": "2026-07-06T05:52:05.8472525Z",
+  "SortName": "shogun",
+  "PremiereDate": "2024-02-27T00:00:00.0000000Z",
+  "Path": "/media/tv/Sh\u014dgun",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Drama",
+   "History",
+   "War"
+  ],
+  "CommunityRating": 8.6,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2024,
+  "ProviderIds": {
+   "Imdb": "tt2788316",
+   "Tmdb": "126308",
+   "TvMaze": "37336",
+   "Tvdb": "392573"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "FX",
+    "Id": "689ac7d1eea98cdc45ec3d569dbef8c8"
+   },
+   {
+    "Name": "Hulu",
+    "Id": "de873e4b49970a1876abaa177ede4554"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "History",
+    "Id": "7e6f6b834496507dc07db3b9623caef4"
+   },
+   {
+    "Name": "War",
+    "Id": "f8dbf7a2ab1427f4b038db28cd08f8ab"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "japan",
+   "civil war",
+   "based on novel or book",
+   "samurai",
+   "interpreter",
+   "miniseries",
+   "fish out of water",
+   "jidaigeki",
+   "historical drama",
+   "shipwrecked",
+   "sengoku period",
+   "feudal japan",
+   "17th century"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2024-04-23T07:00:00.0000000Z"
+ },
+ {
+  "Name": "Silicon Valley",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "b89c7237e1ef990c4a9ee373832ae77f",
+  "DateCreated": "2026-07-06T07:44:14.8713876Z",
+  "SortName": "silicon valley",
+  "PremiereDate": "2014-04-06T00:00:00.0000000Z",
+  "Path": "/media/tv/Silicon Valley",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy",
+   "Drama"
+  ],
+  "CommunityRating": 8.5,
+  "RunTimeTicks": 16800000000,
+  "ProductionYear": 2014,
+  "ProviderIds": {
+   "Imdb": "tt2575988",
+   "Tmdb": "60573",
+   "TvMaze": "143",
+   "TvRage": "33759",
+   "Tvdb": "277165"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "silicon valley",
+   "nerd",
+   "computer",
+   "startup",
+   "programmer"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2019-12-08T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Small Axe",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "dc80b527cfd4932c7f193377ba859ecf",
+  "DateCreated": "2026-07-28T06:47:22.9063806Z",
+  "SortName": "small axe",
+  "PremiereDate": "2020-11-15T00:00:00.0000000Z",
+  "Path": "/media/tv/Small Axe",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "History",
+   "Mini-Series"
+  ],
+  "CommunityRating": 7.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2020,
+  "ProviderIds": {
+   "Imdb": "tt3464896",
+   "Tmdb": "90705",
+   "TvMaze": "42771",
+   "Tvdb": "369440"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "BBC One",
+    "Id": "12866fd30af0d5dba7a35a18d1477510"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "History",
+    "Id": "7e6f6b834496507dc07db3b9623caef4"
+   },
+   {
+    "Name": "Mini-Series",
+    "Id": "dbf22211466b5038f7a47c1dce71abe7"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "anthology"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2020-12-13T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Sons of Anarchy",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "12288c4f0ad1d6ec1245b4d2c53fba60",
+  "DateCreated": "2026-07-24T08:19:03.7610038Z",
+  "SortName": "sons of anarchy",
+  "PremiereDate": "2008-09-03T00:00:00.0000000Z",
+  "Path": "/media/tv/Sons of Anarchy",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Thriller"
+  ],
+  "CommunityRating": 8.5,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2008,
+  "ProviderIds": {
+   "Imdb": "tt1124373",
+   "Tmdb": "1409",
+   "TvMaze": "76",
+   "TvRage": "18174",
+   "Tvdb": "82696"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "FX",
+    "Id": "689ac7d1eea98cdc45ec3d569dbef8c8"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "outlaw",
+   "organized crime",
+   "motorcycle gang",
+   "criminal"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2014-12-09T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The Sopranos",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "7544de0ee3b014f682c0a32080780225",
+  "DateCreated": "2026-07-01T22:48:18.6083407Z",
+  "SortName": "sopranos",
+  "PremiereDate": "1999-01-10T00:00:00.0000000Z",
+  "Path": "/media/tv/The Sopranos",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama"
+  ],
+  "CommunityRating": 9.2,
+  "RunTimeTicks": 0,
+  "ProductionYear": 1999,
+  "ProviderIds": {
+   "Imdb": "tt0141842",
+   "Tmdb": "1398",
+   "TvMaze": "527",
+   "TvRage": "6206",
+   "Tvdb": "75299"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "new jersey",
+   "italian american",
+   "drug dealer",
+   "strip club",
+   "mafia boss",
+   "dysfunctional family",
+   "dysfunctional marriage",
+   "family relationships",
+   "organized crime",
+   "mafia",
+   "mobster",
+   "football (soccer)",
+   "psychiatrist",
+   "family",
+   "criminal organization",
+   "philosophical",
+   "satirical",
+   "cosa nostra",
+   "introspective",
+   "witty",
+   "appreciative",
+   "excited",
+   "sympathetic",
+   "fascinating"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2007-06-10T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Squid Game",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "b3f0ea3d15ba6b510fe7e725682417a7",
+  "DateCreated": "2026-07-27T22:35:08.7713493Z",
+  "SortName": "squid game",
+  "PremiereDate": "2021-09-17T00:00:00.0000000Z",
+  "Path": "/media/tv/Squid Game",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Drama",
+   "Mystery",
+   "Thriller"
+  ],
+  "CommunityRating": 7.9,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2021,
+  "ProviderIds": {
+   "Imdb": "tt10919420",
+   "Tmdb": "93405",
+   "TvMaze": "43687",
+   "Tvdb": "383275"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Netflix",
+    "Id": "411cb7d6c12c8bf0d3c1caed22120c6f"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "secret organization",
+   "challenge",
+   "survival",
+   "fictional game show",
+   "cruelty",
+   "game",
+   "prize",
+   "death game",
+   "thriller"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2025-06-27T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Succession",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "0e6ba033f9adc72f75801ed70ca151f2",
+  "DateCreated": "2026-07-06T07:28:20.6699492Z",
+  "SortName": "succession",
+  "PremiereDate": "2018-06-03T00:00:00.0000000Z",
+  "Path": "/media/tv/Succession",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy",
+   "Drama"
+  ],
+  "CommunityRating": 8.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2018,
+  "ProviderIds": {
+   "Imdb": "tt7660850",
+   "Tmdb": "76331",
+   "TvMaze": "23470",
+   "Tvdb": "338186"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "new york city",
+   "sibling relationship",
+   "media tycoon",
+   "businessman",
+   "patriarch",
+   "family business ",
+   "dysfunctional family",
+   "wealth",
+   "sibling",
+   "succession",
+   "white collar criminal",
+   "failed marriage",
+   "vindictive",
+   "baffled",
+   "commanding",
+   "media empire"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2023-05-28T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Suits",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "632ec7aefd7c8ee97b0ff0a101b45d27",
+  "DateCreated": "2026-07-10T08:01:15.5259012Z",
+  "SortName": "suits",
+  "PremiereDate": "2011-06-23T00:00:00.0000000Z",
+  "Path": "/media/tv/Suits",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Drama"
+  ],
+  "CommunityRating": 8.4,
+  "RunTimeTicks": 25200000000,
+  "ProductionYear": 2011,
+  "ProviderIds": {
+   "Imdb": "tt1632701",
+   "Tmdb": "37680",
+   "TvMaze": "172",
+   "TvRage": "27518",
+   "Tvdb": "247808"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "USA Network",
+    "Id": "c280ea0e8a17215f964a667ef3773132"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "lawyer",
+   "impostor",
+   "law firm",
+   "photographic memory",
+   "paralegal",
+   "corporate law",
+   "courtroom drama"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2019-09-25T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Suits LA",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "4575655da9f7038fb1fc1ecca10f351d",
+  "DateCreated": "2026-07-10T07:56:09.9541684Z",
+  "SortName": "suits la",
+  "PremiereDate": "2025-02-23T00:00:00.0000000Z",
+  "Path": "/media/tv/Suits LA",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Drama"
+  ],
+  "CommunityRating": 5.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2025,
+  "ProviderIds": {
+   "Imdb": "tt29485142",
+   "Tmdb": "259453",
+   "TvMaze": "74414",
+   "Tvdb": "452385"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "NBC",
+    "Id": "786503487dee61267bfc1bedc8991ee3"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "los angeles, california",
+   "spin off",
+   "legal drama"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2025-05-18T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Supernatural",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "74d14b8a31b0cbcafbaeb3ad345a868d",
+  "DateCreated": "2026-06-30T08:19:06.2277175Z",
+  "SortName": "supernatural",
+  "PremiereDate": "2005-09-13T00:00:00.0000000Z",
+  "Path": "/media/tv/Supernatural",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Fantasy",
+   "Horror",
+   "Mystery",
+   "Thriller"
+  ],
+  "CommunityRating": 8.4,
+  "RunTimeTicks": 27000000000,
+  "ProductionYear": 2005,
+  "ProviderIds": {
+   "Imdb": "tt0460681",
+   "Tmdb": "1622",
+   "TvMaze": "19",
+   "TvRage": "5410",
+   "Tvdb": "78901"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "The CW",
+    "Id": "c6a7b9b98037a5ce989ad1d90a2ebb46"
+   },
+   {
+    "Name": "The WB",
+    "Id": "8c68d0f60c32929ee201358a372bf579"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Fantasy",
+    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+   },
+   {
+    "Name": "Horror",
+    "Id": "8b9bd9a3eddad02f2b759b4938fdd0b8"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "angel",
+   "witch",
+   "monster",
+   "exorcism",
+   "supernatural",
+   "paranormal",
+   "purgatory",
+   "paranormal phenomena",
+   "apocalypse",
+   "bromance",
+   "dead mother",
+   "demon",
+   "on the road",
+   "demonic possession",
+   "ghost",
+   "dark fantasy",
+   "demon hunter",
+   "four horsemen of the apocalypse",
+   "fighting evil",
+   "brother brother relationship",
+   "leviathan",
+   "ressurection",
+   "brothers",
+   "grand",
+   "horror"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2020-11-19T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Ted Lasso",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "ceee5613290d77faefefb2e3ecbd16b3",
+  "DateCreated": "2026-07-07T02:16:26.6072158Z",
+  "SortName": "ted lasso",
+  "PremiereDate": "2020-08-14T00:00:00.0000000Z",
+  "Path": "/media/tv/Ted Lasso",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy",
+   "Drama",
+   "Sport"
+  ],
+  "CommunityRating": 8.7,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2020,
+  "ProviderIds": {
+   "Imdb": "tt10986410",
+   "Tmdb": "97546",
+   "TvMaze": "44458",
+   "Tvdb": "383203"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Apple TV",
+    "Id": "865e87e3544b4bcd5f1fcd3f7b8358e8"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Sport",
+    "Id": "38d1d324295e7b98896184f04eabec7f"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "england",
+   "male friendship",
+   "friendship",
+   "fish out of water",
+   "football (soccer)",
+   "american abroad",
+   "teammate",
+   "professional sports",
+   "football (soccer) team",
+   "workplace comedy",
+   "team owner",
+   "football (soccer) coach",
+   "optimist",
+   "coaching",
+   "nice guy",
+   "premier league",
+   "cheerful"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2023-05-30T07:00:00.0000000Z"
+ },
+ {
+  "Name": "True Detective",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "df54981bb415b9e1e3dfc708233f42ed",
+  "DateCreated": "2026-07-03T20:46:07.313848Z",
+  "SortName": "true detective",
+  "PremiereDate": "2014-01-12T00:00:00.0000000Z",
+  "Path": "/media/tv/True Detective",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Mystery",
+   "Thriller"
+  ],
+  "CommunityRating": 8.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2014,
+  "ProviderIds": {
+   "Imdb": "tt2356777",
+   "Tmdb": "46648",
+   "TvMaze": "5",
+   "TvRage": "31369",
+   "Tvdb": "270633"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "philosophy",
+   "detective",
+   "investigation",
+   "anthology",
+   "murder",
+   "serial killer",
+   "police corruption",
+   "police detective",
+   "nonlinear timeline",
+   "police investigation",
+   "murder investigation",
+   "murder mystery",
+   "neo-noir",
+   "grim",
+   "philosophical",
+   "introspective",
+   "depressing"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2024-02-18T08:00:00.0000000Z"
+ },
+ {
+  "Name": "Twin Peaks",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "0ce336d11ad6a54ce9a5dacab7bf01c6",
+  "DateCreated": "2026-07-27T22:47:28.8732407Z",
+  "SortName": "twin peaks",
+  "PremiereDate": "1990-04-08T00:00:00.0000000Z",
+  "Path": "/media/tv/Twin Peaks",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Fantasy",
+   "Horror",
+   "Mystery",
+   "Romance",
+   "Thriller"
+  ],
+  "CommunityRating": 8.7,
+  "RunTimeTicks": 0,
+  "ProductionYear": 1990,
+  "ProviderIds": {
+   "Imdb": "tt0098936",
+   "Tmdb": "1920",
+   "TvMaze": "156",
+   "TvRage": "6450",
+   "Tvdb": "70533"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Paramount+ with Showtime",
+    "Id": "86142dfe58fec2c017c489f4ce722585"
+   },
+   {
+    "Name": "ABC",
+    "Id": "96b48893d56b599270991d22c7a88280"
+   },
+   {
+    "Name": "Showtime",
+    "Id": "fbf07644543a4bc78bc5a2824593dc94"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Fantasy",
+    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+   },
+   {
+    "Name": "Horror",
+    "Id": "8b9bd9a3eddad02f2b759b4938fdd0b8"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Romance",
+    "Id": "1ffc72e19987e5fa4047c6a6870646cf"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "brothel",
+   "small town",
+   "deputy sheriff",
+   "fbi",
+   "coffee",
+   "forest",
+   "high school",
+   "possession",
+   "alternate dimension",
+   "surrealism",
+   "domestic abuse",
+   "serial killer",
+   "diner",
+   "teenage girl",
+   "school",
+   "paranormal phenomena",
+   "another dimension",
+   "psychological thriller",
+   "paranormal investigation",
+   "teenage boy",
+   "agent",
+   "doppelg\u00e4nger",
+   "washington state",
+   "death of daughter",
+   "forced prostitution",
+   "comatose",
+   "teen drama",
+   "supernatural phenomena",
+   "hopeless",
+   "murder mystery",
+   "1980s",
+   "1960s",
+   "1990s",
+   "1930s",
+   "father daughter relationship",
+   "drug deal",
+   "police procedural",
+   "mysterious disappearance",
+   "soap opera",
+   "secret",
+   "psychological horror",
+   "supernatural drama",
+   "psychological drama",
+   "mysterious villain",
+   "hopeful",
+   "surreal psychological drama"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2017-09-03T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Two and a Half Men",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "11d89bdf1752f5670cbe90147fa5de81",
+  "DateCreated": "2026-07-28T08:34:20.2236376Z",
+  "SortName": "two and half men",
+  "PremiereDate": "2003-09-22T00:00:00.0000000Z",
+  "Path": "/media/tv/Two and a Half Men",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy",
+   "Romance"
+  ],
+  "CommunityRating": 7.1,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2003,
+  "ProviderIds": {
+   "Imdb": "tt0369179",
+   "Tmdb": "2691",
+   "TvMaze": "130",
+   "TvRage": "6454",
+   "Tvdb": "72227"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "CBS",
+    "Id": "0f59424070d17d52775061ff61a822b8"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Romance",
+    "Id": "1ffc72e19987e5fa4047c6a6870646cf"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "sibling relationship",
+   "california",
+   "composer",
+   "roommates",
+   "evil mother",
+   "malibu",
+   "advertising",
+   "drinking",
+   "beach house",
+   "casual sex",
+   "sitcom",
+   "living with sibling",
+   "rich brother"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2015-02-19T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The West Wing",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "13fe5e541affd7e84de34766986654b5",
+  "DateCreated": "2026-07-08T03:09:24.9199628Z",
+  "SortName": "west wing",
+  "PremiereDate": "1999-09-22T00:00:00.0000000Z",
+  "Path": "/media/tv/The West Wing",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Drama"
+  ],
+  "CommunityRating": 8.9,
+  "RunTimeTicks": 0,
+  "ProductionYear": 1999,
+  "ProviderIds": {
+   "Imdb": "tt0200276",
+   "Tmdb": "688",
+   "TvMaze": "523",
+   "TvRage": "6289",
+   "Tvdb": "72521"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "NBC",
+    "Id": "786503487dee61267bfc1bedc8991ee3"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "washington dc, usa",
+   "the white house",
+   "usa president",
+   "politics",
+   "government",
+   "political intrigue\u00a0",
+   "usa politics",
+   "political consultant",
+   "political conflict",
+   "chief of staff"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2006-05-14T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Westworld",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "46cf2b9539465935c3c764aa72cd186c",
+  "DateCreated": "2026-07-06T10:28:18.1493768Z",
+  "SortName": "westworld",
+  "PremiereDate": "2016-10-02T00:00:00.0000000Z",
+  "Path": "/media/tv/Westworld",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Adventure",
+   "Drama",
+   "Mystery",
+   "Science Fiction",
+   "Western"
+  ],
+  "CommunityRating": 8.4,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2016,
+  "ProviderIds": {
+   "Imdb": "tt0475784",
+   "Tmdb": "63247",
+   "TvMaze": "1371",
+   "TvRage": "37537",
+   "Tvdb": "296762"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   },
+   {
+    "Name": "Science Fiction",
+    "Id": "0430d514c35e1f158fa93f1eeb8361ea"
+   },
+   {
+    "Name": "Western",
+    "Id": "a64ff36d22e03d8479fbac2360725aea"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "artificial intelligence (a.i.)",
+   "android",
+   "remake",
+   "role playing",
+   "second life",
+   "robot",
+   "wild west",
+   "theme park",
+   "based on movie",
+   "ethical dilemma",
+   "moral dilemma",
+   "psychological drama",
+   "amused",
+   "pretentious"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2022-08-14T00:00:00.0000000Z"
+ },
+ {
+  "Name": "White Collar",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "45221737bca45c045c10c43127d33366",
+  "DateCreated": "2026-06-30T12:39:12.9424993Z",
+  "SortName": "white collar",
+  "PremiereDate": "2009-10-23T00:00:00.0000000Z",
+  "Path": "/media/tv/White Collar",
+  "OfficialRating": "TV-14",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy",
+   "Crime",
+   "Mystery"
+  ],
+  "CommunityRating": 8.2,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2009,
+  "ProviderIds": {
+   "Imdb": "tt1358522",
+   "Tmdb": "21510",
+   "TvMaze": "323",
+   "TvRage": "20720",
+   "Tvdb": "108611"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "USA Network",
+    "Id": "c280ea0e8a17215f964a667ef3773132"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "new york city",
+   "fbi",
+   "con man",
+   "art thief",
+   "ex-con",
+   "gentleman thief",
+   "white collar criminal",
+   "forger",
+   "criminal consultant",
+   "colleague"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2014-12-18T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The White Lotus",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "a43dc0146c2393b325978ebf8f21a298",
+  "DateCreated": "2026-07-27T19:05:20.2592833Z",
+  "SortName": "white lotus",
+  "PremiereDate": "2021-07-11T00:00:00.0000000Z",
+  "Path": "/media/tv/The White Lotus",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy",
+   "Drama"
+  ],
+  "CommunityRating": 8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2021,
+  "ProviderIds": {
+   "Imdb": "tt13406094",
+   "Tmdb": "111803",
+   "TvMaze": "51394",
+   "Tvdb": "390430"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "hotel",
+   "sicily, italy",
+   "exotic island",
+   "hawaii",
+   "exploitation",
+   "thailand",
+   "palermo, sicily",
+   "class",
+   "vacation",
+   "satire",
+   "anthology",
+   "whodunit",
+   "self help guru",
+   "incest",
+   "beach resort",
+   "class conflict",
+   "self reflection",
+   "social elite",
+   "rejuvenation",
+   "mental peace",
+   "provocative",
+   "sardonic",
+   "scathing"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2025-04-06T07:00:00.0000000Z"
+ },
+ {
+  "Name": "The Wire",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "c015011675f29ee6252c3219a7997825",
+  "DateCreated": "2026-07-02T04:10:07.739215Z",
+  "SortName": "wire",
+  "PremiereDate": "2002-06-02T00:00:00.0000000Z",
+  "Path": "/media/tv/The Wire",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Crime",
+   "Drama",
+   "Thriller"
+  ],
+  "CommunityRating": 9.3,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2002,
+  "ProviderIds": {
+   "Imdb": "tt0306414",
+   "Tmdb": "1438",
+   "TvMaze": "179",
+   "TvRage": "6296",
+   "Tvdb": "79126"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "HBO",
+    "Id": "e54a9a384f9494b12c8b0db6d0e0d508"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Crime",
+    "Id": "83a9dab21914792744c8fb23b9925dc6"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Thriller",
+    "Id": "4936f5b1a6f84f0b0aa2657368a5b364"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "corruption",
+   "newspaper",
+   "drug trafficking",
+   "drug dealer",
+   "baltimore, usa",
+   "gangster",
+   "police",
+   "organized crime",
+   "police detective",
+   "surveillance",
+   "power politics",
+   "cynical",
+   "urban decay",
+   "newspaper reporter",
+   "wiretapping",
+   "workers union",
+   "angry",
+   "hopeless",
+   "education system",
+   "docks",
+   "candid",
+   "black project",
+   "cautionary",
+   "clinical",
+   "mayoral election",
+   "dramatic",
+   "violence",
+   "tense",
+   "sinister",
+   "depressing",
+   "admiring",
+   "appreciative",
+   "awestruck",
+   "callous",
+   "commanding",
+   "dignified",
+   "hopeful",
+   "horrified",
+   "informative",
+   "objective",
+   "ominous"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2008-03-09T00:00:00.0000000Z"
+ },
+ {
+  "Name": "The Witcher",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "64ae98fa6d61dc9f47fff66d780626af",
+  "DateCreated": "2026-07-06T09:39:09.5884915Z",
+  "SortName": "witcher",
+  "PremiereDate": "2019-12-20T00:00:00.0000000Z",
+  "Path": "/media/tv/The Witcher",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Action",
+   "Adventure",
+   "Drama",
+   "Fantasy",
+   "Mystery"
+  ],
+  "CommunityRating": 7.8,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2019,
+  "ProviderIds": {
+   "Imdb": "tt5180504",
+   "Tmdb": "71912",
+   "TvMaze": "28276",
+   "Tvdb": "362696"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Netflix",
+    "Id": "411cb7d6c12c8bf0d3c1caed22120c6f"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Action",
+    "Id": "ce06903d834d2c3417e0889dd4049f3b"
+   },
+   {
+    "Name": "Adventure",
+    "Id": "51cec9645b896084d12b259acd05ccb1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Fantasy",
+    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+   },
+   {
+    "Name": "Mystery",
+    "Id": "d3a0ead52489743e5a68704142092c71"
+   }
+  ],
+  "Status": "Continuing",
+  "AirDays": [],
+  "Tags": [
+   "based on novel or book",
+   "monster",
+   "mutant",
+   "magic",
+   "mutation",
+   "fantasy world",
+   "dark fantasy"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2025-10-30T07:00:00.0000000Z"
+ },
+ {
+  "Name": "Yellowstone (2018)",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "34e688e6151160a75365d37c3818fa39",
+  "DateCreated": "2026-07-06T14:33:49.0091311Z",
+  "SortName": "yellowstone (0000002018)",
+  "PremiereDate": "2018-06-20T00:00:00.0000000Z",
+  "Path": "/media/tv/Yellowstone (2018)",
+  "OfficialRating": "TV-MA",
+  "ChannelId": null,
+  "Genres": [
+   "Drama",
+   "Western"
+  ],
+  "CommunityRating": 8.6,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2018,
+  "ProviderIds": {
+   "Imdb": "tt4236770",
+   "Tmdb": "73586",
+   "TvMaze": "27848",
+   "Tvdb": "341164"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "Paramount Network",
+    "Id": "5952344e27943dd61b0d0e1f71338c48"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Western",
+    "Id": "a64ff36d22e03d8479fbac2360725aea"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "montana",
+   "ranch",
+   "family drama",
+   "crime family",
+   "cattle ranch",
+   "neo-western",
+   "wildlife conservation",
+   "trend",
+   "arrogant",
+   "complicated",
+   "contemporary western"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2024-12-15T00:00:00.0000000Z"
+ },
+ {
+  "Name": "Young Sheldon",
+  "ServerId": "cdb7f5dd6793474e90c60596111e034e",
+  "Id": "83e41c00d77e7395d84c72b7fa6ede71",
+  "DateCreated": "2026-07-27T21:01:06.0925182Z",
+  "SortName": "young sheldon",
+  "PremiereDate": "2017-09-25T00:00:00.0000000Z",
+  "Path": "/media/tv/Young Sheldon",
+  "OfficialRating": "TV-PG",
+  "ChannelId": null,
+  "Genres": [
+   "Comedy",
+   "Drama",
+   "Family"
+  ],
+  "CommunityRating": 7.7,
+  "RunTimeTicks": 0,
+  "ProductionYear": 2017,
+  "ProviderIds": {
+   "Imdb": "tt6226232",
+   "Tmdb": "71728",
+   "TvMaze": "26020",
+   "Tvdb": "328724"
+  },
+  "IsFolder": true,
+  "ParentId": "e39a1fa5022aa25575a26eb89562d76b",
+  "Type": "Series",
+  "Studios": [
+   {
+    "Name": "CBS",
+    "Id": "0f59424070d17d52775061ff61a822b8"
+   }
+  ],
+  "GenreItems": [
+   {
+    "Name": "Comedy",
+    "Id": "08d31605d366d63a7a924f944b4417f1"
+   },
+   {
+    "Name": "Drama",
+    "Id": "090eac6e9de4fe1fbc194e5b96691277"
+   },
+   {
+    "Name": "Family",
+    "Id": "ccbd8d9008aab2b5e749e1cc4bc458a4"
+   }
+  ],
+  "Status": "Ended",
+  "AirDays": [],
+  "Tags": [
+   "prequel",
+   "family relationships",
+   "coming of age",
+   "school",
+   "sibling",
+   "family",
+   "nostalgic",
+   "sitcom",
+   "1980s",
+   "knowledge",
+   "kid genius",
+   "lighthearted",
+   "dramatic",
+   "admiring",
+   "amused",
+   "empathetic"
+  ],
+  "ImageBlurHashes": {},
+  "LocationType": "FileSystem",
+  "MediaType": "Unknown",
+  "EndDate": "2024-05-16T00:00:00.0000000Z"
+ }
+]

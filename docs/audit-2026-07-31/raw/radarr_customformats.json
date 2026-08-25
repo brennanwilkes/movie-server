@@ -1,0 +1,1482 @@
+[
+ {
+  "id": 2,
+  "name": "HEVC 8-bit (GPU)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)(x265|h\\.?265|hevc)",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   },
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": true,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)(10.?bit|\\bhi10p?\\b|\\b10b\\b)",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   },
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": true,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)(\\bhdr\\b|hdr10|hdr10\\+|dolby.?vision|\\bdovi\\b|\\bdv\\b)",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 3,
+  "name": "H.264 (GPU)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s0",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)\\b(x264|h\\.?264|avc)\\b",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 4,
+  "name": "10-bit (CPU)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)(10.?bit|\\bhi10p?\\b|\\b10b\\b)",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 5,
+  "name": "AV1 (CPU)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s0",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)\\bav1\\b",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 6,
+  "name": "VP9 (CPU)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s0",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)\\bvp9\\b",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 11,
+  "name": "HDR / Dolby Vision (CPU)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)(\\bhdr\\b|hdr10|hdr10\\+|dolby.?vision|\\bdovi\\b|\\bdv\\b)",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 12,
+  "name": "Size <1.5 GB",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "SizeSpecification",
+    "implementationName": "Size",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "min",
+      "label": "Minimum Size",
+      "unit": "GB",
+      "helpText": "Release must be greater than this size",
+      "value": 0,
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+     },
+     {
+      "order": 1,
+      "name": "max",
+      "label": "Maximum Size",
+      "unit": "GB",
+      "helpText": "Release must be less than or equal to this size",
+      "value": 1.5,
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 13,
+  "name": "Size 1.5-3 GB",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "SizeSpecification",
+    "implementationName": "Size",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "min",
+      "label": "Minimum Size",
+      "unit": "GB",
+      "helpText": "Release must be greater than this size",
+      "value": 1.5,
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+     },
+     {
+      "order": 1,
+      "name": "max",
+      "label": "Maximum Size",
+      "unit": "GB",
+      "helpText": "Release must be less than or equal to this size",
+      "value": 3,
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 14,
+  "name": "Size 3-6 GB",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "SizeSpecification",
+    "implementationName": "Size",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "min",
+      "label": "Minimum Size",
+      "unit": "GB",
+      "helpText": "Release must be greater than this size",
+      "value": 3,
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+     },
+     {
+      "order": 1,
+      "name": "max",
+      "label": "Maximum Size",
+      "unit": "GB",
+      "helpText": "Release must be less than or equal to this size",
+      "value": 6,
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 15,
+  "name": "Size 6-10 GB",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "SizeSpecification",
+    "implementationName": "Size",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "min",
+      "label": "Minimum Size",
+      "unit": "GB",
+      "helpText": "Release must be greater than this size",
+      "value": 6,
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+     },
+     {
+      "order": 1,
+      "name": "max",
+      "label": "Maximum Size",
+      "unit": "GB",
+      "helpText": "Release must be less than or equal to this size",
+      "value": 10,
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 16,
+  "name": "Size 10-15 GB",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "SizeSpecification",
+    "implementationName": "Size",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "min",
+      "label": "Minimum Size",
+      "unit": "GB",
+      "helpText": "Release must be greater than this size",
+      "value": 10,
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+     },
+     {
+      "order": 1,
+      "name": "max",
+      "label": "Maximum Size",
+      "unit": "GB",
+      "helpText": "Release must be less than or equal to this size",
+      "value": 15,
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 17,
+  "name": "Size >15 GB",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "SizeSpecification",
+    "implementationName": "Size",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "min",
+      "label": "Minimum Size",
+      "unit": "GB",
+      "helpText": "Release must be greater than this size",
+      "value": 15,
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+     },
+     {
+      "order": 1,
+      "name": "max",
+      "label": "Maximum Size",
+      "unit": "GB",
+      "helpText": "Release must be less than or equal to this size",
+      "value": 99999,
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 18,
+  "name": "Original-language audio",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "LanguageSpecification",
+    "implementationName": "Language",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Language",
+      "value": -2,
+      "type": "select",
+      "advanced": false,
+      "selectOptions": [
+       {
+        "value": -1,
+        "name": "Any",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": -2,
+        "name": "Original",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 0,
+        "name": "Unknown",
+        "order": 0,
+        "dividerAfter": true
+       },
+       {
+        "value": 51,
+        "name": "Afrikaans",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 50,
+        "name": "Albanian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 31,
+        "name": "Arabic",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 34,
+        "name": "Bengali",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 41,
+        "name": "Bosnian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 29,
+        "name": "Bulgarian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 38,
+        "name": "Catalan",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 10,
+        "name": "Chinese",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 39,
+        "name": "Croatian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 25,
+        "name": "Czech",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 6,
+        "name": "Danish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 7,
+        "name": "Dutch",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 1,
+        "name": "English",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 42,
+        "name": "Estonian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 16,
+        "name": "Finnish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 19,
+        "name": "Flemish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 2,
+        "name": "French",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 57,
+        "name": "Georgian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 4,
+        "name": "German",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 20,
+        "name": "Greek",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 23,
+        "name": "Hebrew",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 26,
+        "name": "Hindi",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 22,
+        "name": "Hungarian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 9,
+        "name": "Icelandic",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 44,
+        "name": "Indonesian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 5,
+        "name": "Italian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 8,
+        "name": "Japanese",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 49,
+        "name": "Kannada",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 21,
+        "name": "Korean",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 36,
+        "name": "Latvian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 24,
+        "name": "Lithuanian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 46,
+        "name": "Macedonian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 48,
+        "name": "Malayalam",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 52,
+        "name": "Marathi",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 56,
+        "name": "Mongolian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 15,
+        "name": "Norwegian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 33,
+        "name": "Persian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 12,
+        "name": "Polish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 18,
+        "name": "Portuguese",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 30,
+        "name": "Portuguese (Brazil)",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 27,
+        "name": "Romanian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 55,
+        "name": "Romansh",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 11,
+        "name": "Russian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 40,
+        "name": "Serbian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 35,
+        "name": "Slovak",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 47,
+        "name": "Slovenian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 3,
+        "name": "Spanish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 37,
+        "name": "Spanish (Latino)",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 14,
+        "name": "Swedish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 53,
+        "name": "Tagalog",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 43,
+        "name": "Tamil",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 45,
+        "name": "Telugu",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 28,
+        "name": "Thai",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 17,
+        "name": "Turkish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 32,
+        "name": "Ukrainian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 54,
+        "name": "Urdu",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 13,
+        "name": "Vietnamese",
+        "order": 0,
+        "dividerAfter": false
+       }
+      ],
+      "privacy": "normal",
+      "isFloat": false
+     },
+     {
+      "order": 1,
+      "name": "exceptLanguage",
+      "label": "Except Language",
+      "helpText": "Matches if any language other than the selected language is present",
+      "value": false,
+      "type": "checkbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 19,
+  "name": "Dubbed",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)\\b(dub|dubbed|dublado|dubbing)\\b",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 20,
+  "name": "Extended / Long Cut",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)(\\bredux\\b|\\bextended\\b|\\buncut\\b|\\bintegral\\b|\\broadshow\\b|\\bthe.?complete\\b|\\bimax.?edition\\b|\\bspecial.?edition\\b)",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 21,
+  "name": "Theatrical Cut",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)\\btheatrical\\b",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 22,
+  "name": "Likely 10-bit group (CPU)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)\\b(tigole|qxr|t3nzin|afm72|vyndros|psa)\\b",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 24,
+  "name": "HD/lossless audio (transcode)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)\\b(truehd|atmos|dts(-?(hd|es|x))?( ?ma)?|flac|opus)\\b",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 25,
+  "name": "PS4-native audio (AC3)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)\\b(dd ?5\\.?1|dd ?2\\.?0|ac-?3)\\b",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 26,
+  "name": "Non-original language (reject)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "LanguageSpecification",
+    "implementationName": "Language",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Language",
+      "value": -2,
+      "type": "select",
+      "advanced": false,
+      "selectOptions": [
+       {
+        "value": -1,
+        "name": "Any",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": -2,
+        "name": "Original",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 0,
+        "name": "Unknown",
+        "order": 0,
+        "dividerAfter": true
+       },
+       {
+        "value": 51,
+        "name": "Afrikaans",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 50,
+        "name": "Albanian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 31,
+        "name": "Arabic",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 34,
+        "name": "Bengali",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 41,
+        "name": "Bosnian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 29,
+        "name": "Bulgarian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 38,
+        "name": "Catalan",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 10,
+        "name": "Chinese",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 39,
+        "name": "Croatian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 25,
+        "name": "Czech",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 6,
+        "name": "Danish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 7,
+        "name": "Dutch",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 1,
+        "name": "English",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 42,
+        "name": "Estonian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 16,
+        "name": "Finnish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 19,
+        "name": "Flemish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 2,
+        "name": "French",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 57,
+        "name": "Georgian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 4,
+        "name": "German",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 20,
+        "name": "Greek",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 23,
+        "name": "Hebrew",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 26,
+        "name": "Hindi",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 22,
+        "name": "Hungarian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 9,
+        "name": "Icelandic",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 44,
+        "name": "Indonesian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 5,
+        "name": "Italian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 8,
+        "name": "Japanese",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 49,
+        "name": "Kannada",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 21,
+        "name": "Korean",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 36,
+        "name": "Latvian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 24,
+        "name": "Lithuanian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 46,
+        "name": "Macedonian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 48,
+        "name": "Malayalam",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 52,
+        "name": "Marathi",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 56,
+        "name": "Mongolian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 15,
+        "name": "Norwegian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 33,
+        "name": "Persian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 12,
+        "name": "Polish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 18,
+        "name": "Portuguese",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 30,
+        "name": "Portuguese (Brazil)",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 27,
+        "name": "Romanian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 55,
+        "name": "Romansh",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 11,
+        "name": "Russian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 40,
+        "name": "Serbian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 35,
+        "name": "Slovak",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 47,
+        "name": "Slovenian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 3,
+        "name": "Spanish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 37,
+        "name": "Spanish (Latino)",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 14,
+        "name": "Swedish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 53,
+        "name": "Tagalog",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 43,
+        "name": "Tamil",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 45,
+        "name": "Telugu",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 28,
+        "name": "Thai",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 17,
+        "name": "Turkish",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 32,
+        "name": "Ukrainian",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 54,
+        "name": "Urdu",
+        "order": 0,
+        "dividerAfter": false
+       },
+       {
+        "value": 13,
+        "name": "Vietnamese",
+        "order": 0,
+        "dividerAfter": false
+       }
+      ],
+      "privacy": "normal",
+      "isFloat": false
+     },
+     {
+      "order": 1,
+      "name": "exceptLanguage",
+      "label": "Except Language",
+      "helpText": "Matches if any language other than the selected language is present",
+      "value": true,
+      "type": "checkbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 27,
+  "name": "Final / Ultimate Cut",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)(\\bfinal.?cut\\b|\\bultimate.?(edition|cut)\\b)",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": 28,
+  "name": "Directors Cut",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+   {
+    "name": "s",
+    "implementation": "ReleaseTitleSpecification",
+    "implementationName": "Release Title",
+    "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+    "negate": false,
+    "required": true,
+    "fields": [
+     {
+      "order": 0,
+      "name": "value",
+      "label": "Regular Expression",
+      "helpText": "Custom Format RegEx is Case Insensitive",
+      "value": "(?i)\\bdirector.?s?.?cut\\b",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+     }
+    ]
+   }
+  ]
+ }
+]

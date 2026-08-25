@@ -52,7 +52,7 @@ function renderLibrary() {
     // QUALITY: bpp + band, both computed server-side (arr-inspect.js). This used to derive
     // Mbps here from sizeBytes/runtimeMinutes and colour it >=15/8/4 — resolution-, framerate-
     // and codec-blind, which put 82.7% of movies in the worst colour. See util.js bppSpan().
-    const rate = bppSpan(m.bppPlus, m.bppBand, m.cxBasis);
+    const rate = bppSpan(m.bppPlus, m.bppBand, m.cxBasis, m.bppRSE);
     const fmt = m.videoLabel || '';
     const compat = m.gpuCompat || '';
     const fmtCls = compat === 'ok' ? 'ok' : compat === 'warn' ? 'warn' : compat === 'bad' ? 'bad' : '';

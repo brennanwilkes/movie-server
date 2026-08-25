@@ -17,8 +17,11 @@
 // and every ambiguity resolves toward refusing.
 const {
   isSizeCf, isExcusableCf, AUDIO_TRANSCODE_CF, nonSizeCfScore, cfRefusalIsExcusable,
-  CF_UPGRADE_REJECT_RE, SIZE_CF_RE,
+  CF_UPGRADE_REJECT_RE, SIZE_CF_RE, editionNotWorse, cfDeficits, cfFormatsFromRejection,
 } = require('../controller/lib/release-rules');
+// The tier Extended parses to (release-rules EDITION_TIER). Named so the edition tests read as
+// intent ("against an Extended copy") rather than as a magic number.
+const EDITION_TIER_EXTENDED = 2;
 
 let pass = 0; let fail = 0;
 const ok = (cond, why) => { if (cond) { pass++; return; } fail++; console.log(`FAIL  ${why}`); };
@@ -119,6 +122,31 @@ ok(allow(
   ['H.264 (GPU)', 'Original-language audio', 'HD/lossless audio (transcode)', 'Size 10-15 GB'],
 ), 'gaining TrueHD/DTS-HD costs -20 for a downmix the server does anyway — MUST be allowed');
 
+// REGRESSION PINS — the two live cases the Audit tab was still refusing on 2026-08-11, months after
+// this gate was written. The gate itself was right; the *tab* never asked it. The Replace button and
+// the preflight both compared raw cfScore totals (audit.js cfBlocked), so a release the import path
+// would have accepted was greyed out and unclickable with "it has to score higher to import".
+// cfBlockedFor in audit.js now routes through this function; these pin the arithmetic it relies on.
+//
+// Scarface (1983): on disk 360, the chosen "1080p BluRay x264-OFT" 260. Identical codec, language and
+// cut; the entire 100-point gap is Size 1.5-3 GB (+80) vs Size 6-10 GB (-20). Both sides are 280 once
+// size is excluded, and A TIE IS EXCUSABLE — nothing real is in dispute.
+ok(allow(
+  ['H.264 (GPU)', 'Original-language audio', 'Size 1.5-3 GB'],
+  ['H.264 (GPU)', 'Original-language audio', 'Size 6-10 GB'],
+), 'Scarface 1983: 2.58 GB -> 7.92 GB, same everything else — MUST be allowed (was refused 260 vs 360)');
+ok(nonSizeCfScore(['H.264 (GPU)', 'Original-language audio', 'Size 1.5-3 GB'], NORMAL)
+  === nonSizeCfScore(['H.264 (GPU)', 'Original-language audio', 'Size 6-10 GB'], NORMAL),
+  'Scarface: both sides are the SAME once the size band is excluded — the refusal was pure bytes');
+
+// Star Wars: The Rise of Skywalker (2019): on disk 280, the chosen OFT release 260. Here the
+// replacement is actually BETTER on content (+80 for H.264, which the on-disk file never matched) and
+// only "worse" on size, so it must clear the gate comfortably.
+ok(allow(
+  ['Original-language audio', 'Size 1.5-3 GB'],
+  ['H.264 (GPU)', 'Original-language audio', 'Size 6-10 GB'],
+), 'Rise of Skywalker: gains H.264, loses only size — MUST be allowed (was refused 260 vs 280)');
+
 // ...but the exemption must be NARROW. It buys ~35 points of headroom and must not become a way for
 // a real regression to ride along.
 ok(!allow(
@@ -201,11 +229,21 @@ ok(NORMAL.get('Size 6-10 GB') < NORMAL.get('Size 3-6 GB'),
 const fs = require('fs');
 const path = require('path');
 const imp = fs.readFileSync(path.join(__dirname, '..', 'controller', 'lib', 'importer.js'), 'utf8');
-ok(imp.includes('cfRefusalIsExcusable(opts.cfAllow.oldFormats, c.customFormats, opts.cfAllow.scoreByName)'),
+ok(imp.includes('cfRefusalIsExcusable(opts.cfAllow.oldFormats, c.customFormats, opts.cfAllow.scoreByName'),
   'importer.js still calls cfRefusalIsExcusable with the cfAllow shape audit.js builds');
+// The edition arm has to be PASSED, not merely available. It defaults to off, so forgetting to thread
+// it through is silent: every Gladiator-shaped refusal simply comes back and nothing looks broken.
+ok(/editionOk: !!opts\.cfAllow\.editionOk/.test(imp),
+  'importer.js still forwards cfAllow.editionOk into the gate (default-off means a silent regression)');
 const aud = fs.readFileSync(path.join(__dirname, '..', 'controller', 'lib', 'audit.js'), 'utf8');
-ok(/return \{ oldFormats, scoreByName \};/.test(aud),
-  'audit.js buildCfAllow still returns the {oldFormats, scoreByName} shape importer.js destructures');
+ok(/return \{ oldFormats, scoreByName, editionOk, editionLabel \};/.test(aud),
+  'audit.js buildCfAllow still returns the shape importer.js destructures, editionOk included');
+// ...and that editionOk is derived from OUR parse of the chosen release title. If this ever becomes a
+// constant or reads *arr's filename score instead, the hard theatrical rule loses its guard.
+ok(aud.includes('editionOk = editionNotWorse(relTitle, oldTier)'),
+  'buildCfAllow still derives editionOk from editionNotWorse() on the release title');
+ok(/buildCfAllow\(p\.app, p\.id, p\.season, p\.rel\)/.test(aud),
+  'the swap still passes its release title into buildCfAllow — without it editionOk is always false');
 ok(aud.includes('previewManualImport(p.app, t.content_path, p.id, { cfAllow })'),
   'the preflight is still given the allowance');
 ok(aud.includes('{ downloadId: p.hash, cfAllow }'),
@@ -213,4 +251,86 @@ ok(aud.includes('{ downloadId: p.hash, cfAllow }'),
 ok(SIZE_CF_RE instanceof RegExp, 'SIZE_CF_RE is exported for anyone who needs the raw pattern');
 
 console.log(`${pass}/${pass + fail} passed`);
+process.exit(fail ? 1 : 0);
+
+// ── THE EDITION ARM (2026-08-12, Gladiator) ─────────────────────────────────────────────────
+// *arr scores the RELEASE TITLE when it grabs and the FILE INSIDE THE TORRENT when it imports, so a
+// release named ...EXTENDED... whose internal filename omits the tag loses 3000 points between those
+// two moments and the import reads as an edition downgrade. Gladiator.2000.EXTENDED...-CiNEFiLE
+// downloaded for days and was refused twice (08-07 and 08-12) on exactly that.
+//
+// The exemption is driven by OUR OWN parse of the chosen release title (editionNotWorse), never by
+// *arr's filename score. Brennan's rule, same day: "If it wasnt theatrical then it shouldnt have been
+// rejected" — and its inverse is the hard rule that must survive: a theatrical cut is never allowed.
+const editionAllow = (oldF, newF, editionOk) => cfRefusalIsExcusable(oldF, newF, NORMAL, { editionOk });
+
+// THE REGRESSION PIN — the exact live format lists from the Gladiator refusal.
+const GLAD_OLD = ['Extended / Long Cut', 'H.264 (GPU)', 'Original-language audio', 'Size 1.5-3 GB'];
+const GLAD_NEW = ['H.264 (GPU)', 'Original-language audio', 'Size 10-15 GB'];
+ok(!editionAllow(GLAD_OLD, GLAD_NEW, false),
+  'Gladiator: WITHOUT the edition exemption the refusal stands — this is the old behaviour, unchanged');
+ok(editionAllow(GLAD_OLD, GLAD_NEW, true),
+  'Gladiator: WITH it (title parses Extended, disk is Extended) the naming artifact is forgiven');
+
+// MUST NOT ALLOW — the exemption is keyed on the TITLE PARSE, so a real cut change can never use it.
+ok(!editionNotWorse('Gladiator.2000.THEATRICAL.1080p.BluRay.x264-FOO', EDITION_TIER_EXTENDED),
+  'an explicitly THEATRICAL release never clears the tier test against an Extended copy');
+ok(!editionNotWorse('Gladiator.2000.1080p.BluRay.x264-FOO', EDITION_TIER_EXTENDED),
+  'an UNSTATED-edition release does not clear it either — unstated is not proof of the long cut');
+ok(editionNotWorse('Gladiator.2000.EXTENDED.1080p.BluRay.x264-CiNEFiLE', EDITION_TIER_EXTENDED),
+  'the same tier passes');
+ok(editionNotWorse('Blade.Runner.1982.FINAL.CUT.1080p.BluRay.x264', EDITION_TIER_EXTENDED),
+  'a HIGHER tier passes (Final Cut over Extended)');
+ok(!editionNotWorse('Blade.Runner.1982.EXTENDED.1080p.BluRay.x264', 3),
+  "Extended does NOT clear a Director's Cut on disk — the bar is what you already hold");
+
+// And the exemption must not become a tunnel for anything else while it is open.
+ok(!editionAllow(
+  ['Extended / Long Cut', 'H.264 (GPU)', 'Original-language audio', 'Size 1.5-3 GB'],
+  ['H.264 (GPU)', 'Dubbed', 'Size 10-15 GB'], true,
+), 'a DUB riding along with an excused edition tag is still refused');
+ok(!editionAllow(
+  ['Extended / Long Cut', 'H.264 (GPU)', 'Original-language audio', 'Size 1.5-3 GB'],
+  ['H.264 (GPU)', 'Original-language audio', '10-bit (CPU)', 'Size 10-15 GB'], true,
+), 'a 10-bit picture riding along with an excused edition tag is still refused');
+ok(!editionAllow(
+  ['Extended / Long Cut', 'H.264 (GPU)', 'Original-language audio', 'Size 1.5-3 GB'],
+  ['H.264 (GPU)', 'Non-original language (reject)', 'Size 10-15 GB'], true,
+), 'foreign audio riding along with an excused edition tag is still refused');
+// Theatrical Cut is itself an EDITION format, so the exemption would hide it — which is safe ONLY
+// because editionOk can never be true for a title that parses as theatrical. Pinned both ways.
+ok(!editionNotWorse('Gladiator.2000.Theatrical.Cut.1080p.x264', 2),
+  'the guard that makes the above safe: a theatrical title can never set editionOk');
+
+// ── cfDeficits: name what is actually worse ─────────────────────────────────────────────────
+// "scored it below the copy you already have" is true of every refusal and so says nothing. Brennan:
+// "the rejection reason on the audit tab recent should say that it was the wrong edition".
+const gd = cfDeficits(GLAD_OLD, GLAD_NEW, NORMAL);
+ok(gd.length === 1 && gd[0].name === 'Extended / Long Cut',
+  `cfDeficits names the edition as the sole cause: got ${JSON.stringify(gd.map((d) => d.name))}`);
+ok(gd[0].delta === -3000, 'and reports its magnitude');
+ok(cfDeficits(GLAD_OLD, GLAD_NEW, NORMAL, { editionOk: true }).length === 0,
+  'with the edition excused there is nothing left to report');
+ok(cfDeficits(['H.264 (GPU)', 'Size 1.5-3 GB'], ['H.264 (GPU)', 'Size >15 GB'], NORMAL).length === 0,
+  'a size-only difference is never reported as a deficit');
+const dd = cfDeficits(['H.264 (GPU)', 'Original-language audio'], ['H.264 (GPU)', 'Dubbed'], NORMAL);
+ok(dd.some((d) => d.name === 'Dubbed') && dd.some((d) => d.name === 'Original-language audio'),
+  'both a lost good format and a gained bad one are reported');
+ok(dd[0].name === 'Dubbed', 'worst first (-100000 leads)');
+
+// ── cfFormatsFromRejection: read *arr's own words ───────────────────────────────────────────
+const REAL = 'Not a Custom Format upgrade for existing movie file(s). New: [H.264 (GPU), '
+  + 'Original-language audio, Size 10-15 GB] (-220) do not improve on Existing: [Extended / Long Cut, '
+  + 'H.264 (GPU), Original-language audio, Size 1.5-3 GB] (3360)';
+const parsed = cfFormatsFromRejection(REAL);
+ok(JSON.stringify(parsed.newFormats) === JSON.stringify(GLAD_NEW), 'parses the New: list verbatim');
+ok(JSON.stringify(parsed.oldFormats) === JSON.stringify(GLAD_OLD), 'parses the Existing: list verbatim');
+ok(cfFormatsFromRejection('some other rejection entirely').newFormats.length === 0,
+  'unrecognised phrasing yields nothing — degrades to the vague message, never to a wrong one');
+ok(cfFormatsFromRejection('').newFormats.length === 0, 'empty reason yields nothing');
+ok(cfFormatsFromRejection(null).newFormats.length === 0, 'null reason yields nothing, not a throw');
+ok(cfFormatsFromRejection('New: [] (0) do not improve on Existing: [] (0)').newFormats.length === 0,
+  'empty bracket lists yield nothing');
+
+console.log(`\n${pass} passed, ${fail} failed (edition arm included)`);
 process.exit(fail ? 1 : 0);

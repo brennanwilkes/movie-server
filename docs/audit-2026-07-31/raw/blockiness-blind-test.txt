@@ -1,0 +1,30 @@
+=== THE BLIND LIST — watch a couple of minutes of each, note artifacts/none ===
+
+   1. Children of Men (2006)
+   2. Moon (2009)
+   3. Blazing Saddles (1974)
+   4. Jackie Brown (1997)
+   5. Last Tango in Paris (1972)
+   6. Monty Python and the Holy Grail (1975)
+   7. Collective (2019)
+   8. La Haine (1995)
+   9. The Boy and the Heron (2023)
+  10. A Fish Called Wanda (1988)
+
+
+=== ANSWER KEY — do not read until after ===
+
+   1. Children of Men (2006)             quadrant C-bad  block  5.1149 (98th)  R    0.6  3.7Mb  Bluray-1080p
+   2. Moon (2009)                        quadrant A      block  6.7768 (99th)  R 2.4424  6.2Mb  Bluray-1080p
+   3. Blazing Saddles (1974)             quadrant C-good block  1.0519 (1th)  R 1.3484  2.6Mb  Bluray-1080p
+   4. Jackie Brown (1997)                quadrant A      block  7.6107 (100th)  R 2.5083  18.4Mb  Bluray-1080p
+   5. Last Tango in Paris (1972)         quadrant B      block  1.0415 (1th)  R 0.5459  2.2Mb  Bluray-1080p
+   6. Monty Python and the Holy Grail (1975) quadrant B      block  1.0204 (0th)  R 0.3957  3.0Mb  Bluray-1080p
+   7. Collective (2019)                  quadrant C-good block  1.0445 (1th)  R 1.7221  5.8Mb  Bluray-1080p
+   8. La Haine (1995)                    quadrant A      block  7.1341 (100th)  R 1.3189  11.3Mb  Bluray-1080p
+   9. The Boy and the Heron (2023)       quadrant C-bad  block  6.2937 (99th)  R 0.6505  3.0Mb  Bluray-1080p
+  10. A Fish Called Wanda (1988)         quadrant B      block  1.0384 (1th)  R 0.5065  2.0Mb  Bluray-1080p
+
+  A = blocky but well-supplied (predict: ARTIFACTS despite a good BPP+)
+  B = clean but starved       (predict: LOOKS FINE despite a poor BPP+)
+  C = the two measures agree  (controls)

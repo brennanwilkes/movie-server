@@ -49,6 +49,8 @@ diagnose:   ## full stack health check
 	./scripts/diagnose.sh
 test:       ## fast read-only PASS/FAIL assertions for the whole stack (run after any change)
 	./scripts/smoke-test.sh
+runtimes:   ## find files that aren't the whole film (make runtimes a='--ffprobe' for ground truth)
+	./scripts/audit-runtimes.sh $(a)
 why:        ## why isn't this playing (well) on the PS4/projector? (make why q="Pulp Fiction")
 	./scripts/why-playback.sh $(if $(filter sonarr,$(s)),--sonarr,--radarr) "$(q)"
 metrics:    ## query time-series metrics (make metrics a='system --stats cpu' or a='events --type grab')

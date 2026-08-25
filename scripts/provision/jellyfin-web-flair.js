@@ -129,8 +129,16 @@
 	var oscarFetchPending = new Set(); // raw ids awaiting a batch fetch
 	var oscarFetchTimer = null;
 	var runtimeById = new Map(); // normalized MOVIE id -> RunTimeTicks (or null = fetched, no runtime).
-	// On-demand + batched like the person Oscar cache, but PERSISTED: a film's runtime never
-	// changes, so a hydrated cache means zero network for every card the user has already seen.
+	// On-demand + batched like the person Oscar cache, and PERSISTED so a hydrated cache paints
+	// card runtimes with zero network. It is NOT immutable, though — that was the old assumption
+	// and it was wrong: replacing a film's file (e.g. swapping a truncated rip for a full one)
+	// changes RunTimeTicks, and a write-once cache pinned the stale value forever with no way to
+	// clear it short of wiping localStorage. Chinatown showed "1h 8m" for weeks that way.
+	// So the cache is now stale-while-revalidate: paint from it instantly, re-fetch every id we
+	// actually render ONCE PER SESSION, and repaint only the ids whose value really moved.
+	// Cost is the same one batched request per screenful a cold cache already paid.
+	var runtimeFresh = new Set();  // normalized ids revalidated against the server THIS session
+	var runtimeInFlight = new Set(); // normalized ids in a request that hasn't settled yet
 	var runtimeFetchPending = new Set();
 	var runtimeFetchTimer = null;
 	var nationById = new Map(); // MOVIE id -> iso2 country code from nation-* Tags (bulk-loaded)
@@ -640,8 +648,8 @@
 		if (o) oscarById = new Map(o);
 		var n = lsGet(cacheKey('mn_nations'));
 		if (n) nationById = new Map(n);
-		// Runtimes are immutable, so this cache is purely additive — no loader ever rebuilds it,
-		// and a warm cache means card runtimes paint with zero network.
+		// Warm start only: values paint immediately, then every rendered id is revalidated once
+		// this session (see runtimeFresh) so a replaced media file can't pin a stale runtime.
 		var rt = lsGet(cacheKey('mn_runtimes'));
 		if (rt) runtimeById = new Map(rt);
 		if (r || o || n) loaded = true; // decoration may proceed from cache right away
@@ -810,11 +818,17 @@
 	// RunTimeTicks is a DEFAULT field on /Items (verified against 10.11.11 — no Fields= needed),
 	// so this is a plain id lookup. We deliberately do NOT bulk-load every movie: the home page
 	// only ever shows a few dozen cards, and this box is already sensitive to wide library
-	// queries. Batched + cached, it costs one request per screenful
-	// on a cold cache and nothing at all afterwards.
+	// queries. Batched, it costs one request per screenful per session — the cache makes the
+	// PAINT instant, `runtimeFresh` makes the VALUE trustworthy.
 	function runtimeFor(id) { return runtimeById.get(normalize(id)); }
 	function requestRuntime(rawId) {
-		if (!rawId || runtimeById.has(normalize(rawId))) return;
+		if (!rawId) return;
+		// Revalidate once per session even on a cache hit: a media-file swap changes RunTimeTicks.
+		// runtimeInFlight matters now that a cache hit no longer short-circuits: scan() runs every
+		// 500ms, so without it the same ids would be re-requested while the first batch is still
+		// on the wire.
+		var nk = normalize(rawId);
+		if (runtimeFresh.has(nk) || runtimeInFlight.has(nk)) return;
 		runtimeFetchPending.add(rawId);
 		if (runtimeFetchTimer) return;
 		runtimeFetchTimer = setTimeout(flushRuntimeFetch, 250);
@@ -826,25 +840,37 @@
 		var ids = Array.from(runtimeFetchPending); // Array.from, not slice.call — a Set isn't array-like
 		runtimeFetchPending.clear();
 		var jobs = [];
+		var moved = new Set(); // ids whose cached ticks actually changed — the only ones to repaint
+		ids.forEach(function (rid) { runtimeInFlight.add(normalize(rid)); });
 		for (var s = 0; s < ids.length; s += 60) { // chunk to keep the query string sane
 			(function (chunk) {
 				jobs.push(a.getJSON(a.getUrl('Items', { Ids: chunk.join(',') }))
 					.then(function (res) {
 						((res && res.Items) || []).forEach(function (it) {
-							if (it.Id) runtimeById.set(normalize(it.Id), it.RunTimeTicks || null);
+							if (!it.Id) return;
+							var k = normalize(it.Id), v = it.RunTimeTicks || null;
+							if (runtimeById.get(k) !== v) { runtimeById.set(k, v); moved.add(it.Id); }
 						});
-						// Only on SUCCESS: mark every requested id as fetched (even ones Jellyfin
+						// Only on SUCCESS: mark every requested id as revalidated (even ones Jellyfin
 						// omitted) so we never spin re-requesting. Failed chunks stay unmarked and
 						// retry on a later scan.
 						chunk.forEach(function (rid) {
-							if (!runtimeById.has(normalize(rid))) runtimeById.set(normalize(rid), null);
+							var k = normalize(rid);
+							if (!runtimeById.has(k)) { runtimeById.set(k, null); moved.add(rid); }
+							runtimeFresh.add(k);
 						});
 					}).catch(function () { /* ignore chunk — unmarked ids retry later */ }));
 			})(ids.slice(s, s + 60));
 		}
 		Promise.all(jobs).then(function () {
+			// Clear in-flight regardless of outcome: succeeded ids are now in runtimeFresh, failed
+			// ones must become re-requestable on the next scan.
+			ids.forEach(function (rid) { runtimeInFlight.delete(normalize(rid)); });
 			lsSet(cacheKey('mn_runtimes'), Array.from(runtimeById.entries()));
-			redecorateChanged(new Set(ids));
+			// Nothing moved = the cache was already right, which is the common case on a warm
+			// load. Skipping the repaint keeps revalidation invisible (no per-scan DOM churn).
+			if (!moved.size) return;
+			redecorateChanged(moved);
 			scan();
 		});
 	}
@@ -856,8 +882,12 @@
 		if (!sec) return;
 		var old = sec.querySelector('.mn-card-rt');
 		if (old) old.remove();
+		// Always ask (the call self-guards on runtimeFresh): on a cold id this fetches and repaints
+		// on flush, on a cached id this is the once-per-session revalidation that catches a
+		// replaced media file. Painting below is unblocked either way.
+		requestRuntime(id);
 		var ticks = runtimeFor(id);
-		if (ticks === undefined) { requestRuntime(id); return; } // not fetched yet — repaints on flush
+		if (ticks === undefined) return; // nothing cached yet — repaints on flush
 		var rt = rtText(ticks);
 		if (!rt) return;
 		// cardBuilder writes a literal &nbsp; when it has no year; trim() treats U+00A0 as

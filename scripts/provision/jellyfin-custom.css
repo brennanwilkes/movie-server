@@ -3295,3 +3295,90 @@ a.clearLink.emby-button {
     background-color: rgba(0, 0, 0, 0.55) !important;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PLAYBACK: kill every full-viewport decorative overlay
+   ══════════════════════════════════════════════════════════════════════════════
+   BUG, reported 2026-08-13: the Marquee crosshatch lattice stayed visible ON TOP OF a playing
+   film in the browser. Confirmed from the live cascade, not guessed:
+
+     body::before  z-index 9998   crosshatch lattice   position: fixed; inset: 0
+     body::after   z-index 9997   vignette             position: fixed; inset: 0
+     body::after   z-index 9999   paper grain          position: fixed; inset: 0
+     .videoPlayerContainer        z-index: AUTO        position: fixed
+
+   The player container is positioned but never claims a stacking index, so three overlays at
+   z 9997-9999 sit above it by construction. `pointer-events: none` hid this during development —
+   the overlays are click-through, so nothing felt broken; they were simply always there, and only
+   became obvious on a dark, low-contrast scene where a 4% gold lattice reads as crawling texture.
+   That also makes it a QUALITY-ASSESSMENT hazard: a fixed screen-door pattern over a dark frame is
+   exactly what compression noise looks like, so it can be mistaken for an artifact in the file.
+
+   THE SIGNAL IS html.transparentDocument. Jellyfin's appRouter sets it for routes declared
+   transparent — i.e. the video OSD — and the console dump during playback confirmed
+   html="preload layout-desktop transparentDocument". Do NOT use body.hide-scroll for this: dialogs
+   set it too, and that would drop the textures every time a modal opens.
+
+   Raising .videoPlayerContainer's z-index instead was rejected: it fights Jellyfin's own stacking
+   for OSD, subtitles and dialogs, and any future overlay we add would reintroduce the same bug.
+   Suppressing OUR decoration during playback is the narrower change.
+
+   !important is required — the mobile block above uses it, and these must win there too. */
+html.transparentDocument body::before,
+html.transparentDocument body::after {
+  display: none !important;
+}
+
+/* ── §Bugfix 2026-08-20 — detail-page poster jumped/resized on hover ────────────────────────────
+   SYMPTOM: hovering the poster on a film or person detail page moved it. Barely noticeable on a
+   desktop mouse, but on a phone it shoved the poster into the middle of the screen.
+
+   MEASURED (scripts/hover-probe-console.js, on a film detail page, html="layout-mobile", vw=1106):
+     position   absolute -> relative
+     top        -182.95px -> -13.12px      left    54.80px -> 40.94px
+     width      219.19px -> 163.78px       height  328.78px -> 245.67px
+     z-index    3 -> 10                    contain content -> layout style
+     → the .card box translated +227px x / +176px y and shrank by 55x83px.
+
+   CAUSE — a specificity conflict with Jellyfin's own positioning, not scyfin. The card-hover glow
+   rule `.card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3)` (0,0,5,0) sets `position: relative` to
+   make its `z-index: 10` take effect. Stock Jellyfin positions this one card explicitly:
+     .detailImageContainer .card                 { position: relative }              (0,0,2,0)
+     .layout-mobile .detailImageContainer .card  { position: absolute; left:0; bottom:0 }  (0,0,3,0)
+     .layout-desktop .detailImageContainer .card { position: static !important }   (vendored scyfin, ~L656)
+   Ours out-specificities the mobile rule, so hover flipped absolute -> relative: the poster lost
+   its anchor, fell into normal flow, and its width/height — which were resolved from the absolute
+   box's left/right insets — collapsed to the flow size. Hence the move AND the resize together.
+
+   WHY IT LOOKED LIKE A DESKTOP-VS-MOBILE SPLIT: it isn't one. `layout-mobile` is set from UA/touch,
+   NOT viewport width (see the mobile-polish notes), so a touch-capable desktop browser gets the
+   mobile rule at 1106px too. Same flip in both places; on desktop the two boxes just land closer
+   together so it reads as a nudge instead of a jump.
+
+   FIX: the detail poster is not clickable and must not react to hover at all — the same intent as
+   the two earlier §#16 attempts above, which failed purely on specificity (they were 0,0,2,0 and
+   0,0,4,0 against a 0,0,5,0/0,0,6,0 rule, so they lost even with !important). Restore stock
+   position/z-index/containment per layout, and drop the leftover glow + 1px frame that the #16
+   rules were also trying to remove. Selectors are built to 0,0,7,0 / 0,0,8,0 so they actually win.
+   Scoped to .detailImageContainer, so grid cards, cast headshots and list rows keep their hover
+   treatment untouched. ── */
+.itemDetailPage .detailImageContainer .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) {
+  position: relative !important;   /* stock base .detailImageContainer .card (layout-tv and any other layout) */
+  z-index: 3 !important;           /* stock base — restored so stacking order is unchanged on hover too */
+  contain: content !important;     /* stock .card:not(.show-animation); safe now that no glow needs to escape */
+}
+.layout-mobile .itemDetailPage .detailImageContainer .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) {
+  position: absolute !important;   /* stock .layout-mobile .detailImageContainer .card — the flip this bug was */
+}
+.layout-desktop .itemDetailPage .detailImageContainer .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) {
+  position: static !important;     /* vendored scyfin forces static here (see ~L656) */
+}
+/* Kill the two remaining hover affordances on the poster: the accent glow (rides on .cardScalable)
+   and the 1px accent frame (on .cardImageContainer, content-box — so it also shrank the image by
+   2px, a second small visible shift). Both need to beat 0,0,6,0. */
+.itemDetailPage .detailImageContainer .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardScalable {
+  box-shadow: none !important;
+}
+.itemDetailPage .detailImageContainer .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardImageContainer {
+  border-width: 0 !important;
+}

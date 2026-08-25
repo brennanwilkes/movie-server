@@ -225,7 +225,18 @@ async function buildDownloads() {
   for (const t of torrents) {
     const h = (t.hash || '').toLowerCase();
     const app = torrentApp(t);
-    const prog = Math.round((t.progress || 0) * 100);
+    // NEVER ROUND UP TO 100. Every state test below is `prog < 100`, so rounding decided whether a
+    // torrent counted as FINISHED — and Math.round(0.9982 * 100) is 100. Observed 2026-08-12: The
+    // African Queen sat stalledDL with 8.4 MB left and zero seeds, and "sex, lies, and videotape" with
+    // FORTY-FIVE KILOBYTES left, and both were displayed as "Importing" — a calm blue state implying
+    // *arr was busy finishing up, when in fact nothing was happening and no peer had the last pieces.
+    // Brennan: "these all seem messed up somehow". The audit swap's own health pill got this right
+    // (`(t.progress||0) >= 1`), which is why the two surfaces disagreed about the same torrent.
+    //
+    // So: 100 means COMPLETE, and 99 is the ceiling for everything else. The display loses nothing —
+    // "99%" on a 45 KB remainder is the honest reading — and every `prog < 100` test below becomes
+    // exact without touching any of them.
+    const prog = (t.progress || 0) >= 1 ? 100 : Math.min(99, Math.round((t.progress || 0) * 100));
     const eta = (t.eta && t.eta < 8640000) ? t.eta : null;
     const qrec = app ? queues[app].get(h) : null;
     // Ground truth, independent of qBittorrent's (post-crash) progress/state: has *arr actually

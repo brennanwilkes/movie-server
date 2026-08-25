@@ -181,4 +181,4 @@ Add bucketed aggregation so any view returns ≤ ~400 points with peaks preserve
 
 - **Retention/rollup (optional, later):** keep raw 14d, then a 5-min rollup for 90d, 1-hr rollup beyond — would cap disk and speed week/month views. Not needed now (~730 MB/yr).
 - **Per-service CPU (future):** a `proc`/`cgroup` stream (read `/sys/fs/cgroup/.../cpu.stat` per container, or periodic `docker stats`) would let the Stats tab attribute CPU to Jellyfin/Radarr/etc — the thing we had to read live during the 2026-07-09 thermal work.
-- **Cross-ref:** relates to the (not-yet-built) `docs/telemetry-plan.md` Phase 2; this doc covers *visualization*, that one covers *collection*.
+- **Cross-ref:** relates to the (not-yet-built) search-gap telemetry Phase 2; this doc covers *visualization*, that one covers *collection*.

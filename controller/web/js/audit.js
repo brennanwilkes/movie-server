@@ -84,6 +84,10 @@ function swapPills(s, mins) {
       + pill(s.seeds === 0 ? 'no seeds' : `${s.seeds} seeds`, 'bad')
       + pill(`quiet ${s.quietMin} min`, 'warn') + age;
   }
+  // QUEUED is a healthy state, not a stalled one — qBittorrent caps concurrent downloads
+  // (max_active_downloads) and everything past the cap waits its turn. Neutral pills, no red:
+  // nothing is wrong, and a batch grab legitimately parks most of itself here for a while.
+  if (s.health === 'queued') return pill(`queued${pct}`) + pill('waiting for a download slot') + age;
   if (s.health === 'gone') return pill('torrent gone', 'bad') + pill('abandoning', 'warn') + age;
   if (s.health === 'importing') return pill('importing', 'ok') + pill('100%', 'ok') + age;
   if (s.health === 'pending') return pill('starting', 'ok') + age;
@@ -132,6 +136,22 @@ const seedPill = (n) => pill(`${n} seeds`, `seeds ${n < 3 ? 'bad' : (n < 5 ? 'wa
 const deadPill = (c) => (c.dead
   ? pill('dead swarm', 'seeds bad', `tried ${c.deadAgeH < 48 ? `${c.deadAgeH}h` : `${Math.round(c.deadAgeH / 24)}d`} ago — never connected to a peer. Still selectable; swarms do come back.`)
   : '');
+// *ARR WILL NOT ACCEPT THIS ONE, EVER — and unlike a dead swarm that is not a matter of luck, so
+// the card is made unpickable rather than merely discouraged. We downloaded it once, the preflight
+// scored it below the copy already on disk, and the same arithmetic runs every time. Clicking it
+// used to download gigabytes and then fail, or (from a cached verdict) return a misleading "no
+// longer available from the indexers". Shown rather than hidden so the option count stays honest.
+const refusedPill = (c) => (c.refused
+  ? pill('refused', 'seeds bad', 'downloaded once and *arr scored it BELOW the copy you already have, so the import was rejected. It will be rejected again — pick something else.')
+  // SAME OUTCOME, KNOWN IN ADVANCE. `refused` is learned the expensive way — download it, watch
+  // *arr reject it. This is the same verdict computed from the custom-format scores BEFORE
+  // anything is fetched, so the wasted download never happens. The numbers are shown because they
+  // are the whole explanation: Blazing Saddles' 310 on disk against a 300 candidate is a 10-point
+  // gap, and seeing that is what tells you to look for a different encode rather than a better swarm.
+  : c.cfBlocked
+    ? pill(`can't import · ${c.cfScore} vs ${c.cfNeed}`, 'seeds bad',
+      `*arr scores this release ${c.cfScore}; the copy on disk scores ${c.cfNeed}. It must score HIGHER to import, so this one would download in full and then be rejected. Pick a release that scores above ${c.cfNeed}.`)
+    : '');
 
 // Playback candidates may legitimately be BIGGER now that source upgrades are allowed there, so
 // this has to render a gain as well as a saving. It previously showed "−0GB" for a candidate 2 GB
@@ -283,7 +303,7 @@ function auditRowHtml(r) {
   // bitrate too, a bare swap to Mbps would have cost that tab the codec — the one thing it exists
   // to fix. Codec first (it is why the row is listed), bitrate second.
   const rate = [esc(r.label || ''), r.bpp != null && b.bpp != null
-    ? `${bppSpan(r.bppPlus, r.bppBand, r.cxBasis)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand, b.cxBasis)}` : '']
+    ? `${bppSpan(r.bppPlus, r.bppBand, r.cxBasis, r.bppRSE)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand, b.cxBasis, b.bppRSE)}` : '']
     .filter(Boolean).join('<i>·</i>');
   // A swap already in flight: the row is NOT actionable, so it does not pretend to be. No
   // data-key, no role=button — tapping it does nothing rather than opening a sheet whose Replace
@@ -334,6 +354,12 @@ function auditRowHtml(r) {
 // The badge NEVER claims "theatrical" unless the file actually said so (editionStated). An untagged
 // file is usually theatrical but may just be badly named, and asserting it would be confidently wrong
 // about the user's own library — the candidate list is what settles it.
+// "1920x800" -> "2.40:1". The Edition tab's framing rows are about shape, and a pixel count is not
+// something a human reads as a shape.
+const aspectLabel = (res) => {
+  const m = /^(\d+)\s*x\s*(\d+)$/.exec(String(res || '').trim());
+  return m && +m[2] > 0 ? `${(+m[1] / +m[2]).toFixed(2)}:1` : '';
+};
 function auditEditionRowHtml(r) {
   const v = r.verdict || {};
   const b = v.state === 'improvable' ? v.best : null;
@@ -341,11 +367,20 @@ function auditEditionRowHtml(r) {
   // Runner is a file that should not be on disk. An above-floor PREFERENCE is amber: the Redux
   // Apocalypse Now you own is a perfectly good film, the Final Cut is merely the one to own. Paint
   // both red and the section cries wolf on titles that are already fine.
-  const prefer = !!r.editionPrefer;
+  // A FRAMING row (imaxPrefer) is a preference too, and it must not be painted red. Red on this tab
+  // means "this file should not be on disk" — a theatrical Blade Runner. A scope copy of Dune is a
+  // perfectly good film that happens not to be the widest framing available, which is the same kind
+  // of claim editionPrefer makes. Painted red it would cry wolf on four titles that are fine.
+  const prefer = !!(r.editionPrefer || r.imaxPrefer);
   const tone = prefer ? 'warn' : 'bad';
-  const badge = r.editionStated
-    ? pill(String(r.editionLabel).toUpperCase(), tone)
-    : pill('EDITION UNKNOWN', tone);
+  // FRAMING rows say what is actually wrong. "EDITION UNKNOWN" is true but irrelevant here — the cut
+  // is not in question, the aspect ratio is — and it read as though the file were suspect. The
+  // resolution is carried on the row precisely so this can name it.
+  const badge = r.imaxPrefer
+    ? pill(`SCOPE ${aspectLabel(r.resolution)}`.trim(), tone)
+    : (r.editionStated
+      ? pill(String(r.editionLabel).toUpperCase(), tone)
+      : pill('EDITION UNKNOWN', tone));
   const status = b
     ? `${fmtBytes(r.bytes)}<i>→</i>${fmtBytes(b.bytes)}`
     : (v.state ? 'nothing better available yet' : 'not checked yet');
@@ -411,6 +446,42 @@ function auditStaleRowHtml(r) {
   </li>`;
 }
 
+// OUTCOME → (label, pill class). Only a genuine problem is red. An abandoned swarm is amber — it is
+// information, and the original was never at risk. `refused` is amber for the same reason: *arr
+// declining a release is a correct decision, not a fault, and coding it red would put a permanent
+// alarm on a tab that is mostly working fine.
+const HIST_KIND = {
+  replaced: { label: 'replaced', cls: 'ok' },
+  abandoned: { label: 'gave up', cls: 'warn' },
+  refused: { label: 'refused', cls: 'warn' },
+  timeout: { label: 'timed out', cls: 'warn' },
+  failed: { label: 'needs you', cls: 'bad' },
+};
+// One finished replacement, in the same skeleton as every other row in this list
+// (.row.aud > .grow + .aud-right) so the feed inherits the existing type scale rather than
+// introducing a second row language. No data-key/role/tabindex: history is inert, there is nothing
+// to open, and a pointer cursor would promise otherwise.
+function auditHistoryRowHtml(h) {
+  const k = HIST_KIND[h.outcome] || { label: h.outcome || '?', cls: '' };
+  return `<li class="row aud hist">
+    <span class="grow">
+      <span class="title">${esc(h.title || '')}</span>
+      <div class="aud-line"><span class="aud-rate">${esc(h.detail || '')}</span></div>
+      ${h.rel ? `<div class="aud-line"><span class="aud-rate" title="${esc(h.rel)}">${esc(h.rel)}</span></div>` : ''}
+    </span>
+    <span class="aud-right">${pill(k.label, k.cls)}${pill(agoText(h.ts))}</span>
+  </li>`;
+}
+
+// Compact relative time. The feed spans minutes to days, so a single unit would either be unreadable
+// at one end or useless at the other.
+function agoText(ts) {
+  const m = Math.max(0, Math.round((Date.now() - (ts || 0)) / 60000));
+  if (m < 60) return `${m}m ago`;
+  if (m < 2880) return `${Math.round(m / 60)}h ago`;
+  return `${Math.round(m / 1440)}d ago`;
+}
+
 function renderAudit() {
   const d = auditData;
   if (!d) return;
@@ -432,6 +503,12 @@ function renderAudit() {
     ? 'all correct'
     : `wrong cut · ${t.editionFixable ?? 0} fixable now`);
   fill('stale', sz(t.staleGb), `${t.staleRows} torrents`);
+  // RECENT counts what did NOT land, because a success needs no attention and this tile competes
+  // with four that each report a problem. The headline is the total so the tile is never blank.
+  const hist = d.history || [];
+  const histBad = hist.filter((h) => h.outcome !== 'replaced').length;
+  fill('history', hist.length ? String(hist.length) : '–',
+    hist.length ? (histBad ? `${histBad} didn't land` : 'all landed') : 'finished replacements');
   // Upgrade's figure is the library SIZE, not a count of problems — nothing here is wrong, it is a
   // browse surface. Falls back to an em dash until the section has been opened once.
   fill('upgrade', upgLibTotal ? String(upgLibTotal) : '–', upgLibTotal ? 'movies · pick a better copy' : 'browse the library');
@@ -454,10 +531,12 @@ function renderAudit() {
   // Upgrade holds its OWN paged rows (upgRows), not auditData — it is the one section whose list is
   // fetched separately and grows as you scroll.
   const rows = auditSection === 'stale' ? d.stale.rows
+    : auditSection === 'history' ? (d.history || [])
     : (auditSection === 'upgrade' ? upgRows : auditRows(auditSection));
   const html = auditSection === 'stale'
     ? (d.stale.err ? `<li class="row aud muted">${esc(d.stale.err)}</li>` : rows.map(auditStaleRowHtml).join(''))
-    : rows.map(auditSection === 'upgrade' ? auditUpgradeRowHtml
+    : rows.map(auditSection === 'history' ? auditHistoryRowHtml
+      : auditSection === 'upgrade' ? auditUpgradeRowHtml
       : (auditSection === 'edition' ? auditEditionRowHtml : auditRowHtml)).join('');
   const list = $('#audit-list');
   if (list) list.innerHTML = html;
@@ -470,6 +549,8 @@ function renderAudit() {
   if (!html) {
     setText('#audit-empty', auditSection === 'upgrade'
       ? (upgQuery ? 'No movies match that search.' : 'No movies in the library yet.')
+      : auditSection === 'history'
+      ? 'No replacements have finished yet.'
       : auditSection === 'edition'
       ? 'Every film with a definitive cut is the right one.'
       : (t.unverified
@@ -563,7 +644,7 @@ function renderAudSheet() {
         <span class="aud-age">checked ${auditAge(v.ts)} ago</span>
       </div>
       <div class="aud-line">
-        <span class="aud-delta">${fmtBytes(r.bytes)}${r.bppPlus != null ? `<i>·</i>${bppSpan(r.bppPlus, r.bppBand, r.cxBasis)}` : ''}</span>
+        <span class="aud-delta">${fmtBytes(r.bytes)}${r.bppPlus != null ? `<i>·</i>${bppSpan(r.bppPlus, r.bppBand, r.cxBasis, r.bppRSE)}` : ''}</span>
         <span class="aud-rate">${esc(r.label || '')}</span>
         <span class="aud-inline">${srcPill(r.source, 0)}</span>
       </div>
@@ -576,13 +657,13 @@ function renderAudSheet() {
   // a discrete choice is redundant, and on a phone it cost a whole extra row per candidate.
   // Only cards carrying a guid are actionable; the CURRENT card above has none.
   $('#aud-results').innerHTML = cands.length ? cands.map((c) => `
-    <div class="aud-cand${c.guid ? ' pick' : ''}${c.dead ? ' dead' : ''}"${c.guid ? ` data-guid="${esc(c.guid)}" role="button" tabindex="0"` : ''}>
+    <div class="aud-cand${c.guid && !c.refused && !c.cfBlocked ? ' pick' : ''}${c.dead ? ' dead' : ''}${c.refused || c.cfBlocked ? ' refused' : ''}"${c.guid && !c.refused && !c.cfBlocked ? ` data-guid="${esc(c.guid)}" role="button" tabindex="0"` : ''}>
       <div class="aud-cand-head">
         <span class="aud-cand-title" title="${esc(c.title)}">${esc(c.title)}</span>
-        ${deadPill(c)}${savePill(r.bytes, c.bytes, 'sm')}
+        ${refusedPill(c)}${deadPill(c)}${savePill(r.bytes, c.bytes, 'sm')}
       </div>
       <div class="aud-line">
-        <span class="aud-delta">${fmtBytes(c.bytes)}${c.bppPlus != null ? `<i>·</i>${bppSpan(c.bppPlus, c.bppBand, c.cxBasis)}` : ''}</span>
+        <span class="aud-delta">${fmtBytes(c.bytes)}${c.bppPlus != null ? `<i>·</i>${bppSpan(c.bppPlus, c.bppBand, c.cxBasis, c.bppRSE)}` : ''}</span>
         <span class="aud-rate">${esc(c.codec === 'H.264' ? c.codec : `${c.codec} ${c.depth}`)}</span>
         <span class="aud-inline">${srcPill(c.source, c.srcDrop || 0)}${audioPill(c, 'wide-only')}</span>
       </div>
@@ -671,13 +752,14 @@ function openSwapConfirm(plan, body) {
   $('#swap-confirm').onclick = async () => {
     const cb = $('#swap-confirm');
     btnBusy(cb, 'Starting…');
+    let refreshed = false;
     try {
       const r2 = await fetch(`${API}/api/audit/replace`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...body, dryRun: false }),
       });
       const j2 = await r2.json();
-      if (!r2.ok) throw new Error(j2.error || `HTTP ${r2.status}`);
+      if (!r2.ok) { refreshed = !!j2.refreshed; throw new Error(j2.error || `HTTP ${r2.status}`); }
       // Only close the sheet if it is still OURS — see swapGen. The grab itself has happened
       // either way, so the toast and the refresh are unconditional.
       if (myGen === swapGen) { closeSwap(); closeAudSheet(); }
@@ -690,6 +772,18 @@ function openSwapConfirm(plan, body) {
       toast(`Replace failed — ${err.message}`);
       if (myGen === swapGen) setText('#swap-note', `Could not start: ${err.message}`);
       const note = $('#swap-note'); if (note) note.classList.add('bad');
+      // THE SHEET UNDERNEATH IS NOW WRONG. When the server rejects a pick because the ROW moved —
+      // a re-verify dropped that release — the candidate list still on screen is the stale one that
+      // offered it, so the obvious next move (pick the one below it) can fail the same way. The
+      // server re-verified as part of saying no, so the fresh list is already sitting in its cache;
+      // pull it in and re-render rather than leaving the user to guess that Re-check is needed.
+      if (refreshed) {
+        await loadAudit(true);
+        // Re-point the sheet at the REBUILT row object — loadAudit replaces the arrays wholesale,
+        // so the captured auditSheetRow is a detached copy holding the very verdict just rejected.
+        const live = (sectionRows() || []).find((x) => x.key === body.key);
+        if (live && auditSheetRow && auditSheetRow.key === body.key) { auditSheetRow = live; renderAudSheet(); }
+      }
     }
     finally { if (myGen === swapGen) btnIdle(cb); }
   };
@@ -1002,16 +1096,37 @@ function auditUpgradeRowHtml(r) {
   // read as though the number described the candidate, which is the one thing it does not.
   const facts = [size, r.bppPlus != null
     ? (b && b.bppPlus != null
-      ? `${bppSpan(r.bppPlus, r.bppBand, r.cxBasis)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand, b.cxBasis)}`
-      : bppSpan(r.bppPlus, r.bppBand, r.cxBasis))
+      ? `${bppSpan(r.bppPlus, r.bppBand, r.cxBasis, r.bppRSE)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand, b.cxBasis, b.bppRSE)}`
+      : bppSpan(r.bppPlus, r.bppBand, r.cxBasis, r.bppRSE))
     : ''].filter(Boolean).join('<i>·</i>');
   const none = !b && v.state ? '<span class="aud-none">nothing better found</span>' : '';
-  return `<li class="row aud upg${qbarCls(r.bppBand)}" data-key="${esc(r.key)}" role="button" tabindex="0">
+  // NOT THE WHOLE FILM — the one pill on this tab that means "damage", not "preference", so it leads
+  // the badge line and is red. It also CONTRADICTS the BPP+ figure sitting next to it: a truncated
+  // file keeps its bitrate, so Chinatown's 68-minute copy scored 139 in the green "wow" band while
+  // being the worst file in the library. Without saying so in words, this row looks excellent.
+  const shortPill = r.short
+    ? pill(`only ${r.shortMin} of ${r.wantMin} min`, 'bad',
+      'This file is far shorter than the film. It is missing footage — the picture-quality score beside it is measured per-second and cannot see that.')
+    : '';
+  // UNREADABLE, and it gets the loudest label on the tab because it is the only row type whose
+  // problem is that we CANNOT SEE the problem. Radarr has no mediaInfo for the file at all, so there
+  // is no runtime, no codec, no bitrate and no device support to show — every other row's badges are
+  // absent here, which without a word of explanation reads as "not checked yet" rather than "this
+  // file is broken". The Star Wars Holiday Special sat like this and was in NO tab at all until
+  // 2026-08-12; a silent, dataless row would have been nearly as easy to scroll past.
+  const unreadPill = r.unprobed
+    ? pill('the server cannot read this file', 'bad',
+      'Radarr could not probe this file at all — no runtime, codec or bitrate. That usually means it is truncated, the wrong container, or corrupt. Run `make runtimes --ffprobe` for ground truth.')
+    : '';
+  // The edge bar follows BPP+ everywhere else, and on a short row BPP+ is exactly the thing lying:
+  // Chinatown would have drawn a GREEN "wow" bar over a file missing half its footage. Force it red
+  // by reusing the existing q-bad rule rather than inventing a colour — this row IS the bad case.
+  return `<li class="row aud upg${(r.short || r.unprobed) ? ' qbar q-bad' : qbarCls(r.bppBand)}" data-key="${esc(r.key)}" role="button" tabindex="0">
     <span class="grow">
       <span class="title">${rank}${esc(r.title)}</span>
       <div class="aud-line upg-line">
         <span class="aud-delta">${facts}</span>${none}
-        ${b ? gainPills(b) : ''}${belovedPill}${r.editionLabel ? pill(r.editionLabel) : ''}${r.label ? pill(r.label) : ''}${srcPill(r.source, 0)}
+        ${unreadPill}${shortPill}${belovedPill}${r.editionLabel ? pill(r.editionLabel) : ''}${r.label ? pill(r.label) : ''}${srcPill(r.source, 0)}
       </div>
       <!-- Device support for the copy ON DISK, rendered by the same devPills the candidate cards
            use, so scanning down this column answers "which of these actually need replacing?" at a
@@ -1028,11 +1143,28 @@ function auditUpgradeRowHtml(r) {
 // Gains green, losses red, side by side — so "2160p but a worse source" reads as exactly that rather
 // than as an unqualified win. Server-computed (see verifyRow) because the axes need the current
 // file's facts, which the client does not have for every candidate.
-function gainPills(b) {
-  const g = (b.gains || []).map((x) => pill(`+ ${x}`, 'ok')).join('');
-  const l = (b.losses || []).map((x) => pill(`− ${x}`, 'bad')).join('');
-  return g + l;
-}
+// gainPills() REMOVED 2026-08-12. It rendered "+ Remux-1080p source", "+ DTS", "+ 310 bpp+",
+// "+ plays on more devices", "- PS4 transcodes" and so on onto the Upgrade ROW. Brennan: "basically
+// all of the + and - badges, theyre clutter."
+//
+// Safe to delete because the row was the ONLY caller and every one of those facts is already on
+// screen: the size and BPP+ deltas sit two spans to the left, and the candidate CARDS in the sheet
+// render source, audio, device support, formats and seeders per candidate (see the aud-inline /
+// aud-pills lines in the card renderer). The row was duplicating its own sheet.
+//
+// It was also actively WRONG by then, which is what prompted the look. `gains` is a list of baked
+// STRINGS inside the cached verdict, so once the source-pinning correction went live the pills kept
+// serving pre-correction figures while the delta beside them was re-derived at serve time by
+// rescoreCand(): I Saw the Devil showed "49 -> 262" next to "+ 310 bpp+", Fast Five "76 -> 167" next
+// to "+ 186", The Host "57 -> 71" next to "+ 84".
+//
+// THE SERVER STILL COMPUTES gains/losses AND MUST KEEP DOING SO — rankCands drops a candidate with
+// `if (!gains.length) drop(r, 'nothing measurably better than what is on disk')`, so they are load-
+// bearing as a FILTER even though nothing renders them. They also remain on the API for reports.
+//
+// NOTE THE TRADEOFF THIS ACCEPTS: losing the loss pills gives up the "tradeoffs allowed but labelled"
+// property from 2026-07-30. A candidate that costs a PS4 audio transcode no longer says so ON THE ROW
+// — it says so on its card in the sheet, which is where the choice is actually made.
 
 // The QUALITY PANEL that lived here (probe progress, source-verification progress, and the
 // probe start/stop control) MOVED to the Jobs tab on 2026-08-06, along with the whole-library

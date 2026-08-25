@@ -139,6 +139,23 @@ ok(own('Unrated', 'Tropic Thunder 2008 Unrated DC 1080p BluRay HEVC H265 5.1 BON
   'Tropic Thunder: filename DC (3) beats the field Unrated (2)');
 ok(own('', '').tier === 1, 'nothing stated either side → unstated');
 ok(own(null, undefined).tier === 1, 'null/undefined safe');
+
+// ---- third source: originalFilePath, for tags *arr's own parser refuses ------------------------
+// Das Boot, 2026-08-10, real data. Radarr's edition regex does not accept a bare "DC", so the field
+// came back empty; renaming then flattened the filename. Without originalFilePath a correctly
+// downloaded Director's Cut reports EDITION UNKNOWN and asks to be replaced by itself, forever.
+ok(ownEditionOf('', 'Das Boot (1981) Bluray-1080p.mkv',
+  'Das.Boot.1981.DC.1080p.BluRay.x264.EAC3-SARTRE/Das.Boot.1981.DC.1080p.BluRay.x264.EAC3-SARTRE.mkv').tier === 3,
+  "Das Boot: originalFilePath is the only surviving record of the DC — must read Director's Cut");
+ok(ownEditionOf('', 'Das Boot (1981) Bluray-1080p.mkv', '').tier === 1,
+  'Das Boot without the original path is genuinely unknown — the third source is what fixes it');
+// An EXPLICIT theatrical in the original path must not be laundered into "unknown" either: the same
+// rule as the Blade Runner field case, just arriving via the new source.
+ok(ownEditionOf('', 'Some Film (1999) Bluray-1080p.mkv', 'Some.Film.1999.Theatrical.Cut.1080p/x.mkv').tier === 0,
+  'originalFilePath reporting THEATRICAL is honoured, not rounded up to unstated');
+ok(ownEditionOf('Directors Cut', 'x.mkv', 'Some.Film.1999.Theatrical.1080p/x.mkv').tier === 3,
+  'among explicit labels the higher tier still wins, whichever source it came from');
+ok(ownEditionOf('', '', null).tier === 1, 'third source null-safe');
 ok(own('REMASTERED', 'x REMASTERED y').restored === true, 'restored survives the max()');
 
 // And the payoff: with the filename consulted, Apocalypse Now is NOT below its floor any more, so we
@@ -196,5 +213,42 @@ refuse('Apocalypse Now Final Cut 2019 2160p',
   ok(editionBestFor('Nothing At All') === null, 'unknown film has no best edition');
 }
 
+// ---- IMAX / expanded framing ------------------------------------------------------------------
+// Added 2026-08-18. The year-keyed cases exist because a bare 'dune' key matched BOTH Dune (2021)
+// and Lynch's Dune (1984), and the 1984 film duly appeared on the Edition tab asking for IMAX
+// framing — a good copy marked as bad, which is the exact failure this section must not produce.
+const RR = require('../controller/lib/release-rules');
+
+// detection
+ok(RR.editionOf('Top Gun Maverick 2022 IMAX 1080p BluRay').imax === true, 'imax: bare IMAX is detected');
+ok(RR.editionOf('Some Film 2020 Open Matte').imax === true, 'imax: open matte counts as expanded framing');
+ok(RR.editionOf('Dune Part Two 2024 IMAX Enhanced').imax === false,
+  'imax: "IMAX Enhanced" alone is audio/HDR branding, not framing');
+ok(RR.editionOf('Oppenheimer 2023 1080p BluRay').imax === false, 'imax: a plain release is not IMAX');
+
+// IMAX must not ride the CUT ladder — same edit, more picture
+ok(RR.editionOf('Dune 2021 IMAX').tier === RR.editionOf('Dune 2021').tier,
+  'imax: does not raise the edition tier');
+
+// year disambiguation
+ok(RR.imaxBestFor('Dune (2021)') === true, 'imax: Dune (2021) is large-format');
+ok(RR.imaxBestFor('Dune (1984)') === false, 'imax: Dune (1984) is NOT — the year must disambiguate');
+ok(RR.imaxBestFor('Casablanca (1942)') === false, 'imax: an unrelated film is not large-format');
+
+// aspect ratio suppresses the false positive: an already-expanded copy must not be flagged
+ok(RR.imaxUpgradeFor('Oppenheimer (2023)', RR.editionOf('Oppenheimer 2023 1080p'), '1920x1080') === false,
+  'imax: a 1.78 copy is already expanded, do not suggest');
+ok(RR.imaxUpgradeFor('Dune (2021)', RR.editionOf('Dune 2021 1080p'), '1920x800') === true,
+  'imax: a 2.40 scope copy of a large-format film IS a gap');
+ok(RR.imaxUpgradeFor('Dune (2021)', RR.editionOf('Dune 2021 IMAX'), '1920x800') === false,
+  'imax: a labelled IMAX copy is never a gap');
+
+// refusal: never trade expanded framing away
+ok(!!RR.editionRefusal('Dune 2021 1080p BluRay', RR.editionOf('Dune 2021 IMAX'), 'Dune (2021)') === true,
+  'imax: swapping an IMAX copy for a scope one is refused');
+ok(RR.editionRefusal('Dune 2021 IMAX REMASTERED', RR.editionOf('Dune 2021 IMAX'), 'Dune (2021)') === null,
+  'imax: an IMAX candidate for an IMAX copy is fine');
+
 console.log(`\nedition: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
+

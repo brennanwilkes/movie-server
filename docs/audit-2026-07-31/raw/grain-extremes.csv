@@ -1,0 +1,4 @@
+# preset=veryfast width=1280 samples=5 phase=0 seclen=4 crf=20
+film,prior,default_bytes,tuned_bytes,ratio,grain_share,share_min,share_max,jitter,secs,per_sample
+"Casablanca (1943)","CEILING-BW R1.57",9922964,17172324,1.731,0.422,0.35,0.53,0.6463,1256,"0.407;0.443;0.415;0.352;0.531"
+"Up (2009)","FLOOR-CGI R1.24",3051331,5146050,1.686,0.407,0.32,0.63,0.2856,1253,"0.345;0.627;0.534;0.381;0.323"

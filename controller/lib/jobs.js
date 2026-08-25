@@ -226,6 +226,22 @@ function jfEvery(triggers) {
   return best;
 }
 
+// Did this run stop because it reached its configured runtime cap? Jellyfin records the cap per
+// trigger as MaxRuntimeTicks (100ns units) and does NOT say why a task was cancelled, so the only
+// available evidence is that the run lasted about as long as the cap allows. Ticks are compared with
+// a small tolerance because the reported end time trails the cancellation by a few seconds — the
+// observed trickplay run was "240 minutes and 5 seconds" against a 240 minute cap.
+function jfHitRuntimeCap(triggers, start, end) {
+  if (!start || !end) return false;
+  const ranMs = end - start;
+  for (const t of triggers || []) {
+    if (!t.MaxRuntimeTicks) continue;
+    const capMs = t.MaxRuntimeTicks / 10000;
+    if (ranMs >= capMs - 60000) return true;
+  }
+  return false;
+}
+
 function jfSchedule(triggers) {
   const parts = [];
   for (const t of triggers || []) {
@@ -254,16 +270,31 @@ async function jellyfinJobs() {
     const meta = JF_TASKS.get(t.Name);
     if (!meta) continue;
     const res = t.LastExecutionResult || {};
-    const failed = res.Status && res.Status !== 'Completed' && res.Status !== 'Aborted';
+    // CANCELLED IS NOT A FAILURE, and conflating the two made the tab cry wolf. Jellyfin's
+    // TaskCompletionStatus is Completed | Failed | Cancelled | Aborted, and `Cancelled` is what it
+    // writes when a task is stopped deliberately — including by a trigger's MaxRuntimeTicks, which
+    // is exactly the 4h cap we put on Generate Trickplay Images after the daytime runaway. So the
+    // guardrail doing its job rendered as a red "failed" every single morning.
+    //
+    // Only `Failed` is a genuine error. Cancelled/Aborted mean "stopped early", which is amber:
+    // worth seeing, not worth worrying about. The distinction is carried as its own state so the
+    // client can colour it without re-deriving anything.
+    const errored = res.Status === 'Failed';
+    const cancelled = res.Status === 'Cancelled' || res.Status === 'Aborted';
+    const failed = errored;   // kept as the name the rest of this record uses for "counts as a fail"
     const running = JF_STATE[t.State] === 'running';
     const end = res.EndTimeUtc ? Date.parse(res.EndTimeUtc) : 0;
     const start = res.StartTimeUtc ? Date.parse(res.StartTimeUtc) : 0;
     out.push({
       id: `jf:${t.Id}`, name: t.Name, what: meta.what, group: meta.group, weight: meta.weight,
       source: 'jellyfin',
-      state: running ? 'running' : (failed ? 'error' : (end ? 'idle' : 'never')),
+      state: running ? 'running' : (errored ? 'error' : cancelled ? 'cancelled' : (end ? 'idle' : 'never')),
+      // Say WHY it stopped early where we can prove it. A run whose duration reached the trigger's
+      // MaxRuntimeTicks hit the cap; anything else cancelled was stopped by hand or by shutdown.
       detail: running ? (t.State === 'Cancelling' ? 'stopping' : '')
-        : (failed ? (res.ErrorMessage || res.Status || 'failed') : ''),
+        : errored ? (res.ErrorMessage || 'failed')
+          : cancelled ? (jfHitRuntimeCap(t.Triggers, start, end) ? 'stopped at its time limit' : 'stopped early')
+            : '',
       // Jellyfin gives a percentage, not a count. Present it as a completed/total pair so the
       // shared component needs no special case for percent-only jobs.
       progress: running && t.CurrentProgressPercentage != null

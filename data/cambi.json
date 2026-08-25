@@ -1,0 +1,1967 @@
+{
+ "generated": 1787286977035,
+ "clips": 4,
+ "seclen": 2,
+ "films": [
+  {
+   "key": "mv:811",
+   "title": "See How They Run (2022)",
+   "year": 2022,
+   "source": "WEBRip-1080p",
+   "codec": "h264",
+   "complexity": 0.07532,
+   "R": 0.4795,
+   "bppPlus": 57,
+   "bpp": 0.03612,
+   "cambiMean": 6.31086,
+   "cambiP95": 6.80905,
+   "cambiMax": 11.23164,
+   "yavg": 56.06,
+   "clips": [
+    {
+     "t": 294,
+     "pos": 0.0499,
+     "cambiMean": 5.44754,
+     "cambiMax": 6.15537,
+     "cambiP95": 6.00085,
+     "yavg": 49.73
+    },
+    {
+     "t": 1619,
+     "pos": 0.2749,
+     "cambiMean": 4.34254,
+     "cambiMax": 5.0336,
+     "cambiP95": 5.0269,
+     "yavg": 53.51
+    },
+    {
+     "t": 2944,
+     "pos": 0.4999,
+     "cambiMean": 4.60479,
+     "cambiMax": 5.10643,
+     "cambiP95": 5.04305,
+     "yavg": 67.01
+    },
+    {
+     "t": 4269,
+     "pos": 0.7249,
+     "cambiMean": 10.84857,
+     "cambiMax": 11.23164,
+     "cambiP95": 11.1654,
+     "yavg": 54.01
+    }
+   ]
+  },
+  {
+   "key": "mv:918",
+   "title": "Swingers (1996)",
+   "year": 1996,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.07231,
+   "R": 0.6024,
+   "bppPlus": 67,
+   "bpp": 0.04356,
+   "cambiMean": 7.17348,
+   "cambiP95": 8.31628,
+   "cambiMax": 13.78373,
+   "yavg": 55.38,
+   "clips": [
+    {
+     "t": 289,
+     "pos": 0.05,
+     "cambiMean": 6.55932,
+     "cambiMax": 7.75884,
+     "cambiP95": 7.05795,
+     "yavg": 45.23
+    },
+    {
+     "t": 1590,
+     "pos": 0.2748,
+     "cambiMean": 1.84826,
+     "cambiMax": 2.01782,
+     "cambiP95": 1.99404,
+     "yavg": 71.52
+    },
+    {
+     "t": 2892,
+     "pos": 0.4999,
+     "cambiMean": 8.69541,
+     "cambiMax": 11.05186,
+     "cambiP95": 10.83901,
+     "yavg": 64.48
+    },
+    {
+     "t": 4193,
+     "pos": 0.7248,
+     "cambiMean": 11.59095,
+     "cambiMax": 13.78373,
+     "cambiP95": 13.37413,
+     "yavg": 40.27
+    }
+   ]
+  },
+  {
+   "key": "mv:657",
+   "title": "12th Fail (2023)",
+   "year": 2023,
+   "source": "WEBRip-1080p",
+   "codec": "h264",
+   "complexity": 0.03629,
+   "R": 0.6727,
+   "bppPlus": 72,
+   "bpp": 0.02441,
+   "cambiMean": 2.6277,
+   "cambiP95": 3.0101,
+   "cambiMax": 7.28071,
+   "yavg": 71.91,
+   "clips": [
+    {
+     "t": 440,
+     "pos": 0.0499,
+     "cambiMean": 1.60856,
+     "cambiMax": 2.18015,
+     "cambiP95": 2.05414,
+     "yavg": 101.69
+    },
+    {
+     "t": 2423,
+     "pos": 0.2749,
+     "cambiMean": 6.27538,
+     "cambiMax": 7.28071,
+     "cambiP95": 7.11393,
+     "yavg": 41.71
+    },
+    {
+     "t": 4406,
+     "pos": 0.4999,
+     "cambiMean": 1.94632,
+     "cambiMax": 2.17999,
+     "cambiP95": 2.11027,
+     "yavg": 54.62
+    },
+    {
+     "t": 6389,
+     "pos": 0.7249,
+     "cambiMean": 0.68054,
+     "cambiMax": 0.81291,
+     "cambiP95": 0.76207,
+     "yavg": 89.62
+    }
+   ]
+  },
+  {
+   "key": "mv:696",
+   "title": "The Master (2012)",
+   "year": 2012,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.06333,
+   "R": 0.7399,
+   "bppPlus": 71,
+   "bpp": 0.03955,
+   "cambiMean": 3.52245,
+   "cambiP95": 3.95342,
+   "cambiMax": 10.77418,
+   "yavg": 55.55,
+   "clips": [
+    {
+     "t": 412,
+     "pos": 0.0499,
+     "cambiMean": 0.77231,
+     "cambiMax": 0.92934,
+     "cambiP95": 0.90939,
+     "yavg": 94.15
+    },
+    {
+     "t": 2268,
+     "pos": 0.2749,
+     "cambiMean": 9.35636,
+     "cambiMax": 10.77418,
+     "cambiP95": 10.40045,
+     "yavg": 31.11
+    },
+    {
+     "t": 4124,
+     "pos": 0.4999,
+     "cambiMean": 1.72777,
+     "cambiMax": 2.09163,
+     "cambiP95": 2.05974,
+     "yavg": 49.45
+    },
+    {
+     "t": 5980,
+     "pos": 0.7248,
+     "cambiMean": 2.23337,
+     "cambiMax": 2.50252,
+     "cambiP95": 2.44411,
+     "yavg": 47.5
+    }
+   ]
+  },
+  {
+   "key": "mv:883",
+   "title": "Army of Shadows (1969)",
+   "year": 1969,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.05677,
+   "R": 0.7973,
+   "bppPlus": 81,
+   "bpp": 0.04526,
+   "cambiMean": 3.3607,
+   "cambiP95": 5.45658,
+   "cambiMax": 13.95796,
+   "yavg": 36.36,
+   "clips": [
+    {
+     "t": 435,
+     "pos": 0.0499,
+     "cambiMean": 4.10818,
+     "cambiMax": 4.72797,
+     "cambiP95": 4.52615,
+     "yavg": 45.92
+    },
+    {
+     "t": 2395,
+     "pos": 0.2748,
+     "cambiMean": 6.7672,
+     "cambiMax": 13.95796,
+     "cambiP95": 13.52095,
+     "yavg": 31.59
+    },
+    {
+     "t": 4356,
+     "pos": 0.4998,
+     "cambiMean": 1.19084,
+     "cambiMax": 2.66562,
+     "cambiP95": 2.14993,
+     "yavg": 26.8
+    },
+    {
+     "t": 6317,
+     "pos": 0.7248,
+     "cambiMean": 1.37659,
+     "cambiMax": 1.6677,
+     "cambiP95": 1.62929,
+     "yavg": 41.11
+    }
+   ]
+  },
+  {
+   "key": "mv:421",
+   "title": "El Camino: A Breaking Bad Movie (2019)",
+   "year": 2019,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.04989,
+   "R": 0.9129,
+   "bppPlus": 89,
+   "bpp": 0.04554,
+   "cambiMean": 0.37215,
+   "cambiP95": 1.00349,
+   "cambiMax": 2.67842,
+   "yavg": 41.91,
+   "clips": [
+    {
+     "t": 368,
+     "pos": 0.05,
+     "cambiMean": 0.45317,
+     "cambiMax": 0.60537,
+     "cambiP95": 0.57099,
+     "yavg": 26.12
+    },
+    {
+     "t": 2024,
+     "pos": 0.2749,
+     "cambiMean": 0.48732,
+     "cambiMax": 0.57804,
+     "cambiP95": 0.55805,
+     "yavg": 51.1
+    },
+    {
+     "t": 3680,
+     "pos": 0.4999,
+     "cambiMean": 0.25555,
+     "cambiMax": 0.56369,
+     "cambiP95": 0.48807,
+     "yavg": 61.43
+    },
+    {
+     "t": 5336,
+     "pos": 0.7248,
+     "cambiMean": 0.29254,
+     "cambiMax": 2.67842,
+     "cambiP95": 2.39684,
+     "yavg": 29.01
+    }
+   ]
+  },
+  {
+   "key": "mv:181",
+   "title": "Marty Supreme (2025)",
+   "year": 2025,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.05447,
+   "R": 1.1159,
+   "bppPlus": 102,
+   "bpp": 0.06078,
+   "cambiMean": 1.42721,
+   "cambiP95": 2.56696,
+   "cambiMax": 6.46543,
+   "yavg": 40.57,
+   "clips": [
+    {
+     "t": 449,
+     "pos": 0.05,
+     "cambiMean": 2.4392,
+     "cambiMax": 4.91727,
+     "cambiP95": 4.22781,
+     "yavg": 47.63
+    },
+    {
+     "t": 2469,
+     "pos": 0.2749,
+     "cambiMean": 1.27921,
+     "cambiMax": 4.71598,
+     "cambiP95": 1.5728,
+     "yavg": 48.77
+    },
+    {
+     "t": 4490,
+     "pos": 0.5,
+     "cambiMean": 0.00304,
+     "cambiMax": 0.00602,
+     "cambiP95": 0.00533,
+     "yavg": 32.79
+    },
+    {
+     "t": 6510,
+     "pos": 0.7249,
+     "cambiMean": 1.98741,
+     "cambiMax": 6.46543,
+     "cambiP95": 4.46192,
+     "yavg": 33.08
+    }
+   ]
+  },
+  {
+   "key": "mv:852",
+   "title": "Confessions of a Dangerous Mind (2002)",
+   "year": 2002,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.06079,
+   "R": 1.9058,
+   "bppPlus": 138,
+   "bpp": 0.11586,
+   "cambiMean": 0.87417,
+   "cambiP95": 1.00943,
+   "cambiMax": 2.45564,
+   "yavg": 43.06,
+   "clips": [
+    {
+     "t": 340,
+     "pos": 0.0499,
+     "cambiMean": 0.96891,
+     "cambiMax": 1.2028,
+     "cambiP95": 1.12798,
+     "yavg": 34.25
+    },
+    {
+     "t": 1871,
+     "pos": 0.2749,
+     "cambiMean": 0.02101,
+     "cambiMax": 0.032,
+     "cambiP95": 0.02991,
+     "yavg": 74.77
+    },
+    {
+     "t": 3403,
+     "pos": 0.4999,
+     "cambiMean": 0.25918,
+     "cambiMax": 0.43272,
+     "cambiP95": 0.42713,
+     "yavg": 30.09
+    },
+    {
+     "t": 4934,
+     "pos": 0.7248,
+     "cambiMean": 2.24757,
+     "cambiMax": 2.45564,
+     "cambiP95": 2.45269,
+     "yavg": 33.15
+    }
+   ]
+  },
+  {
+   "key": "mv:433",
+   "title": "Aliens (1986)",
+   "year": 1986,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.09757,
+   "R": 0.4172,
+   "bppPlus": 52,
+   "bpp": 0.04071,
+   "cambiMean": 2.08737,
+   "cambiP95": 3.66744,
+   "cambiMax": 8.18752,
+   "yavg": 60.48,
+   "clips": [
+    {
+     "t": 463,
+     "pos": 0.05,
+     "cambiMean": 0.18558,
+     "cambiMax": 1.12145,
+     "cambiP95": 0.90372,
+     "yavg": 101.04
+    },
+    {
+     "t": 2548,
+     "pos": 0.275,
+     "cambiMean": 3.23806,
+     "cambiMax": 6.35095,
+     "cambiP95": 5.27684,
+     "yavg": 38.63
+    },
+    {
+     "t": 4633,
+     "pos": 0.4999,
+     "cambiMean": 4.28885,
+     "cambiMax": 8.18752,
+     "cambiP95": 6.7337,
+     "yavg": 61.69
+    },
+    {
+     "t": 6718,
+     "pos": 0.7249,
+     "cambiMean": 0.63699,
+     "cambiMax": 2.04988,
+     "cambiP95": 1.75549,
+     "yavg": 40.58
+    }
+   ]
+  },
+  {
+   "key": "mv:776",
+   "title": "Almost Famous (2000)",
+   "year": 2000,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.08263,
+   "R": 0.4691,
+   "bppPlus": 56,
+   "bpp": 0.03877,
+   "cambiMean": 2.44644,
+   "cambiP95": 3.70087,
+   "cambiMax": 6.13647,
+   "yavg": 62.03,
+   "clips": [
+    {
+     "t": 484,
+     "pos": 0.05,
+     "cambiMean": 1.7389,
+     "cambiMax": 3.84216,
+     "cambiP95": 3.15793,
+     "yavg": 91.71
+    },
+    {
+     "t": 2664,
+     "pos": 0.275,
+     "cambiMean": 2.48187,
+     "cambiMax": 4.75661,
+     "cambiP95": 4.15559,
+     "yavg": 58.56
+    },
+    {
+     "t": 4844,
+     "pos": 0.4999,
+     "cambiMean": 4.76488,
+     "cambiMax": 6.13647,
+     "cambiP95": 6.05895,
+     "yavg": 33.76
+    },
+    {
+     "t": 7024,
+     "pos": 0.7249,
+     "cambiMean": 0.80009,
+     "cambiMax": 1.52813,
+     "cambiP95": 1.43101,
+     "yavg": 64.11
+    }
+   ]
+  },
+  {
+   "key": "mv:470",
+   "title": "The Living Daylights (1987)",
+   "year": 1987,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.09709,
+   "R": 0.5269,
+   "bppPlus": 61,
+   "bpp": 0.05116,
+   "cambiMean": 3.31887,
+   "cambiP95": 6.2664,
+   "cambiMax": 20.16391,
+   "yavg": 52.7,
+   "clips": [
+    {
+     "t": 392,
+     "pos": 0.0499,
+     "cambiMean": 8.66348,
+     "cambiMax": 20.16391,
+     "cambiP95": 16.27224,
+     "yavg": 51.17
+    },
+    {
+     "t": 2158,
+     "pos": 0.2748,
+     "cambiMean": 2.59783,
+     "cambiMax": 4.12324,
+     "cambiP95": 3.93968,
+     "yavg": 57.84
+    },
+    {
+     "t": 3925,
+     "pos": 0.4998,
+     "cambiMean": 1.37974,
+     "cambiMax": 4.01549,
+     "cambiP95": 3.66147,
+     "yavg": 54.46
+    },
+    {
+     "t": 5692,
+     "pos": 0.7248,
+     "cambiMean": 0.63444,
+     "cambiMax": 1.389,
+     "cambiP95": 1.1922,
+     "yavg": 47.34
+    }
+   ]
+  },
+  {
+   "key": "mv:529",
+   "title": "Contact (1997)",
+   "year": 1997,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.09575,
+   "R": 0.5586,
+   "bppPlus": 63,
+   "bpp": 0.05348,
+   "cambiMean": 2.09564,
+   "cambiP95": 2.91676,
+   "cambiMax": 4.97007,
+   "yavg": 46.21,
+   "clips": [
+    {
+     "t": 449,
+     "pos": 0.05,
+     "cambiMean": 0.04594,
+     "cambiMax": 0.18445,
+     "cambiP95": 0.15237,
+     "yavg": 43.49
+    },
+    {
+     "t": 2469,
+     "pos": 0.2749,
+     "cambiMean": 2.37903,
+     "cambiMax": 3.98255,
+     "cambiP95": 3.86315,
+     "yavg": 45.56
+    },
+    {
+     "t": 4490,
+     "pos": 0.5,
+     "cambiMean": 2.79368,
+     "cambiMax": 3.62112,
+     "cambiP95": 3.25203,
+     "yavg": 44.41
+    },
+    {
+     "t": 6510,
+     "pos": 0.7249,
+     "cambiMean": 3.1639,
+     "cambiMax": 4.97007,
+     "cambiP95": 4.39949,
+     "yavg": 51.39
+    }
+   ]
+  },
+  {
+   "key": "mv:553",
+   "title": "Anchorman: The Legend of Ron Burgundy (2004)",
+   "year": 2004,
+   "source": "Bluray-1080p",
+   "codec": "hevc",
+   "complexity": 0.09201,
+   "R": 0.6155,
+   "bppPlus": 68,
+   "bpp": 0.05663,
+   "cambiMean": 1.21674,
+   "cambiP95": 1.63857,
+   "cambiMax": 2.85938,
+   "yavg": 89.56,
+   "clips": [
+    {
+     "t": 292,
+     "pos": 0.05,
+     "cambiMean": 2.25924,
+     "cambiMax": 2.59551,
+     "cambiP95": 2.54838,
+     "yavg": 91.47
+    },
+    {
+     "t": 1606,
+     "pos": 0.2749,
+     "cambiMean": 2.18021,
+     "cambiMax": 2.85938,
+     "cambiP95": 2.79682,
+     "yavg": 103.45
+    },
+    {
+     "t": 2921,
+     "pos": 0.4999,
+     "cambiMean": 0.06484,
+     "cambiMax": 0.1788,
+     "cambiP95": 0.11929,
+     "yavg": 95.01
+    },
+    {
+     "t": 4235,
+     "pos": 0.7248,
+     "cambiMean": 0.36267,
+     "cambiMax": 1.23161,
+     "cambiP95": 1.08978,
+     "yavg": 68.3
+    }
+   ]
+  },
+  {
+   "key": "mv:739",
+   "title": "Decision to Leave (2022)",
+   "year": 2022,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.08341,
+   "R": 0.6906,
+   "bppPlus": 75,
+   "bpp": 0.06071,
+   "cambiMean": 0.34303,
+   "cambiP95": 0.56604,
+   "cambiMax": 1.0387,
+   "yavg": 71.5,
+   "clips": [
+    {
+     "t": 415,
+     "pos": 0.0499,
+     "cambiMean": 0.06324,
+     "cambiMax": 0.31238,
+     "cambiP95": 0.29252,
+     "yavg": 99
+    },
+    {
+     "t": 2286,
+     "pos": 0.2748,
+     "cambiMean": 0.16982,
+     "cambiMax": 0.18979,
+     "cambiP95": 0.18844,
+     "yavg": 41.59
+    },
+    {
+     "t": 4158,
+     "pos": 0.4999,
+     "cambiMean": 0.4933,
+     "cambiMax": 1.0387,
+     "cambiP95": 1.01676,
+     "yavg": 100.31
+    },
+    {
+     "t": 6029,
+     "pos": 0.7248,
+     "cambiMean": 0.64577,
+     "cambiMax": 0.80843,
+     "cambiP95": 0.76645,
+     "yavg": 45.09
+    }
+   ]
+  },
+  {
+   "key": "mv:349",
+   "title": "Paul (2011)",
+   "year": 2011,
+   "source": "Bluray-1080p",
+   "codec": "hevc",
+   "complexity": 0.08916,
+   "R": 0.8384,
+   "bppPlus": 84,
+   "bpp": 0.07475,
+   "cambiMean": 1.46674,
+   "cambiP95": 1.90957,
+   "cambiMax": 5.72491,
+   "yavg": 91.83,
+   "clips": [
+    {
+     "t": 327,
+     "pos": 0.0499,
+     "cambiMean": 0.774,
+     "cambiMax": 1.89285,
+     "cambiP95": 1.82065,
+     "yavg": 74.35
+    },
+    {
+     "t": 1802,
+     "pos": 0.2748,
+     "cambiMean": 0.04164,
+     "cambiMax": 0.20792,
+     "cambiP95": 0.12245,
+     "yavg": 106.98
+    },
+    {
+     "t": 3278,
+     "pos": 0.4998,
+     "cambiMean": 0.06141,
+     "cambiMax": 0.11831,
+     "cambiP95": 0.08853,
+     "yavg": 112.2
+    },
+    {
+     "t": 4753,
+     "pos": 0.7248,
+     "cambiMean": 4.9899,
+     "cambiMax": 5.72491,
+     "cambiP95": 5.60666,
+     "yavg": 73.8
+    }
+   ]
+  },
+  {
+   "key": "mv:898",
+   "title": "Blue Ruin (2014)",
+   "year": 2014,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.08811,
+   "R": 1.314,
+   "bppPlus": 115,
+   "bpp": 0.11578,
+   "cambiMean": 0.5245,
+   "cambiP95": 0.63423,
+   "cambiMax": 1.72231,
+   "yavg": 61.88,
+   "clips": [
+    {
+     "t": 271,
+     "pos": 0.05,
+     "cambiMean": 0.87528,
+     "cambiMax": 0.95494,
+     "cambiP95": 0.94824,
+     "yavg": 66.25
+    },
+    {
+     "t": 1491,
+     "pos": 0.2749,
+     "cambiMean": 0.01386,
+     "cambiMax": 0.02572,
+     "cambiP95": 0.02035,
+     "yavg": 56.47
+    },
+    {
+     "t": 2711,
+     "pos": 0.4998,
+     "cambiMean": 0.0054,
+     "cambiMax": 0.00864,
+     "cambiP95": 0.00766,
+     "yavg": 72.72
+    },
+    {
+     "t": 3931,
+     "pos": 0.7247,
+     "cambiMean": 1.20345,
+     "cambiMax": 1.72231,
+     "cambiP95": 1.56066,
+     "yavg": 52.1
+    }
+   ]
+  },
+  {
+   "key": "mv:650",
+   "title": "The Texas Chain Saw Massacre (1974)",
+   "year": 1974,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.12239,
+   "R": 0.3407,
+   "bppPlus": 47,
+   "bpp": 0.0417,
+   "cambiMean": 1.9171,
+   "cambiP95": 2.56791,
+   "cambiMax": 6.83366,
+   "yavg": 66.24,
+   "clips": [
+    {
+     "t": 250,
+     "pos": 0.05,
+     "cambiMean": 0.07948,
+     "cambiMax": 0.1531,
+     "cambiP95": 0.13683,
+     "yavg": 18.03
+    },
+    {
+     "t": 1375,
+     "pos": 0.2748,
+     "cambiMean": 1.49218,
+     "cambiMax": 3.54601,
+     "cambiP95": 3.42287,
+     "yavg": 109.33
+    },
+    {
+     "t": 2501,
+     "pos": 0.4998,
+     "cambiMean": 0.13109,
+     "cambiMax": 0.17369,
+     "cambiP95": 0.16674,
+     "yavg": 96.84
+    },
+    {
+     "t": 3627,
+     "pos": 0.7248,
+     "cambiMean": 5.96566,
+     "cambiMax": 6.83366,
+     "cambiP95": 6.54519,
+     "yavg": 40.76
+    }
+   ]
+  },
+  {
+   "key": "mv:223",
+   "title": "Howl's Moving Castle (2004)",
+   "year": 2004,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.1138,
+   "R": 0.4006,
+   "bppPlus": 51,
+   "bpp": 0.04559,
+   "cambiMean": 0.36426,
+   "cambiP95": 0.65843,
+   "cambiMax": 1.94068,
+   "yavg": 75.79,
+   "clips": [
+    {
+     "t": 357,
+     "pos": 0.0499,
+     "cambiMean": 0.10687,
+     "cambiMax": 0.34834,
+     "cambiP95": 0.31431,
+     "yavg": 80.65
+    },
+    {
+     "t": 1965,
+     "pos": 0.2749,
+     "cambiMean": 0.13733,
+     "cambiMax": 0.31532,
+     "cambiP95": 0.30231,
+     "yavg": 93.03
+    },
+    {
+     "t": 3574,
+     "pos": 0.4999,
+     "cambiMean": 0.77395,
+     "cambiMax": 1.94068,
+     "cambiP95": 1.46899,
+     "yavg": 49.75
+    },
+    {
+     "t": 5182,
+     "pos": 0.7249,
+     "cambiMean": 0.43888,
+     "cambiMax": 0.55453,
+     "cambiP95": 0.5481,
+     "yavg": 79.72
+    }
+   ]
+  },
+  {
+   "key": "mv:371",
+   "title": "Legally Blonde (2001)",
+   "year": 2001,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.10786,
+   "R": 0.4341,
+   "bppPlus": 53,
+   "bpp": 0.04682,
+   "cambiMean": 1.42578,
+   "cambiP95": 1.62917,
+   "cambiMax": 4.75935,
+   "yavg": 70.32,
+   "clips": [
+    {
+     "t": 288,
+     "pos": 0.05,
+     "cambiMean": 0.04568,
+     "cambiMax": 0.09152,
+     "cambiP95": 0.08251,
+     "yavg": 114.65
+    },
+    {
+     "t": 1584,
+     "pos": 0.275,
+     "cambiMean": 4.07601,
+     "cambiMax": 4.75935,
+     "cambiP95": 4.62547,
+     "yavg": 45.22
+    },
+    {
+     "t": 2880,
+     "pos": 0.5,
+     "cambiMean": 1.2973,
+     "cambiMax": 1.44116,
+     "cambiP95": 1.4333,
+     "yavg": 52.76
+    },
+    {
+     "t": 4176,
+     "pos": 0.725,
+     "cambiMean": 0.28413,
+     "cambiMax": 0.40431,
+     "cambiP95": 0.3754,
+     "yavg": 68.66
+    }
+   ]
+  },
+  {
+   "key": "mv:393",
+   "title": "Rounders (1998)",
+   "year": 1998,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.10996,
+   "R": 0.4891,
+   "bppPlus": 58,
+   "bpp": 0.05378,
+   "cambiMean": 2.95882,
+   "cambiP95": 3.30308,
+   "cambiMax": 9.50898,
+   "yavg": 57.27,
+   "clips": [
+    {
+     "t": 361,
+     "pos": 0.0499,
+     "cambiMean": 1.53761,
+     "cambiMax": 2.09439,
+     "cambiP95": 1.90116,
+     "yavg": 60.84
+    },
+    {
+     "t": 1989,
+     "pos": 0.2749,
+     "cambiMean": 0.78452,
+     "cambiMax": 0.8977,
+     "cambiP95": 0.85929,
+     "yavg": 57.18
+    },
+    {
+     "t": 3617,
+     "pos": 0.4999,
+     "cambiMean": 0.40781,
+     "cambiMax": 1.09523,
+     "cambiP95": 0.95932,
+     "yavg": 67.42
+    },
+    {
+     "t": 5245,
+     "pos": 0.7248,
+     "cambiMean": 9.10532,
+     "cambiMax": 9.50898,
+     "cambiP95": 9.49256,
+     "yavg": 43.65
+    }
+   ]
+  },
+  {
+   "key": "mv:961",
+   "title": "Casino Royale (1967)",
+   "year": 1967,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.11964,
+   "R": 0.5273,
+   "bppPlus": 58,
+   "bpp": 0.05724,
+   "cambiMean": 0.18463,
+   "cambiP95": 0.51153,
+   "cambiMax": 1.46047,
+   "yavg": 63.91,
+   "clips": [
+    {
+     "t": 393,
+     "pos": 0.0499,
+     "cambiMean": 0.13982,
+     "cambiMax": 0.29618,
+     "cambiP95": 0.27838,
+     "yavg": 67.59
+    },
+    {
+     "t": 2163,
+     "pos": 0.2749,
+     "cambiMean": 0.18968,
+     "cambiMax": 1.16174,
+     "cambiP95": 0.79249,
+     "yavg": 67.97
+    },
+    {
+     "t": 3933,
+     "pos": 0.4999,
+     "cambiMean": 0.00183,
+     "cambiMax": 0.00279,
+     "cambiP95": 0.00264,
+     "yavg": 64.24
+    },
+    {
+     "t": 5703,
+     "pos": 0.7248,
+     "cambiMean": 0.4072,
+     "cambiMax": 1.46047,
+     "cambiP95": 0.9726,
+     "yavg": 55.84
+    }
+   ]
+  },
+  {
+   "key": "mv:732",
+   "title": "Poor Things (2023)",
+   "year": 2023,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.10223,
+   "R": 0.5847,
+   "bppPlus": 65,
+   "bpp": 0.05977,
+   "cambiMean": 2.91671,
+   "cambiP95": 5.37596,
+   "cambiMax": 8.97659,
+   "yavg": 97.55,
+   "clips": [
+    {
+     "t": 425,
+     "pos": 0.05,
+     "cambiMean": 3.14815,
+     "cambiMax": 4.05174,
+     "cambiP95": 4.02115,
+     "yavg": 90.38
+    },
+    {
+     "t": 2337,
+     "pos": 0.2749,
+     "cambiMean": 0.8758,
+     "cambiMax": 1.29251,
+     "cambiP95": 1.21902,
+     "yavg": 114.16
+    },
+    {
+     "t": 4250,
+     "pos": 0.5,
+     "cambiMean": 3.92386,
+     "cambiMax": 8.97659,
+     "cambiP95": 8.94583,
+     "yavg": 89.83
+    },
+    {
+     "t": 6162,
+     "pos": 0.7249,
+     "cambiMean": 3.71903,
+     "cambiMax": 7.37028,
+     "cambiP95": 7.31783,
+     "yavg": 95.81
+    }
+   ]
+  },
+  {
+   "key": "mv:159",
+   "title": "The Graduate (1967)",
+   "year": 1967,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.11396,
+   "R": 0.7108,
+   "bppPlus": 75,
+   "bpp": 0.08066,
+   "cambiMean": 4.12945,
+   "cambiP95": 7.5427,
+   "cambiMax": 17.27089,
+   "yavg": 64.94,
+   "clips": [
+    {
+     "t": 318,
+     "pos": 0.05,
+     "cambiMean": 5.18742,
+     "cambiMax": 9.34454,
+     "cambiP95": 8.75844,
+     "yavg": 77.82
+    },
+    {
+     "t": 1749,
+     "pos": 0.2749,
+     "cambiMean": 7.26588,
+     "cambiMax": 17.27089,
+     "cambiP95": 16.53172,
+     "yavg": 44.39
+    },
+    {
+     "t": 3181,
+     "pos": 0.4999,
+     "cambiMean": 3.08953,
+     "cambiMax": 4.08022,
+     "cambiP95": 3.70551,
+     "yavg": 61.92
+    },
+    {
+     "t": 4612,
+     "pos": 0.7248,
+     "cambiMean": 0.97495,
+     "cambiMax": 1.18714,
+     "cambiP95": 1.17512,
+     "yavg": 75.61
+    }
+   ]
+  },
+  {
+   "key": "mv:692",
+   "title": "Eephus (2025)",
+   "year": 2025,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.10177,
+   "R": 1.139,
+   "bppPlus": 104,
+   "bpp": 0.11593,
+   "cambiMean": 0.80145,
+   "cambiP95": 0.8577,
+   "cambiMax": 3.38046,
+   "yavg": 81.25,
+   "clips": [
+    {
+     "t": 296,
+     "pos": 0.0499,
+     "cambiMean": 0.01421,
+     "cambiMax": 0.05505,
+     "cambiP95": 0.03071,
+     "yavg": 93.93
+    },
+    {
+     "t": 1631,
+     "pos": 0.2748,
+     "cambiMean": 0.01683,
+     "cambiMax": 0.02133,
+     "cambiP95": 0.02,
+     "yavg": 89.88
+    },
+    {
+     "t": 2966,
+     "pos": 0.4997,
+     "cambiMean": 0.01204,
+     "cambiMax": 0.22027,
+     "cambiP95": 0.01797,
+     "yavg": 106.7
+    },
+    {
+     "t": 4301,
+     "pos": 0.7247,
+     "cambiMean": 3.16271,
+     "cambiMax": 3.38046,
+     "cambiP95": 3.36212,
+     "yavg": 34.5
+    }
+   ]
+  },
+  {
+   "key": "mv:904",
+   "title": "El Mariachi (1993)",
+   "year": 1993,
+   "source": "Bluray-720p",
+   "codec": "h264",
+   "complexity": 0.15958,
+   "R": 0.3051,
+   "bppPlus": 47,
+   "bpp": 0.05396,
+   "cambiMean": 2.87952,
+   "cambiP95": 4.92084,
+   "cambiMax": 13.17598,
+   "yavg": 71.8,
+   "clips": [
+    {
+     "t": 244,
+     "pos": 0.0499,
+     "cambiMean": 0.01006,
+     "cambiMax": 0.02995,
+     "cambiP95": 0.01973,
+     "yavg": 119.24
+    },
+    {
+     "t": 1343,
+     "pos": 0.2748,
+     "cambiMean": 1.53318,
+     "cambiMax": 5.15522,
+     "cambiP95": 3.21895,
+     "yavg": 83.37
+    },
+    {
+     "t": 2443,
+     "pos": 0.4998,
+     "cambiMean": 1.35898,
+     "cambiMax": 4.32852,
+     "cambiP95": 3.70689,
+     "yavg": 47.53
+    },
+    {
+     "t": 3543,
+     "pos": 0.7248,
+     "cambiMean": 8.61585,
+     "cambiMax": 13.17598,
+     "cambiP95": 12.73781,
+     "yavg": 37.06
+    }
+   ]
+  },
+  {
+   "key": "mv:891",
+   "title": "My Own Private Idaho (1991)",
+   "year": 1991,
+   "source": "WEBDL-720p",
+   "codec": "h264",
+   "complexity": 0.14429,
+   "R": 0.3432,
+   "bppPlus": 47,
+   "bpp": 0.04942,
+   "cambiMean": 4.69312,
+   "cambiP95": 5.56428,
+   "cambiMax": 12.57295,
+   "yavg": 62.05,
+   "clips": [
+    {
+     "t": 311,
+     "pos": 0.0499,
+     "cambiMean": 0.01467,
+     "cambiMax": 0.11886,
+     "cambiP95": 0.04706,
+     "yavg": 87.99
+    },
+    {
+     "t": 1714,
+     "pos": 0.2748,
+     "cambiMean": 5.99206,
+     "cambiMax": 7.04822,
+     "cambiP95": 7.02299,
+     "yavg": 52.51
+    },
+    {
+     "t": 3117,
+     "pos": 0.4998,
+     "cambiMean": 10.81282,
+     "cambiMax": 12.57295,
+     "cambiP95": 12.36375,
+     "yavg": 26.58
+    },
+    {
+     "t": 4520,
+     "pos": 0.7247,
+     "cambiMean": 1.95294,
+     "cambiMax": 3.63637,
+     "cambiP95": 2.82332,
+     "yavg": 81.12
+    }
+   ]
+  },
+  {
+   "key": "mv:615",
+   "title": "The Hangover Part III (2013)",
+   "year": 2013,
+   "source": "Bluray-720p",
+   "codec": "h264",
+   "complexity": 0.15287,
+   "R": 0.3816,
+   "bppPlus": 49,
+   "bpp": 0.05833,
+   "cambiMean": 1.19935,
+   "cambiP95": 1.95688,
+   "cambiMax": 5.9165,
+   "yavg": 95.44,
+   "clips": [
+    {
+     "t": 300,
+     "pos": 0.0499,
+     "cambiMean": 0.0916,
+     "cambiMax": 0.29225,
+     "cambiP95": 0.22472,
+     "yavg": 120.78
+    },
+    {
+     "t": 1652,
+     "pos": 0.2749,
+     "cambiMean": 0.28605,
+     "cambiMax": 0.41176,
+     "cambiP95": 0.40109,
+     "yavg": 105.86
+    },
+    {
+     "t": 3004,
+     "pos": 0.4999,
+     "cambiMean": 2.34275,
+     "cambiMax": 2.9116,
+     "cambiP95": 2.81369,
+     "yavg": 94.7
+    },
+    {
+     "t": 4356,
+     "pos": 0.7249,
+     "cambiMean": 2.07699,
+     "cambiMax": 5.9165,
+     "cambiP95": 4.38802,
+     "yavg": 60.41
+    }
+   ]
+  },
+  {
+   "key": "mv:841",
+   "title": "Austin Powers: International Man of Mystery (1997)",
+   "year": 1997,
+   "source": "Bluray-720p",
+   "codec": "h264",
+   "complexity": 0.14256,
+   "R": 0.4174,
+   "bppPlus": 52,
+   "bpp": 0.0595,
+   "cambiMean": 1.62338,
+   "cambiP95": 2.08001,
+   "cambiMax": 7.97631,
+   "yavg": 76.15,
+   "clips": [
+    {
+     "t": 268,
+     "pos": 0.0499,
+     "cambiMean": 0.33473,
+     "cambiMax": 0.44667,
+     "cambiP95": 0.39702,
+     "yavg": 55.69
+    },
+    {
+     "t": 1477,
+     "pos": 0.2748,
+     "cambiMean": 0.23207,
+     "cambiMax": 0.5373,
+     "cambiP95": 0.32237,
+     "yavg": 95.48
+    },
+    {
+     "t": 2686,
+     "pos": 0.4997,
+     "cambiMean": 0.05262,
+     "cambiMax": 0.08166,
+     "cambiP95": 0.07239,
+     "yavg": 76.91
+    },
+    {
+     "t": 3895,
+     "pos": 0.7247,
+     "cambiMean": 5.8741,
+     "cambiMax": 7.97631,
+     "cambiP95": 7.52825,
+     "yavg": 76.5
+    }
+   ]
+  },
+  {
+   "key": "mv:581",
+   "title": "Super 8 (2011)",
+   "year": 2011,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.12631,
+   "R": 0.4741,
+   "bppPlus": 57,
+   "bpp": 0.06109,
+   "cambiMean": 2.17497,
+   "cambiP95": 3.18423,
+   "cambiMax": 14.06949,
+   "yavg": 49.12,
+   "clips": [
+    {
+     "t": 335,
+     "pos": 0.0499,
+     "cambiMean": 0.2535,
+     "cambiMax": 0.37506,
+     "cambiP95": 0.35675,
+     "yavg": 59.88
+    },
+    {
+     "t": 1844,
+     "pos": 0.2749,
+     "cambiMean": 0.04897,
+     "cambiMax": 0.07291,
+     "cambiP95": 0.0691,
+     "yavg": 52.69
+    },
+    {
+     "t": 3353,
+     "pos": 0.4999,
+     "cambiMean": 0.29809,
+     "cambiMax": 0.34776,
+     "cambiP95": 0.33135,
+     "yavg": 57.34
+    },
+    {
+     "t": 4862,
+     "pos": 0.7248,
+     "cambiMean": 8.09934,
+     "cambiMax": 14.06949,
+     "cambiP95": 11.97972,
+     "yavg": 26.58
+    }
+   ]
+  },
+  {
+   "key": "mv:784",
+   "title": "Menace II Society (1993)",
+   "year": 1993,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.12504,
+   "R": 0.5936,
+   "bppPlus": 66,
+   "bpp": 0.07423,
+   "cambiMean": 0.94283,
+   "cambiP95": 2.4393,
+   "cambiMax": 8.17054,
+   "yavg": 56.15,
+   "clips": [
+    {
+     "t": 292,
+     "pos": 0.05,
+     "cambiMean": 2.44155,
+     "cambiMax": 8.17054,
+     "cambiP95": 6.67274,
+     "yavg": 46.78
+    },
+    {
+     "t": 1607,
+     "pos": 0.2749,
+     "cambiMean": 0.61391,
+     "cambiMax": 3.58438,
+     "cambiP95": 2.27805,
+     "yavg": 57.53
+    },
+    {
+     "t": 2922,
+     "pos": 0.4999,
+     "cambiMean": 0.00011,
+     "cambiMax": 0.00065,
+     "cambiP95": 0.00025,
+     "yavg": 90.66
+    },
+    {
+     "t": 4237,
+     "pos": 0.7249,
+     "cambiMean": 0.71577,
+     "cambiMax": 0.8394,
+     "cambiP95": 0.80616,
+     "yavg": 29.63
+    }
+   ]
+  },
+  {
+   "key": "mv:497",
+   "title": "Kramer vs. Kramer (1979)",
+   "year": 1979,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.13789,
+   "R": 0.84,
+   "bppPlus": 84,
+   "bpp": 0.11578,
+   "cambiMean": 0.15212,
+   "cambiP95": 0.22438,
+   "cambiMax": 1.21748,
+   "yavg": 59.85,
+   "clips": [
+    {
+     "t": 314,
+     "pos": 0.0499,
+     "cambiMean": 0.47543,
+     "cambiMax": 1.21748,
+     "cambiP95": 0.73193,
+     "yavg": 57.68
+    },
+    {
+     "t": 1728,
+     "pos": 0.2748,
+     "cambiMean": 0.03831,
+     "cambiMax": 0.05215,
+     "cambiP95": 0.04816,
+     "yavg": 57.87
+    },
+    {
+     "t": 3143,
+     "pos": 0.4998,
+     "cambiMean": 0.04207,
+     "cambiMax": 0.0496,
+     "cambiP95": 0.04921,
+     "yavg": 51.04
+    },
+    {
+     "t": 4558,
+     "pos": 0.7249,
+     "cambiMean": 0.05268,
+     "cambiMax": 0.11694,
+     "cambiP95": 0.06821,
+     "yavg": 72.8
+    }
+   ]
+  },
+  {
+   "key": "mv:375",
+   "title": "The Godfather (1972)",
+   "year": 1972,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.13333,
+   "R": 1.236,
+   "bppPlus": 110,
+   "bpp": 0.1648,
+   "cambiMean": 0.39091,
+   "cambiP95": 0.68851,
+   "cambiMax": 1.09995,
+   "yavg": 56.6,
+   "clips": [
+    {
+     "t": 531,
+     "pos": 0.05,
+     "cambiMean": 0.31032,
+     "cambiMax": 1.09995,
+     "cambiP95": 0.97769,
+     "yavg": 82.15
+    },
+    {
+     "t": 2922,
+     "pos": 0.2749,
+     "cambiMean": 0.10795,
+     "cambiMax": 0.21903,
+     "cambiP95": 0.20075,
+     "yavg": 65.29
+    },
+    {
+     "t": 5314,
+     "pos": 0.5,
+     "cambiMean": 0.27509,
+     "cambiMax": 0.70598,
+     "cambiP95": 0.52541,
+     "yavg": 41.05
+    },
+    {
+     "t": 7705,
+     "pos": 0.7249,
+     "cambiMean": 0.87028,
+     "cambiMax": 1.05943,
+     "cambiP95": 1.0502,
+     "yavg": 37.92
+    }
+   ]
+  },
+  {
+   "key": "mv:530",
+   "title": "The Killing (1956)",
+   "year": 1956,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.18308,
+   "R": 0.255,
+   "bppPlus": 40,
+   "bpp": 0.04668,
+   "cambiMean": 1.78209,
+   "cambiP95": 2.11625,
+   "cambiMax": 5.81383,
+   "yavg": 67.5,
+   "clips": [
+    {
+     "t": 253,
+     "pos": 0.05,
+     "cambiMean": 0.10376,
+     "cambiMax": 0.22695,
+     "cambiP95": 0.20562,
+     "yavg": 75.44
+    },
+    {
+     "t": 1391,
+     "pos": 0.2749,
+     "cambiMean": 5.02222,
+     "cambiMax": 5.81383,
+     "cambiP95": 5.6501,
+     "yavg": 39.77
+    },
+    {
+     "t": 2530,
+     "pos": 0.5,
+     "cambiMean": 1.92556,
+     "cambiMax": 2.5249,
+     "cambiP95": 2.48866,
+     "yavg": 68.67
+    },
+    {
+     "t": 3668,
+     "pos": 0.7249,
+     "cambiMean": 0.07683,
+     "cambiMax": 0.14258,
+     "cambiP95": 0.12063,
+     "yavg": 86.11
+    }
+   ]
+  },
+  {
+   "key": "mv:840",
+   "title": "Austin Powers: The Spy Who Shagged Me (1999)",
+   "year": 1999,
+   "source": "Bluray-720p",
+   "codec": "h264",
+   "complexity": 0.17486,
+   "R": 0.3004,
+   "bppPlus": 45,
+   "bpp": 0.05574,
+   "cambiMean": 1.28402,
+   "cambiP95": 1.54876,
+   "cambiMax": 4.46898,
+   "yavg": 72.19,
+   "clips": [
+    {
+     "t": 285,
+     "pos": 0.05,
+     "cambiMean": 0.22787,
+     "cambiMax": 1.00754,
+     "cambiP95": 0.63105,
+     "yavg": 75.95
+    },
+    {
+     "t": 1567,
+     "pos": 0.2748,
+     "cambiMean": 0.06668,
+     "cambiMax": 0.15865,
+     "cambiP95": 0.11837,
+     "yavg": 75.33
+    },
+    {
+     "t": 2850,
+     "pos": 0.4998,
+     "cambiMean": 3.89484,
+     "cambiMax": 4.46898,
+     "cambiP95": 4.23845,
+     "yavg": 47.11
+    },
+    {
+     "t": 4133,
+     "pos": 0.7248,
+     "cambiMean": 0.94671,
+     "cambiMax": 1.21061,
+     "cambiP95": 1.20718,
+     "yavg": 90.38
+    }
+   ]
+  },
+  {
+   "key": "mv:716",
+   "title": "City of Men (2007)",
+   "year": 2007,
+   "source": "Bluray-720p",
+   "codec": "h264",
+   "complexity": 0.67651,
+   "R": 0.354,
+   "bppPlus": 48,
+   "bpp": 0.23951,
+   "cambiMean": 1.37481,
+   "cambiP95": 2.43415,
+   "cambiMax": 7.64657,
+   "yavg": 70.4,
+   "clips": [
+    {
+     "t": 319,
+     "pos": 0.05,
+     "cambiMean": 0.8809,
+     "cambiMax": 1.49311,
+     "cambiP95": 1.46458,
+     "yavg": 88.37
+    },
+    {
+     "t": 1755,
+     "pos": 0.2749,
+     "cambiMean": 2.89091,
+     "cambiMax": 7.64657,
+     "cambiP95": 5.62261,
+     "yavg": 38.18
+    },
+    {
+     "t": 3192,
+     "pos": 0.4999,
+     "cambiMean": 0.40796,
+     "cambiMax": 1.0442,
+     "cambiP95": 0.85399,
+     "yavg": 93.75
+    },
+    {
+     "t": 4628,
+     "pos": 0.7248,
+     "cambiMean": 1.31946,
+     "cambiMax": 2.03394,
+     "cambiP95": 1.79541,
+     "yavg": 61.3
+    }
+   ]
+  },
+  {
+   "key": "mv:848",
+   "title": "The Man Who Knew Too Much (1956)",
+   "year": 1956,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.25,
+   "R": 0.4636,
+   "bppPlus": 55,
+   "bpp": 0.11589,
+   "cambiMean": 0.15122,
+   "cambiP95": 0.34399,
+   "cambiMax": 1.20541,
+   "yavg": 65.91,
+   "clips": [
+    {
+     "t": 360,
+     "pos": 0.0499,
+     "cambiMean": 0.05516,
+     "cambiMax": 0.08136,
+     "cambiP95": 0.06097,
+     "yavg": 79.95
+    },
+    {
+     "t": 1984,
+     "pos": 0.2749,
+     "cambiMean": 0.43669,
+     "cambiMax": 1.20541,
+     "cambiP95": 1.10362,
+     "yavg": 47.08
+    },
+    {
+     "t": 3608,
+     "pos": 0.4999,
+     "cambiMean": 0.06573,
+     "cambiMax": 0.26783,
+     "cambiP95": 0.13843,
+     "yavg": 66.1
+    },
+    {
+     "t": 5232,
+     "pos": 0.7249,
+     "cambiMean": 0.04729,
+     "cambiMax": 0.07736,
+     "cambiP95": 0.07295,
+     "yavg": 70.49
+    }
+   ]
+  },
+  {
+   "key": "mv:168",
+   "title": "The Bridge on the River Kwai (1957)",
+   "year": 1957,
+   "source": "Bluray-1080p",
+   "codec": "hevc",
+   "complexity": 0.3029,
+   "R": 0.6125,
+   "bppPlus": 67,
+   "bpp": 0.18556,
+   "cambiMean": 0.03303,
+   "cambiP95": 0.07111,
+   "cambiMax": 0.33158,
+   "yavg": 93.06,
+   "clips": [
+    {
+     "t": 484,
+     "pos": 0.05,
+     "cambiMean": 0.12641,
+     "cambiMax": 0.33158,
+     "cambiP95": 0.27285,
+     "yavg": 43.57
+    },
+    {
+     "t": 2663,
+     "pos": 0.2749,
+     "cambiMean": 0.00001,
+     "cambiMax": 0.0002,
+     "cambiP95": 0.00011,
+     "yavg": 143.32
+    },
+    {
+     "t": 4843,
+     "pos": 0.4999,
+     "cambiMean": 0.00566,
+     "cambiMax": 0.02011,
+     "cambiP95": 0.01127,
+     "yavg": 86.2
+    },
+    {
+     "t": 7023,
+     "pos": 0.7249,
+     "cambiMean": 0.00003,
+     "cambiMax": 0.00038,
+     "cambiP95": 0.00019,
+     "yavg": 99.15
+    }
+   ]
+  },
+  {
+   "key": "mv:208",
+   "title": "The Lord of the Rings: The Return of the King (2003)",
+   "year": 2003,
+   "source": "Bluray-1080p",
+   "codec": "hevc",
+   "complexity": 0.1919,
+   "R": 0.7042,
+   "bppPlus": 74,
+   "bpp": 0.13514,
+   "cambiMean": 0.07806,
+   "cambiP95": 0.18509,
+   "cambiMax": 0.5712,
+   "yavg": 232.37,
+   "clips": [
+    {
+     "t": 789,
+     "pos": 0.05,
+     "cambiMean": 0.00877,
+     "cambiMax": 0.17926,
+     "cambiP95": 0.04982,
+     "yavg": 350.4
+    },
+    {
+     "t": 4341,
+     "pos": 0.2749,
+     "cambiMean": 0.20456,
+     "cambiMax": 0.5712,
+     "cambiP95": 0.56312,
+     "yavg": 238.5
+    },
+    {
+     "t": 7894,
+     "pos": 0.4999,
+     "cambiMean": 0.09703,
+     "cambiMax": 0.124,
+     "cambiP95": 0.12064,
+     "yavg": 148.49
+    },
+    {
+     "t": 11447,
+     "pos": 0.725,
+     "cambiMean": 0.0019,
+     "cambiMax": 0.00746,
+     "cambiP95": 0.00678,
+     "yavg": 192.09
+    }
+   ]
+  },
+  {
+   "key": "mv:40",
+   "title": "Kill Bill: Vol. 1 (2003)",
+   "year": 2003,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.22104,
+   "R": 0.9603,
+   "bppPlus": 92,
+   "bpp": 0.21226,
+   "cambiMean": 0.67313,
+   "cambiP95": 1.05295,
+   "cambiMax": 5.64908,
+   "yavg": 78.21,
+   "clips": [
+    {
+     "t": 332,
+     "pos": 0.05,
+     "cambiMean": 0.10917,
+     "cambiMax": 0.14162,
+     "cambiP95": 0.13674,
+     "yavg": 114.04
+    },
+    {
+     "t": 1826,
+     "pos": 0.2749,
+     "cambiMean": 0.02285,
+     "cambiMax": 0.06497,
+     "cambiP95": 0.06103,
+     "yavg": 69.35
+    },
+    {
+     "t": 3321,
+     "pos": 0.4999,
+     "cambiMean": 0.51181,
+     "cambiMax": 0.69229,
+     "cambiP95": 0.6795,
+     "yavg": 73.08
+    },
+    {
+     "t": 4815,
+     "pos": 0.7248,
+     "cambiMean": 2.04869,
+     "cambiMax": 5.64908,
+     "cambiP95": 3.33454,
+     "yavg": 56.36
+    }
+   ]
+  },
+  {
+   "key": "mv:941",
+   "title": "The Human Condition III: A Soldier's Prayer (1961)",
+   "year": 1961,
+   "source": "Bluray-1080p",
+   "codec": "h264",
+   "complexity": 0.18954,
+   "R": 1.4832,
+   "bppPlus": 122,
+   "bpp": 0.28083,
+   "cambiMean": 0.02802,
+   "cambiP95": 0.08224,
+   "cambiMax": 1.00524,
+   "yavg": 59.86,
+   "clips": [
+    {
+     "t": 570,
+     "pos": 0.05,
+     "cambiMean": 0.05362,
+     "cambiMax": 1.00524,
+     "cambiP95": 0.23024,
+     "yavg": 30.56
+    },
+    {
+     "t": 3137,
+     "pos": 0.2749,
+     "cambiMean": 0.00084,
+     "cambiMax": 0.00196,
+     "cambiP95": 0.00184,
+     "yavg": 97.74
+    },
+    {
+     "t": 5704,
+     "pos": 0.4999,
+     "cambiMean": 0.0163,
+     "cambiMax": 0.06452,
+     "cambiP95": 0.03527,
+     "yavg": 37.02
+    },
+    {
+     "t": 8271,
+     "pos": 0.7249,
+     "cambiMean": 0.04133,
+     "cambiMax": 0.07497,
+     "cambiP95": 0.06161,
+     "yavg": 74.11
+    }
+   ]
+  }
+ ]
+}

@@ -9,7 +9,7 @@
 // than by reading the code.
 const {
   bppOf, bppBand, bppSource, bppIndex, bppBasis, dimsOf, BPP_TARGET, BPP_RANK, X265_EFFICIENCY,
-  setComplexityResolver,
+  setComplexityResolver, setAudioResolver,
 } = require('../controller/lib/arr-inspect');
 
 let pass = 0; let fail = 0;
@@ -176,6 +176,58 @@ ok(bppBasis('mv:anything') === 'estimated:global', 'an inferred denominator repo
 ok(Math.abs(bppIndex(0.13, 'mv:anything') - bppIndex(0.13)) <= 3,
   'an unmeasured film moves by at most a couple of points — the cutover was near-free for most titles');
 setComplexityResolver(null);    // leave the module as we found it
+
+// ---- MEASURED AUDIO, AND THE DEGRADATION LADDER -----------------------------------------------
+// The point of the audio resolver is that BPP+ gets BETTER as data arrives and never worse, and
+// never throws. Each tier below is one rung of that ladder, tested in the order a real film climbs
+// it: no data -> *arr's one track -> every track, measured.
+//
+// Lawrence of Arabia is the worked example throughout: *arr declares 448k of AC3 and reports NOTHING
+// for the DTS-HD MA track, while the packets say 2,590,746 bps in total.
+const lawrence = {
+  resolution: '1920x1080', videoFps: 23.976, videoBitrate: 0,
+  videoCodec: 'x264', audioBitrate: 448000, audioStreamCount: 2,
+};
+const LAW_TOTAL = 16.61e6;
+
+const bppNoAudioData = bppOf({ ...lawrence, audioBitrate: 0 }, LAW_TOTAL);
+const bppArrOnly = bppOf(lawrence, LAW_TOTAL);
+ok(bppArrOnly < bppNoAudioData, 'tier 2 beats tier 3: subtracting the one known track lowers bpp');
+
+setAudioResolver(() => 2590746);
+const bppMeasured = bppOf(lawrence, LAW_TOTAL, 'mv:1');
+ok(bppMeasured < bppArrOnly,
+  'tier 1 beats tier 2: measuring every track subtracts more than *arr admits to');
+ok(bppSource(lawrence, LAW_TOTAL, 'mv:1') === 'total-minus-audio-measured',
+  'a measured subtraction is reported as measured, not as a ceiling');
+ok(bppSource(lawrence, LAW_TOTAL) === 'total-minus-audio-partial',
+  'WITHOUT a key the same file is still honestly reported as a partial ceiling');
+near(bppOf(lawrence, LAW_TOTAL), bppArrOnly,
+  'a call site that passes no key is bit-identical to the pre-change behaviour');
+
+// The 40% cap applies to measurements too — a mis-muxed file or a packet window landing in a silent
+// passage can produce a bogus figure, and it must never be able to wipe out the video rate.
+setAudioResolver(() => 99e6);
+ok(bppOf(lawrence, LAW_TOTAL, 'mv:1') > 0, 'an absurd audio measurement cannot drive bpp to zero');
+near(bppOf(lawrence, LAW_TOTAL, 'mv:1'),
+  bppOf({ ...lawrence, audioBitrate: 0 }, LAW_TOTAL * 0.6), 'the cap holds at 40% of the container');
+
+// GRACEFUL DEGRADATION: a broken resolver must never take the Audit tab down, it must just mean
+// "no measurement" — the same rule the complexity resolver already follows.
+setAudioResolver(() => { throw new Error('probe cache unreadable'); });
+near(bppOf(lawrence, LAW_TOTAL, 'mv:1'), bppArrOnly, 'a throwing resolver falls back to *arr, silently');
+ok(bppSource(lawrence, LAW_TOTAL, 'mv:1') === 'total-minus-audio-partial',
+  'and reports the honest partial state rather than claiming a measurement');
+setAudioResolver(() => null);
+near(bppOf(lawrence, LAW_TOTAL, 'mv:1'), bppArrOnly, 'an unprobed film falls back to *arr');
+
+// AUDIO IS ONLY EVER SUBTRACTED FROM THE FALLBACK PATH. When videoBitrate is trustworthy it is
+// already video-only, so subtracting audio again would double-count and invent quality.
+const trusted = { ...lawrence, videoBitrate: 8e6 };
+setAudioResolver(() => 2590746);
+near(bppOf(trusted, LAW_TOTAL, 'mv:1'), bppOf(trusted, LAW_TOTAL),
+  'a trusted videoBitrate ignores audio entirely, measured or not');
+setAudioResolver(null);         // leave the module as we found it
 
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

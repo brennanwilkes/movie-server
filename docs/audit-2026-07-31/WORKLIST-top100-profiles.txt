@@ -1,0 +1,101 @@
+TOP 100 FILMS NOT ON THE 'Beloved (best quality)' PROFILE
+========================================================================================================
+Radarr already has a profile shaped exactly for these films (+100 for 6-10 GB,
++30 for 10-15 GB, -500 for <1.5 GB). Films on it sit at a 1.01 median quality
+ratio vs 0.44 for Normal. Only 34 of 112 Top 100 films are on it.
+
+SAFE: verified 2026-08-01 that reassignment cannot trigger a download.
+  * upgradeAllowed=false on all three profiles -> cutoff-unmet never fires
+  * Beloved's allowed-quality list spans SDTV..Bluray-1080p, so every existing
+    file already satisfies it
+  * RSS sync (30 min, Knaben/TPB/YTS) therefore has nothing to grab for a movie
+    that already has a file
+Nothing moves until you deliberately search.
+
+BAND: purple >=0.20 bpp | green >=0.13 | orange >=0.08 | red <0.08
+      (bpp = h264-equivalent bits per pixel per frame; HEVC x1.8)
+
+   bpp    band  now GB  @green  @purple profile                quality        group       title
+--------------------------------------------------------------------------------------------------------------------------------------------
+ 0.033     red     1.7     6.7     10.4 Normal                 Bluray-1080p   YIFY        Gladiator
+ 0.034     red     0.6     2.2      3.4 Low (save space)       Bluray-720p    YIFY        Meet the Parents
+ 0.036     red     1.3     4.7      7.2 Normal                 Bluray-1080p   YIFY        The Social Network
+ 0.037     red     1.7     6.0      9.3 Normal                 Bluray-1080p   1080p       You've Got Mail
+ 0.038     red     1.5     5.1      7.9 Normal                 Bluray-1080p   1080p       Finding Nemo
+ 0.039     red     1.5     5.0      7.7 Normal                 Bluray-1080p   1080p       Mission: Impossible - Ghost Protocol
+ 0.041     red     1.8     5.6      8.7 Normal                 Bluray-1080p   ?           The Lion King
+ 0.041     red     1.5     4.9      7.5 Normal                 Bluray-1080p   YIFY        Up
+ 0.042     red     2.2     6.9     10.6 Normal                 Bluray-1080p   YIFY        The Wolf of Wall Street
+ 0.043     red     2.1     6.3      9.7 Normal                 Bluray-1080p   1080p       The Terminal
+ 0.044     red     1.6     4.8      7.4 Normal                 Bluray-1080p   YTS         Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb
+ 0.044     red     1.8     5.2      8.0 Normal                 Bluray-1080p   YIFY        The Truman Show
+ 0.045     red     1.3     3.7      5.7 Normal                 Bluray-1080p   YIFY        WALL·E
+ 0.045     red     1.9     5.6      8.6 Normal                 Bluray-1080p   MPAD        Green Book
+ 0.046     red     1.6     4.7      7.2 Normal                 Bluray-1080p   GSFTX       Office Space
+ 0.046     red     2.1     6.0      9.2 Normal                 Bluray-1080p   YTS.MX      Top Secret!
+ 0.046     red     1.9     5.3      8.1 Normal                 Bluray-1080p   YTS.LT      The Conformist
+ 0.046     red     2.0     5.6      8.7 Normal                 Bluray-1080p   YIFY        Inception
+ 0.047     red     1.7     4.7      7.3 Normal                 Bluray-1080p   1080p       No Country for Old Men
+ 0.048     red     1.9     5.2      8.0 Normal                 Bluray-1080p   YTS         The Death of Stalin
+ 0.048     red     4.1    11.3     17.3 Normal                 Bluray-1080p   YTS.MX      The Irishman
+ 0.048     red     2.6     7.1     10.9 Normal                 WEBRip-1080p   YTS.LT      Jay Kelly
+ 0.049     red     2.1     5.7      8.8 Normal                 Bluray-1080p   1080p       The Departed
+ 0.051     red     2.7     6.8     10.5 Normal                 Bluray-1080p   ?           Forgetting Sarah Marshall
+ 0.052     red     2.5     6.2      9.6 Normal                 Bluray-1080p   LAMA        Some Like It Hot
+ 0.052     red     2.6     6.6     10.1 Normal                 Bluray-1080p   RARBG       The Sting
+ 0.052     red     2.4     6.0      9.2 Normal                 Bluray-1080p   RARBG       The Big Lebowski
+ 0.053     red     1.9     4.8      7.3 Normal                 Bluray-1080p   YIFY        Jaws
+ 0.054     red     2.2     5.4      8.3 Normal                 Bluray-1080p   GoodFilms   Dr. No
+ 0.055     red     1.8     4.1      6.3 Normal                 Bluray-1080p   YIFY        Ex Machina
+ 0.056     red     2.3     5.4      8.3 Normal                 Bluray-1080p   YTS.AG      Bridge of Spies
+ 0.056     red     2.2     5.1      7.9 Normal                 Bluray-1080p   YTS.AG      Rogue One: A Star Wars Story
+ 0.057     red     2.7     6.2      9.5 Normal                 Bluray-1080p   YTS.LT      Once Upon a Time... in Hollywood
+ 0.060     red     2.5     5.5      8.4 Normal                 Bluray-1080p   YTS.MX      Wedding Crashers
+ 0.061     red     4.1     8.7     13.4 Normal                 Bluray-1080p   YTS.MX      Killers of the Flower Moon
+ 0.061     red     3.2     6.9     10.6 Normal                 Bluray-1080p   YTS.MX      Anora
+ 0.061     red     3.1     6.5     10.1 Normal                 Bluray-1080p   YTS.MX      Indiana Jones and the Dial of Destiny
+ 0.061     red     3.0     6.3      9.8 Normal                 Bluray-1080p   LAMA        Marty Supreme
+ 0.061     red     2.4     5.1      7.8 Normal                 Bluray-1080p   YTS.MX      The Ministry of Ungentlemanly Warfare
+ 0.061     red     2.7     5.7      8.8 Normal                 Bluray-1080p   YTS.MX      Uncut Gems
+ 0.063     red     2.6     5.3      8.2 Normal                 Bluray-1080p   GoodFilms   American Made
+ 0.065     red     2.1     4.2      6.5 Normal                 Bluray-1080p   GoodFilms   Singin' in the Rain
+ 0.067     red     2.4     4.6      7.1 Normal                 Bluray-1080p   RARBG       Alien
+ 0.067     red     3.0     5.8      9.0 Normal                 Bluray-1080p   LAMA        Hidden Figures
+ 0.068     red     3.5     6.6     10.2 Normal                 Bluray-1080p   RBG         Pirates of the Caribbean: At World's End
+ 0.068     red     3.1     5.9      9.1 Normal                 Bluray-1080p   RBG         Pirates of the Caribbean: Dead Man's Chest
+ 0.071     red     4.3     7.8     12.0 Normal                 Bluray-1080p   ETRG        Catch Me If You Can
+ 0.073     red     2.0     3.6      5.5 Normal                 Bluray-1080p   RiPRG       The Polar Express
+ 0.076     red     1.8     3.1      4.8 Normal                 WEBDL-1080p    ?           I Swear
+ 0.081  orange     2.1     3.4      5.2 Normal                 Bluray-1080p   ?           Heat
+ 0.086  orange     4.3     6.5      9.9 Normal                 Bluray-1080p   ETRG        Spectre
+ 0.091  orange     3.2     4.6      7.1 Normal                 Bluray-1080p   ?           Easy Rider
+ 0.093  orange     2.8     4.0      6.1 Normal                 Bluray-1080p   ?           Mission: Impossible
+ 0.098  orange     3.2     4.2      6.5 Normal                 Bluray-1080p   JYK         The Finest Hours
+ 0.098  orange     3.1     4.1      6.3 Normal                 Bluray-1080p   JYK         War Dogs
+ 0.099  orange     3.2     4.2      6.4 Normal                 WEBDL-1080p    ?           The Man from U.N.C.L.E.
+ 0.115  orange     2.1     2.4      3.7 Normal                 Bluray-1080p   ?           Life of Brian
+ 0.118  orange     4.2     4.7      7.2 Normal                 Bluray-1080p   OFT         12 Angry Men
+ 0.120  orange     5.1     5.5      8.5 Normal                 Bluray-1080p   OFT         The Big Sleep
+ 0.120  orange     4.5     4.9      7.5 Normal                 Bluray-1080p   OFT         The Maltese Falcon
+ 0.120  orange     5.8     6.3      9.7 Normal                 Bluray-1080p   OFT         It's a Wonderful Life
+ 0.123  orange     7.1     7.5     11.5 Normal                 Bluray-1080p   OFT         Pulp Fiction
+ 0.123  orange     7.6     8.0     12.3 Normal                 Bluray-1080p   OFT         Django Unchained
+ 0.124  orange     9.0     9.5     14.6 Normal                 Bluray-1080p   OFT         Schindler's List
+ 0.124  orange     6.3     6.5     10.1 Normal                 Bluray-1080p   OFT         The Hunt for Red October
+ 0.125  orange     4.2     4.4      6.7 Normal                 Bluray-1080p   OFT         Palm Springs
+ 0.125  orange     5.7     5.9      9.1 Normal                 Bluray-1080p   OFT         Indiana Jones and the Kingdom of the Crystal Skull
+ 0.125  orange     8.6     9.0     13.8 Normal                 Bluray-1080p   OFT         Barry Lyndon
+ 0.140   green     7.1     6.6     10.2 Normal                 Bluray-1080p   OFT         The Matrix
+ 0.144   green     3.7     3.4      5.2 Normal                 Bluray-1080p   FINKLEROY   Spirited Away
+ 0.173   green     8.6     6.5      9.9 Normal                 WEBDL-1080p    ETRG        The Blues Brothers
+ 0.192   green     7.4     5.0      7.7 Normal                 Bluray-1080p   RetroPeeps  Goldfinger
+ 0.265  purple     8.5     4.2      6.4 Normal                 Bluray-1080p   HDEX        Ocean's Eleven
+ 0.276  purple    10.6     5.0      7.7 Normal                 Bluray-1080p   AMIABLE     Return of the Jedi
+ 0.298  purple     8.6     3.7      5.8 Normal                 Bluray-1080p   iLLUSiON    American Psycho
+ 0.334  purple    28.3    11.0     16.9 Normal                 Bluray-1080p   Grym        Lawrence of Arabia
+ 0.359  purple    13.8     5.0      7.7 Normal                 Bluray-1080p   D-Z0N3      Fight Club
+ 0.419  purple     7.6     2.4      3.6 Normal                 Bluray-1080p   SM737       Blade Runner
+
+78 films total; 68 below green.
+now 308 GB | all at green 435 GB | all at purple 669 GB
+just the 68 below green -> green: 204 GB becomes 382 GB (+178 GB)

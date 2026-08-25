@@ -1,6 +1,6 @@
 # Movie Night — Branding Implementation Spec (v5, 2026-07-10)
 
-This is the complete, self-contained specification for rebranding the "Movie Night" Android TV app and the Jellyfin web client. It assumes **no access to prior conversation** — everything an implementation agent needs is in this file, the visual prototype (`brand-studies.html`, open in any browser, fully offline), the font (`PalmCanyonDrive.otf`), and the decision log (`../../DESIGN-BRANDING.md`).
+This is the complete, self-contained specification for rebranding the "Movie Night" Android TV app and the Jellyfin web client. It assumes **no access to prior conversation** — everything an implementation agent needs is in this file, the visual prototype (`brand-studies.html`, open in any browser, fully offline), the font (`PalmCanyonDrive.otf`), and the decision log (`../DESIGN-BRANDING.md`).
 
 ---
 
@@ -13,7 +13,7 @@ This is the complete, self-contained specification for rebranding the "Movie Nig
 | Deploy target | Amazon Fire TV Stick — **old, slow hardware**: home page takes ~5 s to settle. Every design decision is perf-gated. Sideload via adb. |
 | Server | Jellyfin on a NUC (`haleiwa-movies`), movie-server repo (this repo) is IaC for it (`jellyfin.sh` provisions) |
 | Web client | Stock Jellyfin web + **JavaScript Injector plugin** (already in use for playlist flair) + Dashboard → Branding Custom CSS |
-| Curated playlists | Native Jellyfin playlist "Top 100" (ranked), created by `jellyfin.sh`, surfaced in the fork via `CuratedListsRepository`. (A second, unranked "Watchlist" existed until 2026-07-26 — retired, see `docs/DESIGN-USER-LESLIE.md` §4b.) |
+| Curated playlists | Native Jellyfin playlist "Top 100" (ranked), created by `jellyfin.sh`, surfaced in the fork via `CuratedListsRepository`. (A second, unranked "Watchlist" existed until 2026-07-26, now retired.) |
 | Font asset | `PalmCanyonDrive.otf` (in this directory) — 1950s retro script, **display-only**, commercial license (Mika Melvas/Fenotype) |
 
 ### Hard invariants (violating any of these is a failed implementation)
@@ -194,7 +194,7 @@ Generated covers are replaced: `jellyfin.sh` (this repo) uploads a branded **squ
 - Scroll must stay smooth end-to-end on the Fire Stick; if not, reduce pantheon image height/count before touching the design.
 
 ### 6.8 Unranked variant (not built — Watchlist retired 2026-07-26)
-The showcase component was specced to take `ranked = false`: **no pantheon** — gallery cards + ledger only, no rank numerals (no ceremony for an unranked list), ordering = playlist order. Its only consumer was Watchlist, which no longer exists (`docs/DESIGN-USER-LESLIE.md` §4b). Kept here as the design to follow if a second curated list is ever added.
+The showcase component was specced to take `ranked = false`: **no pantheon** — gallery cards + ledger only, no rank numerals (no ceremony for an unranked list), ordering = playlist order. Its only consumer was Watchlist, which no longer exists. Kept here as the design to follow if a second curated list is ever added.
 
 ## 7. Web client (Canyon, fixed — no roulette)
 
@@ -240,4 +240,4 @@ Each phase ships independently; sideload + eyeball on the real Fire Stick after 
 - `SPEC.md` — this file
 - `brand-studies.html` — v5 interactive prototype, fully offline (font embedded); tabs: Canyon / Matinee / Reel One / Marquee / Top 100 / Web; ←/→ pages, 🎲 simulates roulette
 - `PalmCanyonDrive.otf` — the script font (input to the §4 outlining pipeline; do not bundle in APK)
-- `../../DESIGN-BRANDING.md` — decision log & audit trail (context; this SPEC supersedes it on any conflict)
+- `../DESIGN-BRANDING.md` — decision log & audit trail (context; this SPEC supersedes it on any conflict)

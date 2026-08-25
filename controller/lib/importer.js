@@ -136,9 +136,17 @@ async function collectImportEntries(app, folder, expectedId, opts = {}) {
       // bigger file that a human deliberately chose must get through, a dubbed or foreign-audio one
       // must not, and both arrive as this identical rejection string.
       else if (opts.cfAllow && CF_UPGRADE_REJECT_RE.test(rsn)
-        && cfRefusalIsExcusable(opts.cfAllow.oldFormats, c.customFormats, opts.cfAllow.scoreByName)) {
-        console.log(`import: "${path.basename(c.path)}" scores lower than the copy on disk only on size`
-          + ' and/or an audio track a client will transcode — allowing it, the replacement was chosen by hand');
+        && cfRefusalIsExcusable(opts.cfAllow.oldFormats, c.customFormats, opts.cfAllow.scoreByName,
+          { editionOk: !!opts.cfAllow.editionOk })) {
+        // Says WHICH exemption applied, because they mean very different things to whoever reads this
+        // later. The edition one is the Gladiator case — *arr scored the FILE, whose name had lost the
+        // EXTENDED tag the release title carries, so it is a naming artifact rather than a real cut
+        // change (see EDITION_CF in release-rules.js). The other is size / transcodable audio.
+        console.log(`import: "${path.basename(c.path)}" scores lower than the copy on disk`
+          + (opts.cfAllow.editionOk
+            ? ` only on size, transcodable audio and/or an edition tag its FILENAME omits (the release we chose is "${opts.cfAllow.editionLabel || 'not a downgrade'}")`
+            : ' only on size and/or an audio track a client will transcode')
+          + ' — allowing it, the replacement was chosen by hand');
       } else { reason = rsn || 'rejected'; continue; }
     }
     const f = { path: c.path, quality: c.quality, languages: c.languages || [], releaseGroup: c.releaseGroup || '' };
@@ -198,16 +206,22 @@ async function importViaManual(app, folder, expectedId, opts = {}) {
 async function previewManualImport(app, folder, expectedId, opts = {}) {
   const got = await collectImportEntries(app, folder, expectedId, { ...opts, ignoreUpgradeRejections: true });
   if (!got.ok) return { ok: false, reason: got.reason };
-  const out = { ok: true, offered: got.entries.length, reason: got.reason, pick: null, episodeIds: [], ambiguous: false };
+  // `paths` is every file this import WOULD submit, which is what the runtime preflight in audit.js
+  // has to measure for a season swap (movies have `pick`, seasons have 1-24 files and no single one
+  // to point at). Exposed from here rather than re-derived by the caller so the thing being measured
+  // is provably the thing being imported.
+  const out = { ok: true, offered: got.entries.length, reason: got.reason, pick: null, paths: [], episodeIds: [], ambiguous: false };
   if (!got.entries.length) return { ok: false, offered: 0, reason: got.reason };
   if (app === 'radarr') {
     const sel = chooseMovieFile(got.entries, expectedId);
     if (!sel.pick) return { ok: false, offered: got.entries.length, ambiguous: true, reason: sel.reason };
     out.pick = { path: sel.pick.f.path, size: sel.pick.size, parsed: sel.pick.parsedId != null };
+    out.paths = [sel.pick.f.path];
   } else {
     const ids = new Set();
     for (const e of got.entries) for (const id of (e.f.episodeIds || [])) ids.add(id);
     out.episodeIds = [...ids];
+    out.paths = got.entries.map((e) => e.f.path).filter(Boolean);
     if (!out.episodeIds.length) return { ok: false, offered: got.entries.length, reason: got.reason };
   }
   return out;
@@ -616,6 +630,31 @@ function hasVideoStream(fp) {
     });
   });
 }
+// How many seconds of content does this file actually hold? The question Chinatown needed asked
+// BEFORE its originals were deleted — see runtimeVerdict in release-rules.js.
+//
+// Deliberately NOT the tight-probesize treatment hasVideoStream uses: duration lives in the
+// container header for mkv/mp4 but a truncated or badly-muxed file may need a seek to the last
+// packet to answer honestly, so this gets a real budget. Measured cost over all 881 library files on
+// 2026-08-12: under a second each, header reads only, no decoding.
+//
+// Returns null — never 0 and never a throw — on ANY failure, because null is the caller's
+// 'unknown' and 0 would read as "zero-length file" and refuse a healthy swap.
+const PROBE_DURATION_TIMEOUT_MS = 30000;
+function probeDurationSecs(fp) {
+  return new Promise((resolve) => {
+    execFile('ffprobe', [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'csv=p=0',
+      fp,
+    ], { timeout: PROBE_DURATION_TIMEOUT_MS }, (err, stdout) => {
+      if (err) { resolve(null); return; }
+      const n = parseFloat(String(stdout).trim());
+      resolve(Number.isFinite(n) && n > 0 ? n : null);
+    });
+  });
+}
 async function hasVideoContent(p) {
   try {
     const st = await fs.promises.stat(p);
@@ -967,4 +1006,4 @@ setTimeout(recoverForceGrabImport, 4000);  // after loadState, before 1st watchd
 // chooseMovieFile is exported for the table test in scripts/test-choose-movie-file.js — a false
 // positive here imports the wrong film and a false negative blocks a legitimate swap, so it is
 // tested against real release shapes rather than reasoned about.
-module.exports = { importViaManual, previewManualImport, chooseMovieFile, importWatchdog, recoverForceGrabImport, startWatchdog };
+module.exports = { importViaManual, previewManualImport, chooseMovieFile, probeDurationSecs, importWatchdog, recoverForceGrabImport, startWatchdog };

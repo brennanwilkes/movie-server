@@ -1,0 +1,20 @@
+# ablate.txt — films chosen to SPAN the observed gShare range, so each knob's ranking can be compared
+# against the bundle's ranking. Quoted gShare is the 2026-08-13 --fast/phase=0 measurement.
+#
+# The two films that drove the dead 65mm hypothesis (2001, Lawrence) are both here deliberately: they
+# are the ones the aq-mode confound would most inflate, since AQ matters most on flat dark frames.
+# Toy Story is the control — rendered CGI, no photochemical grain, so psy-only should read LOW on it
+# even if the bundle does not.
+# 2001: A Space Odyssey IS DELIBERATELY ABSENT. Measured 2026-08-13 on a HEALTHY box (9.5 GiB free,
+# load 7): a single 4 s veryfast/1280 encode of that file ran past 287 s and was still going, against
+# ~35 s for the same operation on Lawrence. HANDOFF §2.1 attributed the earlier 1050 s observation to
+# memory thrashing; that attribution is WRONG, or at best incomplete — the file is intrinsically ~10x
+# slower in x265 and will time out every sample. It costs ~45 min of a run and returns nothing.
+# Measuring it needs a long timeout and its own overnight slot, not a place in an interactive set.
+Lawrence of Arabia (1962)|gShare 0.528 flat/dark
+Whiplash (2014)|gShare 0.452 digital
+Alien (1979)|gShare 0.421 35mm dark
+Skyfall (2012)|gShare 0.354 digital
+Raiders of the Lost Ark (1981)|gShare 0.218 35mm busy
+Blade Runner 2049 (2017)|gShare 0.216 digital clean
+Toy Story (1995)|CONTROL rendered CGI

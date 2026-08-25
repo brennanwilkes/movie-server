@@ -1,0 +1,774 @@
+{
+ "generated": 1787327554811,
+ "clips": 4,
+ "seclen": 2,
+ "threshold": 12,
+ "width": 960,
+ "rows": [
+  {
+   "key": "mv:388",
+   "title": "Casablanca (1943)",
+   "kind": "movie",
+   "flat": 0.44848,
+   "flatSd": 0.04288,
+   "flatBetween": 0.07239,
+   "clips": 4
+  },
+  {
+   "key": "mv:130",
+   "title": "E.T. the Extra-Terrestrial (1982)",
+   "kind": "movie",
+   "flat": 0.64795,
+   "flatSd": 0.00954,
+   "flatBetween": 0.04031,
+   "clips": 4
+  },
+  {
+   "key": "mv:144",
+   "title": "The Last Emperor (1987)",
+   "kind": "movie",
+   "flat": 0.42743,
+   "flatSd": 0.01179,
+   "flatBetween": 0.15168,
+   "clips": 4
+  },
+  {
+   "key": "mv:152",
+   "title": "Obsession (2026)",
+   "kind": "movie",
+   "flat": 0.82482,
+   "flatSd": 0.0184,
+   "flatBetween": 0.11937,
+   "clips": 4
+  },
+  {
+   "key": "mv:153",
+   "title": "Backrooms (2026)",
+   "kind": "movie",
+   "flat": 0.77024,
+   "flatSd": 0.02627,
+   "flatBetween": 0.11227,
+   "clips": 4
+  },
+  {
+   "key": "mv:159",
+   "title": "The Graduate (1967)",
+   "kind": "movie",
+   "flat": 0.59497,
+   "flatSd": 0.04472,
+   "flatBetween": 0.14896,
+   "clips": 4
+  },
+  {
+   "key": "mv:168",
+   "title": "The Bridge on the River Kwai (1957)",
+   "kind": "movie",
+   "flat": 0.30082,
+   "flatSd": 0.04096,
+   "flatBetween": 0.22029,
+   "clips": 4
+  },
+  {
+   "key": "mv:171",
+   "title": "How to Steal a Million (1966)",
+   "kind": "movie",
+   "flat": 0.44984,
+   "flatSd": 0.01174,
+   "flatBetween": 0.11077,
+   "clips": 4
+  },
+  {
+   "key": "mv:173",
+   "title": "Goldfinger (1964)",
+   "kind": "movie",
+   "flat": 0.4584,
+   "flatSd": 0.03399,
+   "flatBetween": 0.27836,
+   "clips": 4
+  },
+  {
+   "key": "mv:175",
+   "title": "Skyfall (2012)",
+   "kind": "movie",
+   "flat": 0.48187,
+   "flatSd": 0.02029,
+   "flatBetween": 0.24973,
+   "clips": 4
+  },
+  {
+   "key": "mv:181",
+   "title": "Marty Supreme (2025)",
+   "kind": "movie",
+   "flat": 0.8372,
+   "flatSd": 0.02164,
+   "flatBetween": 0.08967,
+   "clips": 4
+  },
+  {
+   "key": "mv:204",
+   "title": "1917 (2019)",
+   "kind": "movie",
+   "flat": 0.67849,
+   "flatSd": 0.00906,
+   "flatBetween": 0.19411,
+   "clips": 4
+  },
+  {
+   "key": "mv:208",
+   "title": "The Lord of the Rings: The Return of the King (2003)",
+   "kind": "movie",
+   "flat": 0.11069,
+   "flatSd": 0.02821,
+   "flatBetween": 0.05187,
+   "clips": 4
+  },
+  {
+   "key": "mv:223",
+   "title": "Howl's Moving Castle (2004)",
+   "kind": "movie",
+   "flat": 0.55299,
+   "flatSd": 0.08547,
+   "flatBetween": 0.09019,
+   "clips": 4
+  },
+  {
+   "key": "mv:247",
+   "title": "The Birds (1963)",
+   "kind": "movie",
+   "flat": 0.42319,
+   "flatSd": 0.04334,
+   "flatBetween": 0.13865,
+   "clips": 4
+  },
+  {
+   "key": "mv:251",
+   "title": "The Shining (1980)",
+   "kind": "movie",
+   "flat": 0.63261,
+   "flatSd": 0.02525,
+   "flatBetween": 0.05397,
+   "clips": 4
+  },
+  {
+   "key": "mv:256",
+   "title": "2001: A Space Odyssey (1968)",
+   "kind": "movie",
+   "flat": 0.71862,
+   "flatSd": 0.00274,
+   "flatBetween": 0.18532,
+   "clips": 4
+  },
+  {
+   "key": "mv:257",
+   "title": "Full Metal Jacket (1987)",
+   "kind": "movie",
+   "flat": 0.46038,
+   "flatSd": 0.01845,
+   "flatBetween": 0.10302,
+   "clips": 4
+  },
+  {
+   "key": "mv:264",
+   "title": "Requiem for a Dream (2000)",
+   "kind": "movie",
+   "flat": 0.70403,
+   "flatSd": 0.02528,
+   "flatBetween": 0.2765,
+   "clips": 4
+  },
+  {
+   "key": "mv:270",
+   "title": "Die Hard (1988)",
+   "kind": "movie",
+   "flat": 0.77189,
+   "flatSd": 0.02328,
+   "flatBetween": 0.07715,
+   "clips": 4
+  },
+  {
+   "key": "mv:274",
+   "title": "The Truman Show (1998)",
+   "kind": "movie",
+   "flat": 0.41523,
+   "flatSd": 0.00932,
+   "flatBetween": 0.13228,
+   "clips": 4
+  },
+  {
+   "key": "mv:282",
+   "title": "Fargo (1996)",
+   "kind": "movie",
+   "flat": 0.67463,
+   "flatSd": 0.00313,
+   "flatBetween": 0.12736,
+   "clips": 4
+  },
+  {
+   "key": "mv:295",
+   "title": "Mad Max: Fury Road (2015)",
+   "kind": "movie",
+   "flat": 0.45086,
+   "flatSd": 0.03309,
+   "flatBetween": 0.09484,
+   "clips": 4
+  },
+  {
+   "key": "mv:300",
+   "title": "Harry Potter and the Order of the Phoenix (2007)",
+   "kind": "movie",
+   "flat": 0.57947,
+   "flatSd": 0.05235,
+   "flatBetween": 0.1074,
+   "clips": 4
+  },
+  {
+   "key": "mv:304",
+   "title": "Conclave (2024)",
+   "kind": "movie",
+   "flat": 0.83771,
+   "flatSd": 0.02229,
+   "flatBetween": 0.06915,
+   "clips": 4
+  },
+  {
+   "key": "mv:328",
+   "title": "Groundhog Day (1993)",
+   "kind": "movie",
+   "flat": 0.69953,
+   "flatSd": 0.0197,
+   "flatBetween": 0.09853,
+   "clips": 4
+  },
+  {
+   "key": "mv:349",
+   "title": "Paul (2011)",
+   "kind": "movie",
+   "flat": 0.50655,
+   "flatSd": 0.02795,
+   "flatBetween": 0.10682,
+   "clips": 4
+  },
+  {
+   "key": "mv:371",
+   "title": "Legally Blonde (2001)",
+   "kind": "movie",
+   "flat": 0.49268,
+   "flatSd": 0.01094,
+   "flatBetween": 0.10391,
+   "clips": 4
+  },
+  {
+   "key": "mv:373",
+   "title": "Gladiator (2000)",
+   "kind": "movie",
+   "flat": 0.71844,
+   "flatSd": 0.05748,
+   "flatBetween": 0.11835,
+   "clips": 4
+  },
+  {
+   "key": "mv:375",
+   "title": "The Godfather (1972)",
+   "kind": "movie",
+   "flat": 0.60279,
+   "flatSd": 0.02652,
+   "flatBetween": 0.14603,
+   "clips": 4
+  },
+  {
+   "key": "mv:378",
+   "title": "Heat (1995)",
+   "kind": "movie",
+   "flat": 0.75085,
+   "flatSd": 0.03067,
+   "flatBetween": 0.11373,
+   "clips": 4
+  },
+  {
+   "key": "mv:39",
+   "title": "Inglourious Basterds (2009)",
+   "kind": "movie",
+   "flat": 0.63436,
+   "flatSd": 0.01165,
+   "flatBetween": 0.10623,
+   "clips": 4
+  },
+  {
+   "key": "mv:393",
+   "title": "Rounders (1998)",
+   "kind": "movie",
+   "flat": 0.61546,
+   "flatSd": 0.01782,
+   "flatBetween": 0.16978,
+   "clips": 4
+  },
+  {
+   "key": "mv:40",
+   "title": "Kill Bill: Vol. 1 (2003)",
+   "kind": "movie",
+   "flat": 0.48797,
+   "flatSd": 0.02798,
+   "flatBetween": 0.18458,
+   "clips": 4
+  },
+  {
+   "key": "mv:406",
+   "title": "Grave of the Fireflies (1988)",
+   "kind": "movie",
+   "flat": 0.66656,
+   "flatSd": 0.02576,
+   "flatBetween": 0.06099,
+   "clips": 4
+  },
+  {
+   "key": "mv:421",
+   "title": "El Camino: A Breaking Bad Movie (2019)",
+   "kind": "movie",
+   "flat": 0.73134,
+   "flatSd": 0.03164,
+   "flatBetween": 0.10936,
+   "clips": 4
+  },
+  {
+   "key": "mv:433",
+   "title": "Aliens (1986)",
+   "kind": "movie",
+   "flat": 0.69613,
+   "flatSd": 0.07211,
+   "flatBetween": 0.06216,
+   "clips": 4
+  },
+  {
+   "key": "mv:445",
+   "title": "The Big Sleep (1946)",
+   "kind": "movie",
+   "flat": 0.59681,
+   "flatSd": 0.01928,
+   "flatBetween": 0.21698,
+   "clips": 4
+  },
+  {
+   "key": "mv:470",
+   "title": "The Living Daylights (1987)",
+   "kind": "movie",
+   "flat": 0.54698,
+   "flatSd": 0.0442,
+   "flatBetween": 0.16089,
+   "clips": 4
+  },
+  {
+   "key": "mv:476",
+   "title": "Crazy Rich Asians (2018)",
+   "kind": "movie",
+   "flat": 0.62945,
+   "flatSd": 0.02133,
+   "flatBetween": 0.0726,
+   "clips": 4
+  },
+  {
+   "key": "mv:487",
+   "title": "The Bishop's Wife (1947)",
+   "kind": "movie",
+   "flat": 0.46522,
+   "flatSd": 0.01016,
+   "flatBetween": 0.09602,
+   "clips": 4
+  },
+  {
+   "key": "mv:497",
+   "title": "Kramer vs. Kramer (1979)",
+   "kind": "movie",
+   "flat": 0.62665,
+   "flatSd": 0.0129,
+   "flatBetween": 0.14528,
+   "clips": 4
+  },
+  {
+   "key": "mv:506",
+   "title": "Brokeback Mountain (2005)",
+   "kind": "movie",
+   "flat": 0.60935,
+   "flatSd": 0.00802,
+   "flatBetween": 0.23456,
+   "clips": 4
+  },
+  {
+   "key": "mv:520",
+   "title": "The Trial of the Chicago 7 (2020)",
+   "kind": "movie",
+   "flat": 0.73754,
+   "flatSd": 0.04406,
+   "flatBetween": 0.04651,
+   "clips": 4
+  },
+  {
+   "key": "mv:529",
+   "title": "Contact (1997)",
+   "kind": "movie",
+   "flat": 0.62074,
+   "flatSd": 0.06877,
+   "flatBetween": 0.20324,
+   "clips": 4
+  },
+  {
+   "key": "mv:530",
+   "title": "The Killing (1956)",
+   "kind": "movie",
+   "flat": 0.48039,
+   "flatSd": 0.01514,
+   "flatBetween": 0.1894,
+   "clips": 4
+  },
+  {
+   "key": "mv:532",
+   "title": "Her (2013)",
+   "kind": "movie",
+   "flat": 0.79989,
+   "flatSd": 0.03789,
+   "flatBetween": 0.15958,
+   "clips": 4
+  },
+  {
+   "key": "mv:539",
+   "title": "Memento (2000)",
+   "kind": "movie",
+   "flat": 0.67651,
+   "flatSd": 0.07597,
+   "flatBetween": 0.13221,
+   "clips": 4
+  },
+  {
+   "key": "mv:551",
+   "title": "The Naked Gun (2025)",
+   "kind": "movie",
+   "flat": 0.64399,
+   "flatSd": 0.02926,
+   "flatBetween": 0.18933,
+   "clips": 4
+  },
+  {
+   "key": "mv:553",
+   "title": "Anchorman: The Legend of Ron Burgundy (2004)",
+   "kind": "movie",
+   "flat": 0.50565,
+   "flatSd": 0.04575,
+   "flatBetween": 0.05924,
+   "clips": 4
+  },
+  {
+   "key": "mv:569",
+   "title": "The Babadook (2014)",
+   "kind": "movie",
+   "flat": 0.63526,
+   "flatSd": 0.08552,
+   "flatBetween": 0.18934,
+   "clips": 4
+  },
+  {
+   "key": "mv:575",
+   "title": "Punch-Drunk Love (2002)",
+   "kind": "movie",
+   "flat": 0.76518,
+   "flatSd": 0.01217,
+   "flatBetween": 0.11224,
+   "clips": 4
+  },
+  {
+   "key": "mv:581",
+   "title": "Super 8 (2011)",
+   "kind": "movie",
+   "flat": 0.61946,
+   "flatSd": 0.01404,
+   "flatBetween": 0.21728,
+   "clips": 4
+  },
+  {
+   "key": "mv:615",
+   "title": "The Hangover Part III (2013)",
+   "kind": "movie",
+   "flat": 0.6237,
+   "flatSd": 0.04218,
+   "flatBetween": 0.10205,
+   "clips": 4
+  },
+  {
+   "key": "mv:638",
+   "title": "Star Trek: First Contact (1996)",
+   "kind": "movie",
+   "flat": 0.60343,
+   "flatSd": 0.01137,
+   "flatBetween": 0.25115,
+   "clips": 4
+  },
+  {
+   "key": "mv:650",
+   "title": "The Texas Chain Saw Massacre (1974)",
+   "kind": "movie",
+   "flat": 0.64751,
+   "flatSd": 0.00774,
+   "flatBetween": 0.27404,
+   "clips": 4
+  },
+  {
+   "key": "mv:657",
+   "title": "12th Fail (2023)",
+   "kind": "movie",
+   "flat": 0.62465,
+   "flatSd": 0.01449,
+   "flatBetween": 0.14212,
+   "clips": 4
+  },
+  {
+   "key": "mv:692",
+   "title": "Eephus (2025)",
+   "kind": "movie",
+   "flat": 0.60127,
+   "flatSd": 0.01069,
+   "flatBetween": 0.20503,
+   "clips": 4
+  },
+  {
+   "key": "mv:696",
+   "title": "The Master (2012)",
+   "kind": "movie",
+   "flat": 0.68507,
+   "flatSd": 0.00539,
+   "flatBetween": 0.11829,
+   "clips": 4
+  },
+  {
+   "key": "mv:703",
+   "title": "In the Mood for Love (2000)",
+   "kind": "movie",
+   "flat": 0.77986,
+   "flatSd": 0.00764,
+   "flatBetween": 0.18253,
+   "clips": 4
+  },
+  {
+   "key": "mv:716",
+   "title": "City of Men (2007)",
+   "kind": "movie",
+   "flat": 0.49794,
+   "flatSd": 0.04371,
+   "flatBetween": 0.15593,
+   "clips": 4
+  },
+  {
+   "key": "mv:732",
+   "title": "Poor Things (2023)",
+   "kind": "movie",
+   "flat": 0.52498,
+   "flatSd": 0.05415,
+   "flatBetween": 0.03572,
+   "clips": 4
+  },
+  {
+   "key": "mv:739",
+   "title": "Decision to Leave (2022)",
+   "kind": "movie",
+   "flat": 0.6683,
+   "flatSd": 0.01869,
+   "flatBetween": 0.0619,
+   "clips": 4
+  },
+  {
+   "key": "mv:752",
+   "title": "Only God Forgives (2013)",
+   "kind": "movie",
+   "flat": 0.73159,
+   "flatSd": 0.03044,
+   "flatBetween": 0.1659,
+   "clips": 4
+  },
+  {
+   "key": "mv:776",
+   "title": "Almost Famous (2000)",
+   "kind": "movie",
+   "flat": 0.61502,
+   "flatSd": 0.05644,
+   "flatBetween": 0.14023,
+   "clips": 4
+  },
+  {
+   "key": "mv:784",
+   "title": "Menace II Society (1993)",
+   "kind": "movie",
+   "flat": 0.52796,
+   "flatSd": 0.08587,
+   "flatBetween": 0.28329,
+   "clips": 4
+  },
+  {
+   "key": "mv:811",
+   "title": "See How They Run (2022)",
+   "kind": "movie",
+   "flat": 0.65068,
+   "flatSd": 0.00874,
+   "flatBetween": 0.07659,
+   "clips": 4
+  },
+  {
+   "key": "mv:821",
+   "title": "The Man Standing Next (2020)",
+   "kind": "movie",
+   "flat": 0.83532,
+   "flatSd": 0.02173,
+   "flatBetween": 0.09191,
+   "clips": 4
+  },
+  {
+   "key": "mv:825",
+   "title": "Kajillionaire (2020)",
+   "kind": "movie",
+   "flat": 0.75988,
+   "flatSd": 0.0035,
+   "flatBetween": 0.1561,
+   "clips": 4
+  },
+  {
+   "key": "mv:840",
+   "title": "Austin Powers: The Spy Who Shagged Me (1999)",
+   "kind": "movie",
+   "flat": 0.52486,
+   "flatSd": 0.02369,
+   "flatBetween": 0.13633,
+   "clips": 4
+  },
+  {
+   "key": "mv:841",
+   "title": "Austin Powers: International Man of Mystery (1997)",
+   "kind": "movie",
+   "flat": 0.58164,
+   "flatSd": 0.01782,
+   "flatBetween": 0.15806,
+   "clips": 4
+  },
+  {
+   "key": "mv:848",
+   "title": "The Man Who Knew Too Much (1956)",
+   "kind": "movie",
+   "flat": 0.3575,
+   "flatSd": 0.05,
+   "flatBetween": 0.13003,
+   "clips": 4
+  },
+  {
+   "key": "mv:851",
+   "title": "Our Man in Havana (1960)",
+   "kind": "movie",
+   "flat": 0.47806,
+   "flatSd": 0.01832,
+   "flatBetween": 0.08859,
+   "clips": 4
+  },
+  {
+   "key": "mv:852",
+   "title": "Confessions of a Dangerous Mind (2002)",
+   "kind": "movie",
+   "flat": 0.76549,
+   "flatSd": 0.01173,
+   "flatBetween": 0.14391,
+   "clips": 4
+  },
+  {
+   "key": "mv:862",
+   "title": "Allied (2016)",
+   "kind": "movie",
+   "flat": 0.70083,
+   "flatSd": 0.01636,
+   "flatBetween": 0.12627,
+   "clips": 4
+  },
+  {
+   "key": "mv:883",
+   "title": "Army of Shadows (1969)",
+   "kind": "movie",
+   "flat": 0.85244,
+   "flatSd": 0.02275,
+   "flatBetween": 0.1047,
+   "clips": 4
+  },
+  {
+   "key": "mv:884",
+   "title": "13 Rue Madeleine (1947)",
+   "kind": "movie",
+   "flat": 0.50916,
+   "flatSd": 0.01322,
+   "flatBetween": 0.09482,
+   "clips": 4
+  },
+  {
+   "key": "mv:891",
+   "title": "My Own Private Idaho (1991)",
+   "kind": "movie",
+   "flat": 0.65982,
+   "flatSd": 0.05245,
+   "flatBetween": 0.26023,
+   "clips": 4
+  },
+  {
+   "key": "mv:898",
+   "title": "Blue Ruin (2014)",
+   "kind": "movie",
+   "flat": 0.65467,
+   "flatSd": 0.01237,
+   "flatBetween": 0.07538,
+   "clips": 4
+  },
+  {
+   "key": "mv:904",
+   "title": "El Mariachi (1993)",
+   "kind": "movie",
+   "flat": 0.58703,
+   "flatSd": 0.04938,
+   "flatBetween": 0.29185,
+   "clips": 4
+  },
+  {
+   "key": "mv:918",
+   "title": "Swingers (1996)",
+   "kind": "movie",
+   "flat": 0.77608,
+   "flatSd": 0.02888,
+   "flatBetween": 0.16201,
+   "clips": 4
+  },
+  {
+   "key": "mv:925",
+   "title": "Enter the Void (2010)",
+   "kind": "movie",
+   "flat": 0.79929,
+   "flatSd": 0.01058,
+   "flatBetween": 0.16099,
+   "clips": 4
+  },
+  {
+   "key": "mv:941",
+   "title": "The Human Condition III: A Soldier's Prayer (1961)",
+   "kind": "movie",
+   "flat": 0.41428,
+   "flatSd": 0.05686,
+   "flatBetween": 0.22189,
+   "clips": 4
+  },
+  {
+   "key": "mv:587",
+   "title": "The Invite (2026)",
+   "kind": "movie",
+   "flat": 0.73475,
+   "flatSd": 0.03451,
+   "flatBetween": 0.16359,
+   "clips": 4
+  },
+  {
+   "key": "mv:961",
+   "title": "Casino Royale (1967)",
+   "kind": "movie",
+   "flat": 0.48171,
+   "flatSd": 0.04246,
+   "flatBetween": 0.20203,
+   "clips": 4
+  }
+ ]
+}

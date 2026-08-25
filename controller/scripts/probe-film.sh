@@ -28,6 +28,17 @@ FILE=""; JSON=0
 WIDTH="${PROBE_REFERENCE_WIDTH:-1920}"
 N="${PROBE_SAMPLES:-8}"; LEN="${PROBE_SECLEN:-4}"
 CRF="${PROBE_CRF:-20}"; PRESET="${PROBE_PRESET:-medium}"
+# SAMPLE-GRID PHASE, 0 <= PHASE < 1, in units of the gap between samples.
+#
+# WHY THIS EXISTS. Offsets are T = start + span*i/N, which is deterministic — the whole point, since
+# a ladder or a re-probe must hit the same scenes to be comparable. But x265 is ALSO deterministic,
+# so re-probing a film with the same N re-encodes the identical clips and returns byte-identical
+# bitrates. Pooling those into the sample set adds rows and no information, and because
+# SE = sd/sqrt(n) it makes the error bar SHRINK on evidence that does not exist. Measured 2026-08-18:
+# Dunkirk stored n=64 from 16 distinct clips, reporting cxRSE 0.199 against a true 0.407.
+# Shifting the grid by a fraction of one gap makes a revisit sample BETWEEN the previous points, so
+# pooling genuinely adds information and SE falls for the right reason.
+PHASE="${PROBE_PHASE:-0}"
 THREADS="${PROBE_THREADS:-3}"     # of 4 cores — a probe must never make the box unresponsive
 
 while [ $# -gt 0 ]; do
@@ -38,6 +49,7 @@ while [ $# -gt 0 ]; do
     --seclen)  LEN="$2"; shift ;;
     --crf)     CRF="$2"; shift ;;
     --preset)  PRESET="$2"; shift ;;
+    --phase)   PHASE="$2"; shift ;;
     --threads) THREADS="$2"; shift ;;
     -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     *)         FILE="$1" ;;
@@ -60,6 +72,41 @@ SIZE=$(fv size)
 VB=$(pv bit_rate); TB=$(fv bit_rate)
 SRCBPS=$(echo "${VB:-0} ${TB:-0}" | awk '{ vb=$1+0; tb=$2+0;
   if (vb>0 && (tb<=0 || vb<=tb*1.05)) print vb; else print tb }')
+# WHICH NUMERATOR WE ACTUALLY GOT — recorded, never inferred later. 'video' means SRCBPS is already
+# audio-free (the stream carried its own rate); 'container' means every audio track is still inside
+# it. Measured 2026-08-20: 537 of 898 movies are 'video', 361 are 'container'.
+#
+# R is a supply ratio and both sides must be video-only, exactly as the numerator is (§3.2). The
+# correction lives in videoR() in probe.js and subtracts the measured audio ONLY on the container
+# path. That flag is the whole point: a blanket subtraction would deflate the 60% of the library
+# that was already clean by a median 2.1% — a NEW error bigger than the one it repairs.
+SRCBASIS=$(echo "${VB:-0} ${TB:-0}" | awk '{ vb=$1+0; tb=$2+0;
+  if (vb>0 && (tb<=0 || vb<=tb*1.05)) print "video"; else print "container" }')
+
+# ---- AUDIO, MEASURED RATHER THAN BELIEVED ────────────────────────────────────────────────────────
+# *arr reports `audioBitrate` for ONE track. Lawrence of Arabia has audioStreamCount 2 and reports
+# only the 448k AC3; the DTS-HD MA track that actually dominates the container reports NOTHING. On the
+# ~18% of the library where videoBitrate is absent, bppOf() falls back to size/duration and charges
+# ALL of that audio to video — which most flatters multi-dub and lossless-audio releases, exactly the
+# releases we least want flattered. arr-inspect's audioToSubtract() can only subtract what *arr
+# admits to, so it recovers 1 point of Lawrence's 11.
+#
+# Packet sizes are ground truth and cost one ffprobe read with NO decoding. `-select_streams a` takes
+# every audio stream, so dubs and commentary tracks are counted, which is the entire point.
+#
+# Sampled from one third in, over a window, rather than the whole file: a full-file packet dump on a
+# 26 GB remux is slow and buys nothing, since audio is near-CBR per track. The window is deliberately
+# past the opening credits, where a track can be silent and misrepresent a VBR codec.
+AUDIO_WIN="${AUDIO_WIN:-120}"
+if [ -n "$DUR" ] && [ "$DUR" -gt 0 ] 2>/dev/null; then
+  ASTART=$(echo "$DUR" | awk '{printf "%d", $1/3}')
+  ABPS=$(ffprobe -v error -read_intervals "${ASTART}%+${AUDIO_WIN}" -select_streams a \
+    -show_entries packet=size -of default=nw=1:nk=1 "$FILE" 2>/dev/null \
+    | awk -v w="$AUDIO_WIN" '{s+=$1} END{ printf "%.0f", (w>0 ? s*8/w : 0) }')
+  ATRACKS=$(ffprobe -v error -select_streams a -show_entries stream=index \
+    -of default=nw=1:nk=1 "$FILE" 2>/dev/null | wc -l | tr -d ' ')
+fi
+ABPS="${ABPS:-0}"; ATRACKS="${ATRACKS:-0}"
 
 [ -n "$DUR" ] && [ "$DUR" -gt 0 ] 2>/dev/null || { echo "probe-film: no duration for '$FILE'" >&2; exit 3; }
 [ -n "$W" ] && [ "$W" -gt 0 ] 2>/dev/null || { echo "probe-film: no video stream in '$FILE'" >&2; exit 3; }
@@ -87,10 +134,10 @@ fi
 # Sample window: skip the first and last 5% (logos, credits — unrepresentative and often black).
 S=$(( DUR * 5 / 100 )); SPAN=$(( DUR * 90 / 100 ))
 
-TOTBITS=0; TOTSEC=0; i=0; KLIST=""; BLOCKS=""; BLURS=""; OK=0
+TOTBITS=0; TOTSEC=0; i=0; KLIST=""; PLIST=""; BLOCKS=""; BLURS=""; OK=0
 START=$(date +%s)
 while [ "$i" -lt "$N" ]; do
-  T=$(( S + SPAN * i / N ))
+  T=$(echo "$S $SPAN $i $N $PHASE" | awk '{ printf "%d", $1 + $2*($3+$5)/$4 }')
   OUT=$(ffmpeg -nostdin -hide_banner -loglevel info -ss "$T" -t "$LEN" -i "$FILE" \
         -vf "$VF" -c:v libx265 -crf "$CRF" -preset "$PRESET" -threads "$THREADS" \
         -an -sn -f null - 2>&1) || true
@@ -106,6 +153,12 @@ while [ "$i" -lt "$N" ]; do
     TOTSEC=$(echo "$TOTSEC $FRAMES $FPS"        | awk '{printf "%.3f", $1 + $2/$3}')
     OK=$(( OK + 1 ))
     KLIST="$KLIST $KBPS"; BLOCKS="$BLOCKS ${BLK:-0}"; BLURS="$BLURS ${BLR:-0}"
+    # WHERE the sample was taken, as a fraction of runtime. Without this a per-sample record is a
+    # bag of numbers in arbitrary order: you cannot tell scene-to-scene variation (a property of
+    # the film) from repeat-measurement noise at the same timestamp (a property of the encoder),
+    # and pooled samples from several visits land on the SAME offsets, so plotting them as a
+    # sequence invents a trend that is not there.
+    PLIST="$PLIST $(echo "$T $DUR" | awk '{printf "%.4f", ($2>0 ? $1/$2 : 0)}')"
   fi
   [ "$JSON" -eq 1 ] || printf '  sample %d @%-6ds %8s kb/s   block=%-10s blur=%s\n' \
       "$i" "$T" "${KBPS:-FAIL}" "${BLK:-?}" "${BLR:-?}" >&2
@@ -151,9 +204,23 @@ echo "$TOTBITS $TOTSEC $SRCBPS $CODEC $W $H $FPS $WIDTH $WALL $OK $N $LEN $CRF $
 BM=$(echo "$BLOCKS" | awk '{s=0;n=0;for(j=1;j<=NF;j++){s+=$j;n++} printf "%.4f", n?s/n:0}')
 LM=$(echo "$BLURS"  | awk '{s=0;n=0;for(j=1;j<=NF;j++){s+=$j;n++} printf "%.4f", n?s/n:0}')
 if [ "$JSON" -eq 1 ]; then
-  printf ',"blockMean":%s,"blurMean":%s,"sampleKbps":[%s]}\n' "$BM" "$LM" \
-    "$(echo "$KLIST" | awk '{for(j=1;j<=NF;j++) printf "%s%s", (j>1?",":""), $j}')"
+  # PER-SAMPLE block/blur, not just the means. The means have been stored since the beginning and
+  # marked UNTESTED for months, because testing an artifact detector seemed to need a subjective
+  # label and this library has none. It does not: SPLIT-HALF RELIABILITY asks whether a detector
+  # carries real per-film signal at all, and that needs only repeated readings of the same film.
+  # Averaging them away here is exactly what made that test impossible. Costs nothing — the values
+  # are already computed per sample.
+  printf ',"blockMean":%s,"blurMean":%s,"sampleBlock":[%s],"sampleBlur":[%s],"audioBps":%s,"audioTracks":%s,"srcBasis":"%s","sampleKbps":[%s],"samplePos":[%s],"phase":'"$PHASE"'}\n' \
+    "$BM" "$LM" \
+    "$(echo "$BLOCKS" | awk '{for(j=1;j<=NF;j++) printf "%s%s", (j>1?",":""), $j}')" \
+    "$(echo "$BLURS"  | awk '{for(j=1;j<=NF;j++) printf "%s%s", (j>1?",":""), $j}')" \
+    "$ABPS" "$ATRACKS" "$SRCBASIS" \
+    "$(echo "$KLIST" | awk '{for(j=1;j<=NF;j++) printf "%s%s", (j>1?",":""), $j}')" \
+    "$(echo "$PLIST" | awk '{for(j=1;j<=NF;j++) printf "%s%s", (j>1?",":""), $j}')"
 else
+  printf '  audio      %.0f kb/s measured across %s track(s)\n' "$(echo "$ABPS" | awk '{print $1/1000}')" "$ATRACKS"
+  printf '  srcBasis   %s%s\n' "$SRCBASIS" \
+    "$([ "$SRCBASIS" = container ] && echo '  (audio is inside srcBitrate; R gets it subtracted)' || echo '  (already audio-free)')"
   printf '  detectors  block %s  blur %s\n' "$BM" "$LM"
   printf '  file       %s\n' "$(basename "$FILE")"
 fi

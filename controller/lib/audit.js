@@ -33,18 +33,25 @@ const { tfetch, tfetchJson, arrGet, arrDelete, arrOf, qbit } = require('./client
 // Read-only: used solely to learn the Top 100 playlist's ORDER for the Upgrade tab's ranking.
 const { jellyfinUserId } = require('./jellyfin');
 const { getQbitTorrents } = require('./arr-data');
-const { gpuTier, videoLabel, bppOf, bppBand, bppIndex, bppBasis, BPP_RANK, X265_EFFICIENCY } = require('./arr-inspect');
-const { importViaManual, previewManualImport } = require('./importer');
+const { gpuTier, videoLabel, bppOf, bppBand, bppIndex, bppBasis, bppRSE, bppRatioR, bppDisagree, BPP_RANK, X265_EFFICIENCY } = require('./arr-inspect');
+const { importViaManual, previewManualImport, probeDurationSecs } = require('./importer');
 const {
-  auditVerdicts, auditPending, auditSwapped, auditDead, gpuPending, persistState, persistVerdicts, isMasterPaused, swapForHash,
+  auditVerdicts, auditPending, auditSwapped, auditDead, auditHistory, recordAuditOutcome, gpuPending, persistState, persistVerdicts, isMasterPaused, swapForHash,
 } = require('./state');
 // Shared release-title heuristics — see ./release-rules for the case history behind each rule.
 // NOTE: TENBIT_RE is deliberately NOT imported; audit.js has its own stricter variant below.
 const {
   srcRank, REENC_RE, audioOf, AUDIO_RANK, isRefused, isMultiSeason,
-  ownEditionOf, editionRefusal, editionOf, editionFloorFor, editionUpgradeFor, resOf, overResCeiling, MAX_USABLE_RES,
-  nonSizeCfScore,
+  ownEditionOf, editionRefusal, editionOf, editionFloorFor, editionUpgradeFor, imaxUpgradeFor, resOf, overResCeiling, MAX_USABLE_RES,
+  nonSizeCfScore, cfRefusalIsExcusable, runtimeVerdict, runtimeShortDetail,
+  editionNotWorse, EDITION_UNSTATED, cfDeficits, cfFormatsFromRejection,
 } = require('./release-rules');
+
+// row.key -> { formats, scoreByName } for the file(s) that row represents. Rebuilt by every
+// buildRows pass and read only by cfBlockedFor; see the note there for what it is for. Kept beside
+// the rows rather than ON them because seven push sites construct rows and none of them should have
+// to know about custom formats.
+const _cfRowInfo = new Map();
 
 // Bump when the candidate FILTER changes: verdicts computed under older rules are wrong,
 // not merely old, so they must be discarded rather than aged out. v2 added the wrong-show
@@ -130,12 +137,89 @@ const VERIFY_EVERY_MS = 45000;                 // paced: 114 searches at 45s ≈
 //                        recorded instruction.
 //   Normal (default)  -> listed at PURPLE only. Beyond what the hardware can resolve.
 const BLOAT_BAND_BY_PROFILE = (profile) => (String(profile || '').startsWith('Low') ? 'ok' : 'wow');
+
+// ---- OVER-SUPPLY: HOW MUCH DISK IS BUYING NOTHING ────────────────────────────────────────────
+// The band above answers "is this file in a tier richer than this title needs". It cannot answer
+// "and how much disk would that actually give back", and those come apart badly at both ends:
+// Parasite is 13.3 GB at band `wow` with 8.5 GB of slack, while a 2 GB `wow` file has none worth
+// the click. Measured 2026-08-18 across 885 films / 3191 GB, only 33 films hold meaningful slack.
+//
+// R = srcBitrate / probeBitrate, already measured per unit by the CRF probe.
+//
+// WHAT "TRANSPARENT" DOES AND DOES NOT MEAN — Brennan raised this and it governs the wording:
+// probeBitrate is a CRF-20 encode OF OUR COPY, so the baseline is "indistinguishable from the file
+// we already have", NEVER "indistinguishable from the negative". Our copy's own compression — and
+// any damage baked into the master it came from — sits INSIDE that baseline. So R > 2 means "this
+// file spends more than twice the bits reproducing ITS OWN CONTENT would take". It is a statement
+// about disk, and it is NOT a claim that the picture is good or that a smaller copy would match it.
+// The blind test (2026-08-13) is the proof: BPP+ is essentially R (r=0.944) and R scored rho=0.146
+// against what Brennan's eye actually sees. Row copy must not imply "same quality, smaller".
+//
+// THE BIAS RUNS TOWARD PROTECTING FILES, which is the safe direction. A file with boiling or
+// blocking baked in makes the probe spend bits reproducing that damage, which inflates
+// probeBitrate and DEFLATES R — so a damaged file looks MORE justified and is less likely to be
+// listed. Likewise grainy films can barely ever appear: measured R is 0.19 for Killer of Sheep,
+// 0.74 for 12 Angry Men, 0.76 for Taxi Driver, against 5.58 for Parasite. The classics that top the
+// raw GB list are structurally excluded, which is the entire point.
+//
+// 2x, not 1.5x. 1.5 raises the yield from ~80 GB to ~180 GB but starts on files whose margin is
+// thinner than a measurement alone should decide. At 2x every listed file still carries double what
+// reproducing it needs, so no suggestion here can plausibly be the reason something looks worse.
+// Has any release we have already seen for this unit called itself IMAX? Reads the verdict cache the
+// verifier fills anyway, so it costs nothing and grows on its own as the library is re-checked.
+// Sections are tried in turn because a film is verified under whichever section listed it.
+const IMAX_CAND_RE = /\bimax\b/i;
+function imaxCandidateSeen(key) {
+  for (const sec of ['edition', 'upgrade', 'bitrate', 'cpu']) {
+    const v = auditVerdicts.get(`${sec}:${key}`);
+    if (!v || !Array.isArray(v.candidates)) continue;
+    if (v.candidates.some((c) => IMAX_CAND_RE.test(String(c && c.title || '')))) return true;
+  }
+  return false;
+}
+// Scope framing, i.e. NOT already expanded. Mirrors IMAX_AR_MAX in release-rules.js — a held file
+// below 2.0 already carries the wider picture whatever its name says (the Nolan discs are 1.78).
+function arIsScope(resolution) {
+  const m = /^(\d+)\s*x\s*(\d+)$/.exec(String(resolution || '').trim());
+  return !!(m && +m[2] > 0 && (+m[1] / +m[2]) >= 2.0);
+}
+const OVERSUPPLY_R = 2;
+const OVERSUPPLY_MIN_GB = 2;    // below this the row is not worth a human's attention
+// Bytes that could come back if the file were brought down to OVERSUPPLY_R x transparent. Null when
+// the unit was never probed (no R) or is not over-supplied — callers treat null as "no claim".
+// A SEASON'S R IS EXTRAPOLATED FROM TWO EPISODES, and that is not always safe to spend disk on.
+// The probe measures EPISODES_PER_SEASON = 2 interior episodes and averages them; `disagree` is how
+// far apart those two came out. Measured 2026-08-18, the seasons this section ranked HIGHEST were
+// exactly the ones with the least trustworthy number: House of Cards S01 disagree 0.789 on a 52 GB
+// pack, Peaky Blinders S05 0.817, Lessons in Chemistry S01 0.572. Claiming "26 GB recoverable" from
+// two episodes that disagreed by 79% is a bigger leap than a movie's single measured file, and it is
+// the rows a human is most likely to act on first.
+//
+// So a season must be HOMOGENEOUS to carry an over-supply claim. 0.25 is probe.js's own
+// SEASON_DISAGREE, the point at which it already logs "season is not homogeneous, its complexity is
+// low-confidence" — reused rather than invented so both halves mean the same thing. Such a season is
+// not hidden: it still lists on the band rule as before, just without a recoverable figure it cannot
+// support. Movies report null disagree and are unaffected.
+const SEASON_DISAGREE_MAX = 0.25;
+function overSupplyBytes(bytes, key) {
+  const R = Number(bppRatioR(key)) || 0;
+  const dis = bppDisagree(key);
+  if (dis != null && dis > SEASON_DISAGREE_MAX) return null;
+  if (!(R > OVERSUPPLY_R) || !(bytes > 0)) return null;
+  const over = bytes * (1 - OVERSUPPLY_R / R);
+  return over >= OVERSUPPLY_MIN_GB * 1e9 ? Math.round(over) : null;
+}
 // How long a swap's torrent may be absent from qBittorrent before the swap is abandoned. MODULE
 // level because BOTH replaceSweep (which does the abandoning) and the swap-health reported to the
 // UI must use the same number: reporting "torrent gone / abandoning" on a swap seconds old was
 // wrong and alarming — *arr takes a moment to hand the grab to qBittorrent, so a brand-new swap
 // legitimately has no torrent yet. Below this age, absence means "starting", not "gone".
 const VANISHED_AFTER_MS = 15 * 60000;
+// How long a swap may sit with NO download hash before it is written off. Longer than
+// VANISHED_AFTER_MS because the hash arrives from *arr's queue rather than from qBittorrent, and
+// *arr can take a while to hand a grab over on a busy box — but bounded, because once its queue is
+// empty there is nothing left that could ever supply one. See the !p.hash branch in the sweep.
+const HASHLESS_GIVEUP_MS = 60 * 60000;
 // Caches must be refreshed BEFORE they expire, not on the request that finds them cold.
 // A cold /api/audit pays for ~96 Sonarr episodefile calls, a full inode walk of /data, and
 // two *arr history fetches — tens of seconds, which is what Brennan hit. The warmer below
@@ -157,6 +241,17 @@ const WARM_EVERY_MS = 9 * 60 * 1000;
 
 let auditBusy = false;
 let _rowCache = { ts: 0, rows: null };
+// The single in-flight rebuild, or null. See startRowBuild.
+let _rowBuild = null;
+// Run `fn` over `items` with at most `limit` in flight. Order of completion is not preserved and the
+// caller collects results itself — every use here is a side-effecting push, so that is all it needs.
+async function pooledForEach(items, limit, fn) {
+  const queue = items.slice();
+  const workers = Array.from({ length: Math.min(limit, queue.length) }, async () => {
+    for (let it = queue.shift(); it !== undefined; it = queue.shift()) await fn(it);
+  });
+  await Promise.all(workers);
+}
 
 function secs(rt) {
   if (!rt) return 0;
@@ -373,22 +468,58 @@ function candPriority(row) {
 //
 // Done on the way OUT, deliberately — same reasoning as rankCands above. The fix reaches every
 // verdict already on disk instead of needing a VERDICT_VERSION bump and hours of re-verification.
+// ── "*arr will refuse this" — and whether WE override it ───────────────────────────────────────
+// The naive test is `candidate.cfScore <= file.cfScore`, which is exactly *arr's own arithmetic and
+// was what this used. It is also WRONG for the case Brennan hits most, and it greys out the button
+// so he cannot even try:
+//
+//   Scarface (1983), 2026-08-11. On disk: [H.264 (GPU), Original-language audio, Size 1.5-3 GB] =
+//   360. The release he picked: [H.264 (GPU), Original-language audio, Size 6-10 GB] = 260. Same
+//   codec, same language, same cut, three times the bitrate — and 100 points "worse", ALL of it the
+//   size band, which is deliberately negative at the top end to steer AUTOMATIC grabs toward
+//   midrange files. Star Wars: The Rise of Skywalker was the same shape (260 vs 280).
+//
+// The import path has excused exactly this since 2026-07-30 (cfRefusalIsExcusable, built for this
+// sentence: "for upgrades and replacements I've chosen a source, I don't want it rejected for file
+// size"). So the preflight, the button and the import must all ask the SAME question, or the tab
+// refuses downloads that would have imported perfectly. They disagreed; this is what fixes it.
+//
+// Falls back to the raw score comparison whenever the format NAMES are unavailable (a cached verdict
+// from before this existed, a chunk of /moviefile that failed, a profile we could not read). That
+// fallback is the old behaviour — stricter, never looser.
+function cfBlockedFor(row, candScore, candFormats) {
+  if (typeof row.cfScore !== 'number' || typeof candScore !== 'number') return false;
+  if (candScore > row.cfScore) return false;                       // *arr accepts it outright
+  const cf = _cfRowInfo.get(row.key);
+  if (!cf || !cf.scoreByName || !candFormats) return true;         // no names → old, stricter answer
+  return !cfRefusalIsExcusable(cf.formats, candFormats, cf.scoreByName);
+}
+
 function rescoreCand(c, row, priority) {
   if (!c || c.bpp == null) return c;
   return {
     ...c,
-    bppPlus: bppIndex(c.bpp, row.key),
+    bppPlus: bppIndex(c.bpp, row.key), bppRSE: bppRSE(row.key),
     bppBand: bppBand(c.bpp, row.key),
     cxBasis: bppBasis(row.key),
     bandWeak: !candidateBandOk(c.bpp, row.bpp, priority, row.key),
+    // RE-DERIVED AT SERVE TIME, not trusted from the cached verdict. Verdicts live for hours and
+    // predate this check entirely, and the row's own score moves every time a file is swapped —
+    // so recompute against the CURRENT file rather than pinning whatever was true at verify time.
+    cfBlocked: cfBlockedFor(row, c.cfScore, c.cfFormats),
+    cfNeed: typeof row.cfScore === 'number' ? row.cfScore : null,
   };
 }
 
 // bpp for a row, from the representative mediaInfo plus the row's own bytes/seconds. The
 // size-derived total is the fallback because mediaInfo.videoBitrate is 0 on ~18% of movies
 // (154 of 859, measured 2026-08-01) — see bppOf() in arr-inspect.js.
-function bppFor(mi, bytes, sec) {
-  return bppOf(mi, sec > 0 ? (bytes * 8) / sec : null);
+// `key` is the probe unit key and is OPTIONAL, exactly as it is for bppIndex(): with it, audio can be
+// subtracted from a MEASUREMENT rather than from *arr's single-track claim. Without it the result is
+// bit-identical to the previous behaviour, so a call site that cannot name its title degrades rather
+// than breaks.
+function bppFor(mi, bytes, sec, key) {
+  return bppOf(mi, sec > 0 ? (bytes * 8) / sec : null, key);
 }
 // A candidate's bpp is ESTIMATED, not measured: we have its byte size and title but never probe
 // it. Same film and same runtime, so bits scale with bytes — then x1.8 if the candidate switches
@@ -438,17 +569,101 @@ function deviceSupport(codec, depth) {
 const TIER_SLACK = 1;
 
 // ---- row building ─────────────────────────────────────────────────────────────────────────
+// THE PUBLIC ENTRY POINT, and it exists to make a slow rebuild invisible rather than to make it fast.
+//
+// MEASURED 2026-08-10 on a loaded NUC: a cold rebuild is 59.5s, a warm read is 0.038s — a factor of
+// 1500. The controller is only at ~5% CPU across those 59 seconds; it is BLOCKED ON HTTP to Radarr
+// and Sonarr, which are themselves CPU-starved. So the fix is never to make a request wait on one.
+//
+// Two guarantees:
+//   SINGLE-FLIGHT. Concurrent callers share ONE rebuild. Before this, three requests arriving during
+//   a rebuild ran three full independent rebuilds — each re-fetching 878 movies and one episodefile
+//   call per series — which loaded the very services they were waiting on and made the stall worse.
+//   That is why a /replace and a search could both hang for 30s at the same time.
+//
+//   STALE-WHILE-REVALIDATE. If rows exist at all, they are returned IMMEDIATELY and the refresh runs
+//   in the background. A caller only ever waits when there is genuinely nothing to serve (first call
+//   after boot). `force` still waits, because /api/audit?refresh=1 means "I want today's answer".
+//
+// Together these are what let the invalidation sites stay aggressive: dropping the cache after every
+// replace is correct for freshness, and now costs a background refresh instead of a 60s stall.
 async function buildRows(force = false) {
   if (!force && _rowCache.rows && Date.now() - _rowCache.ts < ROW_CACHE_MS) return _rowCache.rows;
+  if (!force && _rowCache.rows) {
+    // Stale but serveable. Kick the refresh and answer now. The catch is load-bearing: nobody is
+    // awaiting this promise, so without it a failed rebuild is an unhandled rejection.
+    startRowBuild().catch(() => {});
+    return _rowCache.rows;
+  }
+  return startRowBuild();
+}
+// Owns the in-flight promise. Every path into a rebuild goes through here so there can only ever be
+// one, and the cache is written in exactly one place.
+function startRowBuild() {
+  if (!_rowBuild) {
+    _rowBuild = buildRowsInner()
+      .then((rows) => { _rowCache = { ts: Date.now(), rows }; return rows; })
+      .finally(() => { _rowBuild = null; });
+  }
+  return _rowBuild;
+}
+// INVALIDATE WITHOUT DISCARDING. Keeping the rows while zeroing the timestamp is what makes
+// stale-while-revalidate possible: the next reader gets last-known-good instantly and triggers the
+// refresh, instead of finding null and being forced to block for a minute. The rows are a cache of a
+// derived view, so serving one a few seconds out of date is always better than serving nothing.
+function invalidateRows() { _rowCache = { ts: 0, rows: _rowCache.rows }; }
+async function buildRowsInner() {
   const movies = await arrGet('radarr', '/movie');
   const series = await arrGet('sonarr', '/series');
   const mfs = movies.filter((m) => m.hasFile && m.movieFile).map((m) => m.movieFile);
+  // One /episodefile call PER SERIES, and it used to be a serial await inside a for-loop — ~100
+  // sequential round-trips to a Sonarr that is busy, which was a large share of the 59.5s. Run them
+  // with a small concurrency cap: enough to hide the latency, low enough not to become the reason
+  // Sonarr is slow. Failures still skip that series rather than failing the whole rebuild.
   const epFiles = [];
-  for (const s of series) {
-    let fl; try { fl = await arrGet('sonarr', `/episodefile?seriesId=${s.id}`); } catch { continue; }
+  await pooledForEach(series, 4, async (s) => {
+    let fl; try { fl = await arrGet('sonarr', `/episodefile?seriesId=${s.id}`); } catch { return; }
     for (const f of (Array.isArray(fl) ? fl : [])) epFiles.push({ ...f, _series: s });
-  }
+  });
   const depthMap = buildDepthMap(mfs, epFiles);
+  // THE SCORE *ARR WILL JUDGE THE REPLACEMENT AGAINST. Radarr refuses to import a release whose
+  // custom-format score does not BEAT the file already on disk ("not a custom format upgrade"), and
+  // until now this tab could not see that number, so it cheerfully offered releases that could never
+  // land: Blazing Saddles' x265 BONE encode scores 300 against the 310 on disk, and The Force
+  // Awakens' AV1 copy scores -1000 against 300. Both were grabbed, both were refused, and the tab
+  // gave no warning either time.
+  //
+  // Sonarr ships customFormatScore on the bulk /episodefile payload; Radarr's /movie does NOT carry
+  // it on the embedded movieFile, and one call per movie is ~880 round-trips. /moviefile accepts
+  // repeated movieId params, so ask in chunks: ~9 calls at ~170ms for the whole library. Chunked at
+  // 100 to keep the URL well short of any proxy's limit. A failed chunk leaves those movies with a
+  // null score, which disables the check for them rather than blocking their candidates.
+  const cfScoreByMovie = new Map();
+  // The format NAMES behind each score, plus the profile that scored them — what cfBlockedFor needs
+  // to tell "worse only on file size" from "worse on something that matters". Rebuilt every pass and
+  // keyed by row.key so the seven row-push sites below stay untouched.
+  _cfRowInfo.clear();
+  const rProfFormats = new Map((await arrGet('radarr', '/qualityprofile').catch(() => []))
+    .map((p) => [p.id, new Map((p.formatItems || []).map((f) => [f.name, Number(f.score) || 0]))]));
+  const withFiles = movies.filter((m) => m.hasFile && m.movieFile);
+  const movieById = new Map(movies.map((m) => [m.id, m]));
+  for (let i = 0; i < withFiles.length; i += 100) {
+    const chunk = withFiles.slice(i, i + 100);
+    const qs = chunk.map((m) => `movieId=${m.id}`).join('&');
+    try {
+      for (const f of await arrGet('radarr', `/moviefile?${qs}`, 20000)) {
+        if (typeof f.customFormatScore === 'number') cfScoreByMovie.set(f.movieId, f.customFormatScore);
+        const mv = movieById.get(f.movieId);
+        const sbn = mv && rProfFormats.get(mv.qualityProfileId);
+        if (sbn) {
+          _cfRowInfo.set(`mv:${f.movieId}`, {
+            formats: (f.customFormats || []).map((c) => c && c.name).filter(Boolean),
+            scoreByName: sbn,
+          });
+        }
+      }
+    } catch { /* leave this chunk unscored — the check simply does not run for them */ }
+  }
 
   const cpu = [], bitrate = [], edition = [], upgrade = [];
   // Read-only, cached an hour. Degrades to an empty map if Jellyfin is unreachable, in which case
@@ -460,7 +675,42 @@ async function buildRows(force = false) {
   // for 237 GiB, comparable to a chunk of the TV list.
   for (const m of movies) {
     const mf = m.movieFile;
-    if (!m.hasFile || !mf || !mf.mediaInfo) continue;
+    if (!m.hasFile || !mf) continue;
+    // ── A FILE *ARR COULD NOT READ AT ALL ────────────────────────────────────────────────────
+    // This used to be part of the skip above, which meant the single most suspect class of file in
+    // the library was invisible in EVERY audit section. The Star Wars Holiday Special (1978) is the
+    // case: a 1.07 GB `.VOB` holding 15.7 minutes of a 97-minute programme — 16% of the film — and
+    // it appeared in no tab at all, because Radarr has no mediaInfo for it and this loop bailed
+    // before any row was built. Brennan went looking for it in the Upgrade tab and it simply was not
+    // there. Only the ffprobe pass of `make runtimes` ever found it.
+    //
+    // Unreadable is not benign. Every quality figure below (bpp, band, codec label, decode tier)
+    // needs mediaInfo, so those stay null rather than being guessed — but the ROW still exists, in
+    // the one section whose job is "find me a better copy", flagged `unprobed` so the UI can say why
+    // it has no numbers. A row with no data is vastly more useful than no row.
+    if (!mf.mediaInfo) {
+      upgrade.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
+        cfScore: cfScoreByMovie.has(m.id) ? cfScoreByMovie.get(m.id) : null,
+        title: `${m.title} (${m.year || '?'})`, files: 1, bytes: mf.size || 0,
+        mbps: null, bpp: null, bppPlus: null, bppBand: '', cxBasis: bppBasis(`mv:${m.id}`),
+        label: null, profile: rProf.get(m.qualityProfileId) || '?',
+        source: ((mf.quality || {}).quality || {}).name || null,
+        tier: null, minRatio: minRatioFor(m.genres, m.year),
+        origLang: (m.originalLanguage || {}).name || null,
+        edition: ownEditionOf(mf.edition, mf.relativePath, mf.originalFilePath),
+        editionLabel: ownEditionOf(mf.edition, mf.relativePath, mf.originalFilePath).label,
+        top100: m.tmdbId ? (top100.get(String(m.tmdbId)) || null) : null,
+        beloved: (rProf.get(m.qualityProfileId) || '').startsWith('Beloved'),
+        tmdbId: m.tmdbId || null, imdbId: m.imdbId || null,
+        added: Date.parse(m.movieFile.dateAdded || m.added || 0) || 0,
+        // The searchable haystack. NOT optional: /api/audit/upgrade does `r.q.includes(q)` on every
+        // row, so a row without it throws "Cannot read properties of undefined (reading 'includes')"
+        // and takes the WHOLE tab's search down — not just this row. Caught live 2026-08-12 the first
+        // time anyone typed in the box after unprobed rows started being listed.
+        q: `${m.title} ${m.year || ''}`.toLowerCase(),
+        unprobed: true });
+      continue;
+    }
     const prof = rProf.get(m.qualityProfileId) || '?';
     const title = `${m.title} (${m.year || '?'})`;
     // The file's own SOURCE ("Bluray-1080p", "WEBDL-1080p", "HDTV-1080p"). Candidates have
@@ -469,17 +719,48 @@ async function buildRows(force = false) {
     // HDTV-sourced suggestion for a Bluray-sourced file read as an unqualified win.
     const src = ((mf.quality || {}).quality || {}).name || null;
     const sec = secs((mf.mediaInfo || {}).runTime);
+    // ── IS THIS FILE EVEN THE WHOLE FILM? ────────────────────────────────────────────────────
+    // Free to ask — both numbers are already in hand, so no ffprobe and no extra request — and it
+    // changes which section the row belongs in, which is the second half of the Chinatown bug.
+    //
+    // THE TRAP: bits-per-pixel is a RATE, so truncation does not lower it. Chinatown's 68 minutes of
+    // a 130-minute film sat at 13.2 Mbps and therefore scored BPP+ 139, band "wow" — indistinguishable
+    // from a lavish encode. Two things followed, both wrong:
+    //   1. It was filed as BLOAT. The Disk section's candidate filter requires a candidate be smaller
+    //      than the current file (`size >= bytes * 0.9` is dropped), so the tab would only ever offer
+    //      to SHRINK a file that was already missing half the movie.
+    //   2. It never reached the Upgrade tab's attention order, which is gated on BPP+ below
+    //      UPGRADE_BPP_PLUS_MAX. At 139 it looked like one of the best files in the library.
+    // So a short file was simultaneously invisible as a problem and miscategorised as the opposite
+    // problem. Same verdict function as the swap preflight, so "short" means one thing everywhere.
+    const rtv = runtimeVerdict({ gotSecs: sec, filmSecs: (Number(m.runtime) || 0) * 60 });
+    const isShort = rtv.verdict === 'short';
     // Top 100 rank is DECLARED INTENT, read once here: it gates the Disk section (a purple Top 100
     // film is the goal, not bloat) and raises the candidate floor to green in verifyRow.
     const top100Rank = m.tmdbId ? (top100.get(String(m.tmdbId)) || null) : null;
     // Picture quality in the one unit that is comparable across the library. Every section
     // below carries it so the UI never has to re-derive a band. See arr-inspect.js bppOf().
-    const bpp = bppFor(mf.mediaInfo, mf.size || 0, sec);
+    // MEASURE A SHORT FILE AGAINST THE FILM, NOT AGAINST ITSELF. bpp is a RATE, so a truncated file
+    // reports the rate of the footage it happens to contain — 13.2 Mbps for Chinatown's 68 minutes,
+    // BPP+ 139, the green "wow" band. That number is not merely cosmetic: `candBppFrom` scales every
+    // candidate from it by BYTE RATIO, which silently assumes both files are the same length. Against
+    // an inflated baseline the arithmetic then demands a candidate be ~2x the size before it looks
+    // like an upgrade at all, which is why the only options offered for Chinatown were 12-49 GB
+    // remuxes while the sensible 6-9 GB Blurays were ranked out.
+    //
+    // So for a short row, divide by the runtime the film SHOULD have. The result answers the question
+    // that actually matters — "what rate would this file be if it covered the whole film?" (101 for
+    // Chinatown, not 139) — and every candidate comparison downstream becomes honest for free.
+    // videoBitrate is zeroed so bppOf cannot prefer the encode's own nominal rate over this.
+    const bppMi = isShort ? { ...(mf.mediaInfo || {}), videoBitrate: 0 } : mf.mediaInfo;
     // THE UNIT KEY, and it is load-bearing since the 2026-08-06 probe cutover. Passing it into
     // bppIndex/bppBand is what makes this film's score use ITS OWN measured complexity rather than a
     // library-wide constant. It is the same string as the row key below, and the same string
     // probe.js caches measurements under — both derived from the Radarr id, so they cannot drift.
+    // It is now declared BEFORE bppFor() as well, because the numerator needs it too: with a key,
+    // audio is subtracted from a measurement of every track instead of *arr's single-track claim.
     const ukey = `mv:${m.id}`;
+    const bpp = bppFor(bppMi, mf.size || 0, isShort ? rtv.wantSecs : sec, ukey);
     const band = bppBand(bpp, ukey);
     // Whether that score came from THIS film or was inferred from others. Carried onto every row so
     // the UI can mark an inferred number honestly (DESIGN-CRF-PROBE.md §6) instead of presenting a
@@ -489,28 +770,46 @@ async function buildRows(force = false) {
     // sections — Blade Runner is neither a CPU-decode nor a bitrate offender, it is simply the wrong
     // film. This is why it is a third section rather than a badge on Playback: an extended cut is
     // BIGGER and LONGER, so Disk-section reasoning would score the correct answer as bloat.
-    const ownEd = ownEditionOf(mf.edition, mf.relativePath);
+    const ownEd = ownEditionOf(mf.edition, mf.relativePath, mf.originalFilePath);
     const edFloor = editionFloorFor(m.title);
     // UPGRADE: every movie with a file, not just the offenders. This tab answers "I love this film,
     // show me the best copy that exists", so a title being already-good is not a reason to hide it —
     // the candidate search decides whether anything better is actually out there.
-    // Ranked so the films Brennan cares about surface first: Top 100 position, then Beloved profile,
-    // then alphabetical. Deliberately NOT worst-quality-first — that is what Playback/Disk are for.
-    upgrade.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
+    // Ordered most-recently-acquired first (see the sort below). top100/beloved are still carried on
+    // every row — they gate the candidate floor in verifyRow and drive the UI badges — they just no
+    // longer decide position. Deliberately NOT worst-quality-first: that is what Playback/Disk are for.
+    upgrade.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id, cfScore: cfScoreByMovie.has(m.id) ? cfScoreByMovie.get(m.id) : null,
       title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis,
+      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey),
+      // Carried so upgradeEligible() can admit a re-encode whatever its BPP+ — see the note there.
+      reenc: REENC_RE.test(`${mf.relativePath || ''} ${mf.originalFilePath || ''}`),
       label: videoLabel(mf.mediaInfo), profile: prof, source: src,
       tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
       origLang: (m.originalLanguage || {}).name || null,
       edition: ownEd, editionLabel: ownEd.label,
       top100: top100Rank,
       beloved: prof.startsWith('Beloved'),
+      // NOT THE WHOLE FILM. The strongest possible reason to replace a file, and it must travel on
+      // the row because BPP+ actively argues the opposite (see the runtimeVerdict note above — a
+      // truncated file scores HIGH). `shortMin`/`wantMin` are carried so the UI can say what is
+      // missing in minutes rather than as a ratio nobody reads.
+      short: isShort || undefined,
+      shortMin: isShort ? Math.round(rtv.gotSecs / 60) : undefined,
+      wantMin: isShort ? Math.round(rtv.wantSecs / 60) : undefined,
       // Identity fallback for the wrong-show guard: Radarr returns mappedMovieId=null for releases
       // whose titles it cannot parse, even when the release IS this movie (the indexer tagged it
       // with the right IMDb id — e.g. "The Blues Brothers*1980*TC[1080p...x264-LEON]" reads
       // "Unable to parse release" yet carries imdbId 80455). Collections/sequels carry 0 or a
       // different id, so the guard can admit exactly the well-tagged, wrongly-hidden copies.
       imdbId: m.imdbId || null,
+      // WHEN THE TITLE WAS FIRST ACQUIRED — m.added (added to Radarr), deliberately NOT
+      // mf.dateAdded (when the current FILE landed). This is the Upgrade tab's sort key.
+      //
+      // It was mf.dateAdded for one iteration and that was wrong in practice: every swap re-dates
+      // the file, so the top of the tab filled with films Brennan had just REPLACED — the ones he
+      // was already done with — instead of the films he had recently ADDED to the library, which is
+      // the backlog he actually wants to work. Replacing a copy is not acquiring a movie.
+      added: Date.parse(m.added || '') || 0,
       // Lower-cased once here so the client's search filter does not redo it for 800 rows per keypress.
       q: `${m.title} ${m.year || ''}`.toLowerCase() });
     // Two ways into the Edition section, and they are NOT the same claim:
@@ -521,10 +820,35 @@ async function buildRows(force = false) {
     // a row. `edPrefer` carries the target tier so the UI can word it as a suggestion rather than a
     // problem, and editionUpgradeFor refuses to fire below the floor so no film is ever in both.
     const edPrefer = editionUpgradeFor(m.title, ownEd);
+    // A THIRD WAY IN: right cut, narrower FRAME. For a film with sequences shot on IMAX or large
+    // format, the expanded version is more picture at the same runtime — so holding the scope copy is
+    // not a wrong cut, it is a smaller image. It ranks with `edPrefer` as a preference rather than a
+    // refusal: what is on disk is perfectly watchable, and if no expanded release exists the row is
+    // not a problem to be solved. Curated per title (IMAX_BEST) because aspect ratio alone cannot
+    // tell open matte from pan-and-scan — one adds picture, the other crops it.
+    // TWO WAYS TO KNOW A FILM HAS A WIDER VERSION, and the second one needs no list:
+    //
+    //   1. CURATED (IMAX_BEST)  — films known to be shot large-format. High confidence, but a hand
+    //      list can never be exhaustive and goes stale as the library grows.
+    //   2. EVIDENCE             — an IMAX-labelled RELEASE actually exists for this film, seen in
+    //      the candidates the verifier already fetched. Self-expanding and empirical: if a wider
+    //      version circulates, we find out without anyone maintaining anything.
+    //
+    // TMDB WAS CHECKED AND HAS NOTHING (2026-08-18): no imax / large-format / 65mm keyword on Dune,
+    // Dune Part Two or Oppenheimer. There is no metadata source to look this up in, which is why the
+    // evidence path matters rather than being a nicety.
+    //
+    // The evidence path deliberately matches ONLY /\bimax\b — never "open matte". Open-matte
+    // releases are frequently bad TV-framing rips that ADD nothing and reveal rigging, so treating
+    // one as proof of a better version could suggest a genuine downgrade. IMAX labelling is specific
+    // enough to trust as a hint, and the row is only ever a suggestion a human accepts.
+    const imaxSeen = !ownEd.imax && imaxCandidateSeen(`mv:${m.id}`);
+    const wantImax = imaxUpgradeFor(m.title, ownEd, (mf.mediaInfo || {}).resolution, m.year)
+      || (imaxSeen && arIsScope((mf.mediaInfo || {}).resolution));
     if (edFloor != null && ownEd.tier < edFloor) {
-      edition.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
+      edition.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id, cfScore: cfScoreByMovie.has(m.id) ? cfScoreByMovie.get(m.id) : null,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis,
+      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey),
         label: videoLabel(mf.mediaInfo), profile: prof, source: src,
         tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null,
@@ -539,9 +863,9 @@ async function buildRows(force = false) {
       // The softer row. Same shape so the section renders it with one template, but `editionPrefer`
       // marks it as a suggestion: what is on disk is allowed to stay, and if nothing better turns up
       // this row is not a problem to be solved.
-      edition.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
+      edition.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id, cfScore: cfScoreByMovie.has(m.id) ? cfScoreByMovie.get(m.id) : null,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis,
+      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey),
         label: videoLabel(mf.mediaInfo), profile: prof, source: src,
         tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null,
@@ -549,6 +873,20 @@ async function buildRows(force = false) {
         imdbId: m.imdbId || null,
         editionLabel: ownEd.label, editionStated: ownEd.label !== null,
         want: edPrefer >= 4 ? 'Final Cut' : (edPrefer === 3 ? "Director's Cut" : 'Extended / long cut') });
+    } else if (wantImax) {
+      edition.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id, cfScore: cfScoreByMovie.has(m.id) ? cfScoreByMovie.get(m.id) : null,
+        title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
+        bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey),
+        label: videoLabel(mf.mediaInfo), profile: prof, source: src,
+        tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
+        origLang: (m.originalLanguage || {}).name || null,
+        edition: ownEd, tmdbId: m.tmdbId || null, imdbId: m.imdbId || null,
+        editionLabel: ownEd.label, editionStated: ownEd.label !== null,
+        // Distinct from editionPrefer so the UI can word it as FRAMING, not as a cut. Saying
+        // "extended cut available" about an IMAX release would be wrong: same edit, more image.
+        imaxPrefer: true,
+        resolution: (mf.mediaInfo || {}).resolution || null,
+        want: 'IMAX / expanded framing — more picture, same cut' });
     }
     if (gpuTier(mf.mediaInfo) !== 'ok') {
       // Playback rows carry `mbps` too. They used not to, and because qualityBand() returns
@@ -557,16 +895,16 @@ async function buildRows(force = false) {
       // other than which constructor happened to compute a number both tabs could use.
       // It cannot change which candidates are offered: the AGGRESSIVE_FLOOR ratio filter lives
       // in verifyRow's `else` (Disk-only) branch, so Playback still shows everything it did.
-      cpu.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
+      cpu.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id, cfScore: cfScoreByMovie.has(m.id) ? cfScoreByMovie.get(m.id) : null,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, top100: top100Rank, beloved: prof.startsWith('Beloved'),
+      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey), top100: top100Rank, beloved: prof.startsWith('Beloved'),
         label: videoLabel(mf.mediaInfo), profile: prof,
         source: src, tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null, imdbId: m.imdbId || null,
         // WHICH CUT we hold. Both sources are consulted because each knows things the other does
         // not — see ownEditionOf. Carried on the row so the candidate filter can refuse an edition
         // downgrade without re-fetching anything.
-        edition: ownEditionOf(mf.edition, mf.relativePath) });
+        edition: ownEditionOf(mf.edition, mf.relativePath, mf.originalFilePath) });
     }
     // DISK. Selects on the bpp band now, not a flat Mbps number, and no longer only on x264 —
     // a fat 10-bit HEVC season used to be invisible here because the codec filter excluded it,
@@ -581,18 +919,32 @@ async function buildRows(force = false) {
     // the Playback section already lists: the two sections are answering different questions about
     // the same file (CPU cost vs disk cost) and seeing both is more useful than seeing one.
     // Only the CODEC filter is gone for good: it excluded HEVC 8-bit, which is pure disk cost.
-    if (sec) {
+    // A SHORT FILE IS NEVER BLOAT, whatever its bitrate says. Excluded here rather than sorted low,
+    // because every candidate this section could offer is by definition smaller than a file that is
+    // already missing footage — the row is not merely low-priority, it is actively harmful. It
+    // surfaces in the Upgrade section instead, flagged `short`. See the runtimeVerdict call above.
+    if (sec && !isShort) {
       const mbps = mf.size * 8 / sec / 1e6;
-      if (band && BPP_RANK[band] <= BPP_RANK[BLOAT_BAND_BY_PROFILE(prof)]) {
-        bitrate.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id,
+      // ADMIT ON BAND *OR* MEASURED OVER-SUPPLY. The band alone missed files that are demonstrably
+      // carrying dead weight but sit a tier below `wow`, and admitted 2 GB files with nothing to
+      // give back. `overBytes` is the measured answer and it is what the section sorts on.
+      const overBytes = overSupplyBytes(mf.size || 0, ukey);
+      if ((band && BPP_RANK[band] <= BPP_RANK[BLOAT_BAND_BY_PROFILE(prof)]) || overBytes) {
+        bitrate.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id, cfScore: cfScoreByMovie.has(m.id) ? cfScoreByMovie.get(m.id) : null,
           title, files: 1, bytes: mf.size || 0, mbps: +mbps.toFixed(1),
-          bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, top100: top100Rank, beloved: prof.startsWith('Beloved'),
+          // Bytes above what reproducing THIS FILE takes — a disk claim, never a quality claim.
+          overBytes: overBytes || null, overR: bppRatioR(ukey),
+          // IS WHAT WE HOLD ITSELF A RE-ENCODE? Read from the filename, because the quality name has
+          // already thrown the information away (*arr calls a BRRip "Bluray"). Both sides of the
+          // downgrade test must be measured the same way — see effSrcRank.
+          reenc: REENC_RE.test(`${mf.relativePath || ''} ${mf.originalFilePath || ''}`),
+          bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey), top100: top100Rank, beloved: prof.startsWith('Beloved'),
           // Sinks the row in the Disk ordering without hiding it — see the sort below.
           lowPriority: !!(top100Rank || prof.startsWith('Beloved') || gpuTier(mf.mediaInfo) !== 'ok'),
           label: videoLabel(mf.mediaInfo), profile: prof, source: src, target: +(mbps * 0.55).toFixed(1),
           tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
           origLang: (m.originalLanguage || {}).name || null, imdbId: m.imdbId || null,
-          edition: ownEditionOf(mf.edition, mf.relativePath) });
+          edition: ownEditionOf(mf.edition, mf.relativePath, mf.originalFilePath) });
       }
     }
   }
@@ -604,7 +956,9 @@ async function buildRows(force = false) {
     e.files.push(f); e.bytes += f.size || 0; e.sec += secs((f.mediaInfo || {}).runTime);
     bySeason.set(k, e);
   }
-  const profNames = new Map((await arrGet('sonarr', '/qualityprofile')).map((p) => [p.id, p.name]));
+  const sProfiles = await arrGet('sonarr', '/qualityprofile');
+  const profNames = new Map(sProfiles.map((p) => [p.id, p.name]));
+  const sProfFormats = new Map(sProfiles.map((p) => [p.id, new Map((p.formatItems || []).map((f) => [f.name, Number(f.score) || 0]))]));
   for (const [k, e] of bySeason) {
     const bad = e.files.filter((f) => f.mediaInfo && gpuTier(f.mediaInfo) !== 'ok');
     const prof = profNames.get(e.s.qualityProfileId) || '?';
@@ -612,18 +966,43 @@ async function buildRows(force = false) {
     // episodes), so every row for this season shares one complexity — see probe.js buildUnits().
     const ukey = `tv:${k}`;
     const cxBasis = bppBasis(ukey);
+    // MAX, not average. Sonarr judges each episode against its OWN file, so a season pack has to
+    // beat the highest-scoring episode in the set or it imports only part of the season — which
+    // leaves the swap half-done and the verification unable to confirm it. Treat the hardest
+    // episode as the bar. null when Sonarr reported no score for any file, which disables the check.
+    const cfMax = (fl) => {
+      const ns = fl.map((f) => f.customFormatScore).filter((n) => typeof n === 'number');
+      return ns.length ? Math.max(...ns) : null;
+    };
+    // The formats of the STRONGEST file, matching cfMax's choice of bar — see buildCfAllow, which
+    // makes the same pick for the import-side allowance. Both rows for a season share one key, so
+    // this is written from the whole season's file list rather than per-section.
+    {
+      const sbn = sProfFormats.get(e.s.qualityProfileId);
+      if (sbn) {
+        let bestF = null; let best = -Infinity;
+        for (const f of e.files) {
+          const s = nonSizeCfScore(f.customFormats, sbn);
+          if (s > best) { best = s; bestF = f; }
+        }
+        _cfRowInfo.set(`tv:${k}`, {
+          formats: ((bestF && bestF.customFormats) || []).map((c) => c && c.name).filter(Boolean),
+          scoreByName: sbn,
+        });
+      }
+    }
     if (bad.length) {
       // Bitrate over the BAD files only, not the whole season. A Playback row's `bytes` counts
       // just the offending files, so dividing those bytes by the season's total runtime (e.sec)
       // would understate the rate badly on a season where only 2 of 10 episodes are 10-bit.
       const badBytes = bad.reduce((a, f) => a + (f.size || 0), 0);
       const badSec = bad.reduce((a, f) => a + secs((f.mediaInfo || {}).runTime), 0);
-      const badBpp = bppFor(bad[0].mediaInfo, badBytes, badSec);
-      cpu.push({ key: `tv:${k}`, kind: 'season', app: 'sonarr', id: e.s.id, season: e.season,
+      const badBpp = bppFor(bad[0].mediaInfo, badBytes, badSec, ukey);
+      cpu.push({ key: `tv:${k}`, kind: 'season', app: 'sonarr', id: e.s.id, season: e.season, cfScore: cfMax(bad),
         title: `${e.s.title} — S${String(e.season).padStart(2, '0')}`,
         files: bad.length, bytes: badBytes,
         mbps: badSec ? +(badBytes * 8 / badSec / 1e6).toFixed(1) : null,
-        bpp: badBpp, bppPlus: bppIndex(badBpp, ukey), bppBand: bppBand(badBpp, ukey), cxBasis,
+        bpp: badBpp, bppPlus: bppIndex(badBpp, ukey), bppBand: bppBand(badBpp, ukey), cxBasis, bppRSE: bppRSE(ukey),
         label: videoLabel(bad[0].mediaInfo), profile: prof, tier: currentTier(bad[0].mediaInfo),
         source: ((bad[0].quality || {}).quality || {}).name || null,
         minRatio: minRatioFor(e.s.genres, e.s.year),
@@ -633,14 +1012,21 @@ async function buildRows(force = false) {
     // shrinking one is a legitimate choice, just rarely the first one.
     if (!e.sec) continue;
     const mbps = e.bytes * 8 / e.sec / 1e6;
-    const seasonBpp = bppFor(e.files[0].mediaInfo, e.bytes, e.sec);
+    const seasonBpp = bppFor(e.files[0].mediaInfo, e.bytes, e.sec, ukey);
     const seasonBand = bppBand(seasonBpp, ukey);
     // Band, not Mbps, and no longer x264-only — see the movie branch above for why.
-    if (seasonBand && BPP_RANK[seasonBand] <= BPP_RANK[BLOAT_BAND_BY_PROFILE(prof)]) {
-      bitrate.push({ key: `tv:${k}`, kind: 'season', app: 'sonarr', id: e.s.id, season: e.season,
+    // Same admit rule as the movie branch — see the OVER-SUPPLY block. A season's bytes are the whole
+    // pack, so overBytes here is the recoverable total across every episode in it.
+    const seasonOver = overSupplyBytes(e.bytes, ukey);
+    if ((seasonBand && BPP_RANK[seasonBand] <= BPP_RANK[BLOAT_BAND_BY_PROFILE(prof)]) || seasonOver) {
+      bitrate.push({ key: `tv:${k}`, kind: 'season', app: 'sonarr', id: e.s.id, season: e.season, cfScore: cfMax(e.files),
         title: `${e.s.title} — S${String(e.season).padStart(2, '0')}`,
         files: e.files.length, bytes: e.bytes, mbps: +mbps.toFixed(1),
-        bpp: seasonBpp, bppPlus: bppIndex(seasonBpp, ukey), bppBand: seasonBand, cxBasis, beloved: prof.startsWith('Beloved'),
+        overBytes: seasonOver || null, overR: bppRatioR(ukey),
+        // Same as the movie branch — sampled from the first episode's path, which carries the
+        // release naming for the whole pack.
+        reenc: REENC_RE.test(`${(e.files[0] || {}).relativePath || ''} ${(e.files[0] || {}).originalFilePath || ''}`),
+        bpp: seasonBpp, bppPlus: bppIndex(seasonBpp, ukey), bppBand: seasonBand, cxBasis, bppRSE: bppRSE(ukey), beloved: prof.startsWith('Beloved'),
         lowPriority: !!(prof.startsWith('Beloved') || bad.length),
         label: videoLabel(e.files[0].mediaInfo), profile: prof,
         source: ((e.files[0].quality || {}).quality || {}).name || null,
@@ -652,43 +1038,52 @@ async function buildRows(force = false) {
   cpu.sort((a, b) => b.bytes - a.bytes);
   // Biggest first, EXCEPT that low-priority rows sink to the bottom: a Beloved/Top-100 title, or
   // one the Playback section already lists. They are real options, just not the ones to lead with.
-  bitrate.sort((a, b) => (Number(!!a.lowPriority) - Number(!!b.lowPriority)) || b.bytes - a.bytes);
+// SORT BY WHAT COMES BACK, not by what is held. Raw `bytes` put the biggest files on top, and the
+// biggest files in this library are grainy classics whose size is justified — 12 Angry Men is
+// 24.5 GB with the highest complexity we have measured. Ranking on `overBytes` puts the rows where
+// something is actually recoverable first, and those are the clean modern films (Parasite 8.5 GB of
+// slack, Blade Runner 2049 6.9, Inglourious Basterds 6.2). Rows with no measured over-supply keep
+// their old byte ordering underneath, so nothing that used to be listed has moved out of reach.
+bitrate.sort((a, b) => (Number(!!a.lowPriority) - Number(!!b.lowPriority))
+  || ((b.overBytes || 0) - (a.overBytes || 0))
+  || b.bytes - a.bytes);
   // Alphabetical, not by size: this list is short and every row is equally wrong, so "which film"
   // is the only useful ordering. Sorting by bytes would imply a severity that does not exist here.
   edition.sort((a, b) => a.title.localeCompare(b.title));
-  // SORT: most-underserved first, but ONLY among titles that have declared intent.
+  // SORT: MOST RECENTLY ACQUIRED FIRST.
   //
-  // This tab is the "underserved" surface — it already lists every movie with the copy you own and
-  // its device support, so a separate section for "films I love that look bad" would duplicate it
-  // (Brennan, 2026-08-01). What it needed was a better ordering.
+  // This replaced a priority grouping (Top 100 / Beloved with a sub-green picture, then the rest
+  // alphabetically). That ordering answered "which film that I love looks worst?", which was the
+  // right question while the list was unworked — but Brennan has now been through the whole library
+  // once (2026-08-10), so the useful question became "what changed since I last looked?".
   //
-  // Group 0 is the whole point: a title marked Beloved, or sitting in the Top 100, whose picture is
-  // below the green band. Worst bpp first, because that is the one that most needs a decision.
-  // Group 1 keeps the old hand-tuned ordering for priority titles that are already fine.
-  // Group 2 stays ALPHABETICAL deliberately: 647 movies carry no recorded opinion, and sorting
-  // those by shortfall would put the worst first and bury the tab in noise. There is a search box,
-  // and with accurate badges scanning alphabetically is how an unmarked great gets spotted.
-  const upgGroup = (r) => {
-    const priority = !!(r.top100 || r.beloved);
-    if (!priority) return 2;
-    return (r.bppBand && BPP_RANK[r.bppBand] > BPP_RANK.ok) ? 0 : 1;
-  };
-  upgrade.sort((a, b) => upgGroup(a) - upgGroup(b)
-    || (upgGroup(a) === 0 ? (a.bpp ?? 9) - (b.bpp ?? 9) : 0)
-    || (a.top100 || Infinity) - (b.top100 || Infinity)
-    || (b.beloved ? 1 : 0) - (a.beloved ? 1 : 0)
+  // Recency answers it directly: the films most recently ADDED to the library are the ones whose
+  // copy has not been looked at yet. See `added` above for why this is the title's acquisition date
+  // and not the current file's import date — sorting by the file date surfaced titles that had just
+  // been replaced, i.e. exactly the ones already dealt with.
+  //
+  // Titles with no usable dateAdded sort last rather than first — a missing timestamp is not news.
+  // Alphabetical is the tiebreak so a bulk import that shares a timestamp still lands in a stable,
+  // scannable order rather than whatever order Radarr happened to return.
+  // BROKEN FILES FIRST, ahead of the acquisition-date ordering. Everything else in this tab is
+  // discretionary ("show me the best copy that exists"); a file that is not the whole film is not a
+  // preference, it is damage, and it must not be buried N screens down among healthy titles. This is
+  // the row Brennan had to discover by watching the film — see the runtimeVerdict call in buildRows.
+  upgrade.sort((a, b) => ((b.short || b.unprobed) ? 1 : 0) - ((a.short || a.unprobed) ? 1 : 0)
+    || (b.added || 0) - (a.added || 0)
     || a.title.localeCompare(b.title));
   const seriesNorm = new Map(series.map((x) => [x.id, normTitle(x.title)]));
-  const rows = { cpu, bitrate, edition, upgrade, depthMap, seriesNorm };
-  _rowCache = { ts: Date.now(), rows };
-  return rows;
+  // The cache write lives in startRowBuild, not here — one writer, so a rebuild that throws part way
+  // can never leave a half-built view behind as the new "fresh" answer.
+  return { cpu, bitrate, edition, upgrade, depthMap, seriesNorm };
 }
 
 // ---- "which films do I care about most?" ─────────────────────────────────────────────────────
-// The Upgrade tab lists the WHOLE movie library, so the ordering is the only thing making it usable.
-// Brennan chose Top 100 / beloved first: "so that the movies I in theory should care about the most
-// are near the top" — deliberately NOT worst-quality-first, because this tab is for improving films
-// you love rather than for draining a backlog.
+// Top 100 rank was originally the Upgrade tab's PRIMARY SORT KEY ("so that the movies I in theory
+// should care about the most are near the top"). It no longer is — the tab sorts by acquisition date
+// now that the library has been worked through once (2026-08-10) — but the rank is still load-bearing
+// elsewhere: it raises the candidate floor to green in verifyRow, gates the Disk section, and colours
+// the row badge. So this lookup stays, it just no longer decides ordering.
 //
 // The join is TMDB id, never the title. The Jellyfin playlist and Radarr disagree on punctuation and
 // year suffixes constantly, and a title match here would silently mis-rank films; ProviderIds.Tmdb is
@@ -907,12 +1302,65 @@ function dedupeCands(cands) {
   return [...best.values()];
 }
 
-function rankCands(cands, row, haveHashes) {
+// ---- SOURCE TIER IS A CEILING THE DISK SECTION MUST NOT TRADE AWAY ---------------------------
+// `srcDrop` has always been COMPUTED (enrichCand) and drawn as a "↓" on the card, but it was
+// explicitly presentation, never a filter. In the Disk section that is the wrong call and it
+// produced the suggestion Brennan flagged on 2026-08-18: Peaky Blinders S04, 27 GB Bluray, whose
+// only two offers were 6.0 GB and 6.3 GB HDTV rips.
+//
+// WHY BPP+ CANNOT SEE THIS. Source tier is WHAT THE RELEASE WAS MADE FROM, and it caps how good the
+// picture can be at ANY bitrate: an off-air capture carries broadcast compression, station logos and
+// sometimes trimmed content, and no number of bits undoes damage already in the master. Same
+// structural fact the grain work landed on — BPP+ measures SUPPLY against content and is blind to
+// the master that content came from. Brennan: "I've never found a good way to rectify
+// bluray/webdl/webrip/hdtv into bpp+ besides just having it as a separate badge." Right — it is not
+// a bitrate axis, so it must be a GATE, not a term.
+//
+// SCOPED TO DISK. Playback already demands a playback or source improvement; Upgrade and Edition are
+// deliberately permissive ("better on >=1 axis, tradeoffs LABELLED") and a human is choosing there
+// with the drop shown. But Disk's whole premise is "you are over-supplied for your content", and
+// that assumes the SAME master. Swapping to a worse one is not reclaiming waste, it is buying a
+// worse picture with the space.
+// A RE-ENCODE COSTS A FULL TIER. *arr reports BRRip/BDRip as plain "Bluray" and some WEBRips as
+// "WEBDL", so srcRank() scores them 4 — identical to a real disc encode — and the gate above waved
+// them straight through. Brennan, 2026-08-18: "if re-encodes are really bad, we should treat them
+// like a chunky source tier downgrade."
+//
+// A full tier is the honest size of it, not a fudge factor: BRRip means disc -> rip -> re-encode,
+// which is the SAME generation count as a WEBRip (stream -> re-encode), and WEBRip is already
+// ranked 3. So dropping a re-encode from 4 to 3 puts it exactly where its provenance belongs.
+//
+// The release TITLE is the only place this shows — the quality name has already lost it — which is
+// why REENC_RE tests titles and why the row carries its own `reenc` flag computed from the filename
+// on disk. Both sides must be measured the same way, or a library that already holds a BRRip would
+// refuse every other BRRip as a "downgrade" from itself and the row would offer nothing at all.
+const REENC_TIER_COST = 1;
+const effSrcRank = (rank, isReenc) => (rank == null ? null : rank - (isReenc ? REENC_TIER_COST : 0));
+const srcDowngrade = (c, row) => {
+  const n = effSrcRank(srcRank(c.source), REENC_RE.test(String(c.title || '')));
+  const cur = effSrcRank(srcRank(row.source), !!row.reenc);
+  return n != null && cur != null && n < cur;
+};
+// `section` decides the DISK-only source-tier gate above; omitting it (the force-grab paths)
+// simply skips that gate, which is correct — those already know exactly which release the
+// human picked and must not silently drop it.
+function rankCands(cands, row, haveHashes, section) {
   // Filtered HERE as well as at verify time. Normally serve time is presentation only, but this
   // is a safety filter and applying it on the way out means the 173 verdicts just re-scraped are
   // cleaned immediately rather than after another two hours of re-verification.
   const safe = cands.filter((c) => !isRefused(c.title, row.origLang)
     && !(row.kind === 'season' && isMultiSeason(c.title))
+    // DISK ONLY — see the block above. Serve-time so every cached verdict is cleaned on the way out
+    // rather than needing a VERDICT_VERSION bump and a full re-scrape.
+    && !(section === 'bitrate' && srcDowngrade(c, row))
+    // A FRAMING ROW MUST ONLY BE ANSWERED BY FRAMING. An `imaxPrefer` row states one want: expanded
+    // framing, same cut. Offering it the ordinary list is misleading — Dune (2021) asked for IMAX
+    // and was headlined by a 37 GB scope REMUX, which spends 34 GB and gains ZERO of what the row
+    // asked for, because a bigger scope encode is still scope. With none available the row renders
+    // "nothing better available yet", which is true, and the Edition section keeps unactionable rows
+    // visible on purpose so the finding survives. Ordinary Dune upgrades are untouched: they live in
+    // the Upgrade and Disk sections.
+    && !(row.imaxPrefer && !/\bimax\b/i.test(String(c.title || '')))
     // Already in the torrent client → ungrabbable (*arr answers 500) and pointless. Filtered here
     // as well as at verify time so the verdicts cached BEFORE this guard existed are cleaned on
     // the way out, instead of each needing a manual re-check.
@@ -923,11 +1371,40 @@ function rankCands(cands, row, haveHashes) {
     // lead the sheet. Silently hiding it would also make the tab lie about how many options exist.
     const d = deadRelease(c.title);
     const e = enrichCand(c, row);
-    return d ? { ...e, dead: true, deadAgeH: Math.max(1, Math.round((Date.now() - d.ts) / 3600000)) } : e;
+    if (!d) return e;
+    // TWO DIFFERENT FACTS, TWO DIFFERENT BADGES. "dead swarm" means nobody is seeding it — a
+    // maybe, worth showing greyed because swarms revive. "refused" means *arr scored it below the
+    // file already on disk and will reject the import no matter what, so choosing it cannot work.
+    // Labelling the second as a dead swarm sent Brennan chasing seeders for a scoring decision.
+    // A REMEMBERED REFUSAL IS EVIDENCE, NOT LAW — and it is now the WEAKER evidence. This record
+    // means "we downloaded it once and *arr rejected it", which was the only way to learn the
+    // answer before the scores were readable. They are readable now, so when the arithmetic says
+    // the release WOULD import, the arithmetic wins and the stale record is dropped.
+    //
+    // This is not hypothetical: softening two size scores on 2026-08-11 lifted Blazing Saddles'
+    // 79-seed x265 BONE encode from refused to importable (300 against 280), and without this the
+    // permanent record would have kept it greyed out forever — the profile change would have
+    // silently done nothing for exactly the film it was made for.
+    if (d.reason === 'cf_refused') {
+      // Asks cfBlockedFor, NOT the raw `e.cfScore > row.cfScore` this used to. Same reason the
+      // candidate list and the preflight now do: a refusal whose whole deficit is the size band is
+      // one the import path forgives, so a record of it is stale the moment that logic lands.
+      // Without this, every size-only cf_refused corpse already in state.json stays greyed out
+      // forever and the fix appears not to work on exactly the films that provoked it.
+      const nowFine = !cfBlockedFor(row, e.cfScore, e.cfFormats);
+      if (!nowFine) return { ...e, refused: true };
+      const dk = deadKey(c.title);
+      if (dk) { auditDead.delete(dk); persistState(); }
+      console.log(`audit: cleared the stale refusal on "${c.title}" — ${e.cfScore} against ${row.cfScore} on disk`
+        + `, and *arr's objection is no longer anything that matters`);
+      return e;
+    }
+    return { ...e, dead: true, deadAgeH: Math.max(1, Math.round((Date.now() - d.ts) / 3600000)) };
   })
-    // Dead LAST, ahead of every other tiebreak: a release that has already failed to deliver is
-    // worse than any quality difference between the ones that might.
-    .sort((a, b) => (Number(!!a.dead) - Number(!!b.dead))
+    // Refused below dead below everything else: a release that CANNOT work is worse than one that
+    // merely might not, and both are worse than any quality difference between the live options.
+    .sort((a, b) => (Number(!!a.refused || !!a.cfBlocked) - Number(!!b.refused || !!b.cfBlocked))
+      || (Number(!!a.dead) - Number(!!b.dead))
       || (a.srcDrop - b.srcDrop)
       || ((BAND_RANK[a.band] ?? 9) - (BAND_RANK[b.band] ?? 9))
       || (a.tier - b.tier)
@@ -938,7 +1415,7 @@ function rankCands(cands, row, haveHashes) {
 // ---- verification: does a genuinely better source exist? ──────────────────────────────────
 // "Better" is section-specific, and both definitions REQUIRE 8-bit — a smaller file that
 // cannot direct-play is not an upgrade, it just moves the cost from disk to CPU.
-async function verifyRow(row, section, depthMap, seriesNorm) {
+async function verifyRow(row, section, depthMap, seriesNorm, outSeen = null) {
   const { base, key } = arrOf(row.app);
   const url = row.app === 'sonarr'
     ? `${base}/release?seriesId=${row.id}&seasonNumber=${row.season}`
@@ -957,9 +1434,37 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
   let haveHashes = new Set();
   try { haveHashes = new Set((await getQbitTorrents()).map((t) => String(t.hash || '').toLowerCase())); }
   catch { /* qBit unreachable — fall through with an empty set */ }
+  // THE SAME TORRENT, LISTED WITHOUT ITS HASH. The guard above is exact but only as good as the
+  // indexer's metadata, and LimeTorrents returns infoHash:null on every result. One release is
+  // therefore listed four times — EZTV, Knaben and TPB carry
+  // 103a09a8…, LimeTorrents carries nothing — so three copies got filtered and the fourth was
+  // offered as a candidate. That is how Frozen Planet II S01 came to propose replacing itself with
+  // the byte-identical pack already imported on 2026-07-06 and still seeding in qBittorrent, and
+  // why the grab died at qBittorrent's duplicate check (409) surfacing as Sonarr HTTP 500.
+  //
+  // The same search that returned the hashless copy also returned the hashed ones, so borrow it:
+  // map normalised title -> infoHash across the whole result set, and let a hashless release
+  // inherit its twin's hash for the purposes of these checks. Title normalisation is safe HERE in a
+  // way it is not across items — every release in `list` has already passed the wrong-show and
+  // wrong-season gates above, so a title collision means the same release, not a different film.
+  const hashByTitle = new Map();
+  for (const r of list) {
+    if (!r.infoHash) continue;
+    const n = normTitle(r.title);
+    if (n) hashByTitle.set(n, String(r.infoHash).toLowerCase());
+  }
+  const hashOf = (r) => String(r.infoHash || hashByTitle.get(normTitle(r.title)) || '').toLowerCase() || null;
+  // WHY A RELEASE IS NOT ON THE SHEET. Every gate below drops silently, which is fine while you are
+  // reading the sheet and useless the moment you ask "where did that one go?". Rififi's Criterion
+  // x265 sat in a two-day-old verdict, still listed by three indexers with 30 seeders, and clicking
+  // it answered "no longer available from the indexers — tap Re-check": wrong component, wrong
+  // remedy, and Re-check appeared to do nothing because the row simply re-rendered without it.
+  //
+  // Only collected when a caller asks (the confirm path does), so the normal sweep pays nothing.
+  const drop = (r, why) => { if (outSeen) outSeen.push({ title: r.title || '', hash: hashOf(r), why }); };
   const cands = [];
   for (const r of list) {
-    if ((r.seeders || 0) < 1) continue;
+    if ((r.seeders || 0) < 1) { drop(r, 'no seeders'); continue; }
     // WRONG-SHOW GUARD. *arr returns anything the indexer matched loosely, and the parsed
     // seasonNumber comes straight off the title — so "The.Fabric.of.the.Cosmos.S01" arrived
     // as a candidate to replace Cosmos S01, and Radarr offered "Sicario - The Complete
@@ -971,12 +1476,12 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
     // A title-similarity check cannot substitute here: the series title "Cosmos" is a subset
     // of "The Fabric of the Cosmos", so token overlap passes the very release we must drop.
     if (row.app === 'sonarr') {
-      if (!r.fullSeason) continue;
-      if (r.mappedSeasonNumber !== row.season) continue;
+      if (!r.fullSeason) { drop(r, 'not a full-season pack'); continue; }
+      if (r.mappedSeasonNumber !== row.season) { drop(r, 'parses as a different season'); continue; }
       // mappedSeasonNumber says "parses as season N", NOT "belongs to this series" — House of
       // the Dragon and House of Cards both came back mapped=1 for a "House" search. Settle it
       // on the release's own parsed seriesTitle, disambiguated against the whole library.
-      if (seriesNorm && bestSeriesMatch(r.seriesTitle, seriesNorm) !== row.id) continue;
+      if (seriesNorm && bestSeriesMatch(r.seriesTitle, seriesNorm) !== row.id) { drop(r, 'parses as a different series'); continue; }
     } else if (r.mappedMovieId !== row.id) {
       // mappedMovieId is null in TWO very different cases, and they must not be treated alike:
       //   * a release that IS this movie but whose title Radarr could not parse. The indexer
@@ -995,33 +1500,33 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
       // The IMDb id is the tie-breaker: admit only when it matches the movie the row is for, and
       // only in the null case — a mappedMovieId that names a DIFFERENT movie is *arr telling us
       // this release is something else, and that is still a hard drop.
-      if (r.mappedMovieId != null) continue;
+      if (r.mappedMovieId != null) { drop(r, '*arr matched it to a different movie'); continue; }
       const relImdb = Number(String(r.imdbId || '').replace(/^tt/i, '').replace(/^0+/, ''));
       const rowImdb = Number(String(row.imdbId || '').replace(/^tt/i, '').replace(/^0+/, ''));
-      if (!relImdb || !rowImdb || relImdb !== rowImdb) continue;
+      if (!relImdb || !rowImdb || relImdb !== rowImdb) { drop(r, 'no matching IMDb id'); continue; }
     }
     const t = r.title || '';
-    if (!/1080p/i.test(t)) continue;
+    if (!/1080p/i.test(t)) { drop(r, 'not 1080p'); continue; }
     // A pack spanning several seasons is not a replacement for one season — see MULTI_SEASON_RE.
-    if (row.kind === 'season' && isMultiSeason(t)) continue;
+    if (row.kind === 'season' && isMultiSeason(t)) { drop(r, 'a multi-season pack, not this season'); continue; }
     // Camrips and dubs are never a trade worth presenting — see CAM_RE / DUB_RE.
     // origLang MUST be passed: it is the only escape from isForeignOnly's language tests, so
     // without it a bare tag that IS this item's original audio gets refused (Das Boot's GERMAN
     // pack, a Cyrillic-titled Russian film). The sibling call site at ~line 528 always passed it;
     // this one did not, which made the gate quietly stricter here than anywhere else.
-    if (isRefused(t, row.origLang)) continue;
+    if (isRefused(t, row.origLang)) { drop(r, 'camrip or dub'); continue; }
     // EDITION. Refused outright, alongside CAM and dubs, because a cut is not a quality trade-off:
     // Brennan, 2026-07-30 — "A theatrical cut of apocalypse, LOTR, or blade runner is garbage and
     // should never be on disk, ever, for any reason. Same as dubs or screenrips." Two rules, in
     // editionRefusal: never below the cut we already own, and never below a floored film's minimum.
     // MOVIES ONLY — row.edition is set only on radarr rows. A season has no edition, and inventing
     // one from an episode filename would refuse legitimate TV candidates for no gain.
-    if (row.edition && editionRefusal(t, row.edition, row.title)) continue;
+    if (row.edition && editionRefusal(t, row.edition, row.title)) { drop(r, 'the wrong cut'); continue; }
     // ABOVE 1080p is unplayable on every device here, so it is refused rather than ranked. *arr's
     // profile already stops at 1080p for its own searches, but the Edition and Upgrade sections
     // deliberately relax the other picture gates, and without this the Upgrade tab would have
     // labelled "+ 2160p" a GAIN and recommended a file that cannot be played.
-    if (overResCeiling(t)) continue;
+    if (overResCeiling(t)) { drop(r, 'above the 1080p ceiling'); continue; }
     // NEVER OFFER BACK THE RELEASE THIS ROW WAS ALREADY SWAPPED TO. Matched on the recorded
     // infoHash (exact) or release title, not on size/source — a size-and-source heuristic looks
     // equivalent but rejects 56 of 338 Playback candidates, because "same source, same size,
@@ -1030,10 +1535,11 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
     // only a negative cache, not a final verdict — swarms revive, so it expires after
     // DEAD_REFUSE_TTL_MS and the release can be offered again.
     if (already && (already.reason !== 'dead' || Date.now() - (already.ts || 0) < DEAD_REFUSE_TTL_MS)
-      && ((already.hash && String(r.infoHash || '').toLowerCase() === already.hash)
-        || (already.rel && normTitle(already.rel) === normTitle(t)))) continue;
+      && ((already.hash && hashOf(r) === already.hash)
+        || (already.rel && normTitle(already.rel) === normTitle(t)))) { drop(r, 'this row was already swapped to it'); continue; }
     // Already downloaded and sitting in the torrent client — ungrabbable and pointless. See above.
-    if (r.infoHash && haveHashes.has(String(r.infoHash).toLowerCase())) continue;
+    const rHash = hashOf(r);
+    if (rHash && haveHashes.has(rHash)) { drop(r, 'already in the download client'); continue; }
     // FOREIGN-AUDIO-ONLY, decided by *arr's own parse rather than by guessing from the title.
     // DUB_RE catches explicit dub/MULTi markers and a few languages, but it deliberately lets a
     // BARE language tag through so a foreign film can keep its original audio (Das Boot's lone
@@ -1046,7 +1552,7 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
     // and treating that as foreign would reject most of the catalogue.
     const relLangs = (r.languages || []).map((l) => String((l || {}).name || '')).filter((n) => n && n !== 'Unknown');
     if (relLangs.length && !relLangs.includes('English')
-      && !(row.origLang && relLangs.includes(row.origLang))) continue;
+      && !(row.origLang && relLangs.includes(row.origLang))) { drop(r, 'audio is neither English nor the original language'); continue; }
     // AMBIGUOUS, not refused. When *arr parsed nothing usable we genuinely do not know what audio
     // this release carries — refusing would throw away most of the catalogue, and staying silent
     // is how an Italian-only pack looked safe. Offer it, flagged, so the choice is informed.
@@ -1065,7 +1571,7 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
     // the card so the human sees what is being given up rather than being protected from the choice.
     const isUp = section === 'upgrade';
     const loose = isEd || isUp;
-    if (!loose && (depth === '10bit' || depth === 'mixed')) continue;   // pessimistic: only 8bit or a clean unknown survives
+    if (!loose && (depth === '10bit' || depth === 'mixed')) { drop(r, '10-bit or unproven-depth HEVC'); continue; }   // pessimistic: only 8bit or a clean unknown survives
     let isHevc = /x265|h\.?265|hevc/i.test(t);
     let isH264 = /x264|h\.?264|avc/i.test(t);
     // CODE-CUT GATE. The strict sections (cpu/bitrate) need a codec token in the title to judge
@@ -1082,11 +1588,11 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
     // behind a "none better" verdict. Resolution is re-checked from the parsed quality too: a title
     // truncated before its 2160p marker would otherwise sail past overResCeiling above.
     if (!isHevc && !isH264) {
-      if (!loose) continue;
+      if (!loose) { drop(r, 'no codec named in the title'); continue; }
       const qName = String(((r.quality || {}).quality || {}).name || '');
       const qRes = ((r.quality || {}).quality || {}).resolution || null;
-      if (qRes == null || qRes > 1080) continue;
-      if (!/(bluray|remux|web-?dl|webrip|hd-?tv|br-?rip|hdr.?rip)/i.test(qName)) continue;
+      if (qRes == null || qRes > 1080) { drop(r, 'above the 1080p ceiling'); continue; }
+      if (!/(bluray|remux|web-?dl|webrip|hd-?tv|br-?rip|hdr.?rip)/i.test(qName)) { drop(r, 'unrecognised source'); continue; }
       isH264 = true;
     }
     // NEVER suggest a playback regression. House S01 is x264 8-bit — it direct-plays on every
@@ -1098,18 +1604,46 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
     // EnableDecodingColorDepth10Hevc=false that means the NUC software-decodes 1080p HEVC on
     // every play — the exact backlog the Playback section exists to drain. Not a picture-
     // quality trade; a "might not play smoothly" trade.
-    if (!loose && cTier >= 3) continue;
+    if (!loose && cTier >= 3) { drop(r, 'unproven bit depth'); continue; }
     const cSrc = ((r.quality || {}).quality || {}).name || null;
     const cSrcRank = srcRank(cSrc);
     const curSrcRank = srcRank(row.source);
-    const srcUpgrade = cSrcRank != null && curSrcRank != null && cSrcRank > curSrcRank;
+    // EFFECTIVE ranks, so a re-encode is judged by its provenance rather than by the label *arr gave
+    // it. Measured 2026-08-18: 187 of 886 library files (21%) are re-encodes, and 110 of those are
+    // reported as plain "Bluray-1080p" — Forrest Gump, Saving Private Ryan, Back to the Future among
+    // them. With raw ranks a real disc encode scored 4 against their 4, so replacing a BRRip with the
+    // genuine article did not register as a source upgrade at all and was never offered.
+    const cReenc = REENC_RE.test(t);
+    const cSrcEff = effSrcRank(cSrcRank, cReenc);
+    const curSrcEff = effSrcRank(curSrcRank, !!row.reenc);
+    const srcUpgrade = cSrcEff != null && curSrcEff != null && cSrcEff > curSrcEff;
     if (section === 'cpu') {
       // Playback is this section's purpose, so a tier improvement qualifies — but a SOURCE
       // upgrade now qualifies too, even at the same tier and even if the file is BIGGER.
       // WEBRip -> Bluray is a genuine improvement, and the point of this tab is to surface the
       // options and let a human decide when size is worth it.
-      if (cTier >= (row.tier || 3) && !srcUpgrade) continue;
-    } else if (!loose && cTier > (row.tier || 3) + TIER_SLACK) continue;
+      if (cTier >= (row.tier || 3) && !srcUpgrade) { drop(r, 'neither a playback nor a source improvement'); continue; }
+    } else if (!loose && cTier > (row.tier || 3) + TIER_SLACK) { drop(r, 'too big a step down in decode cost'); continue; }
+    // ---- SOURCE TIER IS A CEILING, AND THE DISK SECTION MUST NOT TRADE IT AWAY ----------------
+    // `srcDrop` has always been COMPUTED (enrichCand) and rendered as a "↓" on the card, but it was
+    // explicitly a presentation signal, never a filter. In the Disk section that is the wrong call
+    // and it produced exactly the suggestion Brennan flagged on 2026-08-18: Peaky Blinders S04,
+    // 27 GB Bluray, whose only offers were 6.0 GB and 6.3 GB HDTV rips.
+    //
+    // WHY BPP+ CANNOT SEE THIS, and why a badge is not enough. Source tier is WHAT THE RELEASE WAS
+    // MADE FROM, and it caps how good the picture can be at ANY bitrate: an off-air HDTV capture
+    // carries broadcast compression, station logos and sometimes trimmed content, and no number of
+    // bits undoes damage that is already in the master. It is the same structural fact the grain
+    // work landed on — BPP+ measures SUPPLY against content, and is blind to the quality of the
+    // master that content came from. Brennan, 2026-08-18: "I've never found a good way to rectify
+    // bluray/webdl/webrip/hdtv into bpp+ besides just having it as a separate badge." Correct — it
+    // is not a bitrate axis, so it has to be a GATE rather than a term.
+    //
+    // SCOPED TO THE DISK SECTION ONLY. Playback (cpu) already requires a playback or source
+    // improvement. Upgrade and Edition are deliberately permissive ("better on >=1 axis, tradeoffs
+    // LABELLED") and a human is choosing there with the drop shown. But Disk's entire premise is
+    // "you are over-supplied for your content" — which assumes the SAME master. Swapping to a worse
+    // one is not reclaiming waste, it is buying a worse picture with the space.
     // Computed BEFORE the size filters below, which now consult q.ratio.
     const candMbps = row.mbps ? +(row.mbps * (r.size / row.bytes)).toFixed(1) : null;
     const q = qualityBand(row.mbps, candMbps, (row.tier || 1) !== 1, isHevc);
@@ -1124,21 +1658,21 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
       // theatrical x264 against a 56 GB Final Cut REMUX is a real pair from this library), and
       // "too big" is a judgement for the person who chose to fix the edition. The floor is the
       // guard that matters here and it already ran, at the top of this loop.
-      if (r.size > row.bytes * 30) continue;
+      if (r.size > row.bytes * 30) { drop(r, 'more than 30x the current size'); continue; }
     } else if (section === 'cpu') {
       // Goal is playability, and a bigger file is an acceptable price for it. The old 1.6x cap
       // hid exactly the upgrades worth having — a Bluray-sourced replacement for a WEBRip is
       // routinely 2-3x the size. A source upgrade gets more headroom still; anything beyond
       // these is a Remux, which is a different purchase, not a replacement.
-      if (r.size > row.bytes * (srcUpgrade ? 5 : 3)) continue;
+      if (r.size > row.bytes * (srcUpgrade ? 5 : 3)) { drop(r, 'too large a jump in size'); continue; }
     } else {
       // Goal is disk. Must actually be smaller, and not so small it is a different product.
-      if (r.size >= row.bytes * 0.9) continue;
+      if (r.size >= row.bytes * 0.9) { drop(r, 'not smaller than the current file'); continue; }
       // AGGRESSIVE_FLOOR is a junk filter, not a quality judgement. The content-aware
       // minRatioFor() value used to REJECT here, which silently hid legitimate trades Brennan
       // wanted to weigh himself (a 31% YTS encode may be wrong for grainy film and fine for a
       // sitcom). It is now carried as `belowFloor` so the UI can flag it and the human decides.
-      if (row.mbps && q.ratio != null && q.ratio < AGGRESSIVE_FLOOR) continue;
+      if (row.mbps && q.ratio != null && q.ratio < AGGRESSIVE_FLOOR) { drop(r, 'far below the bitrate floor'); continue; }
     }
     // NOT a refusal — see candidateBandOk(). Carried onto the candidate so the sort can sink it
     // below the good trades while still offering it.
@@ -1158,6 +1692,23 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
     // elsewhere in this file.
     const gains = [], losses = [];
     if (isUp) {
+      // COMPLETENESS IS THE UPGRADE when what we hold is not the whole film. Every axis below asks
+      // "is the picture/source/audio better?", and against a truncated file those are the wrong
+      // questions: Chinatown's 8.53 GB AMIABLE Bluray was dropped as "nothing measurably better than
+      // what is on disk" because it is the same source, same resolution, and only 12% up on BPP+ —
+      // under the 15% threshold for a bitrate pill — so `gains` came out EMPTY. It was compared
+      // against 68 minutes of a 130-minute film and judged no better than it.
+      //
+      // A full-length release is a presumption here, not a proof: nothing can measure a candidate's
+      // runtime before it is downloaded. That is precisely what the swap's runtime preflight is for —
+      // it refuses a short download before a single original is deleted — so presuming completeness
+      // at RANKING time is now safe in a way it was not before that gate existed.
+      if (row.short) gains.push('the complete film');
+      // Same reasoning for a file *arr cannot read: with no bpp, no tier and no codec on OUR side
+      // there is no axis to be "measurably better" than, so `gains` would come out empty and every
+      // candidate would be dropped as "nothing measurably better" — leaving the row permanently
+      // stuck at "nothing better found". A readable file IS the improvement.
+      else if (row.unprobed) gains.push('a file the server can actually read');
       const curRes = resOf(row.source), candRes = resOf(t);
       // Capped at MAX_USABLE_RES on both sides: resolution is an improvement only up to 1080p, and
       // anything above it never reaches here anyway (refused above).
@@ -1198,18 +1749,21 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
       // the copy we ALREADY have is fine on the NUC, so it can never block a lateral 10-bit → 10-bit
       // move or trap a library that is already in the bad state.
       const nucNow = devNuc(row.tier || 3), nucCand = devNuc(cTier);
-      if (nucNow === 'ok' && nucCand === 'no') continue;
+      if (nucNow === 'ok' && nucCand === 'no') { drop(r, 'the NUC would have to software-decode it (bit depth unproven)'); continue; }
       if (cTier < (row.tier || 3)) gains.push('plays on more devices');
       else if (cTier > (row.tier || 3)) losses.push(TIER_NOTE[cTier] || 'harder to decode');
       const candAudio = audioOf(t);
       if (candAudio && AUDIO_RANK[candAudio] >= 4) gains.push(candAudio);
       // Nothing better on any axis we can actually measure = not an upgrade, just a different file.
-      if (!gains.length) continue;
+      if (!gains.length) { drop(r, 'nothing measurably better than what is on disk'); continue; }
     }
     cands.push({ title: t, bytes: r.size, seeders: r.seeders || 0, score: r.customFormatScore ?? 0,
       // Identity for the replace endpoint. guid is what *arr's grab call takes; infoHash lets
       // replaceSweep find THIS download in qBittorrent rather than guessing from progress.
-      guid: r.guid, indexerId: r.indexerId, infoHash: r.infoHash || null,
+      // hashOf(), not r.infoHash: a hashless LimeTorrents copy of a release the other indexers DID
+      // hash used to start a swap with hash:null, which replaceSweep can only track by guessing —
+      // the exact shape of the Frozen Planet II record that sat "starting" for 24 hours.
+      guid: r.guid, indexerId: r.indexerId, infoHash: hashOf(r),
       depth: depth || 'unknown', codec: isHevc ? 'HEVC' : 'H.264',
       // Source tier (Bluray-1080p / WEBDL-1080p / WEBRip-1080p ...). A better quality signal
       // than the bitrate ratio: a Bluray-sourced encode has no prior generation loss, whereas
@@ -1228,8 +1782,24 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
       tier: cTier, play: TIER_NOTE[cTier], devices: deviceSupport(isHevc ? 'HEVC' : 'H.264', depth || 'unknown'),
       saveGb: gb(Math.max(0, row.bytes - r.size)),
       mbps: row.mbps ? +(row.mbps * (r.size / row.bytes)).toFixed(1) : null,
-      bpp: candBpp, bppPlus: bppIndex(candBpp, row.key), bppBand: bppBand(candBpp, row.key),
-      cxBasis: bppBasis(row.key), bandWeak });
+      bpp: candBpp, bppPlus: bppIndex(candBpp, row.key), bppBand: bppBand(candBpp, row.key), bppRSE: bppRSE(row.key),
+      cxBasis: bppBasis(row.key), bandWeak,
+      // WILL *ARR EVEN ACCEPT THIS? Both scores come from the same custom formats, so the
+      // comparison *arr makes at import time can be made HERE, before anything is downloaded.
+      // Strictly greater, because that is *arr's own test — a tie is refused, which is exactly
+      // how Blazing Saddles' two 310-point YIFY copies would have gone.
+      //
+      // MARKED, NOT FILTERED, for the same reason a dead swarm is: the number is *arr's judgement,
+      // not a fact about the file, and Brennan may want to see that the only 8-bit option scores
+      // below what is on disk. It just must never be offered as if it could work.
+      cfScore: typeof r.customFormatScore === 'number' ? r.customFormatScore : null,
+      // The format NAMES, not just the sum, because "is this refusal only about bytes?" cannot be
+      // answered from a total. Carried on the candidate so a cached verdict can be re-judged at
+      // serve time by cfBlockedFor without re-running the search.
+      cfFormats: Array.isArray(r.customFormats) ? r.customFormats.map((c) => c && c.name).filter(Boolean) : null,
+      cfBlocked: cfBlockedFor(row, typeof r.customFormatScore === 'number' ? r.customFormatScore : null,
+        Array.isArray(r.customFormats) ? r.customFormats.map((c) => c && c.name).filter(Boolean) : null),
+      cfNeed: typeof row.cfScore === 'number' ? row.cfScore : null });
   }
   // Rank: known 8-bit first, then seeders — availability matters as much as the numbers.
   // QUALITY first, then playback tier, then seeders. Ranking on seeders (or on savings)
@@ -1238,7 +1808,11 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
   // `bandWeak` first: a candidate that is compromised in ABSOLUTE terms is still offered (the
   // human decides), but it must never lead the sheet. Everything after it is the pre-existing
   // ordering, unchanged.
-  cands.sort((a, b) => (Number(a.bandWeak) - Number(b.bandWeak))
+  // cfBlocked ahead of even bandWeak: "*arr will reject this" outranks every quality judgement
+  // below it, because none of them can happen. This is also what keeps `best` (top[0], which the
+  // sweep may act on unattended) from ever being a release that cannot import.
+  cands.sort((a, b) => (Number(!!a.cfBlocked) - Number(!!b.cfBlocked))
+    || (Number(a.bandWeak) - Number(b.bandWeak))
     || (BAND_RANK[a.band] - BAND_RANK[b.band])
     || (a.tier - b.tier) || (b.seeders - a.seeders) || (b.saveGb - a.saveGb));
   // 12, not 6. This is the deliberate "present the options, let the human choose" call: with
@@ -1246,8 +1820,13 @@ async function verifyRow(row, section, depthMap, seriesNorm) {
   // picks and the interesting extremes never reached the sheet. The final ordering is applied
   // at SERVE time by rankCands(), so this sort only decides which survive the cut.
   const top = cands.slice(0, MAX_CANDIDATES);
+  // `best` is what the unattended sweep grabs and what the row summary advertises, so it must be a
+  // release that can actually land. When every option is cfBlocked the honest answer is "options
+  // exist, none of them can import" — the candidates still render (greyed) so the reason is visible,
+  // but nothing is held up as the pick.
+  const bestOk = top.find((c) => !c.cfBlocked) || null;
   return top.length
-    ? { v: VERDICT_VERSION, ts: Date.now(), state: 'improvable', best: top[0], candidates: top }
+    ? { v: VERDICT_VERSION, ts: Date.now(), state: bestOk ? 'improvable' : 'blocked', best: bestOk, candidates: top }
     : { v: VERDICT_VERSION, ts: Date.now(), state: 'none', reason: `${list.length} releases, none better and 8-bit` };
 }
 
@@ -1459,6 +2038,17 @@ async function verifyTick() {
 const UPGRADE_EVERY_MS = Number(cfg.AUDIT_UPGRADE_EVERY_MS || 60000);
 // Below this the film is at or above its measured target and there is nothing to look for.
 const UPGRADE_BPP_PLUS_MAX = Number(cfg.AUDIT_UPGRADE_BPP_MAX || 100);
+// ...WITH ONE OVERRIDE: a file that is not the whole film always needs options found for it, however
+// good its picture looks. BPP+ is a rate and truncation does not lower it, so Chinatown's 68-minute
+// copy scored 139 and this gate excluded it — the single worst file in the library was the one the
+// upgrade scan considered least in need of attention. See the runtimeVerdict call in buildRows.
+// A RE-ENCODE IS ALWAYS WORTH OFFERING A REAL SOURCE, whatever its bitrate. BPP+ cannot see
+// provenance — a BRRip and a disc encode at the same size score identically — so a bloated re-encode
+// sailed past this gate on its BPP+ alone and was never offered the genuine article.
+// Cheap in practice: 181 of the library's 187 re-encodes are already under the BPP+ gate (they are
+// small by construction), so this admits SIX additional rows, measured 2026-08-18.
+const upgradeEligible = (r) => !!r.short || !!r.unprobed || !!r.reenc
+  || (r.bppPlus != null && r.bppPlus < UPGRADE_BPP_PLUS_MAX);
 
 // Same split as reportVerifyProgress: one definition of the backlog, shared by the gated path and
 // the working path.
@@ -1470,7 +2060,7 @@ function reportUpgradeProgress(rows) {
   // `upgrade` arrives already sorted by upgGroup() — Top 100 / Beloved with a poor picture first,
   // then the rest alphabetically. That ordering was chosen for the tab, and it is exactly the right
   // order to SEARCH in too: the films Brennan cares about get their options first.
-  const eligible = rows.upgrade.filter((r) => r.bppPlus != null && r.bppPlus < UPGRADE_BPP_PLUS_MAX);
+  const eligible = rows.upgrade.filter(upgradeEligible);
   const work = eligible.filter((r) => {
     const v = verdictFor(r.key, 'upgrade');
     return !v || v.stale;
@@ -1567,8 +2157,61 @@ const REPLACE_TIMEOUT_MS = 48 * 3600 * 1000;
 // seeder — mirrored from stallRecovery's own metaDL-is-dead stance); a PARTIAL download proves a
 // seeder was there and may return, so that one gets a long stall clock measured from its last
 // observed byte. This is the swap's OWN sweep ending it — stallRecovery still leaves swaps alone.
+// These clocks count ACTIVE time — time qBittorrent spent actually trying — not wall-clock since
+// the grab. See QBIT_IDLE_STATES and p.activeMs below for why that distinction is load-bearing.
 const SWAP_DEAD_MS = 90 * 60 * 1000;      // 0% with zero connected seeds this long → dead swarm
-const SWAP_STALLED_MS = 12 * 3600 * 1000; // partial download, no movement + no seeds this long → abandoned
+// PARTIAL download, no movement AND no connected seeds for this long → abandoned. Raised 12h → 72h on
+// 2026-08-12 (see SWAP_NEARLY_DONE below for the two casualties that prompted it). 12h was chosen when
+// this clock was the only thing standing between a dead swarm and a swap that claimed to be working
+// forever; the active-time accounting and the queued-state exemption now do most of that job, so this
+// can afford to be patient. A thin public swarm going quiet overnight is normal, not terminal.
+const SWAP_STALLED_MS = 72 * 3600 * 1000;
+// NEARLY DONE, and it gets its own far longer clock plus its bytes kept. 2026-08-11: the 12h stall
+// rule killed Gladiator (2000) Extended at 95%, City Lights at 98% and Bohemian Rhapsody at 99.9%,
+// and abandonDeadSwap deletes with deleteFiles:true — so ~20 GB of already-fetched data was thrown
+// away to save nothing. Brennan on Gladiator the day before: "I definitely don't want [it] killed,
+// I want it to finish."
+//
+// The arithmetic is one-sided. At 95% the remaining bytes are small enough that ONE seed appearing
+// for a few minutes finishes the job, disk is not scarce (2.2 TB free), and a stalled torrent does
+// not hold an active slot (qBittorrent's dont_count_slow_torrents is on). Waiting is nearly free;
+// deleting is irreversible and throws away the expensive part. So near-complete swaps get three days
+// of chances instead of twelve hours, and even then their DATA SURVIVES the abandon.
+// REBALANCED 2026-08-12, Brennan's call, after Gladiator (2000) Extended x264-OFT and Paris Texas
+// 1984 x264-OFT both died at EXACTLY 720 min (12h) on consecutive nights and had their partial
+// downloads deleted. Both were 1-seed public swarms — the shape that routinely goes quiet for longer
+// than half a day and then comes back. He expected partial progress to buy days, not hours.
+//
+// The threshold moved from 0.9 to 0.5 because 0.9 was drawn for "the remaining bytes are trivial", and
+// the thing actually worth protecting is broader: ANY download with real progress in hand represents
+// hours of transfer that a re-grab has to repeat from zero. Half a film is already expensive.
+const SWAP_NEARLY_DONE = 0.5;
+const SWAP_STALLED_NEARLY_MS = 168 * 3600 * 1000;   // 7 days at >= SWAP_NEARLY_DONE
+// STATES IN WHICH QBITTORRENT IS NOT TRYING, so no dead-swarm clock may run.
+//
+// THIS IS THE 2026-08-10 REGRESSION, and it cost ~60 good releases in one afternoon. qBittorrent
+// has `max_active_downloads` (12 here) and queues everything past it as `queuedDL`. A queued
+// torrent reports progress:0 and num_seeds:0 — byte-for-byte identical to a dead swarm — because
+// it has not been started, not because nobody is there. Brennan batch-grabbed ~66 replacements from
+// the Upgrade tab; the first 12 downloaded and the other ~54 sat in `queuedDL`, hit SWAP_DEAD_MS 90
+// minutes later, and were abandoned AND blocklisted for a week (DEAD_REFUSE_TTL_MS). The casualty
+// list included The Shawshank Redemption, The Dark Knight, Toy Story and Taxi Driver, which are not
+// dead swarms by any definition.
+//
+// Batch grabbing is a normal way to use this tab, and qBittorrent's queue limit is a GOOD thing —
+// it is what keeps the NUC's bandwidth and connection count sane. The two just have to agree on
+// what "waiting" means. So: a queued swap must WAIT, not die.
+//
+// `pausedDL`/`stoppedDL` are here for the same reason — a human paused it, which is not evidence
+// about the swarm. The checking/allocating/moving states are disk work, also not swarm evidence.
+// `metaDL` is deliberately ABSENT: that one IS trying, and has its own (shorter) SWAP_NO_META_MS.
+const QBIT_IDLE_STATES = new Set(['queuedDL', 'pausedDL', 'stoppedDL', 'checkingDL',
+  'checkingResumeData', 'queuedForChecking', 'allocating', 'moving', 'unknown']);
+// Largest gap between two sweeps that may be credited as active time. The sweep runs every 60s, so
+// anything much larger than that is a controller restart or a paused-by-Movie-Mode window, and
+// counting a 10-hour downtime as ten hours of a torrent "trying" would re-create the very bug this
+// guards against — just with a slower fuse.
+const SWAP_ACTIVE_STEP_CAP_MS = 5 * 60 * 1000;
 // Still in `metaDL` — no file list, so not one peer has ever been reached. Stronger evidence of a
 // dead swarm than plain zero-progress, so it gets a shorter clock than SWAP_DEAD_MS.
 //
@@ -1616,7 +2259,7 @@ const CF_PERMANENT_RE = /not a custom format upgrade|do not improve on existing/
 // see the long note above SIZE_CF_RE in release-rules.js. Returns null on ANY
 // failure, and a null allowance means the old behaviour — refuse — so a *arr hiccup can never widen
 // what gets imported.
-async function buildCfAllow(app, id, season) {
+async function buildCfAllow(app, id, season, relTitle) {
   try {
     const item = await arrGet(app, app === 'radarr' ? `/movie/${id}` : `/series/${id}`);
     const profileId = item && item.qualityProfileId;
@@ -1638,19 +2281,87 @@ async function buildCfAllow(app, id, season) {
       const s = nonSizeCfScore(f.customFormats, scoreByName);
       if (s > best) { best = s; oldFormats = f.customFormats || []; }
     }
-    return { oldFormats, scoreByName };
+    // THE EDITION QUESTION, answered from OUR parse of the release title rather than from *arr's score
+    // of the file inside the torrent — which is the discrepancy that refused Gladiator's EXTENDED
+    // download (see EDITION_CF in release-rules.js). The bar is the HIGHEST edition tier among the
+    // files being replaced, so a season or a film holding a Director's Cut cannot be talked down to an
+    // Extended one. Absent a release title we pass nothing and the edition CFs count in full — the old,
+    // stricter behaviour, which is always the safe default here.
+    let editionOk = false; let editionLabel = null;
+    if (relTitle) {
+      let oldTier = -Infinity;
+      for (const f of mine) {
+        const e = ownEditionOf(f.edition, f.relativePath, f.originalFilePath);
+        if (e && Number.isFinite(e.tier) && e.tier > oldTier) oldTier = e.tier;
+      }
+      if (!Number.isFinite(oldTier)) oldTier = EDITION_UNSTATED;
+      editionOk = editionNotWorse(relTitle, oldTier);
+      editionLabel = editionOf(relTitle).label;
+      if (!editionOk) {
+        console.log(`audit: "${relTitle}" parses as edition tier ${editionOf(relTitle).tier}`
+          + ` (${editionLabel || 'unstated'}) against tier ${oldTier} on disk — edition formats will NOT be excused`);
+      }
+    }
+    return { oldFormats, scoreByName, editionOk, editionLabel };
   } catch { return null; }
 }
 // How long *arr gets to actually land a submitted import before the verify phase stops waiting and
 // starts healing. ManualImport normally completes in seconds; this is generous on purpose.
 const VERIFY_WINDOW_MS = 10 * 60 * 1000;
-// A replacement whose runtime is below this fraction of the original is not the same content. 13:32
-// standing in for 2:25:21 is 9% — the extras clip that replaced GoodFellas. Deliberately loose:
-// different cuts, PAL speedup and missing-metadata noise all live above 60%, and a FALSE positive
-// here deletes a perfectly good file, so the test must only fire on the obvious.
-const RUNTIME_MIN_RATIO = 0.6;
+
+// ── The runtime yardstick: how long SHOULD this swap's content be? ────────────────────────────
+// Straight from *arr, which got it from TMDB. This is the half of the test that works when the copy
+// being replaced is itself truncated — comparing only against the file on disk would have let a
+// second short Chinatown replace the first one without complaint.
+//
+// Movies: the film's runtime. Seasons: the sum of the runtimes of the episodes the import will
+// actually cover, which is the right total to compare a whole-season download against (and handles
+// double-length finales, where a flat episodes x runtime would be wrong).
+//
+// Returns 0 — not a throw — when *arr has no runtime to give. 0 means "no yardstick from TMDB" and
+// runtimeVerdict falls back to the on-disk copy alone.
+async function expectedRuntimeSecs(p) {
+  if (p.app === 'radarr') {
+    const m = await arrGet('radarr', `/movie/${p.id}`).catch(() => null);
+    return (m && Number(m.runtime) > 0) ? Number(m.runtime) * 60 : 0;
+  }
+  const eps = await arrGet('sonarr', `/episode?seriesId=${p.id}&seasonNumber=${p.season}`).catch(() => null);
+  if (!Array.isArray(eps)) return 0;
+  // Only the episodes this swap is responsible for. A season download that covers 8 of 10 episodes
+  // is already refused by the cardinality check above, so summing what *arr says the season holds is
+  // the correct expectation by the time we get here.
+  return eps.reduce((a, e) => a + (Number(e.runtime) > 0 ? Number(e.runtime) * 60 : 0), 0);
+}
+// Total measured seconds across every file the import would submit. Sequential on purpose: these are
+// header reads on a USB drive that may also be feeding a stream, and a 24-file season fanned out at
+// once is a burst of seeks for no latency benefit inside a 60s sweep.
+//
+// One unreadable file among many yields a total that is too SMALL, which biases toward refusing a
+// healthy swap — the wrong direction. So a probe failure poisons the whole answer to null ('unknown'
+// → proceed) rather than silently under-counting.
+async function probeTotalSecs(paths) {
+  const list = (paths || []).filter(Boolean);
+  if (!list.length) return 0;
+  let total = 0;
+  for (const fp of list) {
+    const d = await probeDurationSecs(fp);
+    if (!d) return 0;
+    total += d;
+  }
+  return total;
+}
+// RUNTIME_MIN_RATIO and the arithmetic that uses it now live in release-rules.js (runtimeVerdict),
+// because the SAME test runs in two places and they must not drift: once as a preflight on the
+// downloaded file before any original is deleted (the Chinatown fix), and once as the post-import
+// check on what *arr actually landed. See the long note above runtimeVerdict for the measured
+// distribution that sets the threshold.
+//
 // Self-heal attempts before giving up and leaving it for a human. Each one deletes a provably-wrong
 // import and re-runs the (now cardinality-guarded) import against the same still-seeding torrent.
+// NOTE the limit of that idea: re-importing only helps when the IMPORT chose wrongly. If the SOURCE
+// is wrong — a release that simply does not contain the whole film — every retry re-imports the same
+// short file, which is exactly what Chinatown did twice before giving up. See verifySwap's
+// `unrepairable` branch: 'short' skips healing entirely.
 const VERIFY_MAX_HEALS = 2;
 // Titles Jellyfin is playing RIGHT NOW, normalised. One /Sessions call per sweep tick covers
 // every pending swap, and it answers the question that actually matters — is someone watching
@@ -1721,11 +2432,19 @@ function deadRelease(rel) {
   if (!key) return null;
   const d = auditDead.get(key);
   if (!d) return null;
+  // A CF REFUSAL DOES NOT EXPIRE. A dead swarm is a fact about the world that changes — seeders come
+  // back, so those records time out and the release gets another chance. "*arr scores this release
+  // below the file you already have" is arithmetic on two fixed values; it will read the same next
+  // week and every week after, until one of the two files changes. Ageing it out would just re-offer
+  // a release that is guaranteed to be refused again, which is the loop this record exists to break.
+  if (d.reason === 'cf_refused') return d;
   if (Date.now() - d.ts > DEAD_REFUSE_TTL_MS) { auditDead.delete(key); return null; }
   return d;
 }
 
-async function abandonDeadSwap(k, p, reason, ageMin) {
+// `progress` is the fraction qBittorrent last reported (0 when unknown). It decides only ONE thing:
+// whether the partial data is deleted along with the tracking record. See SWAP_NEARLY_DONE.
+async function abandonDeadSwap(k, p, reason, ageMin, progress = 0) {
   auditPending.delete(k);
   // REMEMBER THE RELEASE, not just the row. auditSwapped below is keyed per film and holds one
   // entry, so a film that burns several dead releases in a row forgets all but the last — which is
@@ -1734,12 +2453,24 @@ async function abandonDeadSwap(k, p, reason, ageMin) {
   if (dk) auditDead.set(dk, { ts: Date.now(), hash: String(p.hash || '').toLowerCase(), title: p.rel || '', reason });
   persistState();
   auditSwapped.set(k, { hash: String(p.hash || '').toLowerCase(), rel: p.rel || null, reason: 'dead', ts: Date.now() });
-  _rowCache = { ts: 0, rows: null };
-  try {
-    await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: String(p.hash || '').toLowerCase(), deleteFiles: 'true' }) });
-  } catch { /* qbit hiccup — *arr's queue pass clears the record later */ }
-  console.log(`audit: replacement for "${p.title}" has had no seeds for ${ageMin} min (${reason}) — swap abandoned, original kept; release remembered so it is not offered again for a week`);
-  metrics.emitEvent('audit_replace_abandon', { ti: p.title, reason, ageMin });
+  invalidateRows();
+  // KEEP THE BYTES when most of the file is already here. The controller stops tracking the swap
+  // either way — but deleting a 95%-complete download destroys hours of transfer to reclaim disk we
+  // are not short of, and the torrent left in place can still finish on its own or be resumed by
+  // hand. Only genuinely empty attempts are cleaned up.
+  const keepData = progress >= SWAP_NEARLY_DONE;
+  if (!keepData) {
+    try {
+      await qbit.fetch('/api/v2/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ hashes: String(p.hash || '').toLowerCase(), deleteFiles: 'true' }) });
+    } catch { /* qbit hiccup — *arr's queue pass clears the record later */ }
+  }
+  recordAuditOutcome({ title: p.title, rel: p.rel || null, outcome: 'abandoned', reason,
+    detail: keepData ? `stopped at ${Math.round(progress * 100)}% — data kept, it can still finish`
+      : reason === 'no_metadata' ? 'never reached a single peer'
+        : reason === 'stalled_swarm' ? `no data for ${Math.round(ageMin / 60)}h` : 'no seeders' });
+  console.log(`audit: replacement for "${p.title}" has had no seeds for ${ageMin} min (${reason}) — swap abandoned, original kept; release remembered so it is not offered again for a week`
+    + (keepData ? ` — LEFT IN QBITTORRENT at ${Math.round(progress * 100)}%, data kept so it can still finish` : ''));
+  metrics.emitEvent('audit_replace_abandon', { ti: p.title, reason, ageMin, keptData: keepData || undefined });
 }
 
 async function replaceSweep() {
@@ -1759,11 +2490,36 @@ async function replaceSweepInner() {
     // would mean sleeping inside the sweep with a dozen other swaps waiting behind it. Deferring to
     // the next tick costs 60s of latency on the log line and keeps the sweep responsive.
     if (p.phase === 'verify') { await verifySwap(k, p); continue; }
+    // THE 48h BACKSTOP, and it is deliberately NOT a plain wall-clock check any more. Two exemptions,
+    // both of which exist because a swap can be perfectly healthy and still be old:
+    //
+    //   QUEUED. A swap parked in qBittorrent's download queue behind a big batch is waiting its turn,
+    //   not failing. Killing it at 48h would be the same bug as the dead-swarm regression (see
+    //   QBIT_IDLE_STATES) with a slower fuse. The timeout resumes the moment it goes active.
+    //
+    //   STILL DELIVERING BYTES. A thin public swarm can take days, and a wall-clock cap deletes the
+    //   work at 99%. Gladiator (2000) Extended x264-OFT, 2026-08-10, is the case: 28.5h old, 94.5%
+    //   downloaded, one seed that comes and goes, and the backstop was going to bin it in 19 hours
+    //   with 400 MB left to fetch. Brennan: "I definitely don't want [it] killed, I want it to
+    //   finish." So for a PARTIAL download, SWAP_STALLED_MS is the authority and the 48h cap steps
+    //   aside — bytes within the stall window mean the swarm is alive, however slowly, and progress
+    //   is the only honest evidence of that. A swap that genuinely goes quiet for 12h still dies via
+    //   the stalled_swarm branch below; this only removes the SECOND, blunter clock that ignored
+    //   progress entirely. Nothing was deleted in either state, so waiting costs only disk.
     if (now - p.ts > REPLACE_TIMEOUT_MS) {
-      auditPending.delete(k); persistState();
-      console.log(`audit: replacement of "${p.title}" abandoned after 48h — original kept`);
-      metrics.emitEvent('audit_replace_abandon', { ti: p.title });
-      continue;
+      const cur = torrents.find((x) => String(x.hash || '').toLowerCase() === String(p.hash || '').toLowerCase());
+      const incomplete = cur && (cur.progress || 0) < 1;
+      const waiting = incomplete && QBIT_IDLE_STATES.has(String(cur.state || ''));
+      const progressing = incomplete && (cur.progress || 0) > 0
+        && now - (p.lastProgTs || p.ts) < SWAP_STALLED_MS;
+      if (!waiting && !progressing) {
+        auditPending.delete(k); persistState();
+        recordAuditOutcome({ title: p.title, rel: p.rel || null, outcome: 'timeout', reason: 'timeout_48h',
+          detail: 'still not finished after 48h of trying' });
+        console.log(`audit: replacement of "${p.title}" abandoned after 48h — original kept`);
+        metrics.emitEvent('audit_replace_abandon', { ti: p.title });
+        continue;
+      }
     }
     // Some indexers return a release with no infoHash, so the grab recorded an empty hash and
     // this swap could never be matched — it just sat until the 48h abandon while its replacement
@@ -1771,7 +2527,26 @@ async function replaceSweepInner() {
     // queue, which knows the downloadId it handed to qBittorrent, and persist it.
     if (!p.hash) {
       const h = await queueHashFor(p).catch(() => null);
-      if (!h) continue;                       // not in the queue yet — try again next tick
+      if (!h) {
+        // ...BUT DO NOT WAIT FOREVER. This `continue` used to be unconditional, which skipped every
+        // check below it — including the vanished-torrent abandon — so a grab that *arr accepted but
+        // never handed to the download client sat claiming "starting · 1430 min" for the full 48h.
+        // Observed 2026-08-11 on Frozen Planet II S01 and Dexter: New Blood S01, both with an EMPTY
+        // Sonarr queue: there was no download, no hash to recover, and nothing that would ever
+        // change. Give the queue the same grace the vanished check gives qBittorrent, then give up.
+        // Nothing was deleted — the original is untouched — so an early abandon costs only the grab.
+        if (now - p.ts > HASHLESS_GIVEUP_MS) {
+          auditPending.delete(k); persistState();
+          invalidateRows();
+          recordAuditOutcome({ title: p.title, rel: p.rel || null, outcome: 'abandoned', reason: 'never_started',
+            detail: `${p.app} accepted the grab but no download ever appeared` });
+          console.log(`audit: replacement for "${p.title}" never reached the download client `
+            + `(no hash after ${Math.round((now - p.ts) / 60000)} min, ${p.app} queue empty) — swap abandoned, original kept`);
+          metrics.emitEvent('audit_replace_abandon', { ti: p.title, reason: 'never_started',
+            ageMin: Math.round((now - p.ts) / 60000) });
+        }
+        continue;                             // not in the queue yet — try again next tick
+      }
       p.hash = h; persistState();
       console.log(`audit: recovered missing download hash for "${p.title}" from the ${p.app} queue`);
     }
@@ -1786,7 +2561,9 @@ async function replaceSweepInner() {
     // an empty/failed qBittorrent listing as "everything vanished".
     if (!t && torrents.length && now - p.ts > VANISHED_AFTER_MS) {
       auditPending.delete(k); persistState();
-      _rowCache = { ts: 0, rows: null };
+      invalidateRows();
+      recordAuditOutcome({ title: p.title, rel: p.rel || null, outcome: 'abandoned', reason: 'torrent_gone',
+        detail: 'the download disappeared from qBittorrent' });
       console.log(`audit: replacement for "${p.title}" is no longer in qBittorrent — swap abandoned, original kept`);
       metrics.emitEvent('audit_replace_abandon', { ti: p.title, reason: 'torrent_gone',
         ageMin: Math.round((now - p.ts) / 60000) });
@@ -1804,6 +2581,18 @@ async function replaceSweepInner() {
       // from its last observed byte. This is the swap's OWN sweep ending it; stallRecovery still
       // leaves swaps alone, so nothing else can delete the human's chosen release.
       if (t) {
+        // ACTIVE-TIME ACCOUNTING, and every zero-progress clock below is measured against it rather
+        // than against the grab timestamp. A swap sitting in qBittorrent's download queue accrues
+        // NOTHING, so a batch of 60 grabs drains through the 12 active slots at whatever rate the
+        // swarms allow and each one gets its full, fair 90 minutes of actually-trying before anyone
+        // calls it dead. See QBIT_IDLE_STATES for the incident this exists to prevent.
+        const idle = QBIT_IDLE_STATES.has(String(t.state || ''));
+        if (!idle) {
+          // Credit the gap since the last observation, capped so a restart cannot bank hours.
+          p.activeMs = (p.activeMs || 0) + Math.min(now - (p.lastSeenTs || now), SWAP_ACTIVE_STEP_CAP_MS);
+        }
+        p.lastSeenTs = now; persistState();
+        const activeMs = p.activeMs || 0;
         const stuckZero = (t.progress || 0) === 0;
         // Only trust num_seeds when qBit actually reported it — an undefined count means we cannot
         // confirm the swarm is dead, so fail safe and let the 48h backstop handle it.
@@ -1824,16 +2613,18 @@ async function replaceSweepInner() {
         // the cautionary case in both directions: eight working trackers returning nobody for ~25-45
         // minutes, then a peer via DHT and a normal download. Every tracker saying "no" is not the
         // same as the swarm being empty — it means peer discovery has not landed yet.
-        if (noSeeds && t.state === 'metaDL' && now - p.ts > SWAP_NO_META_MS) {
-          await abandonDeadSwap(k, p, 'no_metadata', Math.round((now - p.ts) / 60000));
+        if (noSeeds && t.state === 'metaDL' && activeMs > SWAP_NO_META_MS) {
+          await abandonDeadSwap(k, p, 'no_metadata', Math.round(activeMs / 60000));
           continue;
         }
-        if (noSeeds && stuckZero && now - p.ts > SWAP_DEAD_MS) {
-          await abandonDeadSwap(k, p, 'dead_swarm', Math.round((now - p.ts) / 60000));
+        if (noSeeds && stuckZero && !idle && activeMs > SWAP_DEAD_MS) {
+          await abandonDeadSwap(k, p, 'dead_swarm', Math.round(activeMs / 60000));
           continue;
         }
-        if (noSeeds && !stuckZero && (p.lastProgTs || 0) > p.ts && now - p.lastProgTs > SWAP_STALLED_MS) {
-          await abandonDeadSwap(k, p, 'stalled_swarm', Math.round((now - p.lastProgTs) / 60000));
+        // The stall clock scales with how much is already in hand — see SWAP_NEARLY_DONE.
+        const stallLimit = (t.progress || 0) >= SWAP_NEARLY_DONE ? SWAP_STALLED_NEARLY_MS : SWAP_STALLED_MS;
+        if (noSeeds && !stuckZero && (p.lastProgTs || 0) > p.ts && now - p.lastProgTs > stallLimit) {
+          await abandonDeadSwap(k, p, 'stalled_swarm', Math.round((now - p.lastProgTs) / 60000), t.progress || 0);
           continue;
         }
         // Track the last byte seen so a slow-but-alive swap is never judged against the grab time.
@@ -1872,7 +2663,7 @@ async function replaceSweepInner() {
       // Built ONCE per tick and shared by the preflight and the real import below, so the two can
       // never disagree about whether this release is acceptable — the same reason they share
       // collectImportEntries.
-      const cfAllow = await buildCfAllow(p.app, p.id, p.season);
+      const cfAllow = await buildCfAllow(p.app, p.id, p.season, p.rel);
       {
         const pre = await previewManualImport(p.app, t.content_path, p.id, { cfAllow })
           .catch((e) => ({ ok: false, reason: String(e.message || e) }));
@@ -1901,9 +2692,35 @@ async function replaceSweepInner() {
             // what this row was swapped to") — so no new plumbing and no way for the two to drift.
             if (permanent) {
               auditSwapped.set(k, { hash: String(p.hash || '').toLowerCase(), rel: p.rel || null, ts: Date.now() });
+              // ALSO record it per-RELEASE, not just per-row. auditSwapped holds ONE entry per film,
+              // so a film that burns several refused releases forgets all but the last — and, worse,
+              // it is only consulted by verifyRow. A verdict cached BEFORE the refusal keeps serving
+              // the refused release to the UI for up to VERDICT_TTL_MS, where it renders as a normal
+              // white candidate card. Brennan hit exactly that: clicking one returns the misleading
+              // "no longer available from the indexers" 409, because the confirm path re-verifies and
+              // the release vanishes underneath it. auditDead is keyed by release and IS consulted by
+              // rankCands at serve time, so recording here is what makes cached verdicts self-clean.
+              const dk = deadKey(p.rel);
+              if (dk) auditDead.set(dk, { ts: Date.now(), hash: String(p.hash || '').toLowerCase(), title: p.rel || '', reason: 'cf_refused' });
+              // NAME THE THING THAT IS WORSE. "scored it below the copy you already have" is true of
+              // every refusal and therefore says nothing — on Gladiator it pointed a human at size and
+              // picture quality when the entire deficit was one edition tag the filename had lost.
+              // Brennan, 2026-08-12: "the rejection reason on the audit tab recent should say that it
+              // was the wrong edition". cfDeficits reads the two format lists and reports exactly which
+              // formats account for it, so the history row can be specific or stay silent — never vague.
+              const lists = cfFormatsFromRejection(pre.reason);
+              const defs = (cfAllow && lists.newFormats.length)
+                ? cfDeficits(lists.oldFormats.length ? lists.oldFormats : cfAllow.oldFormats,
+                  lists.newFormats, cfAllow.scoreByName, { editionOk: !!cfAllow.editionOk })
+                : [];
+              const why = defs.length
+                ? `it is worse on ${defs.map((d) => d.name).join(', ')} — *arr will never accept it over your copy`
+                : '*arr scored it below the copy you already have — it can never import';
+              recordAuditOutcome({ title: p.title, rel: p.rel || null, outcome: 'refused', reason: 'cf_rejected',
+                detail: why });
               console.log(`audit: remembering "${p.rel || p.hash}" as refused for "${p.title}" — it will not be offered again`);
             }
-            auditPending.delete(k); persistState(); _rowCache = { ts: 0, rows: null };
+            auditPending.delete(k); persistState(); invalidateRows();
             // Say WHY in the abandon event too, not just the preflight one: the abandon is what the
             // UI and the monitors read, and "abandoned" with no reason is what made this look like a
             // fault to be chased rather than a release *arr correctly declined.
@@ -1929,6 +2746,51 @@ async function replaceSweepInner() {
           metrics.emitEvent('audit_replace_preflight_fail', { ti: p.title, reason: 'incomplete season',
             covers: pre.episodeIds.length, need: p.baseline.n });
           continue;
+        }
+        // ── IS IT THE WHOLE FILM? ────────────────────────────────────────────────────────────
+        // The last preflight, and the one Chinatown (1974) needed on 2026-08-10: a correctly-named,
+        // full-bitrate, 6.78 GB "1080p BluRay" holding 68 minutes of a 130-minute film. Nothing
+        // above this line can see that. The name parses, the cardinality is one file, *arr scores it
+        // fine, the container is valid — the ONLY evidence is the duration, and the download is
+        // complete and on disk right now, so we can simply look.
+        //
+        // This has to happen HERE, above the delete, because the post-import check that already
+        // existed caught it perfectly ("short: 68 min replacing 131 min (52%)") and was still
+        // useless: by then the good 1.71 GB copy was gone, and its only repair was to re-import the
+        // same short torrent. Measuring first turns unrecoverable data loss into a declined swap.
+        //
+        // FAILS OPEN, everywhere. No path, no duration, no yardstick → proceed exactly as before.
+        // The gate may only ever refuse on positive evidence; an ffprobe hiccup must not start
+        // declining healthy replacements. (runtimeVerdict returns 'unknown' for all of those.)
+        const rtWant = await expectedRuntimeSecs(p).catch(() => 0);
+        const rtGot = await probeTotalSecs(pre.paths);
+        const rv = runtimeVerdict({ gotSecs: rtGot, filmSecs: rtWant, oldSecs: (p.baseline && p.baseline.secs) || 0 });
+        if (rv.verdict === 'short') {
+          // PERMANENT, and recorded per-RELEASE. "This release does not contain the whole film" is a
+          // fact about the release, true for every future attempt at it — so it goes in auditDead
+          // with a reason that never expires (see deadRelease), the way cf_refused does. Re-offering
+          // it would cost another full download to reach the same answer.
+          const dk = deadKey(p.rel);
+          if (dk) auditDead.set(dk, { ts: Date.now(), hash: String(p.hash || '').toLowerCase(), title: p.rel || '', reason: 'short_runtime' });
+          auditSwapped.set(k, { hash: String(p.hash || '').toLowerCase(), rel: p.rel || null, ts: Date.now() });
+          recordAuditOutcome({ title: p.title, rel: p.rel || null, outcome: 'refused', reason: 'short_runtime',
+            detail: `only ${runtimeShortDetail(rv)} — your copy was kept` });
+          auditPending.delete(k); persistState(); invalidateRows();
+          console.log(`audit: REFUSED the replacement for "${p.title}" — the downloaded release holds only`
+            + ` ${runtimeShortDetail(rv)}. It is not the whole film, so it will not be offered again.`
+            + ' NOTHING WAS DELETED — your existing copy is untouched.');
+          metrics.emitEvent('audit_replace_abandon', { ti: p.title, reason: 'short_runtime',
+            gotMin: Math.round(rv.gotSecs / 60), wantMin: Math.round(rv.wantSecs / 60), basis: rv.basis });
+          continue;
+        }
+        if (rv.verdict === 'ok') {
+          console.log(`audit: "${p.title}" replacement runtime checks out — ${Math.round(rv.gotSecs / 60)} min`
+            + ` against ${Math.round(rv.wantSecs / 60)} min expected (${Math.round(rv.ratio * 100)}%)`);
+        } else {
+          // Said out loud on purpose. An unproven swap is allowed through, but a silent skip here is
+          // indistinguishable from a passing check when someone reads the log after a bad import.
+          console.log(`audit: "${p.title}" replacement runtime UNVERIFIED (probed ${rtGot ? Math.round(rtGot / 60) + ' min' : 'nothing'},`
+            + ` expected ${rtWant ? Math.round(rtWant / 60) + ' min' : 'unknown'}) — proceeding, the post-import check still applies`);
         }
       }
       // Delete the OLD files through *arr, never off disk, so its DB stays consistent. The
@@ -1969,7 +2831,7 @@ async function replaceSweepInner() {
       p.phase = 'verify'; p.importedAt = Date.now(); p.submitted = imported; p.removed = removed;
       p.oldFileIds = [];
       persistState();
-      _rowCache = { ts: 0, rows: null };
+      invalidateRows();
       console.log(`audit: import submitted for "${p.title}" — ${imported} file(s) offered to ${p.app},`
         + ` ${removed} old file(s) removed; verifying what actually landed`);
     } catch (e) { console.log(`audit: finalising "${p.title}" failed — ${e.message || e}`); }
@@ -1999,13 +2861,14 @@ async function swapResult(p) {
     if (files.length > 1) return { state: 'wrong', bad: 'multiple', files, detail: `${files.length} files on a one-file movie` };
     const f = files[0];
     const got = secs((f.mediaInfo || {}).runTime);
-    const want = (p.baseline && p.baseline.secs) || 0;
+    // BOTH yardsticks, same as the preflight — see runtimeVerdict. This used to compare only against
+    // the file being replaced, which is blind in the one case that matters most: if the copy on disk
+    // was ALREADY short, a second short import passed as an upgrade. TMDB's runtime closes that.
+    const filmSecs = await expectedRuntimeSecs(p).catch(() => 0);
+    const rv = runtimeVerdict({ gotSecs: got, filmSecs, oldSecs: (p.baseline && p.baseline.secs) || 0 });
     // No runtime on either side = no evidence. Accept: unproven is not the same as wrong.
-    if (!got || !want) return { state: 'ok', landed: 1, detail: `1 file, ${gb(f.size || 0)} GB (runtime unverified)` };
-    if (got < want * RUNTIME_MIN_RATIO) {
-      return { state: 'wrong', bad: 'short', files,
-        detail: `${Math.round(got / 60)} min replacing ${Math.round(want / 60)} min (${Math.round(got / want * 100)}%)` };
-    }
+    if (rv.verdict === 'unknown') return { state: 'ok', landed: 1, detail: `1 file, ${gb(f.size || 0)} GB (runtime unverified)` };
+    if (rv.verdict === 'short') return { state: 'wrong', bad: 'short', files, detail: runtimeShortDetail(rv) };
     return { state: 'ok', landed: 1, detail: `1 file, ${gb(f.size || 0)} GB, ${Math.round(got / 60)} min` };
   }
   // Sonarr: the season must hold at least as many files as we deleted. Counting episodes with files
@@ -2029,7 +2892,9 @@ async function verifySwap(k, p) {
     // Remember WHAT this row now holds, so the verifier never offers it back. See auditSwapped.
     auditSwapped.set(k, { hash: String(p.hash || '').toLowerCase(), rel: p.rel || null, ts: Date.now() });
     auditPending.delete(k); persistState();
-    _rowCache = { ts: 0, rows: null };
+    invalidateRows();
+    recordAuditOutcome({ title: p.title, rel: p.rel || null, outcome: 'replaced', reason: 'verified',
+      detail: r.detail });
     console.log(`audit: replaced "${p.title}" — VERIFIED: ${r.detail}, ${p.removed || 0} old file(s) removed`);
     metrics.emitEvent('audit_replace_done', { ti: p.title, files: p.removed || 0, imported: r.landed,
       verified: true, submitted: p.submitted || 0 });
@@ -2042,12 +2907,40 @@ async function verifySwap(k, p) {
   // importer's cardinality guard means the retry picks the feature rather than an extras clip.
   const heals = (p.heals || 0) + 1;
   const why = r.state === 'wrong' ? `${r.bad}: ${r.detail}` : `nothing landed after ${Math.round(waited / 60000)} min`;
-  if (heals > VERIFY_MAX_HEALS) {
+  // SOME FAILURES ARE NOT REPAIRABLE BY RE-IMPORTING, and 'short' is the one that matters. Healing
+  // works by deleting the bad import and running the import again against the same still-seeding
+  // torrent — which fixes an import that CHOSE wrongly (the GoodFellas extras clip), but can do
+  // nothing about a release that does not contain the whole film. Chinatown burned both attempts
+  // re-importing the identical 68-minute file before giving up.
+  //
+  // So stop on the first verdict, and — unlike the healing path — DO NOT DELETE THE FILE. The
+  // originals are already gone by this point; a short film is a bad outcome, an empty one is worse,
+  // and leaving it in place is what makes the damage visible in the library and in the runtime audit
+  // instead of silently emptying the row. Record it as a release-level corpse so it is never offered
+  // again, and leave it for a human, loudly.
+  const unrepairable = r.state === 'wrong' && r.bad === 'short';
+  if (unrepairable || heals > VERIFY_MAX_HEALS) {
+    if (unrepairable) {
+      const dk = deadKey(p.rel);
+      if (dk) auditDead.set(dk, { ts: Date.now(), hash: String(p.hash || '').toLowerCase(), title: p.rel || '', reason: 'short_runtime' });
+      auditSwapped.set(k, { hash: String(p.hash || '').toLowerCase(), rel: p.rel || null, ts: Date.now() });
+      recordAuditOutcome({ title: p.title, rel: p.rel || null, outcome: 'failed', reason: 'short_runtime',
+        detail: `imported only ${r.detail} — NEEDS A NEW COPY, pick one by hand` });
+      console.log(`audit: the replacement that landed for "${p.title}" is NOT THE WHOLE FILM — ${r.detail}.`
+        + ' Re-importing cannot fix a short source, so healing is skipped and the release is blocklisted.'
+        + ` THIS TITLE NOW NEEDS A HUMAN: the original was already removed, so the library holds only the short copy.`);
+      metrics.emitEvent('audit_replace_unrepaired', { ti: p.title, reason: `short_runtime: ${String(r.detail).slice(0, 100)}`,
+        hash: p.hash || null, needsHuman: true });
+      auditPending.delete(k); persistState(); invalidateRows();
+      return;
+    }
+    recordAuditOutcome({ title: p.title, rel: p.rel || null, outcome: 'failed', reason: 'unrepaired',
+      detail: `still wrong after ${VERIFY_MAX_HEALS} repair attempts — left for a human` });
     console.log(`audit: replacement for "${p.title}" is still wrong after ${VERIFY_MAX_HEALS} repair attempt(s)`
       + ` — ${why}. LEAVING IT FOR A HUMAN; the release is still seeding under hash ${String(p.hash || '').slice(0, 12)}`);
     metrics.emitEvent('audit_replace_unrepaired', { ti: p.title, reason: String(why).slice(0, 140), hash: p.hash || null });
     auditPending.delete(k); persistState();
-    _rowCache = { ts: 0, rows: null };
+    invalidateRows();
     return;
   }
   // Delete ONLY files this swap imported, and only when swapResult proved them wrong. A 'pending'
@@ -2185,7 +3078,15 @@ function annotateSwaps(rows, torByHash, keyOf) {
     // honest signal: no bytes for STALL_QUIET_MS on an incomplete torrent is stalled, whatever
     // qBittorrent calls it. A user-paused torrent reports stalled too, which is also true.
     const dead = (t.progress || 0) < 1 && !t.dlspeed && quietMs > STALL_QUIET_MS;
-    r.swapping.health = (t.progress || 0) >= 1 ? 'importing' : dead ? 'stalled' : 'downloading';
+    // QUEUED IS ITS OWN ANSWER, and it outranks 'stalled'. The comment above is right that a state
+    // string is a bad liveness signal — but `queuedDL` is not a claim about the swarm at all, it is
+    // qBittorrent saying "I have not started this one yet" because max_active_downloads is full.
+    // Such a torrent has no dlspeed and no activity by definition, so the movement test calls every
+    // queued swap stalled, which is how a batch of 60 healthy grabs read as 60 dead ones. It waits,
+    // and the row should say so.
+    const queued = (t.progress || 0) < 1 && QBIT_IDLE_STATES.has(String(t.state || ''));
+    r.swapping.health = (t.progress || 0) >= 1 ? 'importing'
+      : queued ? 'queued' : dead ? 'stalled' : 'downloading';
   }
 }
 
@@ -2213,14 +3114,18 @@ app.get('/api/audit', async (req, res) => {
       if (!v) return { ...r, verdict: null };
       const prio = candPriority(r);
       const fresh = Array.isArray(v.candidates) ? v.candidates.map((c) => rescoreCand(c, r, prio)) : null;
-      const ranked = fresh ? rankCands(fresh, r, haveHashes) : [];
+      const ranked = fresh ? rankCands(fresh, r, haveHashes, section) : [];
       // NEVER fall back to the cached `v.best` when the row HAS a candidate list. `best` was
       // chosen at verify time, before the serve-time refusals existed, so the fallback resurrects
       // exactly what rankCands() just threw out: on 2026-07-28 it kept offering
       // Silicon.Valley.S0{1,2}.ITA as the headline pick with an empty candidate list underneath.
       // A row whose every candidate was refused is not improvable — it has nothing to offer.
       const hadList = Array.isArray(v.candidates);
-      const best = ranked[0] || (hadList ? null : rescoreCand(v.best, r, prio)) || null;
+      // First candidate *arr can actually accept, not merely the first candidate. rankCands sinks
+      // cfBlocked to the bottom, so ranked[0] is usually right — but when EVERY option scores at or
+      // below the file on disk it would headline a release that is guaranteed to be refused.
+      const best = ranked.find((c) => !c.cfBlocked)
+        || (hadList ? null : rescoreCand(v.best, r, prio)) || null;
       const state = v.state === 'improvable' && !best ? 'none' : v.state;
       return { ...r, verdict: { state, ts: v.ts, stale: !!v.stale, reason: v.reason,
         best, candidates: ranked } };
@@ -2268,6 +3173,12 @@ app.get('/api/audit', async (req, res) => {
         verifyTotal: c.length + b.length + ed.length,
       },
       trend,
+      // RECENT OUTCOMES — sent WHOLE. An earlier cut served only the newest 24, which is fine for
+      // idle browsing and useless for the case this exists for: after a 74-title batch, the 24 most
+      // recent outcomes are all from the tail of that batch and everything that failed early is
+      // invisible. The ring is already bounded (AUDIT_HISTORY_MAX) and costs ~22 KB, which is small
+      // next to the candidate lists in this same payload.
+      history: auditHistory.slice(),
     });
   } catch (e) {
     // LOG the stack, don't just hand a 500 to the browser. A 500 with no server-side trace is
@@ -2329,7 +3240,12 @@ app.get('/api/audit/upgrade', async (req, res) => {
     const q = String(req.query.q || '').trim().toLowerCase();
     const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
     const limit = Math.min(120, Math.max(1, parseInt(req.query.limit, 10) || 40));
-    const matched = q ? upgrade.filter((r) => r.q.includes(q)) : upgrade;
+    // DEFENSIVE on r.q, because the blast radius is the whole tab rather than one row: a single row
+    // constructed without `q` threw "Cannot read properties of undefined (reading 'includes')" and
+    // broke search for the entire library (2026-08-12, the unprobed-file rows). Falling back to the
+    // title keeps an under-populated row searchable instead of taking every other row down with it.
+    const hay = (r) => (typeof r.q === 'string' ? r.q : String(r.title || '').toLowerCase());
+    const matched = q ? upgrade.filter((r) => hay(r).includes(q)) : upgrade;
     const page = matched.slice(offset, offset + limit);
     // Decorate only the page. verdictFor() is cheap but rankCands() is not, and running it over the
     // whole library per request would undo the point of paging.
@@ -2341,8 +3257,8 @@ app.get('/api/audit/upgrade', async (req, res) => {
       // Re-scored against today's complexity target, exactly as decorate() does — see rescoreCand().
       const prio = candPriority(r);
       const fresh = Array.isArray(v.candidates) ? v.candidates.map((c) => rescoreCand(c, r, prio)) : null;
-      const ranked = fresh ? rankCands(fresh, r, haveHashes) : [];
-      const best = ranked[0] || null;
+      const ranked = fresh ? rankCands(fresh, r, haveHashes, 'upgrade') : [];
+      const best = ranked.find((c) => !c.cfBlocked) || null;   // see the note in /api/audit
       return { ...r, verdict: { state: v.state === 'improvable' && !best ? 'none' : v.state,
         ts: v.ts, stale: !!v.stale, reason: v.reason, best, candidates: ranked } };
     });
@@ -2381,7 +3297,7 @@ app.post('/api/audit/rescan', async (req, res) => {
     }
     for (const k of keys) auditVerdicts.delete(k);
     persistVerdicts();
-    _rowCache = { ts: 0, rows: null };
+    invalidateRows();
     // Tell the truth about how long this takes, and about Movie Mode — the verifier is paused while
     // streaming, so a rescan started then would look silently broken.
     const paced = Math.round((before * VERIFY_EVERY_MS) / 60000);
@@ -2417,7 +3333,7 @@ app.post('/api/audit/upgrade-rescan', async (req, res) => {
     }
     for (const k of keys) auditVerdicts.delete(k);
     persistVerdicts();
-    _rowCache = { ts: 0, rows: null };
+    invalidateRows();
     const paced = Math.round((before * UPGRADE_EVERY_MS) / 60000);
     const paused = isMasterPaused();
     console.log(`audit: manual upgrade rescan — dropped ${before} cached verdict(s); re-checking at `
@@ -2628,6 +3544,12 @@ app.post('/api/audit/replace', async (req, res) => {
     // The freshly-verified candidate list, kept so the grab can fall back to a sibling copy of
     // the same release when the chosen guid is not grabbable. Only populated on the confirm path.
     let freshList = null;
+    // Filled by verifyRow on the confirm path: every release it saw and why it did not survive.
+    // Read only when the chosen release is missing, to say which of those two things went wrong.
+    const dropped = [];
+    // The candidate the CLIENT thinks it clicked, resolved from the cached verdict it rendered.
+    // Hoisted out of the guid-rotation block below because the not-found handler needs it too.
+    let want = null;
     if (dryRun) {
       const cached = verdictFor(row.key, section);
       pick = rankCands((cached && cached.candidates) || [], row).find((c) => c.guid === guid);
@@ -2641,7 +3563,7 @@ app.post('/api/audit/replace', async (req, res) => {
       // Re-verify NOW rather than trusting the cached verdict: the candidate must still pass
       // every filter (wrong-show, playback tier, content-aware bitrate floor, camrip/dub) at
       // this moment. A stale tab must not be able to grab something today's filters reject.
-      const v = await verifyRow(row, section, rows.depthMap, rows.seriesNorm);
+      const v = await verifyRow(row, section, rows.depthMap, rows.seriesNorm, dropped);
       const fresh = v.candidates || [];
       freshList = fresh;
       pick = fresh.find((c) => c.guid === guid);
@@ -2659,7 +3581,7 @@ app.post('/api/audit/replace', async (req, res) => {
       // been applied. It just stops a cosmetic id change from blocking a legitimate swap.
       if (!pick) {
         const cached = verdictFor(row.key, section);
-        const want = rankCands((cached && cached.candidates) || [], row).find((c) => c.guid === guid);
+        want = rankCands((cached && cached.candidates) || [], row).find((c) => c.guid === guid) || null;
         if (want) {
           const wh = String(want.infoHash || '').toLowerCase();
           const wt = normTitle(want.title);
@@ -2669,7 +3591,43 @@ app.post('/api/audit/replace', async (req, res) => {
         }
       }
     }
-    if (!pick) return res.status(409).json({ error: 'that release is no longer available from the indexers — tap Re-check to refresh this row' });
+    if (!pick) {
+      // TWO VERY DIFFERENT FAILURES, PREVIOUSLY ONE MESSAGE. A verdict can be hours or days old, and
+      // in between the library changes under it: importing one 10-bit file from a release group
+      // flips that group's depth verdict, and every unproven-depth HEVC candidate from it is then
+      // refused by the NUC gate. The release is still there with 30 seeders — it is the ROW that
+      // moved, not the indexers — so "no longer available, tap Re-check" pointed at the wrong thing
+      // and Re-check looked broken because it was already doing its job.
+      // Match on anything that identifies the release. `want` comes from the cached verdict the
+      // client rendered, but that verdict may since have been overwritten by a re-verify — in which
+      // case the guid the client sent is all that is left, and a magnet guid carries the infoHash.
+      const guidHash = (String(guid).match(/btih:([0-9a-f]{40})/i) || [])[1];
+      const gone = dropped.find((d) => (want && want.title && normTitle(d.title) === normTitle(want.title))
+        || (want && want.infoHash && d.hash && d.hash === String(want.infoHash).toLowerCase())
+        || (guidHash && d.hash && d.hash === guidHash.toLowerCase()));
+      if (gone) {
+        console.log(`audit: "${row.title}" — ${gone.title} is still listed but no longer eligible: ${gone.why}`);
+        return res.status(409).json({ error: `that release is still on the indexers but no longer passes this row's checks — ${gone.why}.`
+          + ` The list below has been refreshed${freshList ? ` (${freshList.length} option${freshList.length === 1 ? '' : 's'} now)` : ''}.`, refreshed: true });
+      }
+      return res.status(409).json({ error: 'that release is no longer listed by any indexer — the list below has been refreshed', refreshed: true });
+    }
+    // CANNOT IMPORT — refuse before a byte moves. The tab already renders these greyed and
+    // unclickable, but a page left open across a swap holds a stale score and could still POST one,
+    // and the confirm path re-verified against CURRENT scores a few lines above. *arr requires the
+    // replacement to score strictly HIGHER than the file on disk; equal is refused. Blocking here
+    // is what turns "downloaded 6 GB, then rejected at import" into an instant, explained no.
+    // NOTE what cfBlocked now means: not merely "scores lower" but "scores lower for a reason that is
+    // not file size or a transcodable audio track" — see cfBlockedFor. A bigger file that is
+    // otherwise identical is no longer refused here, because the import would have accepted it.
+    if (pick.cfBlocked) {
+      console.log(`audit: refused "${row.title}" — ${pick.title} scores ${pick.cfScore}, on-disk copy scores ${pick.cfNeed}`
+        + ' (and the deficit is NOT just file size)');
+      return res.status(409).json({ error: `*arr scores that release ${pick.cfScore} against ${pick.cfNeed} for the copy on disk,`
+        + ' and the difference is something that matters — a dub, a non-original-language track, a 10-bit or HDR picture,'
+        + ' AV1/VP9, or a shorter cut. File-size deficits are already forgiven, so this one is real:'
+        + ` it would download in full and then be rejected. Pick a release that is not worse on those.` });
+    }
 
     const files = await arrGet(row.app, row.app === 'radarr'
       ? `/moviefile?movieId=${row.id}` : `/episodefile?seriesId=${row.id}`).catch(() => []);
@@ -2693,6 +3651,25 @@ app.post('/api/audit/replace', async (req, res) => {
       // 3.5 GB theatrical. Negative means "uses this much more"; the client owns the wording.
       return res.json({ dryRun: true, title: row.title, pick: { title: pick.title, gb: gb(pick.bytes), seeders: pick.seeders, codec: pick.codec, depth: pick.depth },
         willRemove: oldFileIds.length, freesGb: gb(row.bytes - pick.bytes) });
+    }
+
+    // ALREADY IN THE DOWNLOAD CLIENT. qBittorrent rejects a duplicate add with 409, *arr reports
+    // that as HTTP 500, and the tab said "the indexer could not hand this release to sonarr" —
+    // which names the wrong component and sends you looking for a different candidate when the
+    // problem is that you already have this one. The candidate filter drops these upstream, but it
+    // works off qBit state cached seconds ago and off an infoHash the indexer may have omitted, so
+    // say it plainly here rather than letting a duplicate reach *arr and come back mislabelled.
+    if (pick.infoHash) {
+      const dupe = await getQbitTorrents().catch(() => [])
+        .then((ts) => ts.find((t) => String(t.hash || '').toLowerCase() === String(pick.infoHash).toLowerCase()));
+      if (dupe) {
+        const done = (dupe.progress || 0) >= 1;
+        console.log(`audit: refused duplicate grab of "${row.title}" — ${pick.title} is already in qBittorrent`
+          + ` (${dupe.state}, ${Math.round((dupe.progress || 0) * 100)}%)`);
+        return res.status(409).json({ error: done
+          ? 'you already have this exact release — it finished downloading and is seeding, so there is nothing to fetch'
+          : `this exact release is already downloading (${Math.round((dupe.progress || 0) * 100)}%) — no need to start it again` });
+      }
     }
 
     // Grab FIRST. If this fails, nothing has been touched.
@@ -2758,7 +3735,7 @@ function forgetSwap(hash) {
   if (!found) return null;
   auditPending.delete(found.key);
   persistState();
-  _rowCache = { ts: 0, rows: null };   // the row goes back to "improvable" immediately
+  invalidateRows();   // the row goes back to "improvable" immediately
   console.log(`audit: swap for "${found.pending.title}" cancelled by hand — original left untouched`);
   return found.pending;
 }
@@ -2771,5 +3748,5 @@ function forgetSwap(hash) {
 // one. Same reasoning as devNuc above.
 module.exports = {
   startAuditVerifier, verifyTick, buildRows, forgetSwap, devNuc,
-  candidateBandOk, BLOAT_BAND_BY_PROFILE,
+  top100RankByTmdb, candidateBandOk, BLOAT_BAND_BY_PROFILE,
 };

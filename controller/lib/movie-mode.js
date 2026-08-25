@@ -3,11 +3,13 @@
 // session table, the auto latch's lifecycle, and /api/jellyfin-webhook. One timer, started
 // explicitly by server.js.
 //
-// WHY A WEBHOOK AND NOT POLLING (Brennan's call, 2026-08-06): the Jellyfin Webhook plugin pushes
-// PlaybackStart the instant a title begins, so the disk goes quiet before the first seek instead
-// of up to a poll-interval later. The cost is that the plugin is now load-bearing infrastructure,
-// which is why scripts/provision/jellyfin.sh installs AND configures it idempotently, and why the
-// staleness sweep below exists.
+// WHY A WEBHOOK AND NOT POLLING (Brennan's call, 2026-08-06) — SUPERSEDED 2026-08-12, see the end of
+// this header: the Jellyfin Webhook plugin pushes PlaybackStart the instant a title begins, so the disk
+// goes quiet before the first seek instead of up to a poll-interval later. The cost is that the plugin
+// becomes load-bearing infrastructure, which is why scripts/provision/jellyfin.sh installs AND
+// configures it idempotently, and why the staleness sweep below exists. That cost came due six days
+// later. The latency argument was right and is preserved — the webhook still short-circuits the poll —
+// but it is no longer the only thing standing between a film and a busy disk.
 //
 // THE FAILURE MODE THIS IS BUILT AROUND: a webhook is a fire-and-forget HTTP POST. A dropped
 // PlaybackStop — client killed, network blip, Jellyfin restarted mid-film, plugin disabled — would
@@ -22,8 +24,32 @@
 // resuming means starting every torrent and re-enabling every sweep — expensive churn to undo
 // seconds later. Grace turns a flap into a no-op. Acquiring the latch has NO grace: quiet-the-box
 // must be immediate to be worth anything.
+//
+// ── 2026-08-12: THE WEBHOOK STOPPED BEING TRUSTED AS THE ONLY SOURCE ─────────────────────────────
+// Measured, with Brennan playing "One Battle After Another" on Jellyfin Web while we watched: Jellyfin
+// reported an unpaused session for 90 seconds and this module received NOTHING. `lastEvent` had been
+// null since the 08-09 restart, and the last real auto-arm was 2026-08-06 — so three nights of films
+// ran with every background job still hammering the disk.
+//
+// The cause is in Jellyfin, not here, and the log proves it. At 19:20:36 the Playback Reporting plugin
+// logged "Adding playback tracker / Adding Start Event" for that exact session, so Jellyfin IS firing
+// playback events and plugins CAN consume them. The Webhook plugin logged nothing. Its Item Added /
+// Item Deleted notifiers are SCHEDULED TASKS and they run fine every 90s; its playback notifiers are
+// `IEventConsumer<PlaybackStartEventArgs>` registrations through Jellyfin's EventManager, and those
+// never fire. Config was never the problem — EnableWebhook, SendAllProperties, the notification-type
+// spellings and the URL all matched the provisioner exactly, and the endpoint answers 200 by hand.
+//
+// A feature that silently stops working is worse than one that is merely slower, and "every background
+// job on the box keeps running through a film" is exactly the failure Movie Mode exists to prevent. So
+// the SESSION TABLE IS NOW POLLED and the webhook is demoted to an accelerator:
+//   poll    — ground truth, every MM_POLL_MS. Cannot silently die: if Jellyfin answers, we know what is
+//             playing; if it does not, nothing changes and the existing stale expiry still applies.
+//   webhook — kept because when it works it arms the latch in milliseconds rather than up to one poll
+//             interval, which is the whole reason Brennan chose it on 2026-08-06. It is now a bonus.
+// Both write the same table keyed the same way (DeviceId), so they cannot double-count one playback.
 const app = require('./app');
-const { cfg } = require('./config');
+const { cfg, HOST } = require('./config');
+const { tfetch } = require('./clients');
 const metrics = require('../metrics');
 // No persistState here on purpose: the auto latch is deliberately not persisted (see below).
 const {
@@ -36,6 +62,11 @@ const {
 const PLAY_STALE_MS = Number(cfg.MM_PLAY_STALE_MS || 15 * 60 * 1000);
 const GRACE_MS = Number(cfg.MM_GRACE_MS || 3 * 60 * 1000);
 const SWEEP_MS = 30 * 1000;
+// How often we ask Jellyfin what is playing. 15s is the worst-case latency for ARMING the latch, and
+// the cost is one cheap /Sessions call — the same one replaceSweep already makes every 60s. Not faster,
+// because arming is only urgent relative to a film's runtime and a tighter loop buys nothing; not
+// slower, because up to a minute of full-speed sweeps at the start of a film is what we are fixing.
+const POLL_MS = Number(cfg.MM_POLL_MS || 15 * 1000);
 
 // sessionId -> { id, title, user, client, ts, paused }
 const _sessions = new Map();
@@ -82,6 +113,88 @@ function pruneStale() {
     noteEvent('movie_mode_stale', { dropped, remaining: _sessions.size });
   }
   return dropped;
+}
+
+// Only these item types quiet the box. Music and photos do not compete for the disk in any way
+// that matters, and a Live TV stream is not ours to protect. Declared HERE, above both consumers, because
+// the poll and the webhook must gate on the identical set — they write the same table.
+const WATCHED_TYPES = new Set(['Movie', 'Episode', 'Video', 'MusicVideo']);
+
+// ---- the poll: ground truth ------------------------------------------------------------------
+// Reads Jellyfin's live session list and makes the table match it. Returns true when Jellyfin
+// answered (so the caller knows the answer is authoritative), false on any failure.
+//
+// WHEN THE POLL SUCCEEDS IT IS THE AUTHORITY, including for REMOVAL — a session Jellyfin no longer
+// lists is gone, whoever put it in the table. That is what makes a lost PlaybackStop self-heal in one
+// poll instead of one PLAY_STALE_MS, and it also means a stuck webhook latch can no longer pin the box
+// quiet for 15 minutes. Entries are still stamped with `ts` so pruneStale remains a backstop for the
+// case this function keeps failing.
+//
+// WHEN IT FAILS, NOTHING CHANGES. Jellyfin being briefly unreachable must never look like "nothing is
+// playing" — that would resume every torrent mid-film, which is the exact opposite of the job.
+let _pollFailures = 0;
+async function pollSessions() {
+  let sessions;
+  try {
+    const r = await tfetch(`${HOST.jellyfin}/Sessions`,
+      { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 6000);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    sessions = await r.json();
+  } catch (e) {
+    // Logged once per transition, not every 15s — a Jellyfin restart must not spam the log.
+    if (_pollFailures === 0) console.log(`movie-mode: Jellyfin session poll failed (${e.message || e}) — table left as-is`);
+    _pollFailures += 1;
+    return false;
+  }
+  if (!Array.isArray(sessions)) { _pollFailures += 1; return false; }
+  if (_pollFailures) {
+    console.log(`movie-mode: Jellyfin session poll recovered after ${_pollFailures} failure(s)`);
+    _pollFailures = 0;
+  }
+  const now = Date.now();
+  const live = playingFromSessions(sessions, now);
+  for (const [id, row] of live) {
+    if (!_sessions.has(id)) console.log(`movie-mode: start — ${row.title} [${row.client || 'unknown client'}] (poll)`);
+    _sessions.set(id, row);
+  }
+  for (const [id, s] of [..._sessions]) {
+    if (live.has(id)) continue;
+    _sessions.delete(id);
+    console.log(`movie-mode: stop — ${s.title} (poll says it is gone, ${_sessions.size} still playing)`);
+  }
+  return true;
+}
+
+// The PURE half of the poll: a Jellyfin /Sessions payload -> the rows the table should hold. Split out
+// so it can be tested against real payload shapes without a Jellyfin, without a network call and
+// without reporting fake playback against Brennan's watch history (see scripts/test-movie-mode.js).
+// Every field name here was read off the live server on 2026-08-12.
+function playingFromSessions(sessions, now = Date.now()) {
+  const out = new Map();
+  for (const s of (Array.isArray(sessions) ? sessions : [])) {
+    const np = s && s.NowPlayingItem;
+    if (!np) continue;                                     // an idle client is not playback
+    // Same item-type gate the webhook applies, from Jellyfin's own field. Music and photos do not
+    // compete for the USB disk in any way worth pausing downloads over. An ABSENT type is accepted,
+    // matching the webhook: unknown is not a reason to ignore playback.
+    const itemType = String(np.Type || '');
+    if (itemType && !WATCHED_TYPES.has(itemType)) continue;
+    // DeviceId FIRST, matching the webhook's key exactly — otherwise one film playing on one device
+    // would occupy two rows, and `describe()` would report "X +1 more" for a single viewer.
+    const id = String(s.DeviceId || s.Id || 'unknown');
+    const title = np.SeriesName && np.IndexNumber != null
+      ? `${np.SeriesName} S${np.ParentIndexNumber ?? '?'}E${np.IndexNumber}`
+      : (np.Name || 'something');
+    out.set(id, {
+      id,
+      title,
+      user: s.UserName || '',
+      client: s.Client || s.DeviceName || '',
+      paused: !!(s.PlayState && s.PlayState.IsPaused),
+      ts: now,
+    });
+  }
+  return out;
 }
 
 // Reconcile the auto latch with the session table. Idempotent and safe to call often.
@@ -151,9 +264,6 @@ function titleOf(b) {
   return name || series || 'something';
 }
 
-// Only these item types quiet the box. Music and photos do not compete for the disk in any way
-// that matters, and a Live TV stream is not ours to protect.
-const WATCHED_TYPES = new Set(['Movie', 'Episode', 'Video', 'MusicVideo']);
 
 // Last event's SHAPE, kept for diagnosis. The Webhook plugin's property names depend on its version
 // and template, and "auto Movie Mode did nothing" is otherwise indistinguishable from "the plugin is
@@ -214,6 +324,15 @@ function status() {
       title: s.title, user: s.user, client: s.client, paused: s.paused,
       ageMs: Date.now() - s.ts,
     })),
+    // THE POLL'S OWN HEALTH, surfaced so "auto Movie Mode did nothing" is answerable from one call.
+    // The 2026-08-06→08-12 outage was invisible precisely because nothing reported that the source of
+    // truth had gone silent; `lastEvent: null` was the only clue and it reads identically to "nothing
+    // has played yet". Now the poll is the source and it says whether it is working.
+    poll: {
+      everySec: Math.round(POLL_MS / 1000),
+      failures: _pollFailures,
+      ok: _pollFailures === 0,
+    },
     webhook: {
       staleMin: Math.round(PLAY_STALE_MS / 60000), graceMin: Math.round(GRACE_MS / 60000),
       // null here after a restart is normal; null after a film has played means the plugin is not
@@ -251,13 +370,26 @@ function startMovieMode() {
     pruneStale();
     apply('sweep').catch(() => { /* logged inside */ });
   }, SWEEP_MS);
+  // THE POLL, and it is the reason this feature is no longer hostage to a plugin. Separate timer from
+  // the sweep above because the two answer different questions on different clocks: the sweep expires
+  // and reconciles the latch, this one refreshes the facts. apply() runs straight after a SUCCESSFUL
+  // poll so arming does not wait for the next 30s sweep — the whole point is that the disk goes quiet
+  // near the start of the film rather than a minute into it.
+  const pollTick = () => pollSessions()
+    .then((ok) => (ok ? apply('poll') : null))
+    .catch((e) => console.log(`movie-mode: poll tick failed — ${e && e.message}`));
+  setInterval(pollTick, POLL_MS);
+  setTimeout(pollTick, 3000);              // know what is playing almost immediately after a restart
   // 20s: qBittorrent is a depends_on peer and is usually still starting when we boot.
   setTimeout(() => { recoverOrphanedPause().catch(() => { /* logged inside */ }); }, 20000);
-  console.log(`movie-mode: auto Movie Mode armed (stale ${Math.round(PLAY_STALE_MS / 60000)}m, grace ${Math.round(GRACE_MS / 60000)}m)`);
+  console.log(`movie-mode: auto Movie Mode armed — polling Jellyfin every ${Math.round(POLL_MS / 1000)}s`
+    + ` (stale ${Math.round(PLAY_STALE_MS / 60000)}m, grace ${Math.round(GRACE_MS / 60000)}m);`
+    + ' webhook accepted as a low-latency accelerator');
 }
 
 module.exports = {
   startMovieMode, setApplier, status, apply, pruneStale, recoverOrphanedPause,
+  playingFromSessions, pollSessions,
   // exported for tests
   _sessions, liveCount, wanted, titleOf, describe,
 };

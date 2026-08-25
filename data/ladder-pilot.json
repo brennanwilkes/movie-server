@@ -1,0 +1,765 @@
+{
+ "v": 1,
+ "films": {
+  "mv:66": {
+   "key": "mv:66",
+   "title": "Blade Runner 2049 (2017)",
+   "cxEff": 0.06696,
+   "bppPlus": 191,
+   "source": "Bluray-1080p",
+   "year": 2017,
+   "why": "complexity decile 1",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 1955277,
+     "spreadRatio": 2.586
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 873516,
+     "spreadRatio": 3.442
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 476291,
+     "spreadRatio": 4.151
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 286488,
+     "spreadRatio": 4.538
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1472,
+    "r2": 0.989,
+    "curvature": 0.00465,
+    "rungs": 4
+   },
+   "ts": 1787094727213
+  },
+  "mv:720": {
+   "key": "mv:720",
+   "title": "Beyond Utopia (2023)",
+   "cxEff": 0.09273,
+   "bppPlus": 70,
+   "source": "WEBRip-1080p",
+   "year": 2023,
+   "why": "complexity decile 2",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 4095672,
+     "spreadRatio": 12.222
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 2505903,
+     "spreadRatio": 13.73
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 1555144,
+     "spreadRatio": 14.382
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 943718,
+     "spreadRatio": 12.558
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1149,
+    "r2": 0.9999,
+    "curvature": -0.00013,
+    "rungs": 4
+   },
+   "ts": 1787095125322
+  },
+  "mv:564": {
+   "key": "mv:564",
+   "title": "The Warriors (1979)",
+   "cxEff": 0.11329,
+   "bppPlus": 67,
+   "source": "Bluray-1080p",
+   "year": 1979,
+   "why": "complexity decile 3",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 4428197,
+     "spreadRatio": 1.538
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 2598878,
+     "spreadRatio": 1.655
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 1508612,
+     "spreadRatio": 1.786
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 873566,
+     "spreadRatio": 1.82
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1266,
+    "r2": 1,
+    "curvature": -0.00021,
+    "rungs": 4
+   },
+   "ts": 1787095798589
+  },
+  "mv:361": {
+   "key": "mv:361",
+   "title": "Black Bag (2025)",
+   "cxEff": 0.13104,
+   "bppPlus": 68,
+   "source": "Bluray-1080p",
+   "year": 2025,
+   "why": "complexity decile 4",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 2773800,
+     "spreadRatio": 1.793
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 1334079,
+     "spreadRatio": 2.236
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 677261,
+     "spreadRatio": 2.623
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 383558,
+     "spreadRatio": 2.746
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1524,
+    "r2": 0.9969,
+    "curvature": 0.00255,
+    "rungs": 4
+   },
+   "ts": 1787096119572
+  },
+  "mv:31": {
+   "key": "mv:31",
+   "title": "Sicario (2015)",
+   "cxEff": 0.14646,
+   "bppPlus": 87,
+   "source": "Bluray-1080p",
+   "year": 2015,
+   "why": "complexity decile 5",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 5858111,
+     "spreadRatio": 152.185
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 3400391,
+     "spreadRatio": 159.95
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 1870329,
+     "spreadRatio": 126.206
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 1013913,
+     "spreadRatio": 85.932
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1363,
+    "r2": 0.9993,
+    "curvature": -0.00107,
+    "rungs": 4
+   },
+   "ts": 1787096435273
+  },
+  "mv:95": {
+   "key": "mv:95",
+   "title": "The Matrix Reloaded (2003)",
+   "cxEff": 0.16178,
+   "bppPlus": 65,
+   "source": "Bluray-1080p",
+   "year": 2003,
+   "why": "complexity decile 6",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 4096784,
+     "spreadRatio": 1.091
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 2311157,
+     "spreadRatio": 1.104
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 1213616,
+     "spreadRatio": 1.131
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 589428,
+     "spreadRatio": 1.308
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1491,
+    "r2": 0.9973,
+    "curvature": -0.00234,
+    "rungs": 4
+   },
+   "ts": 1787096767012
+  },
+  "mv:169": {
+   "key": "mv:169",
+   "title": "Doctor Zhivago (1965)",
+   "cxEff": 0.18133,
+   "bppPlus": 55,
+   "source": "Bluray-1080p",
+   "year": 1965,
+   "why": "complexity decile 7",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 5010922,
+     "spreadRatio": 4.808
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 3139473,
+     "spreadRatio": 5.664
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 1922074,
+     "spreadRatio": 6.689
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 1120896,
+     "spreadRatio": 7.327
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1171,
+    "r2": 0.9989,
+    "curvature": -0.00112,
+    "rungs": 4
+   },
+   "ts": 1787097150860
+  },
+  "mv:820": {
+   "key": "mv:820",
+   "title": "The Devil All the Time (2020)",
+   "cxEff": 0.20884,
+   "bppPlus": 58,
+   "source": "WEBRip-720p",
+   "year": 2020,
+   "why": "complexity decile 8",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 3145560,
+     "spreadRatio": 4.917
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 1973188,
+     "spreadRatio": 5.845
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 1169945,
+     "spreadRatio": 6.988
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 636742,
+     "spreadRatio": 7.597
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1244,
+    "r2": 0.9964,
+    "curvature": -0.00222,
+    "rungs": 4
+   },
+   "ts": 1787097322647
+  },
+  "mv:901": {
+   "key": "mv:901",
+   "title": "Primer (2004)",
+   "cxEff": 0.2562,
+   "bppPlus": 51,
+   "source": "WEBDL-720p",
+   "year": 2004,
+   "why": "complexity decile 9",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 3100631,
+     "spreadRatio": 1.698
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 1884619,
+     "spreadRatio": 1.807
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 1095534,
+     "spreadRatio": 1.823
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 557760,
+     "spreadRatio": 1.833
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1326,
+    "r2": 0.9949,
+    "curvature": -0.00277,
+    "rungs": 4
+   },
+   "ts": 1787097522639
+  },
+  "mv:903": {
+   "key": "mv:903",
+   "title": "Tangerine (2015)",
+   "cxEff": 0.35915,
+   "bppPlus": 41,
+   "source": "Bluray-720p",
+   "year": 2015,
+   "why": "complexity decile 10",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 4583562,
+     "spreadRatio": 1.818
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 3017868,
+     "spreadRatio": 1.928
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 2000149,
+     "spreadRatio": 1.998
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 1283364,
+     "spreadRatio": 2.03
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1004,
+    "r2": 0.9997,
+    "curvature": -0.0004,
+    "rungs": 4
+   },
+   "ts": 1787097724418
+  },
+  "mv:490": {
+   "key": "mv:490",
+   "title": "12 Angry Men (1957)",
+   "cxEff": 1.09296,
+   "bppPlus": 76,
+   "source": "Remux-1080p",
+   "year": 1957,
+   "why": "hungriest content in the library (cx 0.93)",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 45407138,
+     "spreadRatio": 1.097
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 26956884,
+     "spreadRatio": 1.129
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 13161383,
+     "spreadRatio": 1.139
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 4675055,
+     "spreadRatio": 1.12
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1717,
+    "r2": 0.9771,
+    "curvature": -0.00803,
+    "rungs": 4
+   },
+   "ts": 1787098933471
+  },
+  "mv:577": {
+   "key": "mv:577",
+   "title": "Arrival (2016)",
+   "cxEff": 0.02846,
+   "bppPlus": 140,
+   "source": "Bluray-1080p",
+   "year": 2016,
+   "why": "cheapest content (cx 0.029)",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 1128976,
+     "spreadRatio": 3.008
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 446133,
+     "spreadRatio": 3.235
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 201528,
+     "spreadRatio": 3.07
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 112435,
+     "spreadRatio": 2.859
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1754,
+    "r2": 0.99,
+    "curvature": 0.00539,
+    "rungs": 4
+   },
+   "ts": 1787099173122
+  },
+  "mv:902": {
+   "key": "mv:902",
+   "title": "The Blair Witch Project (1999)",
+   "cxEff": 0.4223,
+   "bppPlus": 30,
+   "source": "Bluray-720p",
+   "year": 1999,
+   "why": "deliberately degraded photography — bits cannot help",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 10151473,
+     "spreadRatio": 2.934
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 6637167,
+     "spreadRatio": 3.248
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 4399439,
+     "spreadRatio": 3.519
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 2894725,
+     "spreadRatio": 3.867
+    }
+   ],
+   "fit": {
+    "perPoint": -0.0991,
+    "r2": 1,
+    "curvature": 0.0001,
+    "rungs": 4
+   },
+   "ts": 1787099623008
+  },
+  "mv:228": {
+   "key": "mv:228",
+   "title": "Parasite (2019)",
+   "cxEff": 0.06514,
+   "bppPlus": 218,
+   "source": "Bluray-1080p",
+   "year": 2019,
+   "why": "most over-supplied (R 5.58)",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 3682741,
+     "spreadRatio": 2.078
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 1330259,
+     "spreadRatio": 2.272
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 626173,
+     "spreadRatio": 2.428
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 345820,
+     "spreadRatio": 2.428
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1782,
+    "r2": 0.9854,
+    "curvature": 0.00663,
+    "rungs": 4
+   },
+   "ts": 1787099995285
+  },
+  "mv:388": {
+   "key": "mv:388",
+   "title": "Casablanca (1943)",
+   "cxEff": 0.27853,
+   "bppPlus": 123,
+   "source": "Bluray-1080p",
+   "year": 1943,
+   "why": "heavy B&W grain, well fed",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 17762985,
+     "spreadRatio": 1.441
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 8909541,
+     "spreadRatio": 1.685
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 3688264,
+     "spreadRatio": 2.037
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 1354214,
+     "spreadRatio": 2.509
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1935,
+    "r2": 0.9934,
+    "curvature": -0.00487,
+    "rungs": 4
+   },
+   "ts": 1787100637641
+  },
+  "mv:806": {
+   "key": "mv:806",
+   "title": "No Other Choice (2025)",
+   "cxEff": 0.40637,
+   "bppPlus": 43,
+   "source": "Bluray-1080p",
+   "year": 2025,
+   "why": "clean modern digital, grain-free control",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 9093788,
+     "spreadRatio": 7.046
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 5880965,
+     "spreadRatio": 8.002
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 3662315,
+     "spreadRatio": 8.779
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 2077175,
+     "spreadRatio": 9.61
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1154,
+    "r2": 0.9963,
+    "curvature": -0.00205,
+    "rungs": 4
+   },
+   "ts": 1787101067528
+  },
+  "mv:222": {
+   "key": "mv:222",
+   "title": "Spirited Away (2001)",
+   "cxEff": 0.09183,
+   "bppPlus": 103,
+   "source": "Bluray-1080p",
+   "year": 2001,
+   "why": "animation — no photochemical grain",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 3173348,
+     "spreadRatio": 1.364
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 2053392,
+     "spreadRatio": 1.487
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 1268494,
+     "spreadRatio": 1.614
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 760793,
+     "spreadRatio": 1.763
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1123,
+    "r2": 0.9987,
+    "curvature": -0.00119,
+    "rungs": 4
+   },
+   "ts": 1787101419038
+  },
+  "mv:73": {
+   "key": "mv:73",
+   "title": "Star Wars (1977)",
+   "cxEff": 0.10822,
+   "bppPlus": 144,
+   "source": "Bluray-1080p",
+   "year": 1977,
+   "why": "the grain-boiling case from section 9",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 6123321,
+     "spreadRatio": 1.333
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 2692835,
+     "spreadRatio": 1.444
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 1176236,
+     "spreadRatio": 1.626
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 596073,
+     "spreadRatio": 1.896
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1775,
+    "r2": 0.998,
+    "curvature": 0.00222,
+    "rungs": 4
+   },
+   "ts": 1787101839564
+  },
+  "mv:123": {
+   "key": "mv:123",
+   "title": "Asteroid City (2023)",
+   "cxEff": 0.09851,
+   "bppPlus": 117,
+   "source": "WEBDL-1080p",
+   "year": 2023,
+   "why": "WEB-DL tier",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 9333224,
+     "spreadRatio": 4.097
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 4442044,
+     "spreadRatio": 3.752
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 1882267,
+     "spreadRatio": 2.769
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 813071,
+     "spreadRatio": 2.802
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1849,
+    "r2": 0.999,
+    "curvature": -0.00151,
+    "rungs": 4
+   },
+   "ts": 1787102243432
+  },
+  "mv:130": {
+   "key": "mv:130",
+   "title": "E.T. the Extra-Terrestrial (1982)",
+   "cxEff": 0.09801,
+   "bppPlus": 123,
+   "source": "Bluray-720p",
+   "year": 1982,
+   "why": "720p tier",
+   "points": [
+    {
+     "crf": 16,
+     "probeBitrate": 4363637,
+     "spreadRatio": 1.343
+    },
+    {
+     "crf": 20,
+     "probeBitrate": 2016125,
+     "spreadRatio": 1.531
+    },
+    {
+     "crf": 24,
+     "probeBitrate": 953996,
+     "spreadRatio": 2.359
+    },
+    {
+     "crf": 28,
+     "probeBitrate": 501101,
+     "spreadRatio": 3.361
+    }
+   ],
+   "fit": {
+    "perPoint": -0.1656,
+    "r2": 0.9983,
+    "curvature": 0.002,
+    "rungs": 4
+   },
+   "ts": 1787102487784
+  }
+ }
+}

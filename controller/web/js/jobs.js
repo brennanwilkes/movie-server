@@ -48,6 +48,10 @@ const JOB_BADGE = {
   waiting: { label: 'waiting', cls: 'wait' },
   paused: { label: 'paused', cls: 'wait' },
   error: { label: 'failed', cls: 'bad' },
+  // AMBER, NOT RED. A task that was stopped — by its own runtime cap, by a shutdown, by hand — did
+  // not go wrong. The trickplay generator hitting its deliberate 4h limit was reporting "FAILED" in
+  // red every morning, which trains you to ignore the one colour that should mean "look at me".
+  cancelled: { label: 'stopped', cls: 'wait' },
   idle: { label: 'idle', cls: 'dim' },
   never: { label: 'queued', cls: 'dim' },
   off: { label: 'off', cls: 'dim' },
@@ -58,7 +62,8 @@ const JOB_BADGE = {
 // box is doing now), then gated jobs (they WANT to run), then everything at rest by weight. Done in
 // the client, not the API: /api/jobs stays a stable weight-ordered catalogue, and this is a
 // presentation priority that changes every few seconds.
-const STATE_RANK = { error: 0, running: 1, waiting: 2, paused: 2 };
+// `cancelled` sorts with the gated states, not with errors: it is worth noticing but never urgent.
+const STATE_RANK = { error: 0, running: 1, waiting: 2, paused: 2, cancelled: 2 };
 function jobRank(j) { return STATE_RANK[j.state] == null ? 3 : STATE_RANK[j.state]; }
 
 // CADENCE OUTRANKS STATE (Brennan: "any crons that run more than once per hour, lets have them sort

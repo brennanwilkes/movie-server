@@ -1,3 +1,28 @@
 .env
 *.log
 .opencode
+
+# Fetched static ffmpeg for CAMBI (scripts/setup-vmaf-tool.sh) — ~430 MB of binaries.
+# Reproducible from the script, so it is deliberately NOT in the repo. Never commit it.
+tools/ffmpeg-*/
+tools/*.tar.xz
+
+# Bulk research corpora. These are FETCHED, never authored, and they are large enough to
+# fill the 221 GB boot SSD (CVQAD alone is 18 GB at 138/249 clips — it did exactly that on
+# 2026-08-21). They now live on the external drive and are symlinked in; the symlink itself
+# is ignored too. See "Research corpora & scratch data" in AGENTS.md.
+data/cvqad
+bpp-lab/node_modules/
+
+# The bulk audit dumps (2026-07-31 snapshot, ~50 MB of six JSON files). Kept ON DISK — they
+# are a frozen snapshot and the .py scripts beside them can only regenerate a CURRENT library,
+# not July's — but deliberately NOT in git: they are machine-generated, never edited, and never
+# diffed. The authored analysis in that folder (*.md, *.txt, *.py, *.csv) IS committed, as are
+# the small config dumps (*_profiles.json, *_customformats.json, series.json, sonarr_series.json).
+# A fresh clone will not have these six; re-dump with raw/dump_library.py + raw/dump_arr.py.
+docs/audit-2026-07-31/raw/episodes.json
+docs/audit-2026-07-31/raw/movies.json
+docs/audit-2026-07-31/raw/library_flat.json
+docs/audit-2026-07-31/raw/library_scored.json
+docs/audit-2026-07-31/raw/radarr_movies.json
+docs/audit-2026-07-31/raw/sonarr_episodefiles.json

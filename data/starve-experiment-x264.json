@@ -1,0 +1,837 @@
+{
+ "v": 1,
+ "films": {
+  "mv:148": {
+   "key": "mv:148",
+   "title": "The Social Network (2010)",
+   "cxEff": 0.05588,
+   "R": 1.3839,
+   "year": 2010,
+   "srcBitrate": 4308048,
+   "points": [
+    {
+     "level": 1,
+     "crf": 16,
+     "probeBitrate": 2791427,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 20,
+     "probeBitrate": 1465453,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 24,
+     "probeBitrate": 822850,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 28,
+     "probeBitrate": 482563,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 16,
+     "probeBitrate": 2410920,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 20,
+     "probeBitrate": 1345227,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 24,
+     "probeBitrate": 782187,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 28,
+     "probeBitrate": 465937,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 16,
+     "probeBitrate": 2076213,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 20,
+     "probeBitrate": 1198827,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 24,
+     "probeBitrate": 717003,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 28,
+     "probeBitrate": 440880,
+     "samplesOk": 3
+    }
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "perPoint": -0.1359,
+     "r2": 0.9982,
+     "cx20": 1465453
+    },
+    {
+     "level": 0.5,
+     "perPoint": -0.1279,
+     "r2": 0.9993,
+     "cx20": 1345227
+    },
+    {
+     "level": 0.25,
+     "perPoint": -0.1211,
+     "r2": 0.9993,
+     "cx20": 1198827
+    }
+   ],
+   "ts": 1787279504834,
+   "enc": "libx264"
+  },
+  "mv:66": {
+   "key": "mv:66",
+   "title": "Blade Runner 2049 (2017)",
+   "cxEff": 0.06696,
+   "R": 3.6602,
+   "year": 2017,
+   "srcBitrate": 10535298,
+   "points": [
+    {
+     "level": 1,
+     "crf": 16,
+     "probeBitrate": 1591610,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 20,
+     "probeBitrate": 673067,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 24,
+     "probeBitrate": 355907,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 28,
+     "probeBitrate": 210050,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 16,
+     "probeBitrate": 1797603,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 20,
+     "probeBitrate": 729417,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 24,
+     "probeBitrate": 368003,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 28,
+     "probeBitrate": 213770,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 16,
+     "probeBitrate": 1608927,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 20,
+     "probeBitrate": 739970,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 24,
+     "probeBitrate": 378943,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 28,
+     "probeBitrate": 219060,
+     "samplesOk": 3
+    }
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "perPoint": -0.1545,
+     "r2": 0.9875,
+     "cx20": 673067
+    },
+    {
+     "level": 0.5,
+     "perPoint": -0.1621,
+     "r2": 0.9872,
+     "cx20": 729417
+    },
+    {
+     "level": 0.25,
+     "perPoint": -0.1532,
+     "r2": 0.9941,
+     "cx20": 739970
+    }
+   ],
+   "ts": 1787279968417,
+   "enc": "libx264"
+  },
+  "mv:679": {
+   "key": "mv:679",
+   "title": "Dune (1984)",
+   "cxEff": 0.10215,
+   "R": 1.2358,
+   "year": 1984,
+   "srcBitrate": 4383139,
+   "points": [
+    {
+     "level": 1,
+     "crf": 16,
+     "probeBitrate": 3805563,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 20,
+     "probeBitrate": 1879547,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 24,
+     "probeBitrate": 866707,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 28,
+     "probeBitrate": 404087,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 16,
+     "probeBitrate": 2746403,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 20,
+     "probeBitrate": 1487877,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 24,
+     "probeBitrate": 757547,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 28,
+     "probeBitrate": 386840,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 16,
+     "probeBitrate": 2120960,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 20,
+     "probeBitrate": 1217477,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 24,
+     "probeBitrate": 678433,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 28,
+     "probeBitrate": 374957,
+     "samplesOk": 3
+    }
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "perPoint": -0.171,
+     "r2": 0.9996,
+     "cx20": 1879547
+    },
+    {
+     "level": 0.5,
+     "perPoint": -0.1512,
+     "r2": 0.9995,
+     "cx20": 1487877
+    },
+    {
+     "level": 0.25,
+     "perPoint": -0.1346,
+     "r2": 0.9998,
+     "cx20": 1217477
+    }
+   ],
+   "ts": 1787280576977,
+   "enc": "libx264"
+  },
+  "mv:38": {
+   "key": "mv:38",
+   "title": "Django Unchained (2012)",
+   "cxEff": 0.11801,
+   "R": 1.2104,
+   "year": 2012,
+   "srcBitrate": 6124298,
+   "points": [
+    {
+     "level": 1,
+     "crf": 16,
+     "probeBitrate": 5676427,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 20,
+     "probeBitrate": 2584020,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 24,
+     "probeBitrate": 1138483,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 28,
+     "probeBitrate": 574700,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 16,
+     "probeBitrate": 3636310,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 20,
+     "probeBitrate": 1987753,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 24,
+     "probeBitrate": 1052117,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 28,
+     "probeBitrate": 566337,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 16,
+     "probeBitrate": 2693960,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 20,
+     "probeBitrate": 1567960,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 24,
+     "probeBitrate": 932127,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 28,
+     "probeBitrate": 538797,
+     "samplesOk": 3
+    }
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "perPoint": -0.1749,
+     "r2": 0.9986,
+     "cx20": 2584020
+    },
+    {
+     "level": 0.5,
+     "perPoint": -0.1439,
+     "r2": 0.9999,
+     "cx20": 1987753
+    },
+    {
+     "level": 0.25,
+     "perPoint": -0.1252,
+     "r2": 0.9999,
+     "cx20": 1567960
+    }
+   ],
+   "ts": 1787281171742,
+   "enc": "libx264"
+  },
+  "mv:235": {
+   "key": "mv:235",
+   "title": "Alien (1979)",
+   "cxEff": 0.11732,
+   "R": 1.9181,
+   "year": 1979,
+   "srcBitrate": 9888088,
+   "points": [
+    {
+     "level": 1,
+     "crf": 16,
+     "probeBitrate": 6007213,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 20,
+     "probeBitrate": 2592237,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 24,
+     "probeBitrate": 1014160,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 28,
+     "probeBitrate": 455537,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 16,
+     "probeBitrate": 4724293,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 20,
+     "probeBitrate": 2333347,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 24,
+     "probeBitrate": 1014493,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 28,
+     "probeBitrate": 476473,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 16,
+     "probeBitrate": 3401247,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 20,
+     "probeBitrate": 1867720,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 24,
+     "probeBitrate": 956203,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 28,
+     "probeBitrate": 471660,
+     "samplesOk": 3
+    }
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "perPoint": -0.195,
+     "r2": 0.9992,
+     "cx20": 2592237
+    },
+    {
+     "level": 0.5,
+     "perPoint": -0.1754,
+     "r2": 0.9991,
+     "cx20": 2333347
+    },
+    {
+     "level": 0.25,
+     "perPoint": -0.152,
+     "r2": 0.9987,
+     "cx20": 1867720
+    }
+   ],
+   "ts": 1787281751397,
+   "enc": "libx264"
+  },
+  "mv:282": {
+   "key": "mv:282",
+   "title": "Fargo (1996)",
+   "cxEff": 0.17143,
+   "R": 1.2215,
+   "year": 1996,
+   "srcBitrate": 9995903,
+   "points": [
+    {
+     "level": 1,
+     "crf": 16,
+     "probeBitrate": 6447553,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 20,
+     "probeBitrate": 2826797,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 24,
+     "probeBitrate": 1123530,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 28,
+     "probeBitrate": 511937,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 16,
+     "probeBitrate": 4678587,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 20,
+     "probeBitrate": 2254353,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 24,
+     "probeBitrate": 1017850,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 28,
+     "probeBitrate": 501233,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 16,
+     "probeBitrate": 3326003,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 20,
+     "probeBitrate": 1788907,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 24,
+     "probeBitrate": 932987,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 28,
+     "probeBitrate": 493440,
+     "samplesOk": 3
+    }
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "perPoint": -0.1919,
+     "r2": 0.9991,
+     "cx20": 2826797
+    },
+    {
+     "level": 0.5,
+     "perPoint": -0.1709,
+     "r2": 0.9995,
+     "cx20": 2254353
+    },
+    {
+     "level": 0.25,
+     "perPoint": -0.1473,
+     "r2": 0.9999,
+     "cx20": 1788907
+    }
+   ],
+   "ts": 1787282490733,
+   "enc": "libx264"
+  },
+  "mv:264": {
+   "key": "mv:264",
+   "title": "Requiem for a Dream (2000)",
+   "cxEff": 0.201,
+   "R": 1.6218,
+   "year": 2000,
+   "srcBitrate": 19260140,
+   "points": [
+    {
+     "level": 1,
+     "crf": 16,
+     "probeBitrate": 6421250,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 20,
+     "probeBitrate": 2956123,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 24,
+     "probeBitrate": 1250047,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 28,
+     "probeBitrate": 570237,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 16,
+     "probeBitrate": 5231363,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 20,
+     "probeBitrate": 2602437,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 24,
+     "probeBitrate": 1140777,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 28,
+     "probeBitrate": 551283,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 16,
+     "probeBitrate": 3986020,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 20,
+     "probeBitrate": 2139330,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 24,
+     "probeBitrate": 1053407,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 28,
+     "probeBitrate": 540320,
+     "samplesOk": 3
+    }
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "perPoint": -0.1838,
+     "r2": 0.9996,
+     "cx20": 2956123
+    },
+    {
+     "level": 0.5,
+     "perPoint": -0.1725,
+     "r2": 0.9991,
+     "cx20": 2602437
+    },
+    {
+     "level": 0.25,
+     "perPoint": -0.1543,
+     "r2": 0.9994,
+     "cx20": 2139330
+    }
+   ],
+   "ts": 1787283293982,
+   "enc": "libx264"
+  },
+  "mv:178": {
+   "key": "mv:178",
+   "title": "Quantum of Solace (2008)",
+   "cxEff": 0.28561,
+   "R": 1.1994,
+   "year": 2008,
+   "srcBitrate": 11140385,
+   "points": [
+    {
+     "level": 1,
+     "crf": 16,
+     "probeBitrate": 9615997,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 20,
+     "probeBitrate": 4273453,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 24,
+     "probeBitrate": 1776033,
+     "samplesOk": 3
+    },
+    {
+     "level": 1,
+     "crf": 28,
+     "probeBitrate": 858247,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 16,
+     "probeBitrate": 6056807,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 20,
+     "probeBitrate": 3116780,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 24,
+     "probeBitrate": 1556780,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.5,
+     "crf": 28,
+     "probeBitrate": 826747,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 16,
+     "probeBitrate": 4508707,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 20,
+     "probeBitrate": 2585583,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 24,
+     "probeBitrate": 1433647,
+     "samplesOk": 3
+    },
+    {
+     "level": 0.25,
+     "crf": 28,
+     "probeBitrate": 808623,
+     "samplesOk": 3
+    }
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "perPoint": -0.1839,
+     "r2": 0.9988,
+     "cx20": 4273453
+    },
+    {
+     "level": 0.5,
+     "perPoint": -0.1536,
+     "r2": 0.9997,
+     "cx20": 3116780
+    },
+    {
+     "level": 0.25,
+     "perPoint": -0.1338,
+     "r2": 0.9999,
+     "cx20": 2585583
+    }
+   ],
+   "ts": 1787284157305,
+   "enc": "libx264"
+  }
+ }
+}

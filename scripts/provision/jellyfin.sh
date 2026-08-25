@@ -607,7 +607,7 @@ else
     curl -fsS -X POST "$JF/Packages/Installed/Webhook?assemblyGuid=$whguid&version=$whver" -H "X-Emby-Token: $token" >/dev/null
     ok "Webhook plugin installed ($whver) — restart below activates it"
   else
-    warn "Webhook not found in plugin catalog — auto Movie Mode will not arm; re-run make provision s=jellyfin"
+    warn "Webhook not found in plugin catalog — auto Movie Mode still works (the controller POLLS /Sessions every 15s); this only costs the sub-second arming. re-run: make provision s=jellyfin"
   fi
 fi
 
@@ -808,7 +808,13 @@ else
   fi
 fi
 
-# 9b. Webhook plugin configuration — the delivery path for AUTO MOVIE MODE. Installed in §6d4;
+# 9b. Webhook plugin configuration — an ACCELERATOR for AUTO MOVIE MODE, no longer its delivery path.
+#     DEMOTED 2026-08-12: the plugin's playback notifiers (IEventConsumer registrations, unlike its
+#     scheduled-task ones) silently stopped firing on this box between 08-06 and 08-12, and auto Movie
+#     Mode did nothing for three nights of films while every config here remained correct. The
+#     controller now POLLS /Sessions every MM_POLL_MS as its source of truth (lib/movie-mode.js), so
+#     everything below is a latency optimisation: it arms the latch in milliseconds rather than within
+#     one poll interval. If this whole block fails, auto Movie Mode still works. Installed in §6d4;
 #     configured here because the §7 restart is what activates it (a Configuration POST to an
 #     inactive plugin is silently dropped).
 #
@@ -829,7 +835,7 @@ fi
 #     pausing downloads over. localhost works because Jellyfin runs network_mode: host.
 wh_id=$(curl -fsS "$JF/Plugins" -H "X-Emby-Token: $token" | jq -r '.[]|select(.Name=="Webhook" and .Status=="Active").Id // empty')
 if [[ -z "$wh_id" ]]; then
-  warn "Webhook plugin not active yet — auto Movie Mode will not arm; re-run: make provision s=jellyfin"
+  warn "Webhook plugin not active yet — auto Movie Mode still works via the controller's /Sessions poll; this only costs the sub-second arming. re-run: make provision s=jellyfin"
 else
   wh_name="Auto Movie Mode (controller)"
   wh_uri="http://localhost:${CONTROLLER_PORT:-8088}/api/jellyfin-webhook"

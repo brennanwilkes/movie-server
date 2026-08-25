@@ -1,0 +1,12 @@
+# offset-remaining.txt — the offset-stability set (HANDOFF §3.6), minus two films:
+#   Lawrence of Arabia — ALREADY MEASURED at phase=0.33 (gShare 0.473 vs 0.528 at phase=0).
+#   2001: A Space Odyssey — intrinsically pathological in x265, see grain-sets/ablate.txt.
+# Priors are the phase=0 gShare, so the phase=0.33 result can be read as a shift against them.
+Blade Runner (1982)|phase0 0.354
+Alien (1979)|phase0 0.421
+Raiders of the Lost Ark (1981)|phase0 0.218
+Skyfall (2012)|phase0 0.354
+Blade Runner 2049 (2017)|phase0 0.216
+The Social Network (2010)|phase0 0.421
+Gone Girl (2014)|phase0 0.380
+Whiplash (2014)|phase0 0.452

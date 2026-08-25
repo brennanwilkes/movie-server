@@ -40,6 +40,9 @@ async function diskGate() {
     for (const [h, d] of declined) if (now - d.ts > DAY) declined.delete(h); // bound memory
     let used, cap;
     try {
+      // NOTE: '/data' only. This gate is blind to the 221 GB boot SSD ('/'), which holds the
+      // repo, /opt/appdata and Docker — on 2026-08-21 '/' hit 0 bytes while this reported
+      // 1.9 TB free. Widening the gate to '/' is an open TODO (see AGENTS.md).
       const s = await fs.promises.statfs('/data');
       const total = s.blocks * s.bsize;
       used = total - s.bavail * s.bsize;

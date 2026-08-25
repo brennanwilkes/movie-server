@@ -10,7 +10,7 @@ This doc helps agents auto-discover the system layout, failure modes, and where 
 
 ## System Overview
 
-Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loopback image cap (disabled). Services run as Docker containers via `docker compose`. The controller (`controller/server.js` + `controller/lib/`, see `controller/README.md`) is the brain — it polls every service every 5s, builds a unified download view, and runs the background sweeps.
+Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loopback image cap (removed 2026-06-29 — so the **221 GB boot SSD** is now the binding storage constraint, and it holds this repo + `/opt/appdata`; see **Research corpora & scratch data**). Services run as Docker containers via `docker compose`. The controller (`controller/server.js` + `controller/lib/`, see `controller/README.md`) is the brain — it polls every service every 5s, builds a unified download view, and runs the background sweeps.
 
 ## File Map
 
@@ -30,7 +30,7 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `controller/metrics.js` | Time-series metrics + event log writer/reader (JSONL, zero deps) |
 | `scripts/query-metrics.sh` | CLI tool for ad-hoc metrics/event analysis |
 | `Makefile` → `metrics` | `make metrics a='system --stats cpu'` |
-| `scripts/bootstrap.sh` | One-time host prep: dirs, loopback image, fstab, .env |
+| `scripts/bootstrap.sh` | One-time host prep: dirs, fstab, .env (its loopback-image branch is retired — `DATA_IMG` is blank) |
 | `scripts/deploy.sh` | Pull + recreate containers |
 | `scripts/provision.sh` | Apply config-as-code to all services |
 | `scripts/teardown.sh` | Stop/clean/destroy with 3 levels |
@@ -45,6 +45,8 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `scripts/show-indexers.sh` | **Tool**: Prowlarr indexer health/tags/proxy, live-test, per-indexer search counts |
 | `scripts/smoke-test.sh` | **Tool**: `make test` — 30+ read-only PASS/FAIL assertions over the whole stack. Run FIRST when anything seems off, and after every change |
 | `scripts/why-playback.sh` | **Tool**: `make why q="Title"` — per-title playback diagnosis (PS4 direct-play? transcode feasible? live transcode reasons) |
+| `scripts/audit-runtimes.sh` | **Tool**: `make runtimes` — files that are NOT THE WHOLE FILM (duration vs TMDB runtime). `--ffprobe` for ground truth, which is the only pass that sees files *arr could not parse at all. See **The Chinatown class** below |
+| `scripts/test-runtime-guard.js` | Unit test for `runtimeVerdict` — 44 assertions pinned to the measured library distribution |
 | `docker-compose.yml` → `suggestarr` | Recommendation engine (:5000): Jellyfin history → TMDb similar → Jellyseerr auto-requests. One-time web-UI setup (TMDb key) |
 | `scripts/provision/dlna-ps4-profile.xml` | PS4 DLNA device profile (installed by jellyfin.sh). The console IS a PS4 — it was mislabelled "PS3" until 2026-07-02; a PS4 identifies as "PLAYSTATION 4", so PS3 profiles never match |
 | `scripts/ps4ify.sh` + `scripts/ps4ify-sweep.sh` | **Tool + timer**: add an AC3 5.1 compat track (originals kept, video untouched) so DDP/DTS files direct-play on the PS4. Manual: `make ps4ify q="Title"`; automatic: ps4fix.timer (every 30 min, fresh imports) |
@@ -115,7 +117,7 @@ flags one as failed when its heartbeat stops.
 | `importWatchdog` | 60s | `lib/importer.js` | Manual Import for completed-but-not-imported torrents. **Pre-pass** first handles force-grabs (`sonarr-force`): imports only when complete, via `importViaGrab` (multi-episode ranges, correct-series-only). Generic recover path also runs `importViaSeasonRemap` for merged-series season mismatches. See the force-grab subsystem section. |
 | `forceGrabVerifySweep` | 60s | `lib/importer.js` | ~2.5 min after a force-grab imports, cross-checks Sonarr + Jellyfin and emits `fg_verify` (PASS/FAIL). The manual-import safety net. |
 | `stallRecovery` | 5min | `lib/stall-recovery.js` | Reannounce stalling torrents; blocklist+research dead ones |
-| `diskGate` | 30s | `lib/sweeps.js` | Tear down torrents that would exceed disk cap |
+| `diskGate` | 30s | `lib/sweeps.js` | Tear down torrents that would exceed **`/data`** free space. **Blind to `/`** — the 221 GB boot SSD that holds the repo + `/opt/appdata` has no guard at all (it hit 0 bytes on 2026-08-21 while this reported 1.9 TB free). Widening it to `/` is an open TODO |
 | `orphanSweep` | 5min | `lib/sweeps.js` | Delete torrents whose *arr item is gone |
 | `seerrSweep` | 15min | `lib/sweeps.js` | Delete Jellyseerr entries for deleted *arr items |
 | `arrSweep` | 5min | `lib/search-engine.js` | Remove stuck queue items, dedup duplicates, trigger searches for missing items |
@@ -459,7 +461,9 @@ one confirmed the level is close anyway — the library median moved 68 -> 69.
 
 Measured 2026-08-06: **90% of files sit BELOW CRF-20 transparency** (median R 0.49), so the typical
 title has about half the bits of a transparent encode and the library median BPP+ is ~69. Whether
-that is a problem or fine on a native-720p projector is the open judgement, not a bug.
+that is a problem or fine is the open judgement, not a bug — and note the display is changing: the
+native-720p projector (a ~44% downscale that hides a lot) is being replaced with a 1080p one, so the
+same files may read worse than they did. See `docs/BPP-PLUS.txt` §2.2.
 
 **Do not re-anchor 100 to the library median.** `maybeCalibrate()` reports what the median implies
 and deliberately does **not** apply it: a moving anchor is unimprovable (upgrade fifty films and
@@ -510,12 +514,165 @@ Full design and history: `docs/DESIGN-CRF-PROBE.md`. Loop details in the table a
 ```
 GET  /api/probe                  coverage, complexity distribution, gate state, session state
 GET  /api/probe?detail=1         every measurement (complexity, R, spread, block/blur, timings)
+GET  /api/probe/dataset          THE ANALYSIS SURFACE — full per-unit table, raw AND derived
 GET  /api/probe/score            flat-vs-live BPP+ for every unit — the audit trail for the cutover
 GET  /api/probe/find?q=title     unit key lookup, so you never guess an *arr id
 POST /api/probe/run?key=mv:123   probe ONE title now, ignoring the schedule
 POST /api/probe/session/start    probe continuously until stopped, ignoring the schedule
 POST /api/probe/session/stop     end it, killing any encode in flight
 ```
+
+#### `/api/probe/dataset` — for any analysis of the scoring model
+
+Read-only, ~600 KB, one row per unit. **Use this rather than reading
+`/opt/appdata/controller/probe-cache.json`**: the cache holds the raw measurement but not the
+derived numbers — the bias factor, the effective target, the score — because those live in code. An
+analysis that re-implements them drifts from the controller silently, and then its findings are
+about the analysis rather than about the library.
+
+```bash
+curl -s localhost:8088/api/probe/dataset > /tmp/ds.json
+
+# median BPP+, and the band split
+jq '[.rows[].bppPlus | select(.)] | sort | .[length/2|floor]' /tmp/ds.json
+
+# the films the source-pinning correction is holding back the most
+jq -r '.rows | map(select(.biasFactor > 1 and .bppPlus))
+       | sort_by(-(.bppPlus / (1/pow(.biasFactor;0.5)) - .bppPlus))[:10]
+       | .[] | "\(.title)  BPP+ \(.bppPlus)  x\(.biasFactor)"' /tmp/ds.json
+```
+
+Top level: `generated`, `crf`, `headroomTarget` (what scoring USES), `headroomLive` (what the data
+implies), `flatFallback`, `biasFit` (the fitted correction buckets), `n`, `rows`.
+
+Per row:
+
+| field | meaning |
+|---|---|
+| `key` `title` `kind` `year` | `mv:<radarrId>` / `tv:<sonarrId>:<season>`; kind is `movie` or `season` |
+| `complexity` | the RAW measurement — a CRF-20 encode's bpp for this file |
+| `biasFactor` | starved-copy correction, ≥ 1.0. See `pinning` below — recalibrated 2026-08-18 |
+| `path` | the file on disk right now, so an offline tool can re-measure the unit |
+| **`cxEff`** | **complexity × biasFactor — what scoring actually divides by** |
+| `target` | `cxEff × headroomTarget`, the denominator |
+| `R` | bitrate adequacy — the VIDEO-ONLY, codec-normalised supply ratio the pinning curve is evaluated on. **NOT a quality measure**, and **not reproducible as `srcBitrate/probeBitrate`** — see trap 5 |
+| `rawR` `srcBasis` | R exactly as measured, and which numerator it used (`video` = already audio-free, `container` = every audio track is inside it). `R` differs from `rawR` only on the container path |
+| `bpp` `bppPlus` `bppPlusFlat` | the live score, and what it would be against the flat 0.13 |
+| `sampleCx` `samplePos` | per-sample complexity readings, and where in the runtime each was taken (fraction 0-1). `samplePos` exists only from 2026-08-18 |
+| `sampleN` `sampleNEff` `sampleDup` | readings stored / **distinct clips behind them** / duplicates. Use `sampleNEff` for anything about precision |
+| `cxMean` `cxSE` `cxRSE` | the pooled mean and the error on it. `cxRSE` is relative — halve it for the error on BPP+, since the index takes a square root |
+| `visits` | how many times this unit has been probed from the file currently on disk |
+| `spreadRatio` `disagree` | within-film sample spread; between-episode disagreement (seasons) |
+| `priors[]` | banked old/new measurements from replacements — the bias fit's raw material |
+| `blockMean` `blurMean` | candidate detectors, **untested** (see below), not inputs to any score |
+| `srcBitrate` `probeBitrate` `audioBps` `audioTracks` | measured bitrates |
+| `probeW` `probeH` `fps` `bytes` `files` `source` `codec` `wallMs` `ts` | PROBE geometry (post-downscale), size, provenance |
+| `srcW` `srcH` | SOURCE geometry as ffprobe reports it. Provenance only — nothing scores off it — and it differs from `probeW/H` whenever the source is wider than `PROBE_REFERENCE_WIDTH` |
+
+Top level also carries **`pinning`** — the live starved-copy correction, recalibrated 2026-08-18
+from a controlled experiment and REFITTED 2026-08-20:
+`{model: 'A*R^B', A: 1.114, B: -0.392, rMin: 0.423, max: 2.0}`. The previous 1.337/-0.348/0.59 was
+wrong two ways — an x1.06 codec floor that is really 1.1295, and a fit made on audio-polluted R
+while scoring evaluates video-only R. See BPP-PLUS.txt 5.2. There is
+**no trust cut-off any more**; the curve decays to 1.0 on its own. `biasFit` beside it is the
+superseded bucketed fit, kept only so drift between the two stays visible — do not score with it.
+
+**Five traps when analysing this data.**
+1. **Compare against `cxEff`, never `complexity`.** The raw value is only meaningful when studying
+   the correction itself.
+2. **`sampleN` is blank for most units and that is not a gap in the measurement.** Every unit was
+   measured with at least 8 samples; per-sample records only started being kept on 2026-08-14, so
+   older entries retain the mean alone.
+3. **Do not correlate anything against the 2026-08-13 blind-test verdicts.** They were retracted —
+   the labels measured grain-visibility, not compression. There is currently **no valid subjective
+   label anywhere in this library**, which means no metric here has been confirmed or refuted.
+4. **`sampleN` is not the evidence count.** Until 2026-08-18 a revisit re-encoded the SAME clips
+   (offsets are deterministic and x265 is too), so pooled entries held byte-identical duplicates and
+   their error bars shrank on evidence that did not exist — Dunkirk read `cxRSE` 0.199 against a true
+   0.397, i.e. exactly half (64 readings, 16 distinct clips; re-verified 2026-08-20 from the
+   pre-repair backup `/config/probe-cache.json.bak-dedupe-20260819052712.`, trailing dot included —
+   it cannot be checked against the current cache, where the duplicates are already re-counted).
+   The cache has been repaired and revisits now phase-shift the sample grid, but **use
+   `sampleNEff`**, not `sampleN`, for any precision claim.
+5. **Never recompute `R` from `srcBitrate / probeBitrate`.** Two corrections sit between them and
+   both matter. (a) CODEC NORMALISATION: the probe always encodes x265, so an h264 source is divided
+   by 1.6 to land in the same units — `R = srcBitrate / (probeBitrate × eff)`. (b) AUDIO: measured
+   2026-08-20, `srcBitrate` is the container total on 470 of 1044 units (`srcBasis: 'container'`),
+   audio included, because ffprobe reported no per-stream video rate. `R` has that audio subtracted;
+   `rawR` does not. Getting this wrong inflates R by up to 1.6× and silently moves rows across the
+   0.59 pinning floor.
+
+`bpp-lab/` (`npm run dev`, :5174) is a read-only UI over this same endpoint — overview, a draggable
+response curve, per-film control points, the pinning-bias fit, and a sortable table with CSV export.
+
+**Two one-off experiment tools live beside the probe** (not scheduled, not part of any loop):
+`controller/scripts/probe-ladder.sh` measures a title at several CRFs to get its RATE curve, and
+`controller/scripts/probe-starve.sh` deliberately starves the sampled clips to measure the pinning
+effect under control. Drivers: `scripts/ladder-pilot.js` and `scripts/starve-experiment.js`, both
+with `--plan` / `--run` / `--report`, both refusing to start while a probe session is active because
+two encode jobs on four cores make each other slower.
+
+`starve-experiment.js` takes `STARVE_KEYS` (pin the film set by key — it otherwise re-picks from live
+`R`, which moves) and `STARVE_ENC` (`libx264` for the codec-confound arm). Both are load-bearing:
+`docker exec` does not inherit host env, so the encoder is passed explicitly and echoed back into
+each stored record, because a second x265 run mislabelled as x264 would look like a valid result.
+
+### ⚠ `tools/ffmpeg-n8.1-*` — a SECOND ffmpeg, and it must stay separate
+
+`scripts/setup-vmaf-tool.sh` fetches a pinned static GPL build because **nothing on this box has
+libvmaf**: the controller is 5.1 (no `--enable-libvmaf`), jellyfin ships 7.1.4 with `vmafmotion`
+only — a different filter — and the host is 4.2.
+
+**NEVER use it to measure complexity, and never "fix" the controller by upgrading its ffmpeg.** That
+ffmpeg's x265 produced all 1044 complexity measurements in the probe cache and is the only ruler for
+them; different x265 builds give different bitrates for the same input, so swapping it would silently
+make every stored measurement incomparable with every future one. The static binary is safe precisely
+because nothing in the probe path references it.
+
+What it unlocks: **CAMBI**, the banding detector, which is the one artifact BPP+ is structurally
+blind to. CAMBI is genuinely no-reference — it keys on flat regions in a single frame — so banding is
+measurable in production forever with no master. Only libvmaf's *plumbing* wants two inputs, so
+`scripts/cambi-probe.js` points both at the same file. **VMAF proper is not usable that way** (a
+same-file comparison scores ~100 by construction) and remains a calibration-dataset tool only.
+`scripts/cambi-analyse.js` runs the pre-registered degeneracy tests — grain, darkness, redundancy
+against BPP+ — because CAMBI could easily be another gShare, which died as a restatement of darkness.
+
+### The banding job (`controller/lib/banding.js`) — the second measured axis
+
+Shipped 2026-08-20. Nightly, in the Jobs tab as **Audit · banding probe**, backfilling ~960 units at
+4x2s clips each.
+
+```
+GET  /api/banding                  status, distribution, night budget, what is blocking it
+GET  /api/banding/dataset          the full per-unit table
+POST /api/banding/session/start    MANUAL catch-up — waives the schedule, keeps every safety gate
+POST /api/banding/session/stop
+POST /api/banding/run   {key}      measure one unit now
+POST /api/banding/import           one-shot import of offline cambi-probe.js measurements
+```
+
+**It shares the probe's gates and its ONE night budget** rather than having its own. That is the
+safety property: the box never runs more than `PROBE_NIGHT_BUDGET_MS` of encoding a night no matter
+which job spends it. A second independent budget would silently double the nightly heat.
+
+**Priority: banding wins while the probe has only REFINEMENT left** (`probe.probeHasFreshWork()`),
+which asks **`nextUnit()`** rather than reimplementing "is anything unmeasured". That distinction is
+load-bearing: a permanently-failed unit keeps an ERROR entry and so counts as unmeasured forever, and
+the first version of this predicate therefore made banding yield the ENTIRE night budget every night
+— it measured zero units on its first night and would have done so indefinitely. `nextUnit` is the
+authority on what the probe will actually do next; a duplicated predicate drifts from it.
+A never-measured banding number is worth more than a tighter error bar on an already-measured
+complexity — but a genuinely fresh complexity measurement still wins, because a missing complexity
+degrades every score for that title and a missing banding number degrades nothing.
+
+**`cambi` on `/api/probe/dataset` is null when UNMEASURED, which is not "clean".** Most of the
+library has no reading yet. Anything that renders or correlates it must distinguish the two.
+
+**Two traps in this code, both already paid for.** libvmaf's JSON log is one long line, so a
+line-oriented shell parse grabs `integer_adm2`'s mean (1.000001 on a same-file compare) — the script
+uses CSV and looks the column up by NAME. And `jobs.define`'s `stateFn` is called SYNCHRONOUSLY and
+must return a STRING or null; an async one makes the registry store a Promise and the card renders
+blank.
 
 A **manual session** is Brennan's "the box is free for the next few hours" control (added
 2026-08-06). It waives only the schedule, keeps every safety gate, reports *why* it is idling via
@@ -562,9 +719,11 @@ Full method: `docs/audit-2026-07-31/raw/playback-tests-2026-08-01.md`.
   software-decoded by ExoPlayer and leave `AudioALSAStreamOut` at `channel_mask=3`, into a
   WiMiUS K5 (3.5 mm out) and a PreSonus Eris 3.5 stereo pair. **Do not treat lossless or
   multichannel audio as quality** — `audioCls()` deliberately returns `''` for everything.
-- **The projector is a native 1280x720, 480 ANSI lumen panel.** It accepts 1080p and downscales.
-  Still store 1080p (downscaling beats a native 720p source), but the top of the bitrate range
-  buys nothing visible today.
+- **There is NO projector right now.** The native-1280x720, 480 ANSI lumen WiMiUS K5 that every
+  measurement below 2026-08-01 assumed is **dead** (2026-08-19); a **1080p** replacement is
+  planned but not yet bought. Do not reason about a 720p endpoint or a ~44% downscale any more:
+  assume a true 1920x1080 SDR endpoint, which means the top of the bitrate range is no longer
+  "buys nothing visible". HDR support of the replacement is unknown — ask, do not assume.
 - The Fire Stick decodes DTS and TrueHD itself, so the AC3 compat track (`ps4ify`) matters for
   the **PS4 only** — ~1% of playback.
 
@@ -575,6 +734,77 @@ qBittorrent/*arr delete calls. Every fix goes through a reviewed script
 (`find-replacements.sh`, `show-stale-torrents.sh`, `show-bloat.sh`), because a misunderstanding
 in an ad-hoc session is how media gets destroyed. And per Brennan's standing instruction, no
 agent modifies, deletes or re-encodes a file on disk without explicit per-action permission.
+
+### The Chinatown class: a release that is NOT THE WHOLE FILM
+
+**The failure, 2026-08-10.** `Chinatown 1974 1080p BluRay x264-GeneMige` — 6.78 GB, valid Matroska,
+13.2 Mbps, one video file, custom formats Radarr scored at 130 — contained **68 minutes of a
+130-minute film**. It replaced a good 1.71 GB copy. Nothing in *arr's model inspects duration, so
+name-parsing, cardinality, quality and custom formats all passed it.
+
+**Why detection was not enough.** The post-import check DID catch it, exactly right, first try:
+`short: 68 min replacing 131 min (52%)`. It was still a total loss, for two independent reasons:
+
+1. **Ordering.** `finaliseSwap` must delete the originals BEFORE importing (while the original is on
+   disk, *arr rejects every replacement file as "not an upgrade"). The runtime check ran after. By the
+   time it fired, the good copy was gone.
+2. **The heal loop could not help.** Healing deletes the bad import and re-imports *the same still-
+   seeding torrent* — which fixes an import that CHOSE wrongly (the GoodFellas extras clip) and can
+   do nothing about a source that simply lacks the footage. It burned both attempts re-importing the
+   identical 68-minute file, then logged "LEAVING IT FOR A HUMAN" and dropped the row.
+
+**The fix (three parts, all in `runtimeVerdict` / `audit.js`):**
+- **Preflight, above the delete.** The download is complete and on disk at finalise time, so ffprobe
+  it (`probeDurationSecs`) and compare before touching anything. Short ⇒ permanent refusal, release
+  recorded in `auditDead` as `short_runtime`, **originals untouched**.
+- **Two yardsticks.** TMDB's runtime AND the file being replaced, whichever is longer. Comparing only
+  against the old file is blind in the case that matters most — if the copy on disk is *already*
+  truncated, a second truncation passes as an upgrade.
+- **`short` is unrepairable.** `verifySwap` skips healing entirely for it, keeps the file (a short film
+  is bad, an empty row is worse), blocklists the release, and says loudly that a human is needed.
+
+**Everything fails open.** No duration, no yardstick, an ffprobe timeout — all return `unknown` and
+the swap proceeds. A false `short` would refuse a healthy replacement, which is the worse error.
+
+**RUNTIME_MIN_RATIO = 0.6, and it must stay there.** Measured over all 881 movie + 1700 episode files
+on 2026-08-12: the only files below 0.6 are genuine truncations (Chinatown 0.52, a Star Wars Holiday
+Special `.VOB` fragment at 0.16). The worst *legitimate* file is 0.82. Between them is empty. Above
+0.82 live every normal disagreement: PAL speedup, credits, TMDB listing a longer cut than the release
+(The Hateful Eight 167.7 theatrical vs the 188 min roadshow), intermissions counted in (The Brutalist
+200.6 vs 215), and TVDB runtimes that include ad breaks (which puts a slab of good sitcom files near
+0.8). `scripts/test-runtime-guard.js` pins all of it.
+
+#### The worse sibling: a file *arr cannot read AT ALL
+
+Call this out separately, because it hid the longest and for a different reason. **The Star Wars
+Holiday Special (1978)** is a 1.07 GB `.VOB` containing **15.7 minutes of a 97-minute programme** —
+16% — and until 2026-08-12 it appeared in **no audit section whatsoever**. Not miscategorised:
+absent. `buildRows` opened with `if (!m.hasFile || !mf || !mf.mediaInfo) continue;`, so a file Radarr
+could not probe produced no row at all. The most broken class of file in the library was the one class
+the entire Audit tab was structurally blind to. Brennan went looking for it in the Upgrade tab and
+found nothing there.
+
+The lesson generalises past this bug: **"no data" must never be implemented as "no row".** Missing
+mediaInfo is not a neutral gap, it is positive evidence of a damaged or exotic file — truncated,
+wrong container, corrupt. Those rows now exist in the Upgrade section with every quality field
+explicitly `null` (never guessed) and `unprobed: true`, rendered with a red bar and the tab's loudest
+label, *"the server cannot read this file"*. `rankCands` also credits such a row with the gain
+*"a file the server can actually read"* — without it `gains` comes out empty, every candidate is
+dropped as "nothing measurably better", and the row sticks on "nothing better found" forever.
+
+**`make test` now asserts both, as two separate checks** (they fail for different reasons, and one
+masked the other):
+- *no movie file is dramatically shorter than its film* — mediaInfo exists and is under `RUNTIME_MIN_RATIO`
+- *every movie file is readable by Radarr* — mediaInfo is absent entirely
+
+Both are expected to FAIL until Chinatown and the Holiday Special are replaced. That is the point: this
+class of damage is now impossible to have without `make test` saying so on every run.
+
+**The standing safety net is `make runtimes`,** because the swap preflight only guards the swap path —
+Radarr's own automatic imports never touch the controller. **Run it with `--ffprobe`**: the *arr-based
+pass compares `mediaInfo`, and a file with NO mediaInfo is invisible to it. That is how The Star Wars
+Holiday Special (a 15.7-minute `.VOB` standing in for a 97-minute special) survived the first audit —
+the files *arr cannot parse are exactly the ones most likely to be broken.
 
 ### "Why was THIS release picked?" (codec/size/quality complaints)
 
@@ -829,6 +1059,36 @@ to live installs on every provision, so edit the script, never the *arr UI.
 
 **Language**: Original-language audio (+200), Dubbed (-800). Never gates — only orders.
 
+### "*arr scores that release lower than the copy on disk" — when that is a LIE
+
+The size bands exist to steer AUTOMATIC grabs toward midrange files, and they are strongly negative at
+the top end. That means **a deliberately-chosen BIGGER replacement arrives carrying a large deficit
+before anything about its content is considered**, and *arr refuses the import with "Not a Custom
+Format upgrade". Brennan's rule (2026-07-30): *"I'm fine with midrange files being the default for
+automatic/initial downloads... but for upgrades and replacements I've chosen a source, I don't want it
+rejected for file size."*
+
+So `cfRefusalIsExcusable` (release-rules.js) re-scores both sides with the size bands **and the two
+audio-transcode formats** removed. Equal-or-better on everything else ⇒ the refusal was about bytes and
+the import proceeds. Worse on anything real — Dubbed, non-original language, AV1/VP9, 10-bit, HDR, a
+shorter cut — and it stands.
+
+**Lowering the size scores is the WRONG fix**: it would also change what the nightly automatic grabs
+pick, which is the behaviour Brennan wants kept. Three things must ask the same question or the tab
+refuses downloads that would have imported perfectly:
+
+1. the import (`importer.js`, via `cfAllow`) — has done this since 2026-07-30
+2. the swap preflight (`audit.js` finaliseSwap) — same `cfAllow`
+3. **the Replace button / candidate list (`cfBlockedFor`)** — did NOT, until 2026-08-12
+
+That third gap is worth remembering, because the symptom looks like a data problem rather than a
+disagreement: **Scarface (1983)** greyed out its chosen `1080p BluRay x264-OFT` with "*arr scores that
+release 260 and the copy on disk 360" — identical codec, language and cut, three times the bitrate, and
+the entire 100-point gap was `Size 1.5-3 GB` (+80) vs `Size 6-10 GB` (-20). Both sides score 280 once
+size is excluded. **Star Wars: The Rise of Skywalker** was the same shape (260 vs 280) while being
+*better* on content (+80 H.264 the on-disk file never matched). Pinned in
+`scripts/test-cf-excusable.js`. A refusal from `cfBlockedFor` now means something real is worse.
+
 ## Credentials & Config
 
 - **All services**: `brennan` / `brennan`
@@ -838,6 +1098,55 @@ to live installs on every provision, so edit the script, never the *arr UI.
 - **Media root**: `/data` (7.3 TB USB drive)
 - **Controller state**: `/opt/appdata/controller/state.json` (persisted declined/blocked/searchState)
 - **mDNS names**: `movies.local`, `movie.local` — published via Avahi, survives DHCP changes
+
+## Research corpora & scratch data (disk safety)
+
+**The boot SSD is the scarce resource, not `/data`.** Two filesystems, and it is easy to
+confuse them:
+
+| Mount | Device | Size | Holds |
+|-------|--------|------|-------|
+| `/` | `/dev/sdb2` (internal SSD) | **221 GB** | OS, **this repo**, `/opt/appdata` (all service config), Docker, journals |
+| `/data` | `/dev/sda1` (USB, label `media`) | 7.3 TB | media, torrents, research corpora |
+
+`/data` is a *mount*, not a quota. Since the old 20 GB loopback cap was removed (2026-06-29)
+nothing stands between a fetch script and the 221 GB boot disk. **Anything written under the
+repo goes on the SSD.** The controller's `diskGate` sweep does NOT protect you here — it
+watches `/data` free space, so it will happily report terabytes free while `/` fills to zero.
+
+**Rule: bulk fetched corpora live on `/data`, never in the repo.** Canonical location is
+`/data/research/<corpus>/`, symlinked into the repo if a script expects a repo-relative path:
+
+    /home/brennan/movie-server/data/cvqad -> /data/research/cvqad
+
+Both the corpus dir and the symlink are gitignored. New probe/experiment scratch output
+should target `/data/research/` directly rather than the repo.
+
+### Failure: CVQAD download filled the boot disk (2026-08-21)
+
+The CVQAD calibration corpus (`scripts/cvqad-calibrate.js`, see `docs/DESIGN-ARTIFACT-RESIDUAL.md`)
+was downloaded into `data/cvqad/clips/` — i.e. onto the SSD. At **18 GB / 138 of 249 clips**
+it exhausted `/` (0 bytes free). The downloader then logged a wall of `FAIL` lines — one per
+remaining clip, all disk-full — and gave up at `done: 138 of 249`. The `FAIL` wall in the log
+*is* the disk-full signature; it is not a network or auth problem.
+
+Collateral: a `docker image prune -a` was needed to reclaim enough space to work at all, and
+an orphaned watcher shell (`until ! pgrep -f "dl.sh"`) was left spinning forever because its
+own command line contained `dl.sh`, so `pgrep` matched itself and the loop could never exit.
+**When writing a wait-for-process loop, match on something the watcher's own cmdline does not
+contain** (e.g. `pgrep -f "[d]l.sh"`).
+
+**To resume this work:** the 134 clips already fetched are intact and complete (verified by
+`ffprobe` — no truncation despite the disk-full death). They now live at
+`/data/research/cvqad/`. Re-point the fetch script at that directory and download the
+remaining ~111 clips **there**, not into the repo. The 80 clip paths that explicitly failed
+are recoverable from the `FAIL` lines of the original run
+(`grep -o 'Compressed_and_GT_videos/[^ ]*\.mp4'`). Full corpus is 249 clips; budget ~33 GB
+total, which is why it must not sit on `/`.
+
+**Preflight any bulk fetch or encode** with a free-space check on the *target* filesystem:
+
+    df --output=avail -BG /data | tail -1     # NOT `/`, and NOT the controller's disk metric
 
 ## Making Changes
 
@@ -869,7 +1178,7 @@ the single USB disk are free for playback. It has **two independent owners**, an
 | Latch | Set by | Persisted? | Cleared by |
 |-------|--------|-----------|-----------|
 | **manual** | the button on the Jobs tab | yes (`masterPaused` in state.json) | only an explicit second tap |
-| **auto** | Jellyfin playback, via webhook | **no** | playback stopping, + a grace period |
+| **auto** | Jellyfin playback, via a /Sessions **poll** (webhook accelerates it) | **no** | playback stopping, + a grace period |
 
 The auto latch is deliberately not persisted: it is a claim about *right now*, and
 a restored "someone is watching" would be a guess about a session we can no longer
@@ -884,10 +1193,30 @@ Rules that fall out of the split, all asserted in `scripts/test-jobs.js`:
 
 **The auto latch is derived from a session table, not flipped by events.** A dropped
 `PlaybackStop` would otherwise halt every background job on the box forever with no
-error anywhere. `PlaybackProgress` refreshes each session's timestamp and anything
-unheard-from for 15 min is expired (`lib/movie-mode.js`). Delivery is the Jellyfin
-**Webhook plugin**, installed and configured by `scripts/provision/jellyfin.sh`
-(§6d4 + §9b) — it is load-bearing infrastructure, not a hand-configured convenience.
+error anywhere. Anything unheard-from for 15 min is expired (`lib/movie-mode.js`).
+
+**The table is POLLED from `/Sessions` every `MM_POLL_MS` (15s), and that poll is the
+source of truth — including for removal.** The Webhook plugin is now only an
+accelerator: when it works it arms the latch in milliseconds instead of within one
+poll interval, and when it does not, nothing breaks.
+
+*Why it changed (2026-08-12).* Auto Movie Mode silently did nothing from 2026-08-06 to
+2026-08-12 — three nights of films ran with every sweep still hammering the disk. Proven
+with Brennan playing a film while we watched: Jellyfin reported an unpaused session for
+90 s and the controller received **nothing**. Jellyfin was innocent and its log says so —
+at 19:20:36 the *Playback Reporting* plugin logged "Adding playback tracker" for that
+exact session. The Webhook plugin logged nothing at all. **The tell:** that plugin's
+`Item Added`/`Item Deleted` notifiers are SCHEDULED TASKS and run fine every 90 s, while
+its playback notifiers are `IEventConsumer<PlaybackStartEventArgs>` registrations through
+Jellyfin's EventManager — and those never fire. Config was never the problem
+(`EnableWebhook`, `SendAllProperties`, the notification-type spellings and the URL all
+matched the provisioner exactly; the endpoint answers 200 by hand). **The lesson: a
+push-only source with no poll behind it fails silent, and silent is the worst way for
+this particular feature to fail.**
+
+The parse is pure and tested against real payload shapes in `scripts/test-movie-mode.js`
+(34 assertions) — deliberately *not* by reporting fake playback, which would pollute the
+watch history and Playback Reporting stats to prove a point.
 
 **Known and accepted** (Brennan's call, 2026-08-06): auto-resume runs the same
 recipe as the manual button, which starts *all* torrents — including any paused by
@@ -895,4 +1224,8 @@ hand. The fix, if it ever annoys, is to snapshot running hashes before pausing a
 restore only those (`applyMovieMode()` in `lib/routes-actions.js`).
 
 Diagnosing "auto Movie Mode did nothing": `curl -s localhost:8088/api/movie-mode | jq`.
-`webhook.lastEvent` null after a film has played means the plugin is not delivering.
+Read `poll` FIRST — `poll.ok: false` with a non-zero `poll.failures` means we cannot reach
+Jellyfin, which is the only way the latch can now go blind. `webhook.lastEvent: null` is
+**no longer a fault**: it means the plugin is not delivering, which the poll covers. (It is
+still worth noting, because a working webhook is the difference between arming in
+milliseconds and arming within 15 s.)

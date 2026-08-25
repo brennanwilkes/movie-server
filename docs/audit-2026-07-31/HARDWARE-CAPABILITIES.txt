@@ -1,0 +1,356 @@
+================================================================================
+HARDWARE CAPABILITY REFERENCE — MOVIE SERVER + PLAYBACK CLIENT
+Written 2026-07-31 for the library format/bitrate audit.
+================================================================================
+
+PURPOSE
+  This document states what each piece of hardware CAN do, what it does WELL,
+  what it does BADLY, and what it CANNOT do at all. It exists so that decisions
+  about which releases to grab, how to colour-code bitrates in the controller UI,
+  and how to prioritise disk space can be checked against physical reality
+  instead of against general "quality is better" intuition.
+
+  Companion file: LIBRARY-INVENTORY.txt (what we actually have)
+                  raw/library_flat.json (2556 media files, machine-readable)
+
+PROVENANCE OF CLAIMS
+  [MEASURED]  Directly observed on this hardware on 2026-07-31. Highest trust.
+  [RESEARCH]  From external sources; see the RESEARCH APPENDIX at the bottom.
+  [DERIVED]   Reasoned from a MEASURED fact. Trust the reasoning, verify if critical.
+
+================================================================================
+PART 1 — THE SERVER: NUC "haleiwa"
+================================================================================
+
+1.1 IDENTITY [MEASURED]
+    CPU          Intel Core i5-6260U, Skylake-U, 2 cores / 4 threads
+                 1.8 GHz base, 2.9 GHz max turbo, 15 W TDP
+                 This is a LAPTOP/ULTRABOOK class chip, not a desktop chip.
+    iGPU         Intel Iris Graphics 540 (GT3e, 48 EUs, with 64MB eDRAM)
+                 Exposed to containers as /dev/dri/card0 + /dev/dri/renderD128
+    RAM          15 GiB usable + 7.9 GiB swap
+    Boot disk    233 GB Samsung 850 EVO M.2 (SATA, not NVMe)
+    Media disk   7.3 TB WD My Book, connected over USB, mounted at /data
+    Network      eno1 @ 1000 Mbps, wired
+    OS           Ubuntu 20.04.6, kernel 5.4.0-216
+    Containers   14 running (jellyfin, sonarr, radarr, qbittorrent, prowlarr,
+                 bazarr, jellyseerr, gluetun+VPN, controller, tailscale, ...)
+
+1.2 GPU DECODE — WHAT THE iGPU CAN ACCELERATE [MEASURED]
+    Queried directly via jellyfin-ffmpeg vainfo on /dev/dri/renderD128.
+    VAEntrypointVLD (= hardware decode) profiles present:
+
+        H.264 Constrained Baseline    YES
+        H.264 Main                    YES
+        H.264 High                    YES
+        HEVC Main (8-bit)             YES
+        MPEG-2 Simple / Main          YES
+        VC-1 Simple / Main / Advanced YES
+        VP8                           YES
+        JPEG Baseline                 YES
+
+    ABSENT — and this is the single most important fact in this document:
+
+        HEVC Main 10 (10-bit HEVC)    NO
+        VP9 (any profile)             NO
+        AV1                           NO
+        H.264 Hi10P (10-bit H.264)    NO  (not a VA-API profile at all; 10-bit
+                                           H.264 is software-decode everywhere)
+
+    CONSEQUENCE: any 10-bit HEVC, VP9, or AV1 file has NO hardware decode path
+    on this server. If such a file ever needs transcoding, the decode half runs
+    in software on a 2-core 15 W CPU.
+
+1.3 GPU ENCODE [DERIVED from successful h264_qsv runs in 1.4]
+    h264_qsv encode works and is fast. Skylake QSV also nominally offers HEVC
+    8-bit encode, but we have no reason to use it: the client's best-supported
+    codec is H.264, and re-encoding to HEVC would only add risk.
+
+1.4 MEASURED TRANSCODE THROUGHPUT [MEASURED]
+    All runs: 60 seconds of real content, video only (-an), encoding to
+    h264_qsv at 8 Mbps, output discarded (-f null). System load at test time
+    was ~1.3-1.8 (moderately busy; a quiet box would be somewhat faster).
+
+    PATH A — Full hardware path, H.264 8-bit in -> H.264 out
+      Source: American Graffiti (1973), 1920x1080, 19.7 Mbps H.264 8-bit
+      Result: 232 fps sustained  =  9.66x realtime
+      VERDICT: EXCELLENT. This is the happy path.
+
+    PATH B — Full hardware path, HEVC 8-bit in -> H.264 out
+      Source: Sons of Anarchy S01E01, 1920x1080, 10.1 Mbps HEVC 8-bit
+      Result: 214 fps sustained  =  8.92x realtime
+      VERDICT: EXCELLENT, essentially as good as Path A. HEVC 8-bit costs the
+      server almost nothing. This matters: storing HEVC 8-bit is SAFE here.
+
+    PATH C — SOFTWARE decode, HEVC 10-bit in -> H.264 QSV out  (THE RED PATH)
+      Source: Cosmos S01E09-E13, 1424x1072, 13.1 Mbps HEVC 10-bit
+      Result: 100 fps sustained  =  3.32x realtime
+      VERDICT: WORKS, but at roughly 1/3 the efficiency of the hardware path,
+      and it burns CPU that the *arr stack and qBittorrent are competing for.
+
+      SUPERSEDED 2026-08-01 — the caveat below was correct and the number was too
+      optimistic. Re-measured on a TRUE 1920x1080 Main10 sample (Bound by Honor,
+      5.6 Mbps, 23.976 fps) through a real Jellyfin playback session:
+
+          Downloads active (load 4.1 -> 14.3)   31 fps sustained  = 1.29x realtime
+          Movie Mode on, quiesced (load 1.9)    49-54 fps         = ~2.1x realtime
+
+      USE 2.1x IDLE / 1.29x LOADED. Not 3.32x. The client dropped 40 frames during
+      the loaded run, and one such transcode alone took the box from load 4 to 14.
+      Full method in raw/playback-tests-2026-08-01.md.
+
+      (Original caveat, retained for the record: the 1424x1072 sample has ~36%
+      fewer pixels than full 1080p, so 3.32x was always an optimistic bound.)
+
+1.5 WHAT THE SERVER DOES WELL
+    * Direct play / remux. Zero decode cost. Always the goal.
+    * H.264 8-bit -> H.264 transcode via QSV (9.7x realtime).
+    * HEVC 8-bit -> H.264 transcode via QSV (8.9x realtime).
+    * Audio-only transcode (e.g. DTS -> AC3) while the video is remuxed. Cheap
+      relative to video work.
+    * Serving files over gigabit ethernet — the network is nowhere near a
+      bottleneck for 1080p content (see 3.2).
+
+1.6 WHAT THE SERVER DOES BADLY
+    * HEVC 10-bit software decode. Works (3.3x realtime measured, likely worse
+      at true 1080p) but competes with the download/import stack for the same
+      2 cores. Under concurrent load this is where stutter comes from.
+    * Anything requiring more than ~2 simultaneous transcodes. Even at 9x
+      realtime per stream, QSV on GT3e is a shared fixed-function block and the
+      CPU still handles demux/mux/filtering.
+    * Sustained thermal load. See 1.7.
+
+1.7 WHAT THE SERVER CANNOT DO
+    * Hardware-decode HEVC 10-bit, VP9, or AV1. Not a tuning problem; the
+      silicon lacks the blocks. [MEASURED — absent from vainfo]
+    * AV1 in any accelerated form (Skylake predates AV1 entirely).
+    * Realistically, HDR tone-mapping at acceptable speed. Tone-mapping on this
+      generation runs through OpenCL/VPP on top of an already-software 10-bit
+      decode. Treat HDR content as effectively unplayable-by-transcode.
+      [DERIVED — 10-bit decode is already software; tone-map is strictly worse]
+
+1.8 CURRENT HEALTH WARNINGS (state, not capability) [MEASURED 2026-07-31]
+    * Swap 100% FULL: 7.9 GiB of 7.9 GiB used, 181 MiB RAM free. Thrashing.
+    * Load average 6.36 on 4 threads at first measurement (later 1.3-1.8).
+    * Package temperature 86 C (high/crit = 100 C). Sustained, not a spike.
+    * Root filesystem 94% full — 15 GB free on a 221 GB volume. Docker images,
+      logs and Jellyfin metadata live here. This will bite before /data does.
+    * /data is 64% used: 4.6 TB of 7.3 TB, 2.7 TB free.
+    These are the reasons a "capable" server can still stutter. Any audit
+    conclusion about transcoding should account for the box already being
+    memory- and thermally-stressed before playback even starts.
+
+================================================================================
+PART 2 — THE CLIENT: AMAZON FIRE TV STICK (2nd gen)
+================================================================================
+
+2.1 IDENTITY [MEASURED via adb over the LAN]
+    Model        AFTT ("tank"), Fire TV Stick 2nd generation
+    SoC          MediaTek MT8127 — quad-core ARM Cortex-A7, 32-bit ARMv7
+    RAM          895 MB total. At idle: ~67 MB free, ~162 MB available.
+                 Swap 256 MB, already about half consumed.
+    Storage      5.9 GB /data with 1.2 GB free; /system has 26 MB free
+    OS           Fire OS 5.2.9.5 / Android 5.1.1 / API level 22
+    Display out  1920x1080, density 320. HDMI reports tvresolution 1080_1.
+    Network      WIRED ETHERNET (eth0). Wi-Fi radio is present but DISCONNECTED.
+    Installed    org.jellyfin.androidtv and org.jellyfin.androidtv.debug
+                 (the "Movie Night" fork), plus Kodi.
+
+2.2 HARDWARE DECODERS [MEASURED — from /system/etc/media_codecs.xml]
+        OMX.MTK.VIDEO.DECODER.AVC      video/avc     max 1920x1088
+        OMX.MTK.VIDEO.DECODER.HEVC     video/hevc    max 1920x1088
+        OMX.MTK.VIDEO.DECODER.MPEG4    video/mp4v-es
+        OMX.MTK.VIDEO.DECODER.MPEG2    video/mpeg2
+        OMX.MTK.VIDEO.DECODER.H263     video/3gpp
+        (plus .secure variants of AVC and HEVC for DRM playback)
+
+    Both AVC and HEVC advertise the "adaptive-playback" feature and both carry
+    the quirks requires-allocate-on-input-ports / requires-allocate-on-output-ports.
+
+    NOT PRESENT: VP9, AV1. There is no VP8/VP9 video decoder entry at all.
+
+    NOTE: the codec table declares a SIZE limit but no explicit profile/level or
+    bitrate cap. The real-world ceiling is therefore not discoverable from the
+    device and must come from research — see the appendix.
+
+2.3 THE 1920x1088 CEILING [MEASURED]
+    Both hardware decoders stop at 1920x1088. Combined with a 1080p display
+    output, this means:
+      * 4K/2160p content can NEVER be direct-played. It must be transcoded by
+        the server, and then it is downscaled to 1080p anyway.
+      * There is no picture-quality argument for storing 2160p. It is strictly
+        more disk, more heat, and more risk for an identical viewed result.
+    This corroborates the existing "no 4K / 1080p ceiling" project rule.
+
+2.4 WHAT THE CLIENT DOES WELL
+    * H.264 8-bit up to 1080p — its primary, best-tested path.
+    * HEVC 8-bit up to 1080p — hardware accelerated, and notably this covers
+      content the SERVER also handles well. HEVC 8-bit is the one codec where
+      client and server capabilities align perfectly.
+    * Wired networking. Being on ethernet removes bandwidth variance entirely
+      and eliminates the single most common cause of Fire Stick stutter.
+
+2.5 WHAT THE CLIENT DOES BADLY
+    * Memory pressure. 895 MB total with ~67 MB free is extremely tight. This
+      is the constraint behind the app's known fragility (the RGBA banner crash,
+      the splash-wait requirement, row-count limits in the fork).
+    * Anything demanding large decode buffers — i.e. very high bitrate files.
+      [RESEARCH needed for the exact threshold; see appendix]
+
+2.6 WHAT THE CLIENT CANNOT DO
+    * Decode anything above 1920x1088. [MEASURED]
+    * Decode VP9 or AV1 — no decoder present. [MEASURED]
+    * Display HDR. It is a 1080p SDR device; HDR content would need server-side
+      tone-mapping, which the server also cannot do well (1.7).
+
+================================================================================
+PART 2B — THE DISPLAY AND THE SPEAKERS  (added 2026-08-01)
+================================================================================
+    Omitted from the 2026-07-31 pass, and it turns out to dominate everything.
+
+2B.1 PROJECTOR — WiMiUS K5 [RESEARCH, three independent sources]
+    NATIVE PANEL RESOLUTION       1280 x 720
+    Accepts                       up to 1920x1080, downscaled to the panel
+    Brightness                    480 ANSI lumens
+    Contrast                      9000:1 "full on/off" (a marketing figure;
+                                  real sequential contrast is far lower)
+    Audio out                     3.5 mm mini-jack, stereo. Plus 10W internal.
+
+    The Fire Stick outputs 1080p (persist.sys.hdmi.tvresolution = 1080_1) and the
+    projector scales it down to 720p. NOTHING IN THE CHAIN EVER DISPLAYS A FULL
+    1920x1080 IMAGE.
+
+    THIS IS NOT AN ARGUMENT FOR STORING 720p. Downscaling a 1080p source to 720p
+    is supersampling and looks clearly better than a native 720p source — our 68
+    Bluray-720p movies (median 1.00 Mbps) are the worst-looking files we own.
+    It IS an argument that the top of the bitrate range buys nothing here: at 480
+    lumens the first casualties are shadow detail and fine grain, which are lost
+    to the projector long before they are lost to the codec.
+
+2B.2 SPEAKERS — PreSonus Eris 3.5 [user-supplied]
+    3.5-inch powered STUDIO MONITORS. A stereo pair. No centre, no surrounds,
+    no subwoofer, no HDMI audio return.
+
+2B.3 THE AUDIO CHAIN COLLAPSES TO 2.0, ALWAYS [MEASURED]
+    Verified on TrueHD 7.1, DTS 5.1, EAC3-JOC Atmos and FLAC 2.0. In every case
+    ExoPlayer software-decodes the track to multichannel PCM (8ch, 6ch, 2ch as
+    appropriate) and then AudioALSAStreamOut opens with channel_mask=3, i.e.
+    AUDIO_CHANNEL_OUT_STEREO. The sink EDID advertises hdmiencodings [2,5,6] —
+    PCM16, AC3, E-AC3 only, no DTS or TrueHD passthrough — and it is moot anyway,
+    because the projector's only output is a stereo jack into a stereo pair.
+
+    CONSEQUENCE: object-based and lossless multichannel audio is discarded before
+    it reaches a speaker. On the 95% playback path, Atmos / TrueHD / DTS-HD /
+    DTS / EAC3 5.1 / AC3 5.1 all end as the same two channels.
+
+================================================================================
+PART 3 — THE PAIRING: WHAT THE TWO TOGETHER IMPLY
+================================================================================
+
+3.1 THE CAPABILITY MATRIX [DERIVED from 1.2, 1.4, 2.2]
+
+    Codec / depth        Client HW?   Server HW?   Verdict
+    -------------------  -----------  -----------  ----------------------------
+    H.264 8-bit <=1080p  YES          YES          GREEN. Ideal. Direct-play.
+    HEVC 8-bit <=1080p   YES          YES          GREEN. Ideal, and smaller.
+    HEVC 10-bit          NO*          NO           RED. Software decode on the
+                                                   server. Worst case.
+    H.264 Hi10P          NO           NO           RED. Same problem.
+    VP9                  NO           NO           RED.
+    AV1                  NO           NO           RED.
+    Anything >1920x1088  NO           (yes)        AMBER. Forced transcode +
+                                                   downscale for zero benefit.
+    MPEG-2 / VC-1        MPEG2 yes    YES          AMBER. Rare, cheap enough.
+
+    * CONFIRMED 2026-08-01: the client declares hevc-profile=main with no main10,
+      and a Main10 file produces TranscodeReasons=VideoProfileNotSupported. The
+      MT8127's Mali-450 GPU cannot do 10-bit at all. RED verdict stands, now on
+      evidence rather than inference.
+
+    ROW CORRECTIONS FROM THE 2026-08-01 PLAYBACK TESTS:
+      - 19.7 Mbps H.264 direct-plays. There is NO client bitrate ceiling in our
+        range; the submitted profile carries no bitrate condition at all.
+      - DTS 5.1-only and TrueHD 7.1-only files DIRECT-PLAY. The client decodes
+        them in software itself. They do NOT force a server transcode, and the
+        "326 files with no AC3/AAC fallback" concern does not apply to this
+        client. (It still applies to the PS4, which is ~1% of playback.)
+      - HEVC Main10 is the ONLY transcode trigger in the entire library.
+
+3.2 BANDWIDTH IS NOT A CONSTRAINT [DERIVED — MEASURED inputs]
+    Server link 1000 Mbps, client on wired ethernet. Our highest-bitrate movie
+    is 19.7 Mbps; the library median is 2.4 Mbps. Even the maximum is under 2%
+    of link capacity. Any playback problem on this system is a DECODE problem
+    or a SERVER LOAD problem. It is never a bandwidth problem.
+    This means: raising bitrates costs disk and decode risk, and buys nothing
+    in delivery terms. Do not reason about bitrate as a network tradeoff here.
+
+3.3 THE CENTRAL STRATEGIC TENSION
+    The server is weaker than the client in one specific way: the client can
+    hardware-decode HEVC, and so can the server — but ONLY at 8 bits. Most
+    HEVC released on public trackers is 10-bit, because 10-bit encoding is the
+    x265 scene default even for SDR content.
+
+    So "grab HEVC to save space" is a trap UNLESS the release is 8-bit. An
+    8-bit HEVC release is the best possible outcome (small file, both ends
+    hardware-decode). A 10-bit HEVC release is among the worst (server must
+    software-decode if it ever needs to touch it).
+
+    The current library reflects this trap: 544 of 2556 files (21%) are HEVC
+    10-bit, concentrated overwhelmingly in TV (524 of 1696 episodes = 31%).
+
+3.4 WHAT THE LIBRARY DATA SAYS ABOUT WHETHER THE TRAP IS EVEN PAYING OFF
+    From LIBRARY-INVENTORY.txt Section 3, movies only:
+        h264   n=794   median 2.38 Mbps
+        hevc   n=64    median 2.53 Mbps
+    HEVC files in this library are NOT smaller than the H.264 files. They are
+    marginally LARGER at the median. Whatever compression advantage HEVC offers
+    in theory is not being realised in the releases actually being grabbed.
+    [DERIVED — this is an observation about our grabs, not about the codec]
+
+3.5 PRACTICAL GUIDANCE THIS HARDWARE SUPPORTS
+    Ranked preference for a 1080p-ceiling, wired, QSV-Skylake + MT8127 system:
+        1. H.264 8-bit, 1080p, AAC or AC3 audio, MKV or MP4   (safest)
+        2. HEVC 8-bit, 1080p, AAC or AC3 audio                (smallest safe)
+        3. H.264 8-bit, 720p                                   (fine; the display
+                                                                is 1080p, upscale
+                                                                is free)
+        --- avoid below this line ---
+        4. HEVC 10-bit  — playable only via server software decode
+        5. Anything 2160p — always transcoded, always downscaled
+        6. VP9 / AV1 / Hi10P — no hardware path anywhere
+    Audio: prefer a file that already carries an AC3 or AAC track. DTS, TrueHD,
+    FLAC, Opus and E-AC3 as the ONLY track force an audio transcode.
+
+================================================================================
+PART 4 — OPEN QUESTIONS THIS DOCUMENT CANNOT ANSWER FROM MEASUREMENT
+================================================================================
+    Q1. What is the real bitrate ceiling before the MT8127 stutters? The codec
+        table gives no bitrate limit. Needs research/empirical playback testing.
+    Q2. Does MT8127 HEVC decode handle Main10, and is it reliable in practice?
+    Q3. What H.264 level does MT8127 actually tolerate (4.1? 4.2?), and does it
+        cope with high reference-frame counts?
+    Q4. Can AFTT bitstream AC3/EAC3/DTS over HDMI, or does it decode to PCM?
+        This determines whether the AC3-compat-track strategy is necessary or
+        merely convenient.
+    Q5. At what bitrate does 1080p H.264 become visually transparent? Our median
+        is 2.4 Mbps, which is far below commonly cited targets — is the library
+        systematically under-quality, or is that fine for this display?
+    Q6. True full-1080p HEVC 10-bit software decode fps on this server (see the
+        caveat in 1.4 Path C).
+
+    STATUS 2026-08-01: Q1, Q2, Q3, Q4 and Q6 are CLOSED BY MEASUREMENT — see
+    RESEARCH-APPENDIX.md and raw/playback-tests-2026-08-01.md. Q5 is answered
+    from external sources but is largely moot, because Q7 (the display, added
+    2026-08-01) reframes it: the panel is 1280x720, so 1080p-panel transparency
+    targets do not apply here.
+
+    Still open: Q8 (transparent bitrate for 1080p-downscaled-to-720p on a
+    480-lumen projector — needs an A/B viewing test only Brennan can run),
+    Q9 (fork audio-passthrough toggle), Q10 (the mislabelled Remux-1080p files).
+
+================================================================================
+RESEARCH APPENDIX — NOW POPULATED
+================================================================================
+See RESEARCH-APPENDIX.md. The [RESEARCH]-tagged claims in this document are
+limited to Part 2B.1 (the projector's native resolution and brightness) and the
+Q5 transparency range. Everything else remains [MEASURED] or [DERIVED].

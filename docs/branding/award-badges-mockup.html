@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Movie Night — Cannes + Sundance badge mockup (Canyon)</title>
+<!--
+  Scratch mockup: how Cannes (palm) + Sundance (sun) badges would sit alongside the existing
+  Oscar badges on the WEB client and the FIRE STICK fork. Single theme: Canyon.
+
+  FIDELITY NOTES (where each value was lifted from):
+    · Web plaque        : scripts/provision/jellyfin-web-flair.js oscarPlaqueHtml() + injectStyles()
+    · Web mobile pill   : scripts/provision/jellyfin-custom.css .mn-oscar-text
+    · Web statuette path: STATUETTE_PATH (viewBox 0 0 24 48), win #E6B94C / nom #C9CDD3
+    · Fire Stick plaque : ~/jellyfin-androidtv ... util/OscarBadges.kt applyOscarPlaque(compact=true)
+      (ALL Fire Stick callers pass compact=true, so it always renders the 4dp/2dp 9sp form)
+    · Fire Stick icon   : res/drawable/ic_oscar_win.xml fill #D4A843 stroke #8A6B1F
+                          res/drawable/ic_oscar_nom.xml fill #B0B6BE stroke #6D7278
+    · Theme (Canyon)    : docs/branding/THEME-TOKENS.json + THEMES in jellyfin-web-flair.js
+
+  DESIGN RULES (locked with Brennan 2026-07-31):
+    · One ROW PER FESTIVAL — a Cannes win and a Sundance win are separate lines, exactly like
+      Oscar wins and Oscar noms are separate lines. Never combined on one line.
+    · Max 3 lines in practice. The 4-line case (OscarW + OscarN + Cannes + Sundance) never
+      occurs in the data (0 of 2,213 films), so it is omitted.
+    · Festival rows say the AWARD when the film won exactly one in that festival ("PALME D'OR",
+      "GRAND JURY", "AUDIENCE"), or "N [FESTIVAL] WINS" when it won several ("3 SUNDANCE WINS").
+    · The palm/sun glyphs below are CANDIDATES — alternatives offered in the glyph section.
+    · The web pill shows LOSING noms ("2 noms") while the plaque shows TOTAL nominations
+      ("6 NOMINATIONS") — that mismatch already exists today and is preserved here.
+-->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&family=Roboto:wght@400;700&display=swap');
+
+  :root {
+    --accent: #47c4b8;
+    --accent2: #f26d3d;
+    --bg: #091d22;
+    --bg2: #0e2a30;
+    --text: #f5eedc;
+    --muted: #7fa8a4;
+    --line: rgba(255,255,255,.08);
+    --laurel: #9fb87f;   /* proposed Cannes colour */
+    --amber:  #f26d3d;   /* proposed Sundance colour = Canyon accent2 */
+    --gold:   #E6B94C;
+    --silver: #C9CDD3;
+    --glass:  rgba(0,0,0,.62);
+    --web-font: 'Noto Sans', system-ui, sans-serif;
+    --stick-font: 'Roboto', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font-family: var(--web-font); font-size: 15px; line-height: 1.55; }
+
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 32px 28px 90px; }
+
+  header h1 { font-size: 30px; margin: 0 0 4px; font-weight: 700; }
+  .kicker { color: var(--muted); font-size: 12px; letter-spacing: .2em; text-transform: uppercase; margin-bottom: 10px; }
+  .brief { max-width: 74ch; color: var(--muted); margin: 0 0 14px; }
+  .brief strong { color: var(--text); font-weight: 700; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 12px 16px; background: var(--bg2);
+    border: 1px solid var(--line); border-radius: 8px; margin: 6px 0 34px; font-size: 13px; }
+  .legend .lg { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .sw { width: 11px; height: 20px; border-radius: 2px; display: inline-block; }
+
+  /* ── Section chrome ─────────────────────────────────────────────────────── */
+  section { margin-bottom: 46px; }
+  .sect-head { border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 20px; }
+  .sect-head h2 { font-size: 19px; margin: 0 0 2px; }
+  .sect-head p { margin: 0; color: var(--muted); font-size: 13px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 26px 34px; }
+  .case { display: flex; flex-direction: column; gap: 8px; }
+  .case .cap { font-size: 12.5px; color: var(--muted); max-width: 260px; }
+  .case .cap b { color: var(--text); font-weight: 700; }
+  .case .tag { display: inline-block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px;
+    width: fit-content; margin-bottom: 2px; }
+  .case .tag.new { color: var(--accent); border-color: rgba(71,196,184,.4); }
+
+  /* ── Poster shells (placeholder art) ────────────────────────────────────── */
+  .poster { position: relative; overflow: hidden; font-size: 16px; /* em base for the pill */
+    border-radius: 8px; /* canyon cardRadius */ }
+  .poster .art { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 4px; padding: 12px; text-align: center; }
+  .poster .art .t { font-weight: 700; font-size: 15px; line-height: 1.2; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+  .poster .art .y { font-size: 11px; color: rgba(255,255,255,.7); letter-spacing: .08em; }
+  .p-web-detail { width: 300px; height: 450px; }
+  .p-web-card   { width: 200px; height: 300px; }
+  .p-mob-wide   { width: 160px; height: 240px; }
+  .p-mob-tight  { width: 124px; height: 186px; }
+  .p-stick-card { width: 220px; height: 330px; }
+  .p-stick-detail { width: 132px; height: 198px; }
+  .g1 { background: linear-gradient(160deg, #15343b 0%, #0c2328 55%, #07161a 100%); }
+  .g2 { background: linear-gradient(160deg, #2c3d2a 0%, #17241a 55%, #0a110d 100%); }
+  .g3 { background: linear-gradient(160deg, #4a2f24 0%, #2a1a12 55%, #140c07 100%); }
+  .g4 { background: linear-gradient(160deg, #232d4a 0%, #141a2c 55%, #0a0d18 100%); }
+  .g5 { background: linear-gradient(160deg, #3d2f4a 0%, #231a2c 55%, #110d18 100%); }
+  .g6 { background: linear-gradient(160deg, #3a3f22 0%, #20260f 55%, #0d1008 100%); }
+
+  /* ── WEB: Oscar plaque (EXACT values from jellyfin-web-flair.js) ─────────── */
+  .oscar-plaque { position:absolute; bottom:8px; right:8px; z-index:3; pointer-events:none;
+    padding:5px 10px; border-radius:4px; background:rgba(0,0,0,.62);
+    border:1px solid var(--primary-accent-color, #00a4dc); text-align:left;
+    font:700 13px/1.45 var(--web-font); white-space:nowrap; }
+  .oscar-plaque .opl-w { color:#E6B94C; }
+  .oscar-plaque .opl-n { color:#C9CDD3; }
+  .oscar-plaque svg { width:9px; height:18px; vertical-align:-4px; margin-right:5px; }
+  .oscar-plaque-sm { bottom:4px; right:4px; padding:2px 7px; font-size:10px; line-height:1.4; }
+  .oscar-plaque-sm svg { width:7px; height:14px; vertical-align:-3px; margin-right:3px; }
+
+  /* PROPOSED: one festival ROW per festival, styled exactly like the Oscar rows so the icon
+     column, baseline and padding all match. Single win → award name; several → "N WINS". */
+  .oscar-plaque .opl-f { white-space:nowrap; }
+  /* Uniform inter-row gap — the Oscar rows and festival rows share the same margin so the
+     whole plaque stacks as one consistent block. */
+  .oscar-plaque > div + div { margin-top: 2px; }
+  .oscar-plaque .opl-f .f-cannes   { color:#9fb87f; }
+  .oscar-plaque .opl-f .f-sundance { color:#f26d3d; }
+  .oscar-plaque .opl-f svg { vertical-align:-4px; }
+  .oscar-plaque .opl-f svg.sun, .oscar-plaque .opl-f svg.reel { width:11px; height:11px; vertical-align:-2px; margin-right:4px; }
+  .oscar-plaque-sm .opl-f svg { vertical-align:-3px; }
+  .oscar-plaque-sm .opl-f svg.sun, .oscar-plaque-sm .opl-f svg.reel { width:9px; height:9px; vertical-align:-1px; margin-right:2px; }
+
+  /* Palm keeps the statuette's tall ratio (its width/height come from the generic rules above). */
+
+  /* ── WEB: mobile pill (EXACT values from jellyfin-custom.css) ────────────── */
+  .mn-oscar-text { position:absolute; right:4px; bottom:4px; padding:2px 6px; border-radius:4px;
+    background:rgba(0,0,0,.62); border:1px solid rgba(230,185,76,.35);
+    font-size:0.72em; line-height:1.2; font-weight:700; color:#E6B94C;
+    white-space:nowrap; z-index:4; pointer-events:none; }
+  .mn-oscar-text.mn-oscar-silver { color:#C0C0C4; border-color:rgba(192,192,196,.35); }
+
+  /* ── FIRE STICK: compact plaque (EXACT params from OscarBadges.applyOscarPlaque, compact=true) ──
+     bg rgba(0,0,0,.62) + 1dp accent border + 3dp corners; padding 4/2; icons 6x12 + 3dp gap;
+     text 9sp bold, maxLines 1. dp≈px here (scaled equally on a TV). */
+  .stick-plaque { position:absolute; bottom:4px; right:4px; z-index:3; pointer-events:none;
+    display:inline-flex; flex-direction:column; align-items:flex-start;
+    padding:2px 4px; border-radius:3px; background:rgba(0,0,0,.62);
+    border:1px solid #47c4b8; /* themeAccent (canyon brand_accent) */
+    font:700 9px/1.2 var(--stick-font); white-space:nowrap; }
+  .stick-plaque .sp-w { color:#E6B94C; }
+  .stick-plaque .sp-n { color:#C9CDD3; }
+  .stick-plaque .row { display:flex; align-items:center; gap:3px; }
+  .stick-plaque .row + .row { margin-top:1px; }
+  .stick-plaque svg { width:6px; height:12px; }
+  /* PROPOSED festival row(s) — same row shape as the Oscar rows, one row per festival */
+  .stick-plaque .row.sp-f + .row.sp-f { margin-top:1px; }
+  .stick-plaque .sp-f .f-cannes   { color:#9fb87f; }
+  .stick-plaque .sp-f .f-sundance { color:#f26d3d; }
+  .stick-plaque .sp-f svg.sun, .stick-plaque .sp-f svg.reel { width:7px; height:7px; }
+
+  /* Fire Stick detail poster plaque: constrained to poster width (bottom 8/8, like the XML) */
+  .stick-detail .stick-plaque { bottom:8px; right:8px; }
+
+  /* ── Curated rank pill + nation flag (web, exact values) — for realism ───── */
+  .curated-rank { position:absolute; top:4px; right:4px; padding:0 5px; border-radius:4px;
+    font:700 12px/1.5 var(--web-font); color:#fff; background:rgba(0,0,0,.62);
+    border:1px solid var(--primary-accent-color, #00a4dc); white-space:nowrap; z-index:2; }
+  .nation-flag { position:absolute; left:4px; top:4px; width:34px; height:22px; z-index:2;
+    transform:rotate(-2deg); transform-origin:top left; filter:drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+  .stick-rank { position:absolute; top:4px; right:4px; padding:1px 5px; border-radius:3px;
+    font:700 12px/1.4 var(--stick-font); color:#fff; background:rgba(0,0,0,.62);
+    border:1px solid #47c4b8; white-space:nowrap; z-index:2; }
+  .stick-flag { position:absolute; left:4px; top:4px; width:34px; height:22px; z-index:2;
+    transform:rotate(-2deg); transform-origin:top left; filter:drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+
+  /* ── Glyph candidate tiles ───────────────────────────────────────────────── */
+  .gopt { display:flex; flex-direction:column; align-items:center; gap:6px; width:120px; }
+  .gopt .tile { width:100%; height:64px; border:1px solid var(--line); border-radius:8px;
+    background:var(--bg2); display:flex; align-items:center; justify-content:center; gap:10px; }
+  .gopt .tile svg { width:22px; height:22px; }
+  .gopt .tile svg.tall { width:13px; height:26px; }
+  .gopt .nm { font-size:11px; color:var(--muted); text-align:center; line-height:1.35; }
+  .gopt .nm b { color:var(--text); display:block; }
+
+  footer { margin-top: 50px; padding-top: 16px; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 12.5px; max-width: 90ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">UI mockup · single theme (Canyon)</div>
+    <h1>Cannes + Sundance badge proposals</h1>
+    <p class="brief">
+      How festival wins would sit next to the existing Oscar badges on posters, wide previews and the
+      compact card form — <strong>web client and Fire Stick fork</strong>. The Oscar rendering on every
+      panel is the exact production CSS/params; the film-reel (Cannes) and sun (Sundance) glyphs are
+      locked. Design rules: <strong>one row per festival</strong> (Cannes and
+      Sundance are separate lines, just like Oscar wins/noms are), a single win shows the <strong>award
+      name</strong>, and the 4-line stack never happens so it isn't shown.
+    </p>
+    <div class="legend">
+      <span class="lg"><span class="sw" style="background:#E6B94C"></span>Oscar WIN (gold)</span>
+      <span class="lg"><span class="sw" style="background:#C9CDD3"></span>Oscar nomination (silver)</span>
+      <span class="lg"><span class="sw" style="background:#9fb87f"></span>Cannes win (laurel reel)</span>
+      <span class="lg"><span class="sw" style="background:#f26d3d"></span>Sundance win (amber sun)</span>
+      <span class="lg"><span style="background:#47c4b8;padding:0 6px;border-radius:2px;color:#0c2429;font-weight:700">1px</span>accent border (canyon #47c4b8)</span>
+    </div>
+  </header>
+
+  <!-- ══════════════════════ GLYPH CANDIDATES ══════════════════════ -->
+  <section>
+    <div class="sect-head">
+      <h2>Glyph candidates (pick one per festival)</h2>
+      <p>All shown at web-plaque scale. The <b>tall</b> ones are sized like the statuette's 24×48 ratio so the icon column stays even; square ones centre on the line.</p>
+    </div>
+    <div class="grid">
+      <div class="gopt"><span class="tile"><svg class="tall" viewBox="0 0 24 48"><path fill="#9fb87f" d="M12 2 c-1.2 3.5 -3 6 -5.6 7.8 c1.6 0.9 3.2 1 4.7 0.6 c-1 2 -2.4 3.4 -4 4.4 c1.8 0.5 3.5 0.5 5 -0.1 c-0.5 2.4 -1.5 4 -2.9 5.4 c1.8 0.4 3.6 0.1 4.8 -0.8 c-0.1 2.9 -0.7 5 -1.8 6.4 c1.7 0.1 3.3 -0.5 4.3 -1.7 c0.4 2.7 0.3 5.3 -0.7 7.3 h1.8 c-1 -2 -1.1 -4.6 -0.7 -7.3 c1 1.2 2.6 1.8 4.3 1.7 c-1.1 -1.4 -1.7 -3.5 -1.8 -6.4 c1.2 0.9 3 1.2 4.8 0.8 c-1.4 -1.4 -2.4 -3 -2.9 -5.4 c1.5 0.6 3.2 0.6 5 0.1 c-1.6 -1 -3 -2.4 -4 -4.4 c1.5 0.4 3.1 0.3 4.7 -0.6 c-2.6 -1.8 -4.4 -4.3 -5.6 -7.8 Z"/></svg></span><div class="nm"><b>Palm frond</b>the Palme d'Or itself.</div></div>
+
+      <div class="gopt"><span class="tile"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="3.4" fill="#9fb87f"/><rect x="2" y="9.4" width="20" height="9.6" rx="1.5" fill="#9fb87f"/><path fill="#0e2a30" d="M3.4 6.2 7.4 9.4H4.6L3.4 7.8V6.2zM8 6.2l4 3.2H9.2L8 7.8V6.2zM12.6 6.2l4 3.2h-2.8L12.6 7.8V6.2zM17.2 6.2l3 2.4V7.4L19 6.2h-1.8z"/></svg></span><div class="nm"><b>Clapperboard</b>"film festival" read at a glance.</div></div>
+
+      <div class="gopt"><span class="tile" style="border-color:#9fb87f;box-shadow:0 0 0 1px rgba(159,184,127,.35)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#9fb87f"/><circle cx="12" cy="12" r="5" fill="none" stroke="#0e2a30" stroke-width="1.6"/><g fill="#0e2a30"><circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="19" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="7.1" cy="7.1" r="1.3"/><circle cx="16.9" cy="16.9" r="1.3"/><circle cx="7.1" cy="16.9" r="1.3"/><circle cx="16.9" cy="7.1" r="1.3"/></g></svg></span><div class="nm"><b>Film reel</b>chosen.</div></div>
+
+      <div class="gopt"><span class="tile"><svg viewBox="0 0 24 24"><circle cx="15" cy="7" r="3.2" fill="#f26d3d"/><path fill="#f26d3d" d="M1.5 20.5 7 12l3.4 4.4L13 13l7.5 7.5z"/></svg></span><div class="nm"><b>Mountain + sun</b>Sundance = Utah mountains. New.</div></div>
+
+      <div class="gopt"><span class="tile" style="border-color:#f26d3d;box-shadow:0 0 0 1px rgba(242,109,61,.35)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="#f26d3d"/><g stroke="#f26d3d" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="1.5" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22.5" y2="12"/><line x1="4.6" y1="4.6" x2="6.8" y2="6.8"/><line x1="17.2" y1="17.2" x2="19.4" y2="19.4"/><line x1="4.6" y1="19.4" x2="6.8" y2="17.2"/><line x1="17.2" y1="6.8" x2="19.4" y2="4.6"/></g></svg></span><div class="nm"><b>Sun</b>the Sundance logo itself. Chosen.</div></div>
+
+      <div class="gopt"><span class="tile"><svg viewBox="0 0 24 24"><g stroke="#f26d3d" stroke-width="2" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="19.1" y2="4.9"/></g></svg></span><div class="nm"><b>Snowflake</b>winter-festival vibe.</div></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ WEB — desktop detail poster ══════════════════════ -->
+  <section>
+    <div class="sect-head">
+      <h2>Web · detail poster (large plaque)</h2>
+      <p><code>.oscar-plaque</code> — 13px, icons 9×18, bottom-right 8/8. Rank pill top-right, nation flag top-left.</p>
+    </div>
+    <div class="grid">
+
+      <div class="case">
+        <span class="tag">today</span>
+        <div class="poster p-web-detail g1">
+          <div class="art"><div class="t">Parasite</div><div class="y">2019</div></div>
+          <div class="curated-rank">#1</div>
+          <div class="nation-flag"><svg viewBox="0 0 3 2" style="width:100%;height:100%"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#0a2e63"/><rect x="2" width="1" height="2" fill="#b8332e"/></svg></div>
+          <div class="oscar-plaque">
+            <div class="opl-w"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#E6B94C" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>4 OSCAR WINS</div>
+            <div class="opl-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#C9CDD3" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>6 NOMINATIONS</div>
+          </div>
+        </div>
+        <div class="cap"><b>Baseline</b> — Oscar counts as shipped today. Wins are wins; nominations line shows TOTAL noms (wins + losing).</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-web-detail g1">
+          <div class="art"><div class="t">Parasite</div><div class="y">2019</div></div>
+          <div class="curated-rank">#1</div>
+          <div class="nation-flag"><svg viewBox="0 0 3 2" style="width:100%;height:100%"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#0a2e63"/><rect x="2" width="1" height="2" fill="#b8332e"/></svg></div>
+          <div class="oscar-plaque">
+            <div class="opl-w"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#E6B94C" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>4 OSCAR WINS</div>
+            <div class="opl-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#C9CDD3" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>6 NOMINATIONS</div>
+            <div class="opl-f f-cannes"><svg class="reel" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" fill="#9fb87f"/><circle cx="12" cy="12" r="5" fill="none" stroke="#0e2a30" stroke-width="1.6"/><g fill="#0e2a30"><circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="19" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="7.1" cy="7.1" r="1.3"/><circle cx="16.9" cy="16.9" r="1.3"/><circle cx="7.1" cy="16.9" r="1.3"/><circle cx="16.9" cy="7.1" r="1.3"/></g></svg>PALME D'OR</div>
+          </div>
+        </div>
+        <div class="cap"><b>Single Cannes win → award name.</b> One extra laurel line under the two Oscar rows; the palm matches the statuette's 24×48 ratio so the icon column stays even.</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-web-detail g3">
+          <div class="art"><div class="t">Triangle of Sadness</div><div class="y">2022</div></div>
+          <div class="curated-rank">#12</div>
+          <div class="oscar-plaque">
+            <div class="opl-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#C9CDD3" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>3 NOMINATIONS</div>
+            <div class="opl-f f-cannes"><svg class="reel" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" fill="#9fb87f"/><circle cx="12" cy="12" r="5" fill="none" stroke="#0e2a30" stroke-width="1.6"/><g fill="#0e2a30"><circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="19" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="7.1" cy="7.1" r="1.3"/><circle cx="16.9" cy="16.9" r="1.3"/><circle cx="7.1" cy="16.9" r="1.3"/><circle cx="16.9" cy="7.1" r="1.3"/></g></svg>PALME D'OR</div>
+          </div>
+        </div>
+        <div class="cap"><b>Nominee + Palme</b> — Oscar-nominated but winless, so the festival line carries the prestige.</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-web-detail g2">
+          <div class="art"><div class="t">Dune: Part Two</div><div class="y">2024</div></div>
+          <div class="oscar-plaque">
+            <div class="opl-w"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#E6B94C" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>2 OSCAR WINS</div>
+            <div class="opl-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#C9CDD3" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>5 NOMINATIONS</div>
+            <div class="opl-f f-cannes"><svg class="reel" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" fill="#9fb87f"/><circle cx="12" cy="12" r="5" fill="none" stroke="#0e2a30" stroke-width="1.6"/><g fill="#0e2a30"><circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="19" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="7.1" cy="7.1" r="1.3"/><circle cx="16.9" cy="16.9" r="1.3"/><circle cx="7.1" cy="16.9" r="1.3"/><circle cx="16.9" cy="7.1" r="1.3"/></g></svg>JURY PRIZE</div>
+          </div>
+        </div>
+        <div class="cap"><b>Award-name variant</b> — Dune's Cannes win was the Jury Prize, not the Palme; showing the actual award keeps the plaque honest.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════ WEB — desktop card grid ══════════════════════ -->
+  <section>
+    <div class="sect-head">
+      <h2>Web · card grid (compact plaque)</h2>
+      <p><code>.oscar-plaque-sm</code> — 10px, icons 7×14, bottom-right 4/4.</p>
+    </div>
+    <div class="grid">
+
+      <div class="case">
+        <span class="tag">today</span>
+        <div class="poster p-web-card g2">
+          <div class="art"><div class="t">Dune: Part Two</div><div class="y">2024</div></div>
+          <div class="oscar-plaque oscar-plaque-sm">
+            <div class="opl-w"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#E6B94C" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>2 OSCAR WINS</div>
+            <div class="opl-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#C9CDD3" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>5 NOMINATIONS</div>
+          </div>
+        </div>
+        <div class="cap"><b>Baseline</b> — two lines as today.</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-web-card g2">
+          <div class="art"><div class="t">Dune: Part Two</div><div class="y">2024</div></div>
+          <div class="oscar-plaque oscar-plaque-sm">
+            <div class="opl-w"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#E6B94C" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>2 OSCAR WINS</div>
+            <div class="opl-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#C9CDD3" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>5 NOMINATIONS</div>
+            <div class="opl-f f-cannes"><svg class="reel" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" fill="#9fb87f"/><circle cx="12" cy="12" r="5" fill="none" stroke="#0e2a30" stroke-width="1.6"/><g fill="#0e2a30"><circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="19" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="7.1" cy="7.1" r="1.3"/><circle cx="16.9" cy="16.9" r="1.3"/><circle cx="7.1" cy="16.9" r="1.3"/><circle cx="16.9" cy="7.1" r="1.3"/></g></svg>JURY PRIZE</div>
+          </div>
+        </div>
+        <div class="cap"><b>Compact card + festival line</b> — "JURY PRIZE" fits fine at 10px; the third line costs ~14px of vertical growth.</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-web-card g6">
+          <div class="art"><div class="t">CODA</div><div class="y">2021</div></div>
+          <div class="oscar-plaque oscar-plaque-sm">
+            <div class="opl-w"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#E6B94C" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>2 OSCAR WINS</div>
+            <div class="opl-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#C9CDD3" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>3 NOMINATIONS</div>
+            <div class="opl-f f-sundance"><svg class="sun" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="5" fill="#f26d3d"/><g stroke="#f26d3d" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.6" y1="4.6" x2="6.4" y2="6.4"/><line x1="17.6" y1="17.6" x2="19.4" y2="19.4"/><line x1="4.6" y1="19.4" x2="6.4" y2="17.6"/><line x1="17.6" y1="6.4" x2="19.4" y2="4.6"/></g></svg>3 SUNDANCE WINS</div>
+          </div>
+        </div>
+        <div class="cap"><b>Multiple wins → "N [FESTIVAL] WINS"</b> — CODA won Grand Jury + Audience + Directing at Sundance, so the count carries it instead of listing three awards.</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-web-card g4">
+          <div class="art"><div class="t">sex, lies, and videotape</div><div class="y" style="font-size:9px">1989</div></div>
+          <div class="oscar-plaque oscar-plaque-sm">
+            <div class="opl-f f-cannes"><svg class="reel" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" fill="#9fb87f"/><circle cx="12" cy="12" r="5" fill="none" stroke="#0e2a30" stroke-width="1.6"/><g fill="#0e2a30"><circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="19" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="7.1" cy="7.1" r="1.3"/><circle cx="16.9" cy="16.9" r="1.3"/><circle cx="7.1" cy="16.9" r="1.3"/><circle cx="16.9" cy="7.1" r="1.3"/></g></svg>PALME D'OR</div>
+            <div class="opl-f f-sundance"><svg class="sun" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="5" fill="#f26d3d"/><g stroke="#f26d3d" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.6" y1="4.6" x2="6.4" y2="6.4"/><line x1="17.6" y1="17.6" x2="19.4" y2="19.4"/><line x1="4.6" y1="19.4" x2="6.4" y2="17.6"/><line x1="17.6" y1="6.4" x2="19.4" y2="4.6"/></g></svg>AUDIENCE</div>
+          </div>
+        </div>
+        <div class="cap"><b>Two festivals, two lines</b> — the only film in the dataset that won at both. Each festival gets its own row, same as the Oscar rows. Never 4 lines in practice.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════ WEB — mobile pills ══════════════════════ -->
+  <section>
+    <div class="sect-head">
+      <h2>Web · mobile pills (narrow artwork)</h2>
+      <p><code>.mn-oscar-text</code> — mobile-only, bottom-right 4/4. Wide hosts (&gt;=150px) get the long form, tight ones the <code>NW · NN</code> short form.</p>
+    </div>
+    <div class="grid">
+
+      <div class="case">
+        <span class="tag">today</span>
+        <div class="poster p-mob-wide g4">
+          <div class="art"><div class="t" style="font-size:13px">Dune</div><div class="y">2021</div></div>
+          <div class="mn-oscar-text">🏆 2 wins · 3 noms</div>
+        </div>
+        <div class="cap"><b>Wide pill, baseline</b> — <code>🏆 N wins · N noms</code>. Shows losing noms only.</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-mob-wide g4">
+          <div class="art"><div class="t" style="font-size:13px">Dune</div><div class="y">2021</div></div>
+          <div class="mn-oscar-text">🏆 2 wins · 3 noms <span style="color:#9fb87f">· 🌴1</span></div>
+        </div>
+        <div class="cap"><b>Wide pill + festival</b> — festival glyph appended after the Oscar text in its own colour. <code>🌴1</code> = one Cannes win. A second festival would add <code>· ☀1</code>.</div>
+      </div>
+
+      <div class="case">
+        <span class="tag">today</span>
+        <div class="poster p-mob-tight g5">
+          <div class="art"><div class="t" style="font-size:11px">Titane</div><div class="y">2021</div></div>
+          <div class="mn-oscar-text">🏆 1W · 0N</div>
+        </div>
+        <div class="cap"><b>Tight pill, baseline</b> — the cramped short form.</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-mob-tight g5">
+          <div class="art"><div class="t" style="font-size:11px">Titane</div><div class="y">2021</div></div>
+          <div class="mn-oscar-text">🏆 1W · 0N <span style="color:#9fb87f">· 🌴1</span></div>
+        </div>
+        <div class="cap"><b>Tight pill + festival</b> — a single short segment still fits; worst case it ellipsises gracefully on very narrow art.</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-mob-tight g6">
+          <div class="art"><div class="t" style="font-size:11px">CODA</div><div class="y">2021</div></div>
+          <div class="mn-oscar-text" style="color:#f26d3d;border-color:rgba(242,109,61,.4)">☀ 3</div>
+        </div>
+        <div class="cap"><b>Festival-only pill</b> — no Oscars, so the whole pill becomes the festival accent (amber for Sundance, laurel for Cannes).</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════ FIRE STICK — poster card ══════════════════════ -->
+  <section>
+    <div class="sect-head">
+      <h2>Fire Stick · poster card (compact plaque)</h2>
+      <p><code>applyOscarPlaque(compact=true)</code> — 9sp bold, icons 6×12, 4/2 padding, 1dp accent border. All Fire Stick surfaces use the compact form.</p>
+    </div>
+    <div class="grid">
+
+      <div class="case">
+        <span class="tag">today</span>
+        <div class="poster p-stick-card g1">
+          <div class="art"><div class="t">Parasite</div><div class="y">2019</div></div>
+          <div class="stick-rank">#1</div>
+          <div class="stick-flag"><svg viewBox="0 0 3 2" style="width:100%;height:100%"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#0a2e63"/><rect x="2" width="1" height="2" fill="#b8332e"/></svg></div>
+          <div class="stick-plaque">
+            <div class="row sp-w"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#D4A843" stroke="#8A6B1F" stroke-width="1" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>4W</div>
+            <div class="row sp-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#B0B6BE" stroke="#6D7278" stroke-width="1" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>6N</div>
+          </div>
+        </div>
+        <div class="cap"><b>Baseline</b> — <code>4W</code>/<code>6N</code>. Win statuette #D4A843 with #8A6B1F stroke; nom #B0B6BE with #6D7278 stroke (the Android vector colours, darker than the web's flat fills).</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-stick-card g1">
+          <div class="art"><div class="t">Parasite</div><div class="y">2019</div></div>
+          <div class="stick-rank">#1</div>
+          <div class="stick-flag"><svg viewBox="0 0 3 2" style="width:100%;height:100%"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#0a2e63"/><rect x="2" width="1" height="2" fill="#b8332e"/></svg></div>
+          <div class="stick-plaque">
+            <div class="row sp-w"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#D4A843" stroke="#8A6B1F" stroke-width="1" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>4W</div>
+            <div class="row sp-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#B0B6BE" stroke="#6D7278" stroke-width="1" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>6N</div>
+            <div class="row sp-f f-cannes"><svg class="reel" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" fill="#9fb87f"/><circle cx="12" cy="12" r="5" fill="none" stroke="#0e2a30" stroke-width="1.6"/><g fill="#0e2a30"><circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="19" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="7.1" cy="7.1" r="1.3"/><circle cx="16.9" cy="16.9" r="1.3"/><circle cx="7.1" cy="16.9" r="1.3"/><circle cx="16.9" cy="7.1" r="1.3"/></g></svg>1</div>
+          </div>
+        </div>
+        <div class="cap"><b>Proposal</b> — one compact festival row under the two Oscar rows. Glyph + count at 9sp (short award name dropped on the compact form).</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-stick-card g6">
+          <div class="art"><div class="t">CODA</div><div class="y">2021</div></div>
+          <div class="stick-plaque">
+            <div class="row sp-f f-sundance"><svg class="sun" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="5" fill="#f26d3d"/><g stroke="#f26d3d" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.6" y1="4.6" x2="6.4" y2="6.4"/><line x1="17.6" y1="17.6" x2="19.4" y2="19.4"/><line x1="4.6" y1="19.4" x2="6.4" y2="17.6"/><line x1="17.6" y1="6.4" x2="19.4" y2="4.6"/></g></svg>3</div>
+          </div>
+        </div>
+        <div class="cap"><b>Festival-only card</b> — multiple wins as just glyph + count; the plaque shows the sun and a 3.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════ FIRE STICK — detail poster ══════════════════════ -->
+  <section>
+    <div class="sect-head">
+      <h2>Fire Stick · detail poster (compact plaque, poster-width constrained)</h2>
+      <p>Same compact form, but <code>view_row_details.xml</code> pins it bottom-right 8/8 inside the ~130dp poster and caps width so long labels wrap.</p>
+    </div>
+    <div class="grid">
+
+      <div class="case">
+        <span class="tag">today</span>
+        <div class="poster p-stick-detail g1 stick-detail">
+          <div class="art"><div class="t" style="font-size:11px">Parasite</div><div class="y">2019</div></div>
+          <div class="stick-plaque">
+            <div class="row sp-w"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#D4A843" stroke="#8A6B1F" stroke-width="1" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>4W</div>
+            <div class="row sp-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#B0B6BE" stroke="#6D7278" stroke-width="1" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>6N</div>
+          </div>
+        </div>
+        <div class="cap"><b>Baseline</b> — detail poster uses the same compact plaque as cards.</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-stick-detail g1 stick-detail">
+          <div class="art"><div class="t" style="font-size:11px">Parasite</div><div class="y">2019</div></div>
+          <div class="stick-plaque">
+            <div class="row sp-w"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#D4A843" stroke="#8A6B1F" stroke-width="1" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>4W</div>
+            <div class="row sp-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#B0B6BE" stroke="#6D7278" stroke-width="1" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>6N</div>
+            <div class="row sp-f f-cannes"><svg class="reel" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" fill="#9fb87f"/><circle cx="12" cy="12" r="5" fill="none" stroke="#0e2a30" stroke-width="1.6"/><g fill="#0e2a30"><circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="19" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="7.1" cy="7.1" r="1.3"/><circle cx="16.9" cy="16.9" r="1.3"/><circle cx="7.1" cy="16.9" r="1.3"/><circle cx="16.9" cy="7.1" r="1.3"/></g></svg>1</div>
+          </div>
+        </div>
+        <div class="cap"><b>Proposal</b> — same glyph + count form; fits the narrow detail poster without wrapping.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════ Edge cases ══════════════════════ -->
+  <section>
+    <div class="sect-head">
+      <h2>Edge cases</h2>
+      <p>Worst-case layout sanity: a heavily-awarded festival film with everything stacked.</p>
+    </div>
+    <div class="grid">
+
+      <div class="case">
+        <span class="tag">today</span>
+        <div class="poster p-web-card g1">
+          <div class="art"><div class="t">Everything Everywhere All at Once</div><div class="y" style="font-size:9px">2022</div></div>
+          <div class="curated-rank">#3</div>
+          <div class="oscar-plaque oscar-plaque-sm">
+            <div class="opl-w"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#E6B94C" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>7 OSCAR WINS</div>
+            <div class="opl-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#C9CDD3" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>11 NOMINATIONS</div>
+          </div>
+        </div>
+        <div class="cap"><b>Today's worst case</b> — 7 wins / 11 noms, already two fat lines on a 200px card.</div>
+      </div>
+
+      <div class="case">
+        <span class="tag new">proposal</span>
+        <div class="poster p-web-card g1">
+          <div class="art"><div class="t">Everything Everywhere All at Once</div><div class="y" style="font-size:9px">2022</div></div>
+          <div class="curated-rank">#3</div>
+          <div class="oscar-plaque oscar-plaque-sm">
+            <div class="opl-w"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#E6B94C" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>7 OSCAR WINS</div>
+            <div class="opl-n"><svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg"><path fill="#C9CDD3" d="M12 1.6 a3.5 3.5 0 1 1 -0.01 0 Z M9.4 8.9 c0.9 0.8 4.3 0.8 5.2 0 c0.5 1.1 0.2 2.1 0.7 3.2 c0.5 1.1 1 1.9 1 3.3 c0 1.5 -0.6 2.4 -1 3.6 c-0.4 1.2 -0.5 2.3 -0.5 3.9 V33.5 h-5.8 V22.9 c0 -1.6 -0.1 -2.7 -0.5 -3.9 c-0.4 -1.2 -1 -2.1 -1 -3.6 c0 -1.4 0.5 -2.2 1 -3.3 c0.5 -1.1 0.2 -2.1 0.7 -3.2 Z M8 34 h8 v3.6 h-8 Z M6 38.1 h12 v3.4 h-12 Z M4.2 42 h15.6 v3.4 H4.2 Z"/></svg>11 NOMINATIONS</div>
+            <div class="opl-f f-sundance"><svg class="sun" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="5" fill="#f26d3d"/><g stroke="#f26d3d" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.6" y1="4.6" x2="6.4" y2="6.4"/><line x1="17.6" y1="17.6" x2="19.4" y2="19.4"/><line x1="4.6" y1="19.4" x2="6.4" y2="17.6"/><line x1="17.6" y1="6.4" x2="19.4" y2="4.6"/></g></svg>1 SUNDANCE WIN</div>
+          </div>
+        </div>
+        <div class="cap"><b>Worst case with festival line</b> — three compact lines total; the plaque grows a bit but the hierarchy (gold → silver → amber) still reads instantly.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    <strong>Design notes</strong> · Festival wins are winners-only (there's no festival "nominations"
+    dataset), so the badge line is always a win/award — which is exactly why it stays to one line per
+    festival. One row per festival (never combined); a single win shows the award name on the web
+    plaque, and the Fire Stick compact form is always glyph + count. The 4-line stack never occurs
+    (0 of 2,213 films), so it's omitted.
+    Tag proposal: <code>festival-cannes-N</code> / <code>festival-sundance-N</code> (per-film counts
+    derived from <code>oscar-winners.json</code>), written by a tmdb-keyed pass in
+    <code>oscar-tags.js</code>; both clients widen their regex and render the extra row. Laurel
+    #9fb87f + amber #f26d3d are the proposed festival palette (amber reuses Canyon's accent2 so it
+    feels native). Glyphs: <strong>film reel (Cannes) + sun (Sundance) are chosen</strong>; palm,
+    clapper, mountain+sun and snowflake were the rejected alternatives. Web pill note: today's pill
+    shows <em>losing</em> noms while the plaque shows <em>total</em> — the mockup preserves that
+    existing behaviour, it's not new.
+  </footer>
+
+</div>
+</body>
+</html>

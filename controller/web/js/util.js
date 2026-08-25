@@ -26,8 +26,9 @@ const esc = (s) => String(s == null ? '' : s)
 // The band→dots map below is presentation only.
 //
 // What the colours mean, agreed with Brennan 2026-08-01 after measuring the playback chain:
-//   purple (wow)  >=0.20  beyond what the native-720p projector can resolve — this is the band
-//                         that starts to matter after a hardware upgrade
+//   purple (wow)  >=0.20  beyond what the old native-720p projector could resolve — this is the
+//                         band that starts to matter now that projector is dead (2026-08-19) and
+//                         a 1080p one is replacing it
 //   green  (ok)   >=0.13  good enough for the film to look its best on CURRENT hardware
 //   orange (warn) >=0.08  diminished even today; may still be fine, that is the human call
 //   red    (bad)   <0.08  worse than that. The YTS family sits around 0.05.
@@ -53,8 +54,17 @@ const BPP_EST_HELP = 'Estimated — this film has not been probed yet, so 100 is
   + 'usable; the exact number will shift once this title is measured.';
 const BPP_MEAS_HELP = 'Measured — this film has been probed, so 100 is what a visually transparent '
   + 'encode of THIS film actually costs.';
-const bppEstimated = (basis) => !!basis && basis !== 'measured' && basis !== 'measured:stale';
-const bppMeasured = (basis) => basis === 'measured' || basis === 'measured:stale';
+// 'measured:series' is a WHOLE SHOW, aggregated from its own measured seasons (see
+// seriesComplexity() in lib/probe.js). It counts as MEASURED — the show really was probed, every
+// season of it — because rendering it italic told the opposite of the truth: that it had never been
+// probed at all. The tooltip below still says it is an aggregate, so the distinction is not lost,
+// it just stops being carried by a glyph that means something else.
+const MEASURED_BASES = ['measured', 'measured:stale', 'measured:series'];
+const bppEstimated = (basis) => !!basis && !MEASURED_BASES.includes(basis);
+const bppMeasured = (basis) => MEASURED_BASES.includes(basis);
+const BPP_SERIES_HELP = 'This is the whole show: 100 is the episode-weighted average of what a '
+  + 'transparent encode of each of its seasons costs. Individual seasons can differ — a film-stock '
+  + 'first season and a digital revival are not the same picture.';
 // A one-word name per band, used ONLY in tooltips and aria-labels — never rendered as a row
 // label. Brennan, 2026-08-01: colour and number carry the meaning; prose does not.
 const BPP_WORD = { wow: 'beyond what this display can show', ok: 'looks its best on current hardware',
@@ -71,18 +81,40 @@ const qbarCls = (band) => (band ? ` qbar q-${band}` : '');
 // `basis` is optional and arrives on the payload as `cxBasis` — see bppTargetFor() in
 // lib/arr-inspect.js. Absent (an older cached verdict, or a payload that predates the probe) renders
 // exactly as before, so no row can break for want of it.
-const bppSpan = (plus, band, basis) => {
+// PROVISIONAL MARK. BPP+ divides by a measured complexity, and that measurement has a standard
+// error — so a 94 pinned to +/-3% and a 94 pinned to +/-25% used to print identically. Brennan,
+// 2026-08-17: "if uncertainty is above a certain threshold we do bpp+* instead of bpp+... on hover
+// show a tooltip with the actual number." So: one asterisk, nothing else in the row, and the figure
+// lives in the tooltip. This deliberately does NOT reopen "we dont render error bars or hidden stats
+// #s" — the default rendering is unchanged, and the mark appears only when the number is loose
+// enough that acting on it would be a mistake.
+//
+// `rse` arrives as `bppRSE` on the payload and is ALREADY the error of the index (the server halves
+// the complexity error, because BPP+ takes a square root). Null means "no error bar available",
+// which is most of the library today and renders bare — marking a thousand films provisional would
+// make the mark meaningless.
+const BPP_RSE_LOOSE = 0.10;
+const bppSpan = (plus, band, basis, rse) => {
   if (plus == null) return '';
   const est = bppEstimated(basis);
   const meas = bppMeasured(basis);
-  const tip = est ? `${BPP_HELP}\n\n${BPP_EST_HELP}`
-    : (meas ? `${BPP_HELP}\n\n${BPP_MEAS_HELP}` : BPP_HELP);
+  const loose = typeof rse === 'number' && rse > BPP_RSE_LOOSE;
+  let tip = est ? `${BPP_HELP}\n\n${BPP_EST_HELP}`
+    : (meas ? `${BPP_HELP}\n\n${basis === 'measured:series' ? BPP_SERIES_HELP : BPP_MEAS_HELP}` : BPP_HELP);
+  if (loose) {
+    const pct = Math.round(rse * 100);
+    tip += `\n\nPROVISIONAL (*): this film's complexity is still loosely measured, so the score is`
+      + ` roughly ${plus} +/-${pct}% (about ${Math.round(plus * (1 - rse))}-${Math.round(plus * (1 + rse))}).`
+      + ` The nightly probe revisits the least certain films and pools their samples, so it tightens`
+      + ` on its own. Treat it as a hint, not a verdict.`;
+  }
   // Neither class when basis is absent (an older cached verdict, or a payload predating the probe) —
   // the badge then renders exactly as it always did rather than claiming a confidence we do not have.
   const cls = est ? ' est' : (meas ? ' meas' : '');
-  return `<span class="mbps ${band || ''}${cls}" title="${esc(tip)}"`
-    + ` aria-label="${esc(BPP_WORD[band] || '')}${est ? ', estimated' : (meas ? ', measured' : '')}">`
-    + `${plus}<small>bpp+</small></span>`;
+  return `<span class="mbps ${band || ''}${cls}${loose ? ' prov' : ''}" title="${esc(tip)}"`
+    + ` aria-label="${esc(BPP_WORD[band] || '')}${est ? ', estimated' : (meas ? ', measured' : '')}`
+    + `${loose ? ', provisional' : ''}">`
+    + `${plus}${loose ? '<sup class="prov-mark">*</sup>' : ''}<small>bpp+</small></span>`;
 };
 
 // ── AUDIO ────────────────────────────────────────────────────────────────────────────────────

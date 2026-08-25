@@ -1,0 +1,302 @@
+{
+ "generated": 1787335468645,
+ "levels": [
+  1.3,
+  1.15,
+  1,
+  0.85,
+  0.7
+ ],
+ "clips": 4,
+ "seclen": 2,
+ "films": [
+  {
+   "key": "mv:445",
+   "title": "The Big Sleep (1946)",
+   "year": 1946,
+   "cxEff": 0.23196,
+   "bpp": 0.31754,
+   "bppPlus": 117,
+   "liveCambi": 0.00173,
+   "srcBitrate": 14190079,
+   "points": [
+    {
+     "level": null,
+     "lossless": true,
+     "cambi": 0.00174,
+     "n": 4
+    },
+    {
+     "level": 1.3,
+     "cambi": 0.03202,
+     "n": 4
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.05256,
+     "n": 4
+    },
+    {
+     "level": 1,
+     "cambi": 0.0859,
+     "n": 4
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.12663,
+     "n": 4
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.20523,
+     "n": 4
+    }
+   ],
+   "fit": {
+    "S": -2.952502877960126,
+    "r2": 0.9862750715872948,
+    "n": 5
+   }
+  },
+  {
+   "key": "mv:848",
+   "title": "The Man Who Knew Too Much (1956)",
+   "year": 1956,
+   "cxEff": 0.37645,
+   "bpp": 0.11589,
+   "bppPlus": 55,
+   "liveCambi": 0.15122,
+   "srcBitrate": 5953632,
+   "points": [
+    {
+     "level": null,
+     "lossless": true,
+     "cambi": 0.15122,
+     "n": 4
+    },
+    {
+     "level": 1.3,
+     "cambi": 0.31441,
+     "n": 4
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.34882,
+     "n": 4
+    },
+    {
+     "level": 1,
+     "cambi": 0.39345,
+     "n": 4
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.43367,
+     "n": 4
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.51555,
+     "n": 4
+    }
+   ],
+   "fit": {
+    "S": -0.7830351191573818,
+    "r2": 0.9965577205038221,
+    "n": 5
+   }
+  },
+  {
+   "key": "mv:821",
+   "title": "The Man Standing Next (2020)",
+   "year": 2020,
+   "cxEff": 0.05551,
+   "bpp": 0.0477,
+   "bppPlus": 93,
+   "liveCambi": 0.46177,
+   "srcBitrate": 2248683,
+   "points": [
+    {
+     "level": null,
+     "lossless": true,
+     "cambi": 0.46177,
+     "n": 4
+    },
+    {
+     "level": 1.3,
+     "cambi": 3.88372,
+     "n": 4
+    },
+    {
+     "level": 1.15,
+     "cambi": 4.90466,
+     "n": 4
+    },
+    {
+     "level": 1,
+     "cambi": 6.04218,
+     "n": 4
+    },
+    {
+     "level": 0.85,
+     "cambi": 7.3545,
+     "n": 4
+    },
+    {
+     "level": 0.7,
+     "cambi": 8.74406,
+     "n": 4
+    }
+   ],
+   "fit": {
+    "S": -1.2992651278029923,
+    "r2": 0.9787362743124276,
+    "n": 5
+   }
+  },
+  {
+   "key": "mv:716",
+   "title": "City of Men (2007)",
+   "year": 2007,
+   "cxEff": 1.0559,
+   "bpp": 0.23951,
+   "bppPlus": 48,
+   "liveCambi": 1.37481,
+   "srcBitrate": 6331840,
+   "points": [
+    {
+     "level": null,
+     "lossless": true,
+     "cambi": 1.3748,
+     "n": 4
+    },
+    {
+     "level": 1.3,
+     "cambi": 1.51417,
+     "n": 4
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.55662,
+     "n": 4
+    },
+    {
+     "level": 1,
+     "cambi": 1.59647,
+     "n": 4
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.68825,
+     "n": 4
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.7967,
+     "n": 4
+    }
+   ],
+   "fit": {
+    "S": -0.277538544525718,
+    "r2": 0.9861376785476735,
+    "n": 5
+   }
+  },
+  {
+   "key": "mv:776",
+   "title": "Almost Famous (2000)",
+   "year": 2000,
+   "cxEff": 0.12385,
+   "bpp": 0.03877,
+   "bppPlus": 56,
+   "liveCambi": 2.44644,
+   "srcBitrate": 1855928,
+   "points": [
+    {
+     "level": null,
+     "lossless": true,
+     "cambi": 2.44644,
+     "n": 4
+    },
+    {
+     "level": 1.3,
+     "cambi": 3.29366,
+     "n": 4
+    },
+    {
+     "level": 1.15,
+     "cambi": 3.37318,
+     "n": 4
+    },
+    {
+     "level": 1,
+     "cambi": 3.48278,
+     "n": 4
+    },
+    {
+     "level": 0.85,
+     "cambi": 3.56112,
+     "n": 4
+    },
+    {
+     "level": 0.7,
+     "cambi": 3.67575,
+     "n": 4
+    }
+   ],
+   "fit": {
+    "S": -0.17654154863714017,
+    "r2": 0.99222575665008,
+    "n": 5
+   }
+  },
+  {
+   "key": "mv:918",
+   "title": "Swingers (1996)",
+   "year": 1996,
+   "cxEff": 0.09825,
+   "bpp": 0.04356,
+   "bppPlus": 67,
+   "liveCambi": 7.17348,
+   "srcBitrate": 2149515,
+   "points": [
+    {
+     "level": null,
+     "lossless": true,
+     "cambi": 7.17349,
+     "n": 4
+    },
+    {
+     "level": 1.3,
+     "cambi": 8.37955,
+     "n": 4
+    },
+    {
+     "level": 1.15,
+     "cambi": 8.62878,
+     "n": 4
+    },
+    {
+     "level": 1,
+     "cambi": 8.91109,
+     "n": 4
+    },
+    {
+     "level": 0.85,
+     "cambi": 9.25689,
+     "n": 4
+    },
+    {
+     "level": 0.7,
+     "cambi": 9.61102,
+     "n": 4
+    }
+   ],
+   "fit": {
+    "S": -0.22287472370445996,
+    "r2": 0.9982117986636705,
+    "n": 5
+   }
+  }
+ ]
+}

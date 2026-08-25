@@ -12,6 +12,10 @@ set -a; source .env; set +a
 # 2. hard storage cap (optional): mount $DATA as a fixed-size loopback ext4 image.
 #    The inner filesystem cannot exceed $DATA_IMG_SIZE — writes fail past the cap,
 #    no matter what qBittorrent/Radarr try. Sparse: only uses real disk as filled.
+#    RETIRED (2026-06-29): DATA_IMG is blank in .env and /opt/media-data.img no longer
+#    exists — $DATA is a real 7.3 TB USB drive mounted by UUID from fstab, so this whole
+#    branch is skipped. Don't re-enable it expecting it to protect the boot SSD; it only
+#    ever capped $DATA. See "Research corpora & scratch data" in AGENTS.md.
 if [[ -n "${DATA_IMG:-}" ]]; then
   if ! mountpoint -q "$DATA"; then
     if [[ ! -f "$DATA_IMG" ]]; then

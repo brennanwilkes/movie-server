@@ -1,0 +1,109 @@
+{
+ "v": 1,
+ "films": {
+  "mv:148": {
+   "key": "mv:148",
+   "title": "The Social Network (2010)",
+   "cxEff": 0.0468,
+   "R": 1.3839,
+   "year": 2010,
+   "srcBitrate": 4308048,
+   "points": [
+    {
+     "level": 1,
+     "crf": 16,
+     "probeBitrate": 2694120,
+     "samplesOk": 8
+    },
+    {
+     "level": 1,
+     "crf": 20,
+     "probeBitrate": 1454240,
+     "samplesOk": 8
+    },
+    {
+     "level": 1,
+     "crf": 24,
+     "probeBitrate": 842322,
+     "samplesOk": 8
+    },
+    {
+     "level": 1,
+     "crf": 28,
+     "probeBitrate": 511010,
+     "samplesOk": 8
+    },
+    {
+     "level": 0.5,
+     "crf": 16,
+     "probeBitrate": 2357658,
+     "samplesOk": 8
+    },
+    {
+     "level": 0.5,
+     "crf": 20,
+     "probeBitrate": 1349814,
+     "samplesOk": 8
+    },
+    {
+     "level": 0.5,
+     "crf": 24,
+     "probeBitrate": 805190,
+     "samplesOk": 8
+    },
+    {
+     "level": 0.5,
+     "crf": 28,
+     "probeBitrate": 494594,
+     "samplesOk": 8
+    },
+    {
+     "level": 0.25,
+     "crf": 16,
+     "probeBitrate": 2067965,
+     "samplesOk": 8
+    },
+    {
+     "level": 0.25,
+     "crf": 20,
+     "probeBitrate": 1221868,
+     "samplesOk": 8
+    },
+    {
+     "level": 0.25,
+     "crf": 24,
+     "probeBitrate": 753789,
+     "samplesOk": 8
+    },
+    {
+     "level": 0.25,
+     "crf": 28,
+     "probeBitrate": 474666,
+     "samplesOk": 8
+    }
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "perPoint": -0.1292,
+     "r2": 0.9978,
+     "cx20": 1454240
+    },
+    {
+     "level": 0.5,
+     "perPoint": -0.1219,
+     "r2": 0.9991,
+     "cx20": 1349814
+    },
+    {
+     "level": 0.25,
+     "perPoint": -0.1153,
+     "r2": 0.9991,
+     "cx20": 1221868
+    }
+   ],
+   "ts": 1787294789898,
+   "enc": "libx264"
+  }
+ }
+}

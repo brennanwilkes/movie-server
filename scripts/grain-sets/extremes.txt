@@ -1,0 +1,35 @@
+# extremes.txt — the set designed to BREAK the "gShare is a constant scale factor" hypothesis.
+#
+# The camera-format set (2026-08-13) failed because every film in it was a well-sourced live-action
+# feature: 35mm and modern digital BOTH carry high-frequency detail, so `-tune grain` had nothing to
+# separate. This set attacks the range instead of the middle, with three groups whose predictions
+# DISAGREE. If the metric is real they must separate; if gShare is a constant + noise they will not.
+#
+#   FLOOR-CGI      pure rendered frames, NO photochemical grain exists to preserve. If these land in
+#                  the same 0.3-0.5 band as everything else, the metric is measuring nothing.
+#   FLOOR-STARVED  genuinely grainy films whose grain the ENCODER already destroyed (R < 0.4). The
+#                  grain is not in the file, so a faithfulness measure must read LOW. This separates
+#                  "the film has grain" from "this copy has grain" — which is the whole point, since
+#                  BPP+ scores the FILE.
+#   CEILING-BW     well-sourced B&W film stock, the grainiest thing in the library (R >= 1.0 so the
+#                  grain survived). These must top the table.
+#   CX-EXTREME     complexity min and max, to test whether gShare tracks complexity (it must not —
+#                  measured r = -0.234 on the first set, i.e. independent).
+#
+# R is quoted because it governs trust: a low-R film CANNOT show high gShare even if the film is
+# grainy, so low-R rows are only evidence for the FLOOR predictions, never against the CEILING ones.
+#
+# ORDER IS DELIBERATE: the groups ALTERNATE so that a run stopped early still contains the decisive
+# CGI-vs-B&W contrast. Grouped ordering put every ceiling film behind every floor film, which meant an
+# hour of encoding bought no comparison at all. Toy Story is demoted from first because it is the
+# slowest film in the set (~3 min/sample) and was buying the least per minute.
+Casablanca (1943)|CEILING-BW R1.57
+Up (2009)|FLOOR-CGI R1.24
+Citizen Kane (1941)|CEILING-BW R1.09
+Ratatouille (2007)|FLOOR-CGI R0.81
+The Maltese Falcon (1941)|CEILING-BW R1.70
+Toy Story (1995)|FLOOR-CGI R1.21
+Saving Private Ryan (1998)|FLOOR-STARVED R0.23
+Seven Samurai (1954)|FLOOR-STARVED R0.38
+12 Angry Men (1957)|CX-MAX 0.927 R0.74
+Dune (2021)|CX-MIN 0.044 R1.40

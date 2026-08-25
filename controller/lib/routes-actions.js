@@ -22,7 +22,7 @@ const {
   srcRank, REENC_RE, audioOf, refusedReason, scopeOf, SCOPE_LABEL, resOf, codecOf, TENBIT_RE,
   supersedes, editionRefusal, overResCeiling,
 } = require('./release-rules');
-const { videoLabel, gpuTier, bppOf, bppBand, bppIndex, bppBasis, arrTitle } = require('./arr-inspect');
+const { videoLabel, gpuTier, bppOf, bppBand, bppIndex, bppBasis, bppRSE, arrTitle } = require('./arr-inspect');
 
 // The Library tab's quality figure. bpp, NOT Mbps — see the block comment above bppOf() in
 // arr-inspect.js for why raw Mbps is not comparable across this library (only 171 of 860 movies
@@ -42,10 +42,13 @@ const { videoLabel, gpuTier, bppOf, bppBand, bppIndex, bppBasis, arrTitle } = re
 // it — otherwise this endpoint reports a different BPP+ than the Audit tab does for the same file.
 function bppFields(mi, sizeBytes, runtimeMinutes, key) {
   const fallback = (sizeBytes > 0 && runtimeMinutes > 0) ? (sizeBytes * 8) / (runtimeMinutes * 60) : null;
-  const bpp = bppOf(mi, fallback);
+  const bpp = bppOf(mi, fallback, key);
   // bppPlus is what the UI renders: raw bpp lives between 0.02 and 0.44 across the whole library,
   // so the differences that matter are in the third decimal. See bppIndex() in arr-inspect.js.
-  return { bpp, bppPlus: bppIndex(bpp, key), bppBand: bppBand(bpp, key), cxBasis: bppBasis(key) };
+  // bppRSE is the relative error OF THE INDEX, or null when we cannot say. The client renders a
+  // trailing "*" past a threshold and puts the figure in a tooltip; it is not shown otherwise.
+  return { bpp, bppPlus: bppIndex(bpp, key), bppBand: bppBand(bpp, key), cxBasis: bppBasis(key),
+    bppRSE: bppRSE(key) };
 }
 const {
   buildDeletePlan, planItems, executeDelete, buildDeletePlanFromHash,
@@ -148,12 +151,14 @@ app.get('/api/library', async (req, res) => {
           const mi = miBySeries[s.id];
           const sizeBytes = (s.statistics && s.statistics.sizeOnDisk) || 0;
           const runtimeMinutes = (s.runtime && s.statistics && s.statistics.episodeFileCount) ? s.runtime * s.statistics.episodeFileCount : 0;
-          const item = { id: s.id, title: s.title, year: s.year, hasFile: ((s.statistics && s.statistics.episodeFileCount) || 0) > 0, sizeBytes, tmdbId: s.tmdbId, runtimeMinutes, videoLabel: videoLabel(mi && mi.mi), gpuCompat: gpuTier(mi && mi.mi), source: (mi && mi.src) || null, audioCodec: (mi && mi.mi && mi.mi.audioCodec) || null, audioCh: (mi && mi.mi && mi.mi.audioChannels) || null, // NO KEY for a series row, deliberately. The probe's unit is a SEASON, so a whole-series
-          // bpp has no single measured complexity to be scored against — seasons of one show can
-          // differ (a film-stock first season, a digital revival). Averaging them would invent a
-          // number no measurement supports, so this row keeps the flat fallback and the Audit tab,
-          // which IS per-season, is where a measured TV score appears.
-          ...bppFields(mi && mi.mi, sizeBytes, runtimeMinutes) };
+          const item = { id: s.id, title: s.title, year: s.year, hasFile: ((s.statistics && s.statistics.episodeFileCount) || 0) > 0, sizeBytes, tmdbId: s.tmdbId, runtimeMinutes, videoLabel: videoLabel(mi && mi.mi), gpuCompat: gpuTier(mi && mi.mi), source: (mi && mi.src) || null, audioCodec: (mi && mi.mi && mi.mi.audioCodec) || null, audioCh: (mi && mi.mi && mi.mi.audioChannels) || null, // SERIES KEY. This used to pass NO key, on the reasoning that the probe's unit is a SEASON
+          // and averaging seasons invents a number. The effect was worse than the disease: with no
+          // key the row was scored against the flat library-wide BPP_TARGET and rendered ITALIC —
+          // "never probed" — for shows whose every season IS probed (146/146 across 97 series,
+          // measured 2026-08-18). complexityForKey() now aggregates the show's own measured seasons
+          // (episode-weighted, all-or-nothing) and reports basis 'measured:series', which is strictly
+          // more information than a global constant. See seriesComplexity() in probe.js.
+          ...bppFields(mi && mi.mi, sizeBytes, runtimeMinutes, `tv:${s.id}`) };
           if (!item.hasFile) {
             const qe = qByItemId[s.id];
             if (qe) {
@@ -911,7 +916,9 @@ app.post('/api/force-grab/search', async (req, res) => {
   }
 });
 
-// ---- Disk gate: decline a download that can't fit under the 20 GB cap ----
+// ---- Disk gate: decline a download that can't fit in /data's free space ----
+// ("the 20 GB cap" it was built against is gone — /data is the real 7.3 TB drive since
+// 2026-06-29, and the gate reads its live size from statfs. It does NOT watch the boot SSD.)
 // Single-admin Jellyseerr auto-approves the owner's OWN requests, so there's no
 // "pending" window to gate at the request stage. Instead we intercept at the download
 // stage: once a torrent's real size is known (from metadata, within seconds — before it

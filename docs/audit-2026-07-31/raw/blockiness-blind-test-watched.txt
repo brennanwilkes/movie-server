@@ -1,0 +1,67 @@
+library probed w/ blockMean: 881   watched: 212   usable pool: 210
+
+cell sizes  A=19  B=20  C-bad=16  C-good=6
+
+=== THE BLIND LIST — films you have watched. artifacts / clean / not sure ===
+
+   1. Kill Bill: Vol. 2 (2004)
+   2. The Blues Brothers (1980)
+   3. Star Wars (1977)
+   4. Jackie Brown (1997)
+   5. Jurassic Park (1993)
+   6. Inception (2010)
+   7. Heat (1995)
+   8. I Am Legend (2007)
+   9. Spirited Away (2001)
+  10. The Conformist (1971)
+  11. Taxi Driver (1976)
+
+
+=== ANSWER KEY — do not read until after ===
+
+   1. Kill Bill: Vol. 2 (2004)               C-bad   block   6.72 (99th)  R 0.7647  6.2Mb  Bluray-1080p
+   2. The Blues Brothers (1980)              A       block   5.66 (99th)  R 1.0416  8.6Mb  WEBDL-1080p
+   3. Star Wars (1977)                       C-good  block   1.06 (3th)  R 2.4454  10.0Mb  Bluray-1080p
+   4. Jackie Brown (1997)                    A       block   7.61 (100th)  R 2.5083  18.4Mb  Bluray-1080p
+   5. Jurassic Park (1993)                   B       block   1.06 (2th)  R 0.7424  9.9Mb  Bluray-1080p
+   6. Inception (2010)                       A       block   5.64 (99th)  R 1.2608  6.2Mb  Bluray-1080p
+   7. Heat (1995)                            C-good  block   1.11 (9th)  R 1.2178  1.7Mb  Bluray-1080p
+   8. I Am Legend (2007)                     C-bad   block   3.91 (97th)  R 0.6925  1.8Mb  Bluray-1080p
+   9. Spirited Away (2001)                   A       block   6.60 (99th)  R 1.3929  4.0Mb  Bluray-1080p
+  10. The Conformist (1971)                  B       block   1.07 (4th)  R 0.7012  5.0Mb  Bluray-1080p
+  11. Taxi Driver (1976)                     B       block   1.06 (2th)  R 0.7618  13.6Mb  Bluray-1080p
+
+  A = blocky but well-supplied (predict: ARTIFACTS despite a good BPP+)
+  B = clean but starved       (predict: LOOKS FINE despite a poor BPP+)
+  C = the two measures agree  (controls)
+
+
+=== VERDICTS AS THEY COME IN ===
+
+  Spirited Away (2001)   CLEAN        2026-08-13. "looks solid, no artifacts visible."
+                                      Quadrant A, blockMean 6.60 (99th pct), R 1.39.
+                                      => METRIC SAYS BLOCKY, EYE SAYS CLEAN. The strongest single
+                                      counter-example we have: hand-drawn cel animation has no
+                                      photochemical grain at all, so blockdetect firing at the 99th
+                                      percentile here cannot be grain-confusion — it is most likely
+                                      responding to LARGE FLAT PAINTED REGIONS, whose smooth ramps
+                                      look like block edges to a gradient-based detector. This is
+                                      open risk #2 in HANDOFF-2026-08-14 §3.4 turning up a FALSE
+                                      POSITIVE class that is neither grain nor blocking.
+                                      Caveat: judged while the box was heavily loaded.
+
+  Kill Bill: Vol. 2 (2004)  ARTIFACTS  2026-08-13, ~9 min in, during the B&W sequence.
+                                      "same pixel changing noise behind the scenes." Also reports
+                                      seeing it elsewhere, "not as obvious as Lawrence or Easy Rider."
+                                      Quadrant C-bad, blockMean 6.72 (99th pct), R 0.76, 6.2 Mb.
+                                      => TRUE POSITIVE, and both measures agreed here (starved AND
+                                      blocky), so it does not discriminate between the two theories.
+                                      Note the scene: B&W + dark is where the darkness axis predicts
+                                      trouble too. Worth checking whether the same file reads clean
+                                      in its colour reels.
+
+  CONFOUND, MUST BE RE-CHECKED: the Marquee crosshatch lattice (body::before, z-index 9998, a 4%
+  gold screen-door pattern) was rendering ON TOP OF the video in the browser until it was fixed on
+  2026-08-13. A fixed lattice over a dark frame is visually very close to compression noise. Both
+  verdicts above were formed with that overlay live. Re-confirm any browser-based verdict after
+  the fix; TV-client verdicts are unaffected.

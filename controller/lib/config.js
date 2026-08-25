@@ -33,8 +33,11 @@ const intlLanguages = (() => { try { return JSON.parse(fs.readFileSync(path.join
 
 const PORT = Number(cfg.CONTROLLER_PORT || 8088);
 const NUC_IP = cfg.NUC_IP || '192.168.1.74';
-// The $DATA loopback image IS the hard cap, so its live filesystem size (from statfs
-// below) is the real number — no hardcoded constant to drift out of sync on resize.
+// Disk capacity is read live from statfs('/data') rather than a hardcoded constant, so it
+// can't drift. NOTE: this was written when $DATA was a 20 GB sparse loopback image that WAS
+// the hard cap; that image is gone (2026-06-29) and /data is now the real 7.3 TB drive, so
+// "cap" here just means "the size of /data". It says nothing about the 221 GB boot SSD that
+// holds this repo and /opt/appdata — see "Research corpora & scratch data" in AGENTS.md.
 
 // Internal (container-network) bases + external ports for browser deep-links.
 const HOST = {

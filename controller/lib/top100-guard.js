@@ -28,7 +28,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const { cfg, HOST } = require('./config');
 const jobs = require('./jobs');
-const { tfetch, tfetchJson } = require('./clients');
+const { tfetchJson } = require('./clients');
 const { jellyfinUserId } = require('./jellyfin');
 const { isMasterPaused } = require('./state');
 const { safeRewrite } = require('./top100-write');
@@ -71,17 +71,16 @@ async function movieIndex() {
   return byKey;
 }
 
-// Does this Jellyfin id still exist? This is the DISCRIMINATOR that makes automatic restore safe:
-//   - id gone   → the item was retired by a re-import, so the entry was ORPHANED → restore it.
-//   - id alive  → the item is fine and Brennan took it out of the playlist on purpose → forget it.
+// This is the DISCRIMINATOR that makes automatic restore safe, and it is a LOCAL compare rather than
+// a network probe. Jellyfin's bare GET /Items/{id} 400s under API-key auth — no user context, the same
+// failure as MoveItem in routes-elo.js — so a liveness call would always read "dead" and the guard
+// would re-add every title removed by hand. Compare the stored id against the id that same movie
+// reports TODAY in the library index we already hold:
+//   - stored id == current id → the item is fine and Brennan took it out of the playlist on purpose
+//                               → forget it.
+//   - stored id != current id → a file swap re-minted the item (Jellyfin ids are path-derived), so
+//                               the entry was ORPHANED → restore it.
 // Without this, a guard that simply re-added anything missing would fight the user every hour.
-async function idAlive(id) {
-  if (!id) return false;
-  try {
-    const r = await tfetch(`${HOST.jellyfin}/Items/${id}`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY } }, 10000);
-    return r.ok;
-  } catch { return false; }
-}
 
 // ── the store ────────────────────────────────────────────────────────────────────────────────────
 // An ORDERED list, because order is how a returning title finds its way home: we re-insert it after
@@ -101,7 +100,8 @@ async function saveStore(items) {
 // ── seeding from a TXT snapshot ──────────────────────────────────────────────────────────────────
 // The 12 titles already lost predate the store, so the only record of them is the weekly export.
 // Its columns are `rank <TAB> title (year) <TAB> imdb <TAB> jellyfinId`, and the Jellyfin id in it
-// is the DEAD one — which is exactly the evidence idAlive() needs to prove the entry was orphaned
+// is the DEAD one — which is exactly the evidence the store's id-vs-current-id compare needs to prove
+// the entry was orphaned
 // rather than removed by hand.
 function parseSnapshot(txt) {
   const out = [];
@@ -183,6 +183,23 @@ function planOrder(liveKeyed, want, restore) {
 
 // ── reconcile ────────────────────────────────────────────────────────────────────────────────────
 // Returns a PLAN always; only writes when commit is true. Never throws on a missing playlist.
+// PURE classification of which missing titles to restore vs forget. Missing = in the membership
+// record but not the live playlist. `lib` is the movieIndex map keyed by provider id.
+//   - not in the library at all          → gone (nothing to restore)
+//   - stored id still matches the current → forget (deliberate removal)
+//   - otherwise                          → restore (a file swap re-minted the id, orphaning the entry)
+// Deliberately network-free so the discriminator can be pinned by scripts/test-top100-order.js.
+function classifyMissing(missing, lib) {
+  const restore = [], forget = [], gone = [];
+  for (const m of missing) {
+    const cur = lib.get(m.k);
+    if (!cur) { gone.push(m); continue; }
+    if (cur.Id === m.lastId) { forget.push(m); continue; }
+    restore.push({ ...m, newId: cur.Id, name: cur.Name || m.name });
+  }
+  return { restore, forget, gone };
+}
+
 async function reconcile({ commit = false, useSnapshots = false } = {}) {
   if (!cfg.JELLYFIN_KEY) return { ok: false, reason: 'no jellyfin key' };
   const live = await readPlaylist();
@@ -219,15 +236,7 @@ async function reconcile({ commit = false, useSnapshots = false } = {}) {
     want = store.items.length ? dedupe([...want, ...snap]) : snap;
   }
   const missing = want.filter((w) => !liveKeys.has(w.k));
-  const restore = [];
-  const forget = [];
-  const gone = [];
-  for (const m of missing) {
-    const cur = lib.get(m.k);
-    if (!cur) { gone.push(m); continue; }                    // not in the library at all — nothing to restore
-    if (await idAlive(m.lastId)) { forget.push(m); continue; } // item intact → deliberate removal
-    restore.push({ ...m, newId: cur.Id, name: cur.Name || m.name });
-  }
+  const { restore, forget, gone } = classifyMissing(missing, lib);
 
   const ordered = planOrder(live.items.map((it) => ({ id: it.Id, k: key(it) })), want, restore);
   const desired = ordered.map((o) => o.id);
@@ -281,9 +290,9 @@ async function reconcile({ commit = false, useSnapshots = false } = {}) {
   }
 
   // Persist the new truth, from the ORDER WE JUST WROTE — not from the pre-restore read, which no
-  // longer describes the playlist. Entries carry the CURRENT id so the next tick's idAlive() check is
-  // asking about the item that is really in there. Titles in `forget` fall out here by construction,
-  // which is how a deliberate removal stops being re-added.
+  // longer describes the playlist. Entries carry the CURRENT id so the next tick's id-vs-current-id
+  // compare is asking about the item that is really in there. Titles in `forget` fall out here by
+  // construction, which is how a deliberate removal stops being re-added.
   const next = ordered.map((o, i) => ({ k: o.k, name: nameOf.get(o.id) || null, lastId: o.id, rank: i + 1 }));
   await saveStore(next);
   return { ...plan, committed: true, restored: restore.length, stored: next.length };
@@ -339,4 +348,4 @@ function startTop100GuardTimer() {
   setTimeout(trackedGuard, 300000);          // and once 5 min after boot, past the initial scan storm
 }
 
-module.exports = { reconcile, observe, guardSweep, startTop100GuardTimer, planOrder, parseSnapshot, mergedSnapshots };
+module.exports = { reconcile, observe, guardSweep, startTop100GuardTimer, planOrder, classifyMissing, parseSnapshot, mergedSnapshots };

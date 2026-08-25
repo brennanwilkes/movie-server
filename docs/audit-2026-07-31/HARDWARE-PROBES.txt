@@ -1,0 +1,266 @@
+RAW HARDWARE PROBE OUTPUT — captured 2026-07-31
+Verbatim command output. HARDWARE-CAPABILITIES.txt interprets this.
+
+################ SERVER: NUC haleiwa ################
+=== lscpu ===
+Architecture:                       x86_64
+CPU(s):                             4
+Thread(s) per core:                 2
+Core(s) per socket:                 2
+Socket(s):                          1
+Vendor ID:                          GenuineIntel
+Model name:                         Intel(R) Core(TM) i5-6260U CPU @ 1.80GHz
+CPU max MHz:                        2900.0000
+CPU min MHz:                        400.0000
+L1d cache:                          64 KiB
+L1i cache:                          64 KiB
+L2 cache:                           512 KiB
+L3 cache:                           4 MiB
+
+=== free -h ===
+              total        used        free      shared  buff/cache   available
+Mem:           15Gi       7.7Gi       251Mi       487Mi       7.6Gi       7.0Gi
+Swap:         7.9Gi       7.9Gi       0.0Ki
+
+=== uname / os ===
+Linux haleiwa 5.4.0-216-generic #236-Ubuntu SMP Fri Apr 11 19:53:21 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+Description:	Ubuntu 20.04.6 LTS
+
+=== uptime / loadavg ===
+ 21:04:08 up 25 days, 22:54,  1 user,  load average: 1.96, 3.39, 5.29
+1.96 3.39 5.29 3/1454 1107557
+
+=== lsblk (physical only) ===
+NAME     SIZE TYPE TRAN   ROTA MODEL                         MOUNTPOINT
+sda      7.3T disk usb       1 My_Book_25ED                  
+└─sda1   7.3T part           1                               /data
+sdb    232.9G disk sata      0 Samsung_SSD_850_EVO_M.2_250GB 
+├─sdb1   512M part           0                               /boot/efi
+├─sdb2 224.5G part           0                               /
+└─sdb3   7.9G part           0                               [SWAP]
+
+=== df ===
+Filesystem     Type      Size  Used Avail Use% Mounted on
+/dev/sdb2      ext4      221G  196G   15G  94% /
+/dev/sdb1      vfat      511M  6.1M  505M   2% /boot/efi
+/dev/sda1      ext4      7.3T  4.6T  2.7T  64% /data
+
+=== lspci gpu ===
+00:02.0 VGA compatible controller: Intel Corporation Iris Graphics 540 (rev 0a)
+
+=== sensors ===
+iwlwifi_1-virtual-0
+Adapter: Virtual device
+temp1:        +59.0°C  
+
+pch_skylake-virtual-0
+Adapter: Virtual device
+temp1:        +66.5°C  
+
+acpitz-acpi-0
+Adapter: ACPI interface
+temp1:        +27.8°C  (crit = +105.0°C)
+temp2:        +29.8°C  (crit = +105.0°C)
+
+coretemp-isa-0000
+Adapter: ISA adapter
+Package id 0:  +74.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 0:        +74.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 1:        +69.0°C  (high = +100.0°C, crit = +100.0°C)
+
+
+=== vainfo (jellyfin-ffmpeg, renderD128) ===
+Trying display: drm
+vainfo: VA-API version: 1.23 (libva 2.23.0)
+vainfo: Driver version: Intel iHD driver for Intel(R) Gen Graphics - 25.4.6 (d892c52)
+vainfo: Supported profile and entrypoints
+      VAProfileNone                   :	VAEntrypointVideoProc
+      VAProfileNone                   :	VAEntrypointStats
+      VAProfileMPEG2Simple            :	VAEntrypointVLD
+      VAProfileMPEG2Simple            :	VAEntrypointEncSlice
+      VAProfileMPEG2Main              :	VAEntrypointVLD
+      VAProfileMPEG2Main              :	VAEntrypointEncSlice
+      VAProfileH264Main               :	VAEntrypointVLD
+      VAProfileH264Main               :	VAEntrypointEncSlice
+      VAProfileH264Main               :	VAEntrypointFEI
+      VAProfileH264Main               :	VAEntrypointEncSliceLP
+      VAProfileH264High               :	VAEntrypointVLD
+      VAProfileH264High               :	VAEntrypointEncSlice
+      VAProfileH264High               :	VAEntrypointFEI
+      VAProfileH264High               :	VAEntrypointEncSliceLP
+      VAProfileVC1Simple              :	VAEntrypointVLD
+      VAProfileVC1Main                :	VAEntrypointVLD
+      VAProfileVC1Advanced            :	VAEntrypointVLD
+      VAProfileJPEGBaseline           :	VAEntrypointVLD
+      VAProfileJPEGBaseline           :	VAEntrypointEncPicture
+      VAProfileH264ConstrainedBaseline:	VAEntrypointVLD
+      VAProfileH264ConstrainedBaseline:	VAEntrypointEncSlice
+      VAProfileH264ConstrainedBaseline:	VAEntrypointFEI
+      VAProfileH264ConstrainedBaseline:	VAEntrypointEncSliceLP
+      VAProfileVP8Version0_3          :	VAEntrypointVLD
+      VAProfileVP8Version0_3          :	VAEntrypointEncSlice
+      VAProfileHEVCMain               :	VAEntrypointVLD
+      VAProfileHEVCMain               :	VAEntrypointEncSlice
+      VAProfileHEVCMain               :	VAEntrypointFEI
+
+=== docker ps ===
+controller	Up 17 minutes
+tailscale-status	Up 13 days
+sonarr	Up 13 days
+prowlarr	Up 13 days
+tailscale	Up 13 days
+bazarr	Up 2 weeks
+jellyfin	Up 4 days
+suggestarr	Up 2 weeks
+gluetun-qb-portsync	Up 2 weeks
+radarr	Up 2 weeks
+qbittorrent	Up 2 weeks
+jellyseerr	Up 3 weeks
+flaresolverr	Up 3 weeks
+gluetun	Up 3 weeks (healthy)
+
+=== network ===
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+eno1             UP             192.168.1.74/24 2001:569:b961:2d00:5043:8dec:ce53:6c5f/64 2001:569:b961:2d00:70cd:962:4196:b158/64 2001:569:b961:2d00:fd33:a66:d399:1425/64 2001:569:b961:2d00:fd29:7bce:c76:a8f/64 2001:569:b961:2d00:8093:f5c2:7e40:738e/64 2001:569:b961:2d00:b591:4291:da24:7f9f/64 2001:569:b961:2d00:255a:39cc:a8ec:8cbc/64 2001:569:b961:2d00:2d9f:e547:aab8:9224/64 fe80::6496:709:8f72:8e5/64 
+wlp1s0           DOWN           
+ztzlghchoj       UNKNOWN        10.10.0.9/12 fcf0:70ea:f330:60a:220f::1/40 fe80::a874:d9ff:fe69:7ba1/64 
+tailscale0       UNKNOWN        100.64.0.2/32 fd7a:115c:a1e0::2/128 fe80::a045:e498:933f:141e/64 
+eno1 link speed: 1000 Mbps
+
+################ CLIENT: Fire TV Stick AFTT ################
+=== build props ===
+[ro.build.version.fireos.sdk]: [4]
+[ro.build.version.fireos]: [5.2.9.5]
+[ro.build.version.name]: [Fire OS 5.2.9.5 (688806320)]
+[ro.build.version.release]: [5.1.1]
+[ro.build.version.sdk]: [22]
+[ro.product.device]: [tank]
+[ro.product.manufacturer]: [Amazon]
+[ro.product.model]: [AFTT]
+[ro.product.name]: [full_tank]
+
+=== cpuinfo ===
+Processor	: ARMv7 Processor rev 3 (v7l)
+processor	: 0
+BogoMIPS	: 2072.57
+Features	: swp half thumb fastmult vfp edsp thumbee neon vfpv3 tls vfpv4 idiva idivt 
+CPU implementer	: 0x41
+CPU architecture: 7
+CPU variant	: 0x0
+CPU part	: 0xc07
+CPU revision	: 3
+
+Processor	: ARMv7 Processor rev 3 (v7l)
+processor	: 1
+BogoMIPS	: 2072.57
+Features	: swp half thumb fastmult vfp edsp thumbee neon vfpv3 tls vfpv4 idiva idivt 
+CPU implementer	: 0x41
+CPU architecture: 7
+CPU variant	: 0x0
+CPU part	: 0xc07
+CPU revision	: 3
+
+Processor	: ARMv7 Processor rev 3 (v7l)
+processor	: 2
+BogoMIPS	: 2072.57
+Features	: swp half thumb fastmult vfp edsp thumbee neon vfpv3 tls vfpv4 idiva idivt 
+CPU implementer	: 0x41
+CPU architecture: 7
+CPU variant	: 0x0
+CPU part	: 0xc07
+CPU revision	: 3
+
+Processor	: ARMv7 Processor rev 3 (v7l)
+processor	: 3
+BogoMIPS	: 2072.57
+Features	: swp half thumb fastmult vfp edsp thumbee neon vfpv3 tls vfpv4 idiva idivt 
+CPU implementer	: 0x41
+CPU architecture: 7
+CPU variant	: 0x0
+CPU part	: 0xc07
+CPU revision	: 3
+
+Hardware	: MT8127
+Revision	: 0000
+Serial		: 76f90ef2d3bcdd9a
+
+=== meminfo (head) ===
+MemTotal:         895216 kB
+MemFree:           61372 kB
+MemAvailable:     149760 kB
+Buffers:            2868 kB
+Cached:           176868 kB
+SwapCached:        36244 kB
+Active:           258796 kB
+Inactive:         273464 kB
+
+=== df ===
+Filesystem               Size     Used     Free   Blksize
+/dev                   437.1M    60.0K   437.1M   4096
+/sys/fs/cgroup         437.1M    12.0K   437.1M   4096
+/mnt/asec              437.1M     0.0K   437.1M   4096
+/mnt/obb               437.1M     0.0K   437.1M   4096
+/mnt/media_rw          437.1M     0.0K   437.1M   4096
+/mnt/secure            437.1M     0.0K   437.1M   4096
+/mnt/asec              437.1M     0.0K   437.1M   4096
+/mnt/obb               437.1M     0.0K   437.1M   4096
+/tmp                   437.1M     0.0K   437.1M   4096
+/dev/logd: Permission denied
+/system                833.0M   806.6M    26.4M   4096
+/data                    5.9G     4.7G     1.2G   4096
+/cache                 242.1M    15.1M   227.0M   4096
+/data/metrics            5.8M   208.0K     5.6M   4096
+/mnt/shell/emulated      5.9G     4.7G     1.2G   4096
+
+=== display ===
+Physical size: 1920x1080
+Physical density: 320
+
+=== hdmi props ===
+[dolby.audio.hdmi.info]: [hdmi2]
+[dolby.audio.sink.info]: [hdmi2]
+[init.svc.hdmi]: [running]
+[persist.sys.hdmi.addr.playback]: [11]
+[persist.sys.hdmi.hdmiencodings]: [[2, 5, 6]]
+[persist.sys.hdmi.resolution]: [11]
+[persist.sys.hdmi.tvresolution]: [1080_1]
+[persist.sys.resolution.auto]: [1]
+[ro.hdmi.device_type]: [4]
+
+=== network ===
+7: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN qlen 1000\    link/ether 8c:2a:85:cd:7b:a6 brd ff:ff:ff:ff:ff:ff
+7: eth0    inet 192.168.1.77/24 brd 192.168.1.255 scope global eth0\       valid_lft forever preferred_lft forever
+7: eth0    inet6 2001:569:b961:2d00:f14c:549a:26e8:79c1/64 scope global temporary dynamic \       valid_lft 14669sec preferred_lft 14369sec
+7: eth0    inet6 2001:569:b961:2d00:d1da:ba46:3214:1ec1/64 scope global temporary deprecated dynamic \       valid_lft 14669sec preferred_lft 0sec
+7: eth0    inet6 2001:569:b961:2d00:cd14:4bf8:155d:e69e/64 scope global temporary deprecated dynamic \       valid_lft 14669sec preferred_lft 0sec
+7: eth0    inet6 2001:569:b961:2d00:9c:9563:362b:c5fb/64 scope global temporary deprecated dynamic \       valid_lft 14669sec preferred_lft 0sec
+7: eth0    inet6 2001:569:b961:2d00:ac6a:8801:6430:5e9f/64 scope global temporary deprecated dynamic \       valid_lft 14669sec preferred_lft 0sec
+7: eth0    inet6 2001:569:b961:2d00:f882:414:2012:d7a/64 scope global temporary deprecated dynamic \       valid_lft 14669sec preferred_lft 0sec
+7: eth0    inet6 2001:569:b961:2d00:8e2a:85ff:fecd:7ba6/64 scope global dynamic \       valid_lft 14669sec preferred_lft 14369sec
+7: eth0    inet6 fe80::8e2a:85ff:fecd:7ba6/64 scope link \       valid_lft forever preferred_lft forever
+8: wlan0: <NO-CARRIER,BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state DORMANT qlen 1000\    link/ether 7c:d5:66:ab:e0:7c brd ff:ff:ff:ff:ff:ff
+8: wlan0    inet6 fe80::7ed5:66ff:feab:e07c/64 scope link \       valid_lft forever preferred_lft forever
+9: p2p-wlan0-0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000\    link/ether 7e:d5:66:ab:60:7c brd ff:ff:ff:ff:ff:ff
+9: p2p-wlan0-0    inet 192.168.49.1/24 brd 192.168.49.255 scope global p2p-wlan0-0\       valid_lft forever preferred_lft forever
+9: p2p-wlan0-0    inet6 fe80::7cd5:66ff:feab:607c/64 scope link \       valid_lft forever preferred_lft forever
+
+=== video decoders (media_codecs.xml) ===
+<MediaCodec name="OMX.foo.bar" type="something/interesting" />
+<MediaCodec name="OMX.foo.bar" >
+<MediaCodec name="OMX.MTK.VIDEO.DECODER.MPEG4" type="video/mp4v-es" >
+<Limit name="size" min="16x16" max="1920x1088" />
+<MediaCodec name="OMX.MTK.VIDEO.DECODER.H263" type="video/3gpp" >
+<Limit name="size" min="16x16" max="1920x1088" />
+<MediaCodec name="OMX.MTK.VIDEO.DECODER.MPEG2" type="video/mpeg2" >
+<MediaCodec name="OMX.MTK.VIDEO.DECODER.AVC" type="video/avc" >
+<Limit name="size" min="64x64" max="1920x1088" />
+<MediaCodec name="OMX.MTK.VIDEO.DECODER.AVC.secure" type="video/avc" >
+<Limit name="size" min="64x64" max="1920x1088" />
+<MediaCodec name="OMX.MTK.VIDEO.DECODER.HEVC" type="video/hevc" >
+<Limit name="size" min="129x65" max="1920x1088" />
+<MediaCodec name="OMX.MTK.VIDEO.DECODER.HEVC.secure" type="video/hevc" >
+<MediaCodec name="OMX.dolby.ac3.decoder" >
+<MediaCodec name="OMX.dolby.eac3.decoder" >
+<MediaCodec name="OMX.dolby.eac3_joc.decoder" >
+<Limit name="size" min="176x144" max="176x144" />
+<Limit name="size" min="128x96" max="1920x1088" />

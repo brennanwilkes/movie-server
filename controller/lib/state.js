@@ -65,6 +65,28 @@ const auditSwapped = new Map();
 // human is not offered a corpse with no warning. Entries expire after DEAD_REFUSE_TTL_MS (7 days)
 // because swarms do revive, so this map stays small and self-pruning.
 const auditDead = new Map();
+// RECENT REPLACEMENT OUTCOMES — newest first, capped by AUDIT_HISTORY_MAX. Every swap that ENDS
+// lands here: verified, abandoned, refused, timed out.
+//
+// It exists because outcomes were previously write-only. A swap that failed logged one line to
+// stdout, deleted its own tracking record, and vanished from the UI entirely — so the tab showed
+// only what was still in flight and there was no way to learn that 60 replacements had died
+// overnight (2026-08-11: "Cause I had no idea so many of them failed"). Docker log history is also
+// destroyed by every `make deploy`, so stdout is not a record either.
+//
+// A bounded array rather than a Map: this is a feed, order is the point, and nothing looks entries
+// up by key. Capped so state.json — rewritten in full on a 500ms debounce — cannot grow without
+// bound; see the size note on auditVerdicts below for why that matters.
+const auditHistory = [];
+// 150, sized against how this is actually used: replacements are requested in BATCHES — 74 in one
+// sitting on 2026-08-10 — and a cap below a batch size means a batch's own outcomes push each other
+// out before they can be read, which defeats the point. Entries are ~150 bytes, so the whole ring is
+// ~22 KB against a state.json already around 130 KB.
+//
+// Deliberately NOT deduplicated by title. A film that failed twice and then landed is three facts,
+// and collapsing them to the latest would hide exactly the pattern worth seeing ("this one keeps
+// failing"). The newest is on top; older ones age out on their own.
+const AUDIT_HISTORY_MAX = 150;
 // "Movie Mode" master switch: when true, ALL background work (downloads + every sweep) is paused so
 // the NUC's CPU + the single USB disk are free for smooth Jellyfin playback.
 //
@@ -99,7 +121,7 @@ function persistState() {
     try {
       // NOTE: `auditVerdicts` is deliberately NOT in here — it lives in its own file. See
       // persistVerdicts() below for why.
-      const obj = { declined: {}, blocked: {}, searchState: {}, gpuSwapped: {}, gpuPending: {}, masterPaused: manualPause, autoHeldQbit, forceGrabImport: {}, completedForceGrabs: {}, auditPending: {}, auditSwapped: {}, auditDead: {} };
+      const obj = { declined: {}, blocked: {}, searchState: {}, gpuSwapped: {}, gpuPending: {}, masterPaused: manualPause, autoHeldQbit, forceGrabImport: {}, completedForceGrabs: {}, auditPending: {}, auditSwapped: {}, auditDead: {}, auditHistory };
       for (const [k, v] of declined) obj.declined[k] = v;
       for (const [k, v] of blocked) obj.blocked[k] = v;
       for (const [k, v] of searchState) obj.searchState[k] = v;
@@ -206,10 +228,20 @@ function loadState() {
     if (obj.auditPending) for (const [k, v] of Object.entries(obj.auditPending)) auditPending.set(k, v);
     if (obj.auditSwapped) for (const [k, v] of Object.entries(obj.auditSwapped)) auditSwapped.set(k, v);
     if (obj.auditDead) for (const [k, v] of Object.entries(obj.auditDead)) auditDead.set(k, v);
+    if (Array.isArray(obj.auditHistory)) auditHistory.push(...obj.auditHistory.slice(0, AUDIT_HISTORY_MAX));
   } catch { /* */ }
 }
 
 // The only question the sweeps ask, and the only one they should: is the box meant to be quiet?
+// Record how a swap ended. `outcome` is one of: replaced | abandoned | refused | timeout | failed.
+// Callers pass whatever detail they already have; nothing here is required beyond a title.
+// Deliberately does NOT call persistState() — every call site already does, and this runs inside
+// their existing write.
+function recordAuditOutcome(entry) {
+  auditHistory.unshift({ ts: Date.now(), ...entry });
+  if (auditHistory.length > AUDIT_HISTORY_MAX) auditHistory.length = AUDIT_HISTORY_MAX;
+}
+
 function isMasterPaused() { return manualPause || autoPause; }
 // setMasterPaused keeps its name and its meaning — it is the MANUAL button's setter, which is the
 // only thing that ever called it. Renaming it would touch every call site to no benefit.
@@ -253,6 +285,7 @@ const isSwapHash = (hash) => !!swapForHash(hash);
 
 module.exports = {
   declined, blocked, gpuSwapped, gpuPending, searchState, auditVerdicts, auditPending, auditSwapped, auditDead,
+  auditHistory, recordAuditOutcome,
   forceGrabImport, completedForceGrabs, importState,
   persistState, persistVerdicts, loadState, isMasterPaused, setMasterPaused,
   // The two-latch Movie Mode accessors. isMasterPaused() stays the only thing the sweeps use.
