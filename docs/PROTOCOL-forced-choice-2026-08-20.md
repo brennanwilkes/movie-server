@@ -1,7 +1,7 @@
 # Forced-choice A/B — the protocol
 
 **Task** #47 (BPP-PLUS.txt 16.A.4) · **Written** 2026-08-20, before any judging, so it cannot be
-adjusted to fit a result · **Status** ready to run; waiting on Brennan and the 1080p projector
+adjusted to fit a result · **Status** ready to run; BLOCKED ON HARDWARE — there is no projector (died 2026-08-01), the replacement will be 1080p
 
 Every research track this round independently named this the highest-value remaining experiment.
 It is the only route to a **valid subjective label**, and without one nothing in this model can be
@@ -25,7 +25,7 @@ That single fact forces almost every choice below.
 | **Paired, same film, same scene, back to back** | Grain is then identical in both members, so it cancels. This is the whole reason the test can work at all. |
 | **Forced choice, no absolute rating** | "Which looks better" is a judgement a person can make reliably. "Rate this 0–10" is not, and unpaired MOS is the same confound that disqualifies KonViD/LIVE-VQC as calibration sets (report 02). |
 | **Blind to which is which** | The scores are known and would otherwise anchor the answer. |
-| **On the projector, not a phone** | The 2026-08-13 test was judged on a phone at native resolution — a display that hides exactly the differences being asked about. Playback ground truth: the projector is native 720p today; the 1080p one removes the 44% downscale that currently masks this. |
+| **On the projector, not a phone** | The 2026-08-13 test was judged on a phone at native resolution — a display that hides exactly the differences being asked about. **CORRECTED 2026-08-28:** this row originally said "the projector is native 720p today". It is not — the projector DIED 2026-08-01 and does not exist. The replacement will be 1080p, so the 44% downscale that masked these differences will be gone entirely. This protocol is BLOCKED ON THAT PURCHASE. |
 | **Include "cannot tell"** | It is the single most informative answer available. A pair that is genuinely indistinguishable locates the just-noticeable threshold directly, and forcing a coin-flip there destroys that information. |
 
 ## What to compare
@@ -33,9 +33,13 @@ That single fact forces almost every choice below.
 We cannot manufacture a better copy of a film, so the pairs must come from files that exist.
 Three sources, in order of preference:
 
-1. **Banked replacement pairs.** 52 units hold a prior measurement with its old file's path
-   (`priors[].measuredFrom`). Where the old file is still on disk, that is a genuine same-film pair
-   with a real BPP+ gap and no re-encoding at all.
+1. ~~**Banked replacement pairs.**~~ **CHECKED 2026-08-28 — THIS SOURCE DOES NOT EXIST.** 60 priors
+   carry `measuredFrom`; 42 old files are gone, and of the 18 whose path still resolves, **16 are the
+   SAME INODE as the current file** (the library hardlinks, so the old path is a second name for the
+   same bytes) and the remaining 2 differ in runtime by 653s and 57s, i.e. different cuts. **Usable
+   pairs: 0.** There are no duplicates elsewhere either — the 146 units with >1 video file are all
+   seasons, and no movie directory holds two video files. Note the field is `path|size|timestamp`, not
+   a bare path; testing it with a plain existence check returns a false zero.
 2. **Deliberately starved clips.** `probe-starve.sh` already produces exactly this: same clips,
    same content, only the bitrate differs, written to `/tmp` and never touching `/data`. A pair at
    level 1.0 vs 0.5 is a known ~2 JND gap by §6.5's chain. **This is the controlled arm** and it is
@@ -45,7 +49,7 @@ Three sources, in order of preference:
 
 ## The ladder, and the one number it produces
 
-Use option 2 for the calibration itself. Fix a film, take one scene, and build a ladder of starvation
+Option 2 is now the ONLY option (see above), not merely the preferred one. Use it for the calibration. Fix a film, take one scene, and build a ladder of starvation
 levels around the region of interest. From §6.5, BPP+ 100→90 is ~0.5 JND ("visible side by side,
 invisible alone") and 100→70 is ~2 JND ("a significant drop"). So bracket it:
 
@@ -102,3 +106,48 @@ docker exec controller /app/scripts/probe-starve.sh "<path>" --levels "1.0 0.81"
 
 Keep the clips; play them back to back on the projector from the same player. `--seclen 10` rather
 than the probe's 4s: four seconds is enough to measure and not enough to judge.
+
+---
+
+## ASSESSMENT, 2026-08-28 — appended, not edited in
+
+*This protocol was pre-registered, so its body is deliberately left untouched. What follows is a
+later critical read, added because it was being treated as settled when parts of it are assertion.*
+
+### What holds up
+
+- **Same-film pairing.** The core insight is sound and it is the reason the test can work: grain is
+  identical in both members, so it cancels. The 2026-08-13 retraction is real evidence for it.
+- **"Cannot tell" as an answer.** Correct for a threshold design — an indistinguishable pair locates
+  the JND directly, and forcing a coin flip there destroys the most informative response.
+- **Blind, randomised sides, predictions written first, "not a training set."** All good discipline.
+
+### What is weaker than it sounds
+
+1. **THE CROSS-FILM PROHIBITION IS BROADER THAN ITS OWN ARGUMENT SUPPORTS.** The stated reason is
+   that grain stops cancelling. True — but the 2026-08-13 failure was an *unpaired, single-clip,
+   absolute rating*, which is a different design from a *matched cross-film pair*. And we **measure
+   grain**: it is one of the four detectors. Pairs could be matched on measured grain, complexity and
+   BPP+, differing only in P. That defuses much of the objection. The blanket ban should be a
+   *caution with a matching requirement*, not a prohibition. Worth testing rather than assuming.
+2. **TWO CONTROL PAIRS WITH A DISCARD-THE-SESSION RULE IS BRITTLE.** One lapse of attention throws
+   away the whole sitting. More controls, and a graded rule, would be better than an all-or-nothing.
+3. **~10 PAIRS PER SITTING ACROSS 3 FILMS IS A SMOKE TEST, NOT AN ESTIMATOR.** The protocol frames
+   the multi-film run as a diagnostic ("is the per-film denominator doing its job"). It cannot
+   *estimate* the complexity exponent: that needs the per-film JND regressed on log complexity, and
+   three points with their own errors will not fit a slope. **Anything claiming the exponent closes
+   with this design needs more films — realistically 6-8 spanning the library's 5.5x complexity
+   range — and per-film thresholds precise enough to regress.** Recorded because a claim was made on
+   2026-08-28 that #99 closes with these labels; it closes with an EXTENDED version of them.
+4. **THE PREDICTED JND TABLE IS MODEL-INTERNAL.** The "~0.5 JND / ~2 JND" column is derived from the
+   model's own chain, not measured. It is fine as a pre-registered prediction, but it must not then
+   be read as independent confirmation when the answer lands near it. That would be circular.
+5. **ACROSS-SITTING VARIATION IS UNADDRESSED** beyond "same time of day, same room light." If a
+   threshold takes several sittings, sitting becomes a nuisance variable and should be balanced
+   across conditions rather than confounded with them.
+
+### Standing status
+
+Useful as a starting point and much better than nothing — particularly the same-film insight and the
+"cannot tell" rule. **Not gospel.** Items 1 and 3 above should be resolved before any session runs,
+and item 1 in particular may re-open designs this protocol currently forbids.

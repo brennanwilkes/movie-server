@@ -33,7 +33,7 @@ const { tfetch, tfetchJson, arrGet, arrDelete, arrOf, qbit } = require('./client
 // Read-only: used solely to learn the Top 100 playlist's ORDER for the Upgrade tab's ranking.
 const { jellyfinUserId } = require('./jellyfin');
 const { getQbitTorrents } = require('./arr-data');
-const { gpuTier, videoLabel, bppOf, bppBand, bppIndex, bppBasis, bppRSE, bppRatioR, bppDisagree, BPP_RANK, X265_EFFICIENCY } = require('./arr-inspect');
+const { gpuTier, videoLabel, bppOf, bppBand, bppIndex, bppBasis, bppRSE, bppArtifact, bppRatioR, bppDisagree, BPP_RANK, X265_EFFICIENCY } = require('./arr-inspect');
 const { importViaManual, previewManualImport, probeDurationSecs } = require('./importer');
 const {
   auditVerdicts, auditPending, auditSwapped, auditDead, auditHistory, recordAuditOutcome, gpuPending, persistState, persistVerdicts, isMasterPaused, swapForHash,
@@ -499,7 +499,7 @@ function rescoreCand(c, row, priority) {
   if (!c || c.bpp == null) return c;
   return {
     ...c,
-    bppPlus: bppIndex(c.bpp, row.key), bppRSE: bppRSE(row.key),
+    bppPlus: bppIndex(c.bpp, row.key), bppRSE: bppRSE(row.key), bppArt: bppArtifact(row.key),
     bppBand: bppBand(c.bpp, row.key),
     cxBasis: bppBasis(row.key),
     bandWeak: !candidateBandOk(c.bpp, row.bpp, priority, row.key),
@@ -780,7 +780,7 @@ async function buildRowsInner() {
     // longer decide position. Deliberately NOT worst-quality-first: that is what Playback/Disk are for.
     upgrade.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id, cfScore: cfScoreByMovie.has(m.id) ? cfScoreByMovie.get(m.id) : null,
       title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey),
+      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey), bppArt: bppArtifact(ukey),
       // Carried so upgradeEligible() can admit a re-encode whatever its BPP+ — see the note there.
       reenc: REENC_RE.test(`${mf.relativePath || ''} ${mf.originalFilePath || ''}`),
       label: videoLabel(mf.mediaInfo), profile: prof, source: src,
@@ -848,7 +848,7 @@ async function buildRowsInner() {
     if (edFloor != null && ownEd.tier < edFloor) {
       edition.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id, cfScore: cfScoreByMovie.has(m.id) ? cfScoreByMovie.get(m.id) : null,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey),
+      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey), bppArt: bppArtifact(ukey),
         label: videoLabel(mf.mediaInfo), profile: prof, source: src,
         tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null,
@@ -865,7 +865,7 @@ async function buildRowsInner() {
       // this row is not a problem to be solved.
       edition.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id, cfScore: cfScoreByMovie.has(m.id) ? cfScoreByMovie.get(m.id) : null,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey),
+      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey), bppArt: bppArtifact(ukey),
         label: videoLabel(mf.mediaInfo), profile: prof, source: src,
         tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null,
@@ -876,7 +876,7 @@ async function buildRowsInner() {
     } else if (wantImax) {
       edition.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id, cfScore: cfScoreByMovie.has(m.id) ? cfScoreByMovie.get(m.id) : null,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-        bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey),
+        bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey), bppArt: bppArtifact(ukey),
         label: videoLabel(mf.mediaInfo), profile: prof, source: src,
         tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null,
@@ -897,7 +897,7 @@ async function buildRowsInner() {
       // in verifyRow's `else` (Disk-only) branch, so Playback still shows everything it did.
       cpu.push({ key: `mv:${m.id}`, kind: 'movie', app: 'radarr', id: m.id, cfScore: cfScoreByMovie.has(m.id) ? cfScoreByMovie.get(m.id) : null,
         title, files: 1, bytes: mf.size || 0, mbps: sec ? +(mf.size * 8 / sec / 1e6).toFixed(1) : null,
-      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey), top100: top100Rank, beloved: prof.startsWith('Beloved'),
+      bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey), bppArt: bppArtifact(ukey), top100: top100Rank, beloved: prof.startsWith('Beloved'),
         label: videoLabel(mf.mediaInfo), profile: prof,
         source: src, tier: currentTier(mf.mediaInfo), minRatio: minRatioFor(m.genres, m.year),
         origLang: (m.originalLanguage || {}).name || null, imdbId: m.imdbId || null,
@@ -938,7 +938,7 @@ async function buildRowsInner() {
           // already thrown the information away (*arr calls a BRRip "Bluray"). Both sides of the
           // downgrade test must be measured the same way — see effSrcRank.
           reenc: REENC_RE.test(`${mf.relativePath || ''} ${mf.originalFilePath || ''}`),
-          bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey), top100: top100Rank, beloved: prof.startsWith('Beloved'),
+          bpp, bppPlus: bppIndex(bpp, ukey), bppBand: band, cxBasis, bppRSE: bppRSE(ukey), bppArt: bppArtifact(ukey), top100: top100Rank, beloved: prof.startsWith('Beloved'),
           // Sinks the row in the Disk ordering without hiding it — see the sort below.
           lowPriority: !!(top100Rank || prof.startsWith('Beloved') || gpuTier(mf.mediaInfo) !== 'ok'),
           label: videoLabel(mf.mediaInfo), profile: prof, source: src, target: +(mbps * 0.55).toFixed(1),
@@ -1002,7 +1002,7 @@ async function buildRowsInner() {
         title: `${e.s.title} — S${String(e.season).padStart(2, '0')}`,
         files: bad.length, bytes: badBytes,
         mbps: badSec ? +(badBytes * 8 / badSec / 1e6).toFixed(1) : null,
-        bpp: badBpp, bppPlus: bppIndex(badBpp, ukey), bppBand: bppBand(badBpp, ukey), cxBasis, bppRSE: bppRSE(ukey),
+        bpp: badBpp, bppPlus: bppIndex(badBpp, ukey), bppBand: bppBand(badBpp, ukey), cxBasis, bppRSE: bppRSE(ukey), bppArt: bppArtifact(ukey),
         label: videoLabel(bad[0].mediaInfo), profile: prof, tier: currentTier(bad[0].mediaInfo),
         source: ((bad[0].quality || {}).quality || {}).name || null,
         minRatio: minRatioFor(e.s.genres, e.s.year),
@@ -1026,7 +1026,7 @@ async function buildRowsInner() {
         // Same as the movie branch — sampled from the first episode's path, which carries the
         // release naming for the whole pack.
         reenc: REENC_RE.test(`${(e.files[0] || {}).relativePath || ''} ${(e.files[0] || {}).originalFilePath || ''}`),
-        bpp: seasonBpp, bppPlus: bppIndex(seasonBpp, ukey), bppBand: seasonBand, cxBasis, bppRSE: bppRSE(ukey), beloved: prof.startsWith('Beloved'),
+        bpp: seasonBpp, bppPlus: bppIndex(seasonBpp, ukey), bppBand: seasonBand, cxBasis, bppRSE: bppRSE(ukey), bppArt: bppArtifact(ukey), beloved: prof.startsWith('Beloved'),
         lowPriority: !!(prof.startsWith('Beloved') || bad.length),
         label: videoLabel(e.files[0].mediaInfo), profile: prof,
         source: ((e.files[0].quality || {}).quality || {}).name || null,
@@ -1034,6 +1034,61 @@ async function buildRowsInner() {
         minRatio: minRatioFor(e.s.genres, e.s.year),
         origLang: (e.s.originalLanguage || {}).name || null });
     }
+
+    /* ---- TV IN THE UPGRADE SECTION, PER SEASON ------------------------------------------------
+     * *** THE UPGRADE TAB USED TO BE MOVIES ONLY. *** `upgrade.push` was called from the Radarr
+     * loop and nowhere else, so 146 measured seasons across 97 series could never appear — not
+     * merged into a series row, ABSENT. There was no way to act on a bad season from the UI at all.
+     *
+     * WHY PER SEASON RATHER THAN PER SERIES, measured 2026-08-29 on this library:
+     *   19 series have 2+ measured seasons. Within one series BPP+ spreads a MEDIAN 1.47x, and
+     *   74% spread >= 1.25x. Peaky Blinders runs 87-198, Lost 74-145, Supernatural 55-111.
+     *   A series-level row is an episode-weighted MEAN, which averages that away by construction —
+     *   the number that would decide the row is the one number guaranteed not to show the problem.
+     *   And a season is the unit you can actually replace: Sonarr searches per season
+     *   (`/release?seriesId=..&seasonNumber=..`, already used by the release path below).
+     *
+     * IT IS ALSO THE RIGHT UNIT FOR THE REAL DEFECT. Of the 14 series that spread >= 1.25x, TEN
+     * have a weakest season that is STARVED — Lost S05 holds 15% of its siblings' bitrate, Peaky
+     * Blinders S06 22%, 1923 S01 23% — all wearing the same "Bluray-1080p" label as their siblings.
+     * Those are a different, worse release, and a replacement genuinely fixes them.
+     *
+     * BUT FOUR ARE NOT STARVED, THEY ARE EXPENSIVE: The Sopranos S01 carries 2.20x its siblings'
+     * complexity, Squid Game S01 1.52x, House of the Dragon S02 1.42x. Their BPP+ is low because
+     * the CONTENT costs more, not because the copy is poor, and a replacement buys little. The two
+     * look identical in the score. `overR` already carries R (supply) on this row, which is the
+     * discriminator — a starved season sits well under 1, an expensive one does not.
+     * DO NOT add a "starved vs expensive" flag here: that would be a cut-off on a continuum, and
+     * R is already on the row for the UI to show as a number.
+     *
+     * `unprobed` is deliberately NOT set: a season with no complexity measurement scores against
+     * the estimate ladder like anything else, and admitting every unmeasured season would flood the
+     * tab during a backfill. */
+    upgrade.push({ key: `tv:${k}`, kind: 'season', app: 'sonarr', id: e.s.id, season: e.season,
+      cfScore: cfMax(e.files),
+      title: `${e.s.title} — S${String(e.season).padStart(2, '0')}`,
+      files: e.files.length, bytes: e.bytes, mbps: +mbps.toFixed(1),
+      bpp: seasonBpp, bppPlus: bppIndex(seasonBpp, ukey), bppBand: seasonBand,
+      cxBasis, bppRSE: bppRSE(ukey), bppArt: bppArtifact(ukey),
+      // R is the starved-vs-expensive discriminator described above. Same field the Disk section
+      // uses, so one meaning of "supply" across the tab.
+      overR: bppRatioR(ukey),
+      reenc: REENC_RE.test(`${(e.files[0] || {}).relativePath || ''} ${(e.files[0] || {}).originalFilePath || ''}`),
+      label: videoLabel(e.files[0].mediaInfo), profile: prof,
+      source: ((e.files[0].quality || {}).quality || {}).name || null,
+      tier: currentTier(e.files[0].mediaInfo), minRatio: minRatioFor(e.s.genres, e.s.year),
+      origLang: (e.s.originalLanguage || {}).name || null,
+      // A season has no edition and no Top 100 rank; the fields must still EXIST because the sort
+      // and the renderer read them unconditionally.
+      edition: null, editionLabel: null, top100: null,
+      beloved: prof.startsWith('Beloved'),
+      imdbId: null,
+      // Series-added date, matching the movie branch's choice of m.added over mf.dateAdded: a swap
+      // re-dates the file, so file dates fill the top of the tab with what you just replaced.
+      added: Date.parse(e.s.added || '') || 0,
+      // NOT OPTIONAL. /api/audit/upgrade does r.q.includes(q) on every row; a row without it throws
+      // and takes the WHOLE tab's search down, not just this row.
+      q: `${e.s.title} s${String(e.season).padStart(2, '0')} season ${e.season}`.toLowerCase() });
   }
   cpu.sort((a, b) => b.bytes - a.bytes);
   // Biggest first, EXCEPT that low-priority rows sink to the bottom: a Beloved/Top-100 title, or
@@ -1782,7 +1837,7 @@ async function verifyRow(row, section, depthMap, seriesNorm, outSeen = null) {
       tier: cTier, play: TIER_NOTE[cTier], devices: deviceSupport(isHevc ? 'HEVC' : 'H.264', depth || 'unknown'),
       saveGb: gb(Math.max(0, row.bytes - r.size)),
       mbps: row.mbps ? +(row.mbps * (r.size / row.bytes)).toFixed(1) : null,
-      bpp: candBpp, bppPlus: bppIndex(candBpp, row.key), bppBand: bppBand(candBpp, row.key), bppRSE: bppRSE(row.key),
+      bpp: candBpp, bppPlus: bppIndex(candBpp, row.key), bppBand: bppBand(candBpp, row.key), bppRSE: bppRSE(row.key), bppArt: bppArtifact(row.key),
       cxBasis: bppBasis(row.key), bandWeak,
       // WILL *ARR EVEN ACCEPT THIS? Both scores come from the same custom formats, so the
       // comparison *arr makes at import time can be made HERE, before anything is downloaded.

@@ -1,0 +1,523 @@
+{
+ "generated": 1787793052761,
+ "encoders": [
+  "x264 veryfast",
+  "x264 medium",
+  "x264 slower",
+  "x265 medium"
+ ],
+ "films": [
+  {
+   "key": "tv:87:1",
+   "title": "Mr. Robot S01",
+   "cxEff": 0.03239,
+   "kbps": 1015,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 10.37461086111111,
+     "block": 3.2547512333333337,
+     "blur": 9.823447966666667,
+     "grain": 0.7260145106382979
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 9.619378513888888,
+     "block": 2.6593676,
+     "blur": 9.745447566666668,
+     "grain": 0.7450671134751774
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 9.38094428472222,
+     "block": 2.3878863333333333,
+     "blur": 9.6473149,
+     "grain": 0.7494017375886525
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 8.85951377777778,
+     "block": 1.6027938,
+     "blur": 9.4619688,
+     "grain": 0.7548135106382977
+    }
+   ]
+  },
+  {
+   "key": "mv:499",
+   "title": "Terms of Endearment (1983)",
+   "cxEff": 0.08651,
+   "kbps": 1770,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 4.797705493055555,
+     "block": 1.9434329666666665,
+     "blur": 8.466536033333332,
+     "grain": 1.03782190070922
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 4.006005159722222,
+     "block": 1.5959547333333333,
+     "blur": 8.338355966666667,
+     "grain": 1.0634639078014185
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 3.7126823680555545,
+     "block": 1.4668048999999999,
+     "blur": 8.242868333333334,
+     "grain": 1.0657523829787234
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 3.3606692569444436,
+     "block": 1.2103288333333335,
+     "blur": 8.1534393,
+     "grain": 1.069077170212766
+    }
+   ]
+  },
+  {
+   "key": "tv:88:1",
+   "title": "Silicon Valley S01",
+   "cxEff": 0.11199,
+   "kbps": 1925,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 0.7021428402777777,
+     "block": 1.1007737333333334,
+     "blur": 7.579986766666667,
+     "grain": 3.4139385106382982
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.6360800833333333,
+     "block": 1.0658303,
+     "blur": 7.486937333333333,
+     "grain": 3.4459370921985815
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 0.5287207708333334,
+     "block": 1.0617375333333334,
+     "blur": 7.450925899999999,
+     "grain": 3.4730973049645395
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.6418761666666669,
+     "block": 1.053314366666667,
+     "blur": 7.309322966666667,
+     "grain": 3.4760579432624112
+    }
+   ]
+  },
+  {
+   "key": "mv:510",
+   "title": "Hugo (2011)",
+   "cxEff": 0.13622,
+   "kbps": 1265,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 5.986108840277777,
+     "block": 2.0801713333333334,
+     "blur": 8.379638300000002,
+     "grain": 0.9460673475177304
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 5.0606042986111115,
+     "block": 1.8221547666666666,
+     "blur": 8.222625966666667,
+     "grain": 0.9745977588652482
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 4.629804354166667,
+     "block": 1.7011889333333332,
+     "blur": 8.171141666666665,
+     "grain": 0.9849215957446807
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 4.20066207638889,
+     "block": 1.2343429333333333,
+     "blur": 8.028002266666668,
+     "grain": 0.9874177375886521
+    }
+   ]
+  },
+  {
+   "key": "tv:97:1",
+   "title": "Arrested Development S01",
+   "cxEff": 0.16036,
+   "kbps": 4811,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 0.18186503472222226,
+     "block": 1.1224725999999998,
+     "blur": 7.988997933333333,
+     "grain": 3.6296693617021276
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.12570163194444445,
+     "block": 1.0825291000000001,
+     "blur": 7.914717633333335,
+     "grain": 3.660972978723404
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 0.11860141666666668,
+     "block": 1.0824325333333333,
+     "blur": 7.885217833333333,
+     "grain": 3.665797021276596
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.16129611111111108,
+     "block": 1.0470765333333334,
+     "blur": 7.9092484999999995,
+     "grain": 3.6450141134751775
+    }
+   ]
+  },
+  {
+   "key": "mv:184",
+   "title": "Just Go with It (2011)",
+   "cxEff": 0.19196,
+   "kbps": 483,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 1.9825946388888889,
+     "block": 1.8996799666666666,
+     "blur": 8.958052566666666,
+     "grain": 0.9819093971631206
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 1.8806578958333333,
+     "block": 1.7002143333333333,
+     "blur": 8.803871266666667,
+     "grain": 1.0223389574468085
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 1.8656097569444443,
+     "block": 1.6142085000000002,
+     "blur": 8.617606333333335,
+     "grain": 1.0294878510638297
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 1.3851819444444444,
+     "block": 1.2015245666666667,
+     "blur": 8.293525333333333,
+     "grain": 1.0502267730496453
+    }
+   ]
+  },
+  {
+   "key": "mv:247",
+   "title": "The Birds (1963)",
+   "cxEff": 0.2457,
+   "kbps": 5387,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 1.0966380069444444,
+     "block": 1.4145390333333332,
+     "blur": 6.242809,
+     "grain": 1.1030891560283689
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.3678006875,
+     "block": 1.2099661,
+     "blur": 6.2137557,
+     "grain": 1.140471340425532
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 0.28343009027777777,
+     "block": 1.1419945333333335,
+     "blur": 6.1701776666666674,
+     "grain": 1.148689609929078
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.5866674722222223,
+     "block": 1.1095029666666667,
+     "blur": 6.1986574999999995,
+     "grain": 1.1464860921985818
+    }
+   ]
+  },
+  {
+   "key": "mv:490",
+   "title": "12 Angry Men (1957)",
+   "cxEff": 1.20615,
+   "kbps": 18614,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 0.4968783680555556,
+     "block": 1.3828797000000002,
+     "blur": 5.0935630000000005,
+     "grain": 1.110266170212766
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.18062956944444442,
+     "block": 1.2598886666666667,
+     "blur": 4.780353566666666,
+     "grain": 1.1683298014184398
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 0.10396165972222225,
+     "block": 1.2524616333333334,
+     "blur": 4.6284655,
+     "grain": 1.1861780425531918
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.18229511805555557,
+     "block": 1.200588,
+     "blur": 4.8611349666666674,
+     "grain": 1.1887060709219857
+    }
+   ]
+  }
+ ]
+}

@@ -21,7 +21,7 @@ async function openSheet(target) {
   if (target.swap) return openSwapCancelSheet(target);
   const isDl = target.id == null;
   const body = isDl ? { hash: target.hash, source: target.source } : { app: target.app, id: target.id };
-  const titleText = target.title || (libItems.find((m) => m.id === target.id) || {}).title || 'this title';
+  const titleText = target.title || 'this title';
   pending = { isDl, body, id: target.id };
   $('#sheet-title').textContent = `Remove “${titleText}” everywhere?`;
   $('#sheet-sub').textContent = 'Checking what will be cleaned up…';
@@ -84,9 +84,10 @@ $('#sheet-confirm').addEventListener('click', async () => {
     const errs = (out.results || []).filter((r) => r.status === 'error');
     if (errs.length) {
       toast(`Remove incomplete — ${errs.map((r) => r.app).join(', ')} failed`);
-      if (!isDl) loadLibrary();                          // re-fetch the truth instead of guessing
+      // A partial failure is exactly when you must re-read rather than assume the row is gone.
+      if (!isDl && typeof qReload === 'function') qReload();
     } else {
-      if (!isDl) { libItems = libItems.filter((m) => m.id !== id); renderLibrary(); }
+      if (!isDl && typeof qDropRow === 'function') qDropRow(body.app, id);
       toast(freed ? `Freed ${fmtBytes(freed)}` : 'Removed');
     }
     pollHome();
@@ -105,8 +106,9 @@ $('#redl-tiers').addEventListener('click', (e) => {
   redlTier = b.dataset.tier;
   $$('#redl-tiers button').forEach((x) => x.classList.toggle('active', x === b));
 });
-function openRedl(id) {
-  const m = libItems.find((x) => x.id === id) || {};
+// `m` carries {title, hasFile, sizeBytes} from the caller. sizeBytes is not optional decoration:
+// it is how the confirm tells you how much it is about to delete.
+function openRedl(id, m = {}) {
   redlPending = { id, title: m.title };
   redlTier = 'normal';
   $$('#redl-tiers button').forEach((x) => x.classList.toggle('active', x.dataset.tier === 'normal'));
@@ -126,7 +128,8 @@ $('#redl-confirm').addEventListener('click', async () => {
     await postJSON('/api/redownload', { app: 'radarr', id, tier: redlTier });
     toast(`Redownloading “${title}” · ${redlTier}`);
     pollDownloads();
-    loadLibrary();
+    // The title still exists and is being re-fetched — refresh, do NOT drop the row.
+    if (typeof qReload === 'function') qReload();
   } catch { toast('Redownload failed'); }
   finally { $('#redl-confirm').textContent = 'Redownload'; closeRedl(); }
 });

@@ -59,7 +59,19 @@ const { tfetch, arrGet } = require('./clients');
 const { isMasterPaused, pauseReason } = require('./state');
 const jobs = require('./jobs');
 const { readTempC } = require('./system-stats');
-const { bppOf, bppIndex, BPP_TARGET, setComplexityResolver, setAudioResolver, X265_EFFICIENCY } = require('./arr-inspect');
+// BPP_INDEX_BANDS rather than bppBand(): the dataset already holds the finished index, and
+// bppBand() would re-run bppIndex() — which fires _resolveTarget AND _resolveAdequacy — for a
+// threshold walk. Classifying the integer in hand is exact by construction and costs nothing.
+// videoLabel/gpuTier are for the row's decode-compatibility badge; see vLabel/gpu in buildUnits().
+const { bppOf, bppIndex, BPP_TARGET, BPP_INDEX_BANDS, videoLabel, gpuTier, dimsOf, bppBasis, bppRSE, bppArtifact, setComplexityResolver, setAdequacyResolver, setAudioResolver, X265_EFFICIENCY } = require('./arr-inspect');
+// The band a finished BPP+ falls in, from the server's own thresholds. web/js/util.js is a
+// RENDERER and must never hold a second copy of 125/100/75 — that drift is what made the Library
+// and Audit tabs disagree before the band moved server-side.
+const bandOfIndex = (i) => {
+  if (i == null) return null;
+  for (const [lo, cls] of BPP_INDEX_BANDS) if (i >= lo) return cls;
+  return 'bad';
+};
 const metrics = require('../metrics');
 const { top100RankByTmdb } = require('./audit');
 
@@ -137,6 +149,8 @@ const PROBE_TEMP_MAX = Number(cfg.PROBE_TEMP_MAX || 95);
 const PROBE_TEMP_RESUME = Number(cfg.PROBE_TEMP_RESUME || 88);
 const PROBE_GATE_CHECK_MS = 15 * 1000;  // re-check the gates DURING a probe, not only before it
 const QUEUE_TTL_MS = 60 * 60 * 1000;
+// How long a build that could not reach one of the *arrs is trusted. See getUnits().
+const QUEUE_TTL_DEGRADED_MS = 60 * 1000;
 // A season is represented by 2 episodes (Brennan's call, 2026-08-05): within a season the source,
 // release group and encoder settings are near-identical, while BETWEEN seasons they frequently
 // differ (a different group, a later remaster). Probing per season is what takes TV from 1696
@@ -159,6 +173,16 @@ let _cacheDirty = false;
 // Identity of the file a measurement was taken from. A changed identity does NOT invalidate the
 // film's complexity; it only marks the entry as worth refreshing once the first pass is done.
 const fileId = (f) => `${f.path}|${f.size}|${f.mtime}`;
+
+// Identity of the WHOLE unit — every file it is represented by, not just the one a measurement
+// happened to name. A movie is one file, so this is fileId there and nothing changes. A SEASON is
+// two sampled episodes (see buildUnits), and every staleness test in the app compared only
+// `files[0]`: replace the second sampled episode and the season kept a complexity, a banding
+// reading and an artifact vector all measured from a file that no longer existed, with nothing
+// anywhere to re-queue it. Shared with banding.js and artifacts.js so the three agree on what
+// "this unit changed" means — they measure different things from the same unit and must not
+// disagree about whether it is current.
+const unitFingerprint = (u) => (u && Array.isArray(u.files) ? u.files.map(fileId).join('~') : '');
 
 function loadProbeCache() {
   let raw;
@@ -400,9 +424,26 @@ function secs(rt) {
 // file's bpp disagree with the Audit tab's for exactly the multi-track files where it matters most.
 const fileBppOf = (mi, bytes, key) => bppOf(mi, secs((mi || {}).runTime) > 0 ? (bytes * 8) / secs((mi || {}).runTime) : null, key);
 
+// *** THE ENUMERATION TIMEOUTS ARE EXPLICIT BECAUSE arrGet's 8s DEFAULT IS NOT ENOUGH. ***
+// Radarr's /movie returns every field of 926 movies including mediaInfo, and under load — a deploy,
+// a library scan, four in-flight replacements — it does not finish in 8s. It then throws, and the
+// old `.catch(() => [])` turned that into "there are no movies", which is indistinguishable from
+// the truth. Measured 2026-09-03: one such timeout left all 908 movie rows of
+// /api/probe/dataset reporting null bppPlus, bytes, videoLabel and gpuCompat — for a full hour,
+// with nothing logged. Seasons were unaffected, which is exactly what made it look like a data bug
+// rather than a fetch failure and cost an hour of looking in the wrong place.
+//
+// This result is cached for an hour, so a slow success is strictly better than a fast failure.
+const UNITS_RADARR_MS = 45000;
+const UNITS_SONARR_MS = 20000;
+
+// Whether this build reached BOTH libraries. Returned rather than kept in module state: buildUnits
+// has no lock, so two concurrent builds would otherwise attribute each other's failures.
 async function buildUnits() {
   const units = [];
-  const movies = await arrGet('radarr', '/movie').catch(() => []);
+  let degraded = false;
+  const movies = await arrGet('radarr', '/movie', UNITS_RADARR_MS)
+    .catch((e) => { degraded = true; console.log(`probe: radarr /movie failed — ${e.message}`); return []; });
   for (const m of movies) {
     const mf = m.movieFile;
     if (!m.hasFile || !mf || !mf.path) continue;
@@ -411,9 +452,24 @@ async function buildUnits() {
       tmdbId: m.tmdbId || null,
       source: ((mf.quality || {}).quality || {}).name || null,
       bpp: fileBppOf(mf.mediaInfo, mf.size || 0, `mv:${m.id}`),
+      // Runtime from MediaInfo, so a stored samplePos can be shown as a TIMESTAMP even on units
+      // measured before the probe started keeping its own `duration`. Display only — nothing
+      // scores off it, and bppOf() keeps using its own parse of the same field.
+      dur: secs((mf.mediaInfo || {}).runTime) || null,
+      // DECODE COMPATIBILITY, captured here because mediaInfo does not survive this function.
+      // The Library tab is the only surface in the app that says "this file software-transcodes on
+      // this NUC" (HEVC Main10, VP9, AV1, DoVi), and replacing that tab must not lose the signal.
+      // Computed once per getUnits() — a 1 h TTL — not per request.
+      vLabel: videoLabel(mf.mediaInfo) || null,
+      gpu: gpuTier(mf.mediaInfo) || null,
+      // THE FILE'S OWN resolution. probeW/probeH is the probe's geometry, capped at
+      // PROBE_REFERENCE_WIDTH (1920), so a 2160p file measures as 1920 wide and a UI built on it
+      // would hide exactly the files the 1080p ceiling cares about.
+      dims: dimsOf(mf.mediaInfo),
       files: [{ path: mf.path, size: mf.size || 0, mtime: mf.dateAdded || null }] });
   }
-  const series = await arrGet('sonarr', '/series').catch(() => []);
+  const series = await arrGet('sonarr', '/series', UNITS_SONARR_MS)
+    .catch((e) => { degraded = true; console.log(`probe: sonarr /series failed — ${e.message}`); return []; });
   for (const s of series) {
     if (!s.statistics || !s.statistics.episodeFileCount) continue;
     let fl;
@@ -440,11 +496,26 @@ async function buildUnits() {
         tvdbId: s.tvdbId || null,
         source: ((picks[0].quality || {}).quality || {}).name || null,
         episodes: files.length,
+        // THE SEASON'S REAL SIZE. files[] below holds only the EPISODES_PER_SEASON sampled
+        // episodes — that is the measurement set, not the season — so summing it under-reports a
+        // season by roughly episodes/2. Measured 2026-09-03: Lost S01 reported 11.8 GB against a
+        // 658 GB show. Anything showing a size to a human wants this; anything re-measuring the
+        // unit still wants files[].
+        seasonBytes: files.reduce((a, f) => a + (f.size || 0), 0),
         bpp: bpps.length ? bpps.reduce((a, b) => a + b, 0) / bpps.length : null,
+        // The FIRST sampled episode's runtime — the one banding and the artifact job measure, and
+        // the one their positions are fractions of. A season has no single runtime.
+        dur: secs(((picks[0] || {}).mediaInfo || {}).runTime) || null,
+        // The FIRST sampled episode's codec, matching `dur` above. A season can be mixed, and this
+        // deliberately does not pretend otherwise — it is the same episode every other per-season
+        // reading here comes from, so the badge and the measurement describe one file.
+        vLabel: videoLabel((picks[0] || {}).mediaInfo) || null,
+        gpu: gpuTier((picks[0] || {}).mediaInfo) || null,
+        dims: dimsOf((picks[0] || {}).mediaInfo),
         files: picks.map((f) => ({ path: f.path, size: f.size || 0, mtime: f.dateAdded || null })) });
     }
   }
-  return units;
+  return { units, degraded };
 }
 
 // Key -> unit, and the memo for resolved complexity. Both exist because bppIndex() is now called
@@ -526,10 +597,20 @@ function setEntry(key, entry) {
 }
 
 async function getUnits() {
-  if (Date.now() - _queue.ts < QUEUE_TTL_MS && _queue.units.length) return _queue.units;
-  const units = await buildUnits();
+  // A DEGRADED BUILD IS CACHED FOR A MINUTE, NOT AN HOUR. `if (units.length)` below already refuses
+  // to cache a TOTALLY empty build, but a half-built one passes it: Sonarr answers, Radarr does not,
+  // and 908 movies silently lose their scores until the TTL expires. Retrying every request instead
+  // is worse — buildUnits() makes one sequential /episodefile call per series (97 of them) — so the
+  // damage is bounded by a short TTL rather than by not caching at all.
+  const ttl = _queue.degraded ? QUEUE_TTL_DEGRADED_MS : QUEUE_TTL_MS;
+  if (Date.now() - _queue.ts < ttl && _queue.units.length) return _queue.units;
+  const { units, degraded } = await buildUnits();
   if (units.length) {
-    _queue = { ts: Date.now(), units };
+    if (degraded) {
+      console.log(`probe: units build DEGRADED — an *arr did not answer, ${units.length} unit(s)`
+        + ` built; caching for ${QUEUE_TTL_DEGRADED_MS / 1000}s instead of ${QUEUE_TTL_MS / 60000}min`);
+    }
+    _queue = { ts: Date.now(), units, degraded };
     _byKey = new Map(units.map((u) => [u.key, u]));
     invalidateCx();
   }
@@ -541,9 +622,32 @@ const unitMeasured = (u) => { const e = entryFor(u); return !!(e && !e.error); }
 // The film is measured, but from a file that is no longer the one on disk (a re-download, an
 // Audit swap). The complexity still applies — content did not change — so this is a refresh, not
 // an invalidation, and it waits until every unmeasured film has had its first pass.
+// AN ERROR WAS PERMANENT, AND IT SHOULD NOT HAVE BEEN. An errored entry is not `fresh` (an entry
+// exists) and not `stale` (unitStale returns false for errors), so nothing in the schedule ever
+// selected it again — one transient failure (a file mid-import, a busy disk, a truncated download
+// later repaired) stranded that film for the life of the cache with no error surfaced anywhere.
+// banding.js and artifacts.js both already had a 7-day retry; the probe was the only one of the
+// three without one, and that asymmetry was an oversight rather than a decision.
+//
+// Live example: `mv:392` Air (2023) failed 2026-08-07 and has been unmeasured for 23 days.
+//
+// 7 days matches the other two jobs. It is long enough that a genuinely unreadable file costs one
+// wasted unit a week rather than one a night — the starvation the original no-retry rule was
+// protecting against — and short enough that a repaired file heals itself without a human.
+const PROBE_RETRY_MS = 7 * 24 * 3600 * 1000;
+const retryableError = (u) => {
+  const e = entryFor(u);
+  return !!(e && e.error && Date.now() - (e.ts || 0) > PROBE_RETRY_MS);
+};
+
 const unitStale = (u) => {
   const e = entryFor(u);
-  return !!(e && !e.error && e.measuredFrom && e.measuredFrom !== fileId(u.files[0]));
+  if (!e || e.error) return false;
+  // `unitFrom` covers every sampled file; `measuredFrom` names only the first and is all that
+  // entries written before 2026-08-29 carry. Fall back to it for those rather than declaring the
+  // whole library stale at once — each unit adopts the new field on its next visit.
+  if (e.unitFrom) return e.unitFrom !== unitFingerprint(u);
+  return !!(e.measuredFrom && e.measuredFrom !== fileId(u.files[0]));
 };
 
 // The next thing to measure. Order is deliberate and it is NOT "biggest first": a first pass whose
@@ -656,7 +760,7 @@ let _pickCount = 0;
 // priority order, and folding refinement into this function would silently outrank the audio
 // backfill, which is both cheaper per unit and a larger correction to BPP+.
 function nextUnit(units) {
-  const fresh = units.filter((u) => !entryFor(u));
+  const fresh = units.filter((u) => !entryFor(u) || retryableError(u));
   const stale = units.filter(unitStale);
   let pool;
   if (fresh.length && stale.length) {
@@ -809,7 +913,13 @@ let _hot = false;   // latched by the thermal hysteresis below
 //     They are NEVER bypassable. "Run it now" is not a reason to stutter a film or cook the NUC.
 // Conflating the two is why the first manual verification run on 2026-08-05 returned instantly
 // with "outside the night window" — a probe you could only trigger between 01:00 and 06:00.
-async function blockedBy(manual = false) {
+async function blockedBy(manual = false, owner = 'probe') {
+  // THE HEAVY LEASE. See acquireHeavy() below — this is the gate that makes "one heavy job at a
+  // time" a property of the controller instead of a convention in research scripts.
+  // NOT waivable by `manual`: it is a SAFETY gate, not a schedule one. A human asking for a probe
+  // now is not a reason to run two encoders on four cores.
+  const holder = heavyHolder();
+  if (holder && holder !== owner) return `yielding to the ${holder} job`;
   if (!manual) {
     if (!inWindow()) return 'outside the night window';
     if (_night.spentMs >= PROBE_NIGHT_BUDGET_MS) return 'night budget spent';
@@ -840,6 +950,78 @@ let _tickLock = false;
 let _busy = false;
 let _last = null;      // last completed unit, for /api/probe
 
+// ---- THE HEAVY LEASE ─────────────────────────────────────────────────────────────────────────
+// *** ONE HEAVY JOB AT A TIME, ENFORCED. ***
+//
+// THE BUG THIS FIXES, and it was live. The probe and the banding job share a night window, a night
+// budget and a thermal gate — but NOTHING stopped them running at the same time. banding checks
+// `probeHasFreshWork()` and yields to a probe that has a never-measured unit queued, which was read
+// as mutual exclusion and is not: once the probe has no FRESH work (it has been at 1044/1045 for
+// weeks) banding starts its ffv1+CAMBI pass, and 60s later the probe's own tick falls through to
+// audio backfill or refinement and spawns an x265 beside it. Two 3-thread encodes on four cores was
+// the NORMAL operating state, not an edge case.
+//
+// The 95C thermal gate does not catch it. Two concurrent jobs were MEASURED at 93C against a 100C
+// limit, which is under PROBE_TEMP_MAX and therefore invisible to `blockedBy`. The gate is designed
+// to catch a hot ROOM, not a second encoder.
+//
+// WHY A LEASE AND NOT A MUTEX. The holder must be nameable, because the Jobs tab has to be able to
+// say WHICH job it is waiting for — "yielding to the banding job" is actionable, a job that simply
+// sits idle is a bug report. It also makes the lease debuggable from /api/probe.
+//
+// WHY IT LIVES HERE. probe.js already owns the gate, the budget and the billing, so every heavy job
+// already imports it. A new detector gets serialisation by calling probeGate() with its own name —
+// one line, no new coupling. Adding an N-th heavy job under the previous design multiplied the
+// concurrency risk linearly; under this one it does not.
+//
+// STALE-LEASE RECOVERY. A holder that dies without releasing would deadlock every heavy job
+// forever, and the recovery must not depend on the dead process noticing. The lease therefore
+// EXPIRES: any hold older than HEAVY_LEASE_MAX_MS is treated as abandoned. That is longer than the
+// slowest legitimate unit (a 4K season probe runs ~200s) by a wide margin, so it can only fire on a
+// genuine failure.
+// 30 MINUTES WAS SHORTER THAN A LEGITIMATE UNIT, which turned the crash backstop into the very bug
+// the lease exists to prevent: the holder is still encoding, the lease is declared abandoned, and
+// the next job starts a SECOND encoder beside it. The old comment justified 30 with "a 4K season
+// probe runs ~200s", which was measured before seasons pooled 16 samples across 2 episodes.
+//
+// MEASURED, post-lease, 2026-08-30 01:40: `Lost S06` ran 2377s = 39.6 min — its lease expired with
+// 9.6 minutes of encoding still to go. `Past Lives` hit 2901s = 48 min the night before. Raising
+// POOL_MAX makes long units MORE common, not less, so this had to move first.
+//
+// 90 min is chosen to sit above the slowest plausible unit (a 2-episode season at 32 pooled samples)
+// while still bounding a genuine crash. It only ever fires when a holder dies without releasing —
+// every normal path releases in a `finally`.
+const HEAVY_LEASE_MAX_MS = 90 * 60 * 1000;
+let _heavy = null;     // { owner, since }
+
+// Who holds it right now, or null. Also reaps an expired lease, so this is the ONLY place staleness
+// is judged and every caller agrees about it.
+function heavyHolder() {
+  if (!_heavy) return null;
+  if (Date.now() - _heavy.since > HEAVY_LEASE_MAX_MS) {
+    console.log(`probe: heavy lease held by ${_heavy.owner} for over `
+      + `${Math.round(HEAVY_LEASE_MAX_MS / 60000)}min — treating as abandoned and releasing`);
+    _heavy = null;
+    return null;
+  }
+  return _heavy.owner;
+}
+
+// Take the lease. Re-entrant for the SAME owner so a job that brackets several clips in one unit
+// does not have to thread the lease through its own call stack. Returns false when someone else
+// holds it; the caller must then do nothing at all this tick.
+function acquireHeavy(owner) {
+  const holder = heavyHolder();
+  if (holder && holder !== owner) return false;
+  _heavy = { owner, since: holder === owner ? _heavy.since : Date.now() };
+  return true;
+}
+// Release. Ignores a release from a job that does not hold it, so a stray call in a `finally` after
+// the lease already expired cannot steal it from whoever legitimately took it next.
+function releaseHeavy(owner) {
+  if (_heavy && _heavy.owner === owner) _heavy = null;
+}
+
 // COMPLEXITY, in the same units as bppOf(): H.264-equivalent bits per pixel per frame.
 //
 // This is the number that replaces the flat BPP_TARGET=0.13, and expressing it per-pixel is what
@@ -861,10 +1043,31 @@ function complexityOf(r) {
 // cxSE is the standard error OF THE MEAN (sd/sqrt(n)), not the standard deviation. The question a
 // reader asks is "how well do I know this film's number", and with 8 samples those differ by ~2.8x.
 // cxRSE expresses it as a fraction so films of different complexity can be compared at all.
-// POOL_MAX caps how many samples accumulate. 64 is 8 nights of visits; past that the standard error
-// is already ~1/8 of the per-sample sd and further samples buy almost nothing, while the cache entry
-// keeps growing. Oldest are dropped first.
-const POOL_MAX = 64;
+// POOL_MAX caps how many samples accumulate. Oldest are dropped first.
+//
+// IT IS A RUNAWAY GUARD, NOT A TARGET, AND AT 64 IT WAS ACTING AS A TARGET. `unitImprecise()`
+// excludes anything at POOL_MAX, so a film whose error bar had not reached RSE_GOOD by 64 samples
+// was dropped from the refine queue and parked at "imprecise" permanently — no error, no flag,
+// nothing in the UI to say the number had stopped improving. The old comment's reasoning ("past 64
+// further samples buy almost nothing") is true of an AVERAGE film and false of exactly the films
+// that need refining: scene-to-scene spread is 19x on some titles, and SE falls as 1/sqrt(n)
+// regardless of how large the spread is, so a wide film simply needs more n.
+//
+// MEASURED 2026-08-30 across the 283 units that carry a real error bar — projecting n*(rse/0.12)^2,
+// the samples each would need to reach RSE_GOOD:
+//     stranded at POOL_MAX 64: 11      (7 already sitting AT n=64: Perfect Days rse 0.181,
+//                                       Dunkirk 0.167, Apollo 11 0.155, Sympathy 0.146,
+//                                       Arrival 0.134, The Lighthouse 0.132, Lady Vengeance 0.124)
+//     stranded at 128:          1
+//     stranded at 256:          0
+// So 256 is the smallest power of two that lets EVERY measured unit converge, which is the property
+// Brennan asked for: slow is fine, never-arriving is not. The real stop stays RSE_GOOD — a film that
+// reaches +/-12% leaves the queue after ~2 visits and never touches this ceiling.
+//
+// COST: two pooled arrays (sampleCx, samplePos) per unit, so a unit at the ceiling holds 512 floats
+// (~4 KB) against ~1 KB at 64. Worst case across 1049 units is ~4 MB of probe-cache.json, and only
+// the handful of genuinely wide films ever get near it.
+const POOL_MAX = 256;
 
 // `prior` is the sample list already banked for THIS FILE (never for a different copy — see the
 // caller). Passing it is what turns a re-probe from a re-roll of the dice into convergence.
@@ -941,9 +1144,26 @@ function sampleStats(results, prior = null, priorPos = null) {
 const SAMPLES_MAX = 16;
 const SPREAD_WIDE = 6;        // ~p75 of the library, measured 2026-08-17
 const RSE_WIDE = 0.20;        // +/-20% on the mean is too loose to act on
+// ONE GRID PER UNIT, FIXED FOR THE LIFE OF THE FILE — and this is a correctness rule, not a tidiness
+// one. probe-film.sh places clip i at S + SPAN*(i+phase)/N, so phaseFor()'s van der Corput sequence
+// only guarantees FRESH POSITIONS WHEN N IS CONSTANT. Change N between visits and the grids
+// interleave: an 8-sample visit at phase 0.25 lands on (2i+0.5)/16, every one of which a previous
+// 16-sample visit at phase 0.5 already measured.
+//
+// This was live, and it was expensive. `samplesFor` keyed on cxRSE, which FALLS as a unit is
+// refined, so N flipped 16 -> 8 partway through exactly the films being refined hardest. Replaying
+// the real visit sequence for No Other Choice (2025) — N=16,16,8,8,8,8 at phases 0,.5,.25,.75,.125,
+// .625 — predicts sampleDup=16 and sampleNEff=48; the cache holds sampleDup 16, sampleNEff 48.
+// Two entire visits (~326s of x265) produced nothing. The dedup in sampleStats() kept the error bar
+// HONEST throughout, so this never corrupted a number — it just silently burned a quarter of the
+// refinement budget on this unit and would keep doing so on every wide film.
+//
+// So: decide N once, persist it as `sampleGrid`, and never revisit the decision. Escalation comes
+// from MORE VISITS, not bigger ones — which is also what keeps a single unit inside the heavy lease.
 function samplesFor(u) {
   const e = probeCache.get(u.key);
   if (!e || e.error) return PROBE_SAMPLES;
+  if (e.sampleGrid > 0) return e.sampleGrid;    // locked on the first visit that had evidence
   if (e.cxRSE != null) return e.cxRSE > RSE_WIDE ? SAMPLES_MAX : PROBE_SAMPLES;
   return (e.spreadRatio || 0) > SPREAD_WIDE ? SAMPLES_MAX : PROBE_SAMPLES;
 }
@@ -975,7 +1195,8 @@ async function probeUnit(u, manual = false) {
     const visit = (prev && prev.visits != null)
       ? prev.visits
       : Math.ceil(((prev && prev.sampleN) || 0) / PROBE_SAMPLES);
-    const r = await runProbe(f.path, samplesFor(u), phaseFor(visit));
+    const grid = samplesFor(u);
+    const r = await runProbe(f.path, grid, phaseFor(visit));
     const wallMs = Date.now() - t0;
     // ONLY IN-WINDOW WORK BILLS TO THE NIGHT BUDGET. The budget's job is to cap how long the box
     // encodes during 01:00-06:00; work done at 3pm has already cost nothing from that allowance.
@@ -1001,7 +1222,7 @@ async function probeUnit(u, manual = false) {
       return { error: r.error };
     }
     const cx = complexityOf(r);
-    if (cx != null) results.push({ ...r, complexity: cx, wallMs, from: fileId(f) });
+    if (cx != null) results.push({ ...r, complexity: cx, wallMs, from: fileId(f), grid });
   }
   if (!results.length) return { error: 'no usable samples' };
 
@@ -1105,6 +1326,17 @@ async function probeUnit(u, manual = false) {
     audioTracks: results[0].audioTracks ?? null,
     wallMs: results.reduce((a, r) => a + r.wallMs, 0),
     files: results.length, measuredFrom: results[0].from,
+    // The clip grid this unit is locked to — see samplesFor(). Persisted so every later visit uses
+    // the SAME N and phaseFor()'s sequence keeps landing on unmeasured positions.
+    sampleGrid: results[0].grid || PROBE_SAMPLES,
+    // Runtime in seconds, straight from probe-film.sh's ffprobe. It has always been emitted and
+    // always been thrown away. Kept so `samplePos` (a fraction of the runtime) can be rendered as a
+    // TIMESTAMP — which is what turns "sample 12 reads 0.045" into "go and look at 1:17:20".
+    duration: results[0].duration > 0 ? Math.round(results[0].duration) : null,
+    // Every file this visit covered, so replacing ANY sampled episode of a season re-queues it.
+    // measuredFrom stays as the first file's id: pooling keys off it (see `sameFile` above) and
+    // must keep meaning "the file these samples came from", not "the set the unit spans".
+    unitFrom: unitFingerprint(u),
   };
   setEntry(u.key, entry);
   return entry;
@@ -1350,19 +1582,42 @@ async function runTick() {
   // stopped filling in with nothing to show for it — the same class of bug as the four-day gap.
   let u = nextUnit(units);
   if (!u) {
-    _busy = true;
-    jobs.report('probe', { detail: 'measuring audio', startedAt: Date.now() });
-    let n = 0;
-    try { n = await runAudioBackfill(units, manual); }
-    catch (e) { console.log(`probe: audio backfill failed — ${e.message}`); }
-    finally { _busy = false; jobs.report('probe', { detail: '', startedAt: null }); }
-    if (n) return;                       // more may remain; the next tick continues the batch
+    // The audio backfill spawns ffprobe per file. Lighter than an encode but still contention, and
+    // it is the leg that runs EVERY night once the library is measured — exactly the leg that used
+    // to overlap the banding pass.
+    // Only claim the lease if there is actually audio to measure. Claiming it unconditionally meant
+    // the probe touched the lease on EVERY tick even with the backfill complete, and since its tick
+    // fires first each minute, that is a lease the other jobs can lose a tick to for no work at all.
+    if (audioPending(units).length) {
+      if (!acquireHeavy('probe')) return;
+      _busy = true;
+      jobs.report('probe', { detail: 'measuring audio', startedAt: Date.now() });
+      let n = 0;
+      try { n = await runAudioBackfill(units, manual); }
+      catch (e) { console.log(`probe: audio backfill failed — ${e.message}`); }
+      finally { releaseHeavy('probe'); _busy = false; jobs.report('probe', { detail: '', startedAt: null }); }
+      if (n) return;                     // more may remain; the next tick continues the batch
+    }
+    // REFINEMENT IS LAST, AND IT NOW YIELDS. Everything is measured and audio is complete, so the
+    // only work left here is tightening error bars — which must not run while banding or artifacts
+    // still have units they have never measured. See backfillPending() for the measurement that
+    // forced this. `manual` waives it: a human who started a probe session asked for this.
+    if (!manual) {
+      const waiting = backfillPending();
+      if (waiting) {
+        jobs.report('probe', { detail: `yielding refinement · ${waiting} unit(s) awaiting a first reading` });
+        return;
+      }
+    }
     u = nextImprecise(units);            // everything measured and audio complete — start refining
   }
   if (!u) {
     if (manual) sessionStop('library fully measured');
     return;
   }
+  // Take the heavy lease before the encode. blockedBy() already refused if someone else held it,
+  // but that check and this claim are not atomic across an await, so claim it properly here.
+  if (!acquireHeavy('probe')) return;
   _busy = true;
   // Stamp the Jobs tab with what is being measured RIGHT NOW and when this unit started, so the
   // card names the film instead of going quiet for three minutes. Cleared in the finally below.
@@ -1401,6 +1656,7 @@ async function runTick() {
   } finally {
     clearInterval(guard);
     saveProbeCache();
+    releaseHeavy('probe');
     _busy = false;
     // The session's next tick is scheduled by probeTick's finally, which runs after this one and
     // only once the lock is released — otherwise the follow-up would find it still held and no-op.
@@ -1573,9 +1829,16 @@ function maybeCalibrate(units) {
   metrics.emitEvent('probe_median_report', { median: h, n });
 }
 
-function probeBppPlus(fileBpp, complexity) {
+// A SECOND, DELIBERATELY PARTIAL IMPLEMENTATION — read the caveat before using it anywhere.
+// It takes complexity as an ARGUMENT, so it applies neither biasFactor nor the artifact factor. It
+// exists only for /api/probe/run, which reports "what this unit scores from the measurement just
+// taken" beside the live bppIndex() so the two can be compared. `artifact` is threaded through so a
+// caller that wants the comparison to be apples-to-apples can ask for it; the default of 1 keeps the
+// historic behaviour for the diagnostic that wants the raw figure.
+// The canonical formula is bppIndex() in arr-inspect.js. If you are scoring anything, use that.
+function probeBppPlus(fileBpp, complexity, artifact = 1) {
   if (!(fileBpp > 0) || !(complexity > 0)) return null;
-  return Math.round(100 * Math.sqrt(fileBpp / (complexity * headroomTarget())));
+  return Math.round(100 * Math.sqrt(fileBpp / (complexity * artifact * headroomTarget())));
 }
 
 // THE CANDIDATE HOOK — the reason the cache is keyed by film rather than by file.
@@ -1952,6 +2215,15 @@ function complexityForKey(key) {
 // (moving the anchor once Brennan has judged ~10 films) changes one constant HERE and every score in
 // the app follows, with no re-probing and no edit to the scoring module.
 function installScoring() {
+  // The adequacy term. Reads the artifact job's PER-CLIP banding, so it is null for any unit the
+  // nightly banding probe has not reached — which is the honest answer, not a zero.
+  setAdequacyResolver((key, plus) => {
+    if (_artifacts === null) { try { _artifacts = require('./artifacts'); } catch { _artifacts = false; } }
+    if (!_artifacts || !_artifacts.adequacyDelta) return 0;
+    const clips = bandingClips(key);
+    if (!clips) return 0;
+    return _artifacts.adequacyDelta(plus, _artifacts.adequacyC(clips));
+  });
   setComplexityResolver((key) => {
     const r = complexityForKey(key);
     if (!(r.complexity > 0)) return null;
@@ -1959,7 +2231,22 @@ function installScoring() {
     // error of the INDEX (BPP+ takes a square root), so do not pre-halve it here.
     // R rides along so the Audit tab's Disk section can ask "how over-supplied is this file" without
     // importing probe.js (which would be a require cycle) or duplicating the cache read.
-    return { target: r.complexity * headroomTarget(), basis: r.basis, rse: r.rse ?? null, R: r.R ?? null, disagree: r.disagree ?? null };
+    // *** THE ARTIFACT FACTOR IS APPLIED HERE AND NOWHERE ELSE. ***
+    //
+    // WHY NOT IN complexityForKey(): it would be CIRCULAR. The provenance surface regresses each
+    // detector on log(cxEff), so if cxEff already carried the artifact factor, P would appear inside
+    // its own regressor. complexityForKey answers "what does this CONTENT cost", which is a property
+    // of the film; the artifact factor answers "how damaged is this COPY", which is a property of
+    // the encode. Only the scoring target is the product of both.
+    //
+    // Also: complexityForKey is memoised in _cxMemo, and the artifact model rebuilds whenever a unit
+    // is measured. Putting it there would need a second invalidation path to stay correct.
+    //
+    // It multiplies the DENOMINATOR, so BPP+'s square root halves it — a x1.10 target is a x0.95 on
+    // the score. That is the shipped rule exactly:  BPP+ * exp(-strength*provShare*lambda*P/2).
+    // 1.0 for anything unmeasured, so an unmeasured unit scores precisely as it does today.
+    const art = artifactFactorFor(key);
+    return { target: r.complexity * art * headroomTarget(), basis: r.basis, rse: r.rse ?? null, R: r.R ?? null, disagree: r.disagree ?? null, artifactFactor: art };
   });
   // Measured total audio bitrate for a unit, or null. Deliberately NOT estimated from other films the
   // way complexity is: complexity is a property of the CONTENT and generalises across copies, whereas
@@ -2084,7 +2371,41 @@ app.get('/api/probe/score', async (_req, res) => {
 // Both the raw and the corrected complexity are returned. Anything comparing against BPP+ must use
 // `cxEff`, since that is what scoring divides by; `complexity` is the unmodelled measurement and is
 // only meaningful when studying the correction itself (see the SOURCE-PINNING block above).
-app.get('/api/probe/dataset', async (_req, res) => {
+// TWO QUERY PARAMS, both additive — bpp-lab calls this with no query string at all and gets the
+// byte-identical response it always did.
+//
+//   ?view=list   an ALLOWLIST projection for the dashboard's Library tab: every column that view
+//                can render, and nothing else. Drops the six per-clip arrays, `priors` and `path`
+//                (an absolute host path the browser has no business receiving, and the single
+//                largest field at ~7% of the payload). 1455 KB -> 634 KB, 296 KB -> 116 KB gzipped.
+//   ?key=mv:388  ONE row, with the deep per-detector columns. ~1.2 KB, so opening a film costs a
+//                kilobyte rather than a megabyte. 404 when the key has no measurement, because a
+//                200 carrying an empty array is indistinguishable from "measured, but empty".
+//
+// The projection is applied at the END rather than by building two row shapes: one row builder
+// means a field can never exist in one view and silently not the other.
+// EVERY column the list view can offer, and nothing else. The test for membership is "is there a
+// column, filter or badge that reads this" — anything only the film page renders is fetched
+// per-film by ?key= instead. Getting this wrong in either direction has a cost: a missing field
+// makes a Columns-sheet toggle that renders nothing, and a spare one is 20 KB of nobody's business.
+//
+// Deliberately absent, and why: blockMean/blurMean (the film page's artifact panel — the LIST shows
+// banding only); visits/ts/files/srcBasis (never rendered, only reasoned about); adequacyClips (the
+// count behind adequacyC, not a column); probeW/probeH/fps (the probe's CAPPED geometry — max 1920
+// by PROBE_REFERENCE_WIDTH — so a "resolution" column built on it would report 1920x1080 for a
+// 2160p file and hide exactly the ones worth spotting).
+const LIST_VIEW_FIELDS = [
+  'key', 'title', 'kind', 'year', 'source', 'codec', 'top100', 'bytes', 'duration',
+  'complexity', 'biasFactor', 'cxEff', 'R', 'srcBitrate', 'audioBps',
+  'sampleN', 'sampleNEff', 'cxRSE', 'spreadRatio', 'disagree', 'pairs',
+  'cambi', 'cambiMax', 'bands', 'cambiLuma',
+  'episodes', 'resW', 'resH', 'bpp', 'bppPlus', 'bppBand', 'bppPlus0', 'bppBand0', 'bppPlusFlat',
+  'P', 'artifactFactor', 'artifactStale', 'adequacyC', 'adequacyDelta',
+  'cxBasis', 'bppRSE', 'bppArt', 'videoLabel', 'gpuCompat',
+];
+app.get('/api/probe/dataset', async (req, res) => {
+  const want = String((req.query || {}).key || '').trim();
+  const listView = String((req.query || {}).view || '') === 'list';
   const units = await getUnits().catch(() => []);
   const byKey = new Map(units.map((u) => [u.key, u]));
   // Reuse audit.js's Top 100 map so the checkbox matches the ELo rank exactly (not a re-parse).
@@ -2093,11 +2414,13 @@ app.get('/api/probe/dataset', async (_req, res) => {
   try { top100Rank = await top100RankByTmdb(); }
   catch { top100Rank = null; }
   const rows = [];
-  for (const e of probeCache.values()) {
+  for (const e of (want ? [probeCache.get(want)] : probeCache.values())) {
     if (!e || e.error || !(e.complexity > 0)) continue;
     const u = byKey.get(e.key) || null;
     const F = biasFactor(videoR(e));
     const cxEff = +(e.complexity * F).toFixed(5);
+    // Hoisted so bppBand can classify it without a second bppIndex() — see bandOfIndex().
+    const plus = u && u.bpp != null ? bppIndex(u.bpp, e.key) : null;
     rows.push({
       key: e.key,
       title: e.title,
@@ -2148,6 +2471,17 @@ app.get('/api/probe/dataset', async (_req, res) => {
       // decides whether these two detectors carry any per-film signal at all.
       sampleBlock: Array.isArray(e.sampleBlock) ? e.sampleBlock : null,
       sampleBlur: Array.isArray(e.sampleBlur) ? e.sampleBlur : null,
+      // WHERE THE DETECTOR READINGS CAME FROM, and it is NOT `samplePos`. sampleCx/samplePos are
+      // POOLED across every visit; sampleBlock/sampleBlur are this-visit-only (`results[0]`). Since
+      // pooling appends, the last sampleBlock.length entries of samplePos are that visit's, in
+      // order. Computed here rather than left for the lab to infer, because the invariant lives in
+      // sampleStats() and a consumer guessing it would break silently the day pooling changes.
+      sampleDetPos: (Array.isArray(e.samplePos) && Array.isArray(e.sampleBlock)
+        && e.sampleBlock.length && e.samplePos.length >= e.sampleBlock.length)
+        ? e.samplePos.slice(-e.sampleBlock.length) : null,
+      // Runtime, so a position fraction can be shown as a timestamp. Null on entries written before
+      // 2026-08-30; those render as a fraction instead of pretending to a clock time.
+      duration: e.duration > 0 ? e.duration : ((u && u.dur > 0) ? Math.round(u.dur) : null),
       // --- THE SECOND AXIS. Banding, measured by the banding job (CAMBI). null = NOT MEASURED,
       // which is not the same as zero and must never be read as "clean": ~1000 units are still
       // unmeasured. It is deliberately NOT folded into any score - the two axes disagree in both
@@ -2162,12 +2496,60 @@ app.get('/api/probe/dataset', async (_req, res) => {
       ts: e.ts || null,
       // --- what the app currently SHOWS for this unit, so the lab never re-derives the score
       bpp: u && u.bpp != null ? u.bpp : null,
-      bppPlus: u && u.bpp != null ? bppIndex(u.bpp, e.key) : null,
+      // *** BPP+ IS THE FULL SCORE AND INCLUDES THE PROVENANCE TERM. *** Anything wanting the
+      // score WITHOUT it must read bppPlus0 — and must NOT re-derive it by applying the artifact
+      // factor to bppPlus, which would double-count. That is not hypothetical: the lab did exactly
+      // that for one build, because it had been computing the adjustment itself back when the
+      // controller did not.
+      bppPlus: plus,
+      // THE BAND, so no browser ever holds a second copy of 125/100/75. Derived from the finished
+      // index rather than by calling bppBand(), which would re-run bppIndex() — and each keyed
+      // bppIndex fires the complexity resolver AND the adequacy resolver. This loop already makes
+      // two such calls per row; a third for a threshold walk is pure waste.
+      bppBand: bandOfIndex(plus),
+      // CONFIDENCE, and it is not optional. web/js/util.js's bppSpan() renders a score's basis
+      // (italic when the complexity was inferred), its error (a trailing "*" past 10%) and whether
+      // an artifact reading exists. Without these three the new tab would print every score as
+      // fully measured and fully confident while the Audit tab shows marks on the same films —
+      // one number disagreeing with itself, which is the exact failure this endpoint exists to
+      // prevent. All three come off the resolver result already computed above, so they cost
+      // nothing beyond the read.
+      // These are the SAME THREE FUNCTIONS /api/library calls (routes-actions.js bppFields), not a
+      // local re-derivation, so the two surfaces agree by construction. It matters for bppRSE in
+      // particular: the dataset's `cxRSE` above is the error of the COMPLEXITY, while bppRSE() is
+      // the error of the SCORE — half of it, because the index takes a square root. Handing the
+      // un-halved figure to bppSpan() would double every error bar and mark films provisional that
+      // are not. All three read the memoised resolver; none of them re-runs bppIndex.
+      cxBasis: bppBasis(e.key),
+      bppRSE: bppRSE(e.key),
+      // null means "measured and absent" to bppSpan() and renders italic; undefined means the
+      // payload predates the field. bppArtifact() returns 1.0 for an unmeasured unit, which is the
+      // third case and the one that must NOT read as missing.
+      bppArt: bppArtifact(e.key),
+      // Decode compatibility for the format badge — the only place in the app that says this file
+      // software-transcodes on this NUC. Captured in buildUnits(); mediaInfo does not reach here.
+      videoLabel: u ? (u.vLabel || null) : null,
+      gpuCompat: u ? (u.gpu || null) : null,
+      // Banked upgrade pairs, as a COUNT. The `priors` array itself is 41 KB library-wide and the
+      // list view only ever renders its length, so the scalar survives the ?view=list projection
+      // while the array does not.
+      pairs: Array.isArray(e.priors) ? e.priors.length : 0,
+      // BPP+ AT P = 0 — the subscript is the value of P, not a version number. It is the score this
+      // file would get if it were exactly as damaged as its bitrate and content predict, which is
+      // also precisely what an UNMEASURED file reports (its factor is 1.0). So the baseline and the
+      // fallback are the same object rather than two ideas that happen to coincide.
+      ...artifactCols(e.key, u, !!want),
       bppPlusFlat: u && u.bpp != null ? bppIndex(u.bpp) : null,
-      // Units carry files[], not a total — a season is many files, so summing is the only
-      // definition that means the same thing for both kinds.
-      bytes: u && Array.isArray(u.files)
-        ? u.files.reduce((a, f) => a + (f.size || 0), 0) : null,
+      // A season's size is its OWN total (u.seasonBytes), not the sum of files[] — that array is
+      // the sampled measurement set, two episodes deep. A movie's files[] IS the whole thing.
+      bytes: (u && u.seasonBytes != null) ? u.seasonBytes
+        : (u && Array.isArray(u.files) ? u.files.reduce((a, f) => a + (f.size || 0), 0) : null),
+      // Episodes in the season, so a per-episode runtime and an episode count can be shown. Null
+      // for a movie.
+      episodes: u && u.episodes != null ? u.episodes : null,
+      // The file's real pixel dimensions, as opposed to probeW/probeH above.
+      resW: u && u.dims ? u.dims[0] : null,
+      resH: u && u.dims ? u.dims[1] : null,
       // The file as it is on disk RIGHT NOW, so an offline tool (scripts/ladder-pilot.js) can
       // re-measure this unit without re-deriving *arr's layout. Deliberately the live path rather
       // than `measuredFrom`, which records where the measurement CAME from and may name a copy that
@@ -2180,7 +2562,16 @@ app.get('/api/probe/dataset', async (_req, res) => {
       top100: u && u.tmdbId && top100Rank ? (top100Rank.get(String(u.tmdbId)) || null) : null,
     });
   }
-  res.json({
+  // A named key with no measurement is a 404, not an empty 200: "this unit has never been probed"
+  // and "the projection returned nothing" are different answers and the client acts on them
+  // differently (an explanatory panel vs a retry).
+  if (want && !rows.length) {
+    return res.status(404).json({ error: `no measurement for ${want}` });
+  }
+  const out = listView
+    ? rows.map((r) => { const o = {}; for (const f of LIST_VIEW_FIELDS) o[f] = r[f] ?? null; return o; })
+    : rows;
+  return res.json({
     generated: Date.now(),
     crf: PROBE_CRF,
     headroomTarget: headroomTarget(),
@@ -2194,8 +2585,11 @@ app.get('/api/probe/dataset', async (_req, res) => {
       source: 'controlled starvation experiment 2026-08-18 (8 films, 16 points)',
     },
     biasFit: (_biasFit || fitBias()),
-    n: rows.length,
-    rows,
+    // The BANDING VISIBILITY THRESHOLD, so a client can render cambi as a percentage of it without
+    // holding its own copy of 2.817 — the same rule as bppBand. banding.js owns the number.
+    bandingThreshold: bandingThresholdOf(),
+    n: out.length,
+    rows: out,
   });
 });
 
@@ -2218,6 +2612,13 @@ app.post('/api/probe/run', async (req, res) => {
   if (!u) { release(); return res.status(404).json({ error: `no unit ${want}` }); }
   if (isMasterPaused()) { release(); return res.status(409).json({ error: 'Movie Mode is on' }); }
   if (await anyonePlaying()) { release(); return res.status(409).json({ error: 'someone is watching' }); }
+  // The heavy lease is a SAFETY gate and applies to the manual path too: a hand-triggered probe
+  // must not start a second encoder beside a running banding pass.
+  if (!acquireHeavy('probe')) {
+    const who = heavyHolder();
+    release();
+    return res.status(409).json({ error: `the ${who} job is running — one heavy job at a time` });
+  }
   _busy = true;
   const t0 = Date.now();
   // manual=true: skip the SCHEDULE gates only. Movie Mode, playback and temperature are still
@@ -2237,7 +2638,7 @@ app.post('/api/probe/run', async (req, res) => {
       secs: Math.round((Date.now() - t0) / 1000) });
   } catch (e) {
     res.status(500).json({ error: e.message });
-  } finally { clearInterval(guard); _busy = false; release(); }
+  } finally { clearInterval(guard); releaseHeavy('probe'); _busy = false; release(); }
 });
 
 // ---- MANUAL SESSION CONTROL ──────────────────────────────────────────────────────────────────
@@ -2310,15 +2711,118 @@ function startProbe() {
   if (_resumeSession) { _resumeSession = false; sessionStart(true); }
 }
 
+// The provenance factor for a unit. Required LAZILY for the same reason as banding: artifacts.js
+// requires probe.js for its gates, units and heavy lease, so a top-level require here would be a
+// cycle and one of the two would see an empty module object.
+// FAILS OPEN at exactly 1.0 — a missing or broken artifacts module must never move a score.
+let _artifacts = null;
+function artifactFactorFor(key) {
+  if (_artifacts === null) { try { _artifacts = require('./artifacts'); } catch { _artifacts = false; } }
+  if (!_artifacts || !_artifacts.artifactFactor) return 1;
+  try { const f = _artifacts.artifactFactor(key); return f > 0 ? f : 1; } catch { return 1; }
+}
+
+// The artifact columns for the dataset: the provenance index, the factor it produced, and BPP+ at
+// P = 0. Emitted by the SERVER so the lab never re-derives a score — the rule the whole dataset
+// endpoint exists to enforce, and the one that stops the lab and the site disagreeing.
+// `deep` adds the per-detector raw levels and residualised z scores. They are OFF by default: four
+// levels plus four z per row is ~30 KB over the whole library for something only the film page's
+// artifact panel renders, and the list view has no use for them.
+function artifactCols(key, u, deep) {
+  // LAZY REQUIRE, AND IT WAS MISSING. `_artifacts` starts null, and null satisfies `!_artifacts`
+  // below — so this function returned all-nulls unless something else had already primed it. It
+  // worked only as a side effect of the bppIndex() call the dataset route makes on the line above,
+  // which reaches artifactFactorFor() and primes it there. That chain is skipped whenever the unit
+  // is missing from getUnits() (a probe entry for a since-deleted movie, or a cold getUnits()
+  // returning []), which is exactly the single-row ?key= path — so the film page would show an
+  // empty artifact panel for reasons unrelated to the data.
+  if (_artifacts === null) { try { _artifacts = require('./artifacts'); } catch { _artifacts = false; } }
+  /* *** BPP+0 CARRIES NEITHER ADJUSTMENT. *** It is bits against this film's own transparent cost
+   * and nothing else — the score at P = 0 AND with no adequacy shift.
+   *
+   * IT MUST BE COMPUTED DIRECTLY, NOT BY UNDOING FACTORS OFF THE LIVE SCORE. It was derived as
+   * live * sqrt(artifactFactor), which undid provenance only; the moment the adequacy term shipped
+   * that leaked straight into BPP+0 and 12 Angry Men reported 84 instead of 72. Undoing one of two
+   * adjustments is silently wrong in a way that looks plausible, so the arithmetic no longer runs
+   * backwards at all — it runs forwards from bpp and cxEff, which is the definition. */
+  const cx = complexityForKey(key);
+  const base = (u && u.bpp > 0 && cx && cx.complexity > 0)
+    ? Math.round(100 * Math.sqrt(u.bpp / (cx.complexity * headroomTarget()))) : null;
+  if (_artifacts === false || !_artifacts) {
+    return { P: null, artifactFactor: null, bppPlus0: base, bppBand0: bandOfIndex(base),
+      adequacyDelta: null, adequacyC: null };
+  }
+  const info = _artifacts.artifactFor ? _artifacts.artifactFor(key) : null;
+  // The adequacy shift on its own, so a consumer can attribute the gap between BPP+0 and BPP+ to
+  // the two terms separately rather than guessing which moved it.
+  const clips = bandingClips(key);
+  const c = (clips && _artifacts.adequacyC) ? _artifacts.adequacyC(clips) : null;
+  const adq = (c != null && base != null && _artifacts.adequacyDelta)
+    ? _artifacts.adequacyDelta(base, c) : null;
+  return {
+    P: info ? info.P : null,
+    artifactFactor: info ? info.factor : null,
+    artifactStale: info ? !!info.stale : null,
+    bppPlus0: base,
+    // BPP+0's OWN band. Without it the browser would have to classify this second score itself,
+    // which is the duplicated-thresholds drift bppBand exists to prevent — the rule does not stop
+    // applying just because it is the secondary number.
+    bppBand0: bandOfIndex(base),
+    adequacyC: c != null ? +c.toFixed(4) : null,
+    adequacyDelta: adq != null ? +adq.toFixed(2) : null,
+    adequacyClips: clips ? clips.length : null,
+    // WHERE the adequacy term is pulling this film, so a reader can see why a delta is zero without
+    // re-deriving it. 100 on the clean side; 100*exp(kappa*c) < 100 on the dirty side. Computed HERE
+    // rather than in the lab because ADQ_KAPPA is a model constant and the lab must never hold a
+    // second copy of one — see bpp-lab/README.md on why it does not re-implement the score.
+    adequacyTarget: (c != null && _artifacts.ADQ_KAPPA != null)
+      ? +(c > 0 ? 100 : 100 * Math.exp(_artifacts.ADQ_KAPPA * c)).toFixed(1) : null,
+    // THE FOUR DETECTORS, for the film page's artifact panel: the raw level against its visibility
+    // threshold, and the residual z that P is the signed sum of. Live from the same fit() the
+    // scorer uses — bpp-lab reads these from a frozen provenance.json export instead, so the two
+    // will not match numerically and are not meant to.
+    ...(deep ? {
+      artLevels: info && info.levels ? info.levels : null,
+      artMaxes: info && info.maxes ? info.maxes : null,
+      artZ: info && info.z ? info.z : null,
+    } : {}),
+  };
+}
+
 // Banding columns for the dataset. Required LAZILY: banding.js requires probe.js for its gates, so
 // a top-level require here would be a cycle and one of the two would see an empty module object.
 let _banding = null;
+// The per-clip banding readings, or null. The adequacy term needs the CLIPS, not the mean: a mean
+// hides the one banded scene (Empire Strikes Back, mean 0.459 from a clip at 3.47).
+function bandingClips(key) {
+  if (_banding === null) { try { _banding = require('./banding'); } catch { _banding = false; } }
+  if (!_banding || !_banding.bandingClipsFor) return null;
+  try { const c = _banding.bandingClipsFor(key); return (c && c.length) ? c : null; } catch { return null; }
+}
+
+// The visibility threshold cambi is judged against, from the module that owns it. Exposed on the
+// dataset header so a client can render "% of threshold" without a second copy of 2.817 — the same
+// no-duplicate-constants rule that puts bppBand server-side.
+function bandingThresholdOf() {
+  if (_banding === null) { try { _banding = require('./banding'); } catch { _banding = false; } }
+  return _banding && _banding.BAND_HIGH != null ? _banding.BAND_HIGH : null;
+}
+
 function bandingCols(key) {
   if (_banding === null) { try { _banding = require('./banding'); } catch { _banding = false; } }
   const b = _banding && _banding.bandingFor ? _banding.bandingFor(key) : null;
   return b
-    ? { cambi: b.cambi, cambiMax: b.cambiMax, bands: b.bands, cambiLuma: b.yavg }
-    : { cambi: null, cambiMax: null, bands: null, cambiLuma: null };
+    // cambiMax rides along so a consumer can see the WORST clip, not only the mean. A mean hides
+    // the single banded scene (trap 17) — Empire Strikes Back: mean 0.459, max 3.47.
+    // PER-CLIP readings and their positions ride along too, so the lab can plot banding as a
+    // distribution over the runtime rather than only as a mean. This is the SAME shape as the
+    // probe's own sampleCx/samplePos, deliberately: one panel can then switch y-axis between them.
+    // Its own positions, not the probe's — the two jobs sample different grids (8x2s vs Nx4s).
+    ? { cambi: b.cambi, cambiMax: b.cambiMax, bands: b.bands, cambiLuma: b.yavg,
+      sampleCambi: Array.isArray(b.sampleCambi) ? b.sampleCambi : null,
+      sampleCambiPos: Array.isArray(b.samplePos) ? b.samplePos : null }
+    : { cambi: null, cambiMax: null, bands: null, cambiLuma: null,
+      sampleCambi: null, sampleCambiPos: null };
 }
 
 // ---- SHARED WITH THE BANDING JOB --------------------------------------------------------------
@@ -2327,7 +2831,9 @@ function bandingCols(key) {
 // not get its own gates or its own budget - it reuses these, and the night budget stays ONE bucket.
 // That is the whole safety property: no matter which job spends the 240 minutes, the box never runs
 // more than 240 minutes of encoding a night. A second independent budget would silently double it.
-const probeGate = blockedBy;                       // same window/temp/playback/MovieMode answer
+// Same window/temp/playback/MovieMode answer, PLUS the heavy lease. Callers pass their own name as
+// the second argument so the lease does not block its own holder:  probeGate(manual, 'banding')
+const probeGate = blockedBy;
 const billNight = (ms) => { if (inWindow()) _night.spentMs += ms; };
 const nightSpentMs = () => _night.spentMs;
 const nightBudgetMs = () => PROBE_NIGHT_BUDGET_MS;
@@ -2350,6 +2856,41 @@ const nightWindow = () => ({ start: PROBE_WINDOW_START, end: PROBE_WINDOW_END, i
 //
 // nextUnit() is the authority on what the probe will actually do next, so asking it cannot drift
 // from the truth the way a duplicated predicate did.
+// ---- THE RECIPROCAL YIELD ---------------------------------------------------------------------
+// THE OTHER HALF OF probeHasFreshWork(), AND IT WAS MISSING. banding.js and artifacts.js both stand
+// down when the probe has fresh work. Nothing made the probe stand down for them, and the probe's
+// tick is registered FIRST (server.js starts probe, then banding, then artifacts, all on the same
+// 60s interval), so on every tick where more than one wants the heavy lease the probe takes it.
+//
+// That is fine while the probe has real work. It is not fine for REFINEMENT, because the refinement
+// pool never empties: 346 imprecise + 509 unverified, and re-probing a unit produces a new error bar
+// that can qualify it again. An unbounded pool with first claim on a bounded window is a starvation
+// loop, not a priority.
+//
+// MEASURED, 2026-08-30 — the first night after the heavy lease made the jobs take turns:
+//   probe    23 units, 238 of the night's 241 minutes, 165 of them refinement
+//            (Apocalypse Now alone was revisited 4x for 64 minutes)
+//   banding   1 unit, 146 seconds
+//   artifacts 0 units — it has never measured a single unit in production
+// Both of those are FINITE backfills with an end state. The refinement they were losing to has none.
+//
+// So: refinement yields to any unit that has never been measured from the file on disk. Fresh probe
+// work still outranks everything — a missing complexity degrades every score for that title, while a
+// missing banding or artifact reading degrades one term. And this cannot deadlock against the yield
+// in banding.js: that one triggers on the probe having FRESH work, this one only when it does not.
+// `_banding` and `_artifacts` are the module-level lazy handles declared above — required lazily
+// because both of those modules require THIS one, and a top-level require would be circular.
+function backfillPending() {
+  let n = 0;
+  if (_banding === null) { try { _banding = require('./banding'); } catch { _banding = false; } }
+  if (_artifacts === null) { try { _artifacts = require('./artifacts'); } catch { _artifacts = false; } }
+  // A module that is absent or still booting counts as zero, so the failure mode is "the probe
+  // refines as it always did" rather than "the probe stops working".
+  try { if (_banding && _banding.pendingCount) n += _banding.pendingCount(); } catch { /* */ }
+  try { if (_artifacts && _artifacts.pendingCount) n += _artifacts.pendingCount(); } catch { /* */ }
+  return n;
+}
+
 function probeHasFreshWork() {
   try {
     const us = _byKey ? [..._byKey.values()] : [];
@@ -2358,6 +2899,7 @@ function probeHasFreshWork() {
 }
 
 module.exports = { startProbe, probeTick, estimateComplexity, probeBppPlus, complexityForKey,
+  acquireHeavy, releaseHeavy, heavyHolder, unitFingerprint,
   installScoring, sessionStart, sessionStop, sessionLive,
   getUnits, probeCache, PROBE_VERSION, PROBE_REFERENCE_WIDTH, headroomTarget, liveHeadroom,
   probeGate, billNight, nightSpentMs, nightBudgetMs, nightWindow, probeHasFreshWork,

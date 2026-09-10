@@ -288,18 +288,82 @@ have is not cleanliness — it is a denoised or generation-lossed source, and th
 BPP+ structurally cannot see (it would actually *raise* the score, since a denoised copy measures as
 easy content). Same machinery, opposite sign.
 
-## The caution
+### Detector grades, measured 2026-08-25
+
+`scripts/grade-detector.js`, split-half over per-clip readings, Spearman-Brown corrected:
+
+| detector | n | clips/film | split-half | Spearman-Brown | vs complexity | vs BPP+ |
+|---|---|---|---|---|---|---|
+| `blockMean` | 71 | 9.0 | 0.856 | **0.922** | −0.000 | +0.080 |
+| `blurMean` | 71 | 9.0 | 0.367 | 0.537 | −0.233 | −0.009 |
+| `cambi` | 247 | 8.0 | 0.643 | 0.782 | −0.208 | −0.347 |
+| complexity *(control)* | 256 | 17.7 | 0.915 | 0.955 | — | −0.365 |
+
+**`blockMean` is the most reliable artifact detector we have** — more reliable than CAMBI, which
+shipped — and it passes every degeneracy test that can currently be run.
+
+Two things stop that being a promotion:
+
+- **The luma test could not be run.** Only 2 of the 71 units carry a luma reading, because the
+  block/blur population (recently re-probed) and the banding population (the nightly backfill) are
+  still nearly disjoint. Luma is the precise axis `gShare` died on (−0.885). Incomplete until it runs.
+- **Reliability is necessary, not sufficient.** A detector of frame structure would grade just as
+  well — films differ consistently in edge content. The discriminating question is whether the
+  reading *moves* when bits are taken away, which only a ladder answers. `banding-ladder.js` now
+  chains `blockdetect`/`blurdetect` ahead of libvmaf so all three come off one decode.
+
+## The caution — and a blending rule that answers it
 
 Once several corrections exist they must not double-count. Reliability screens each detector
 individually; **independence has to be checked pairwise**, or one underlying fault gets penalised
 three times over. Blocking, blur and banding all rise together under starvation, so they are very
-unlikely to be independent — the right treatment is probably one combined residual, not three
-additive shifts.
+unlikely to be independent.
+
+Brennan, 2026-08-25, agreeing that winner-takes-it is the right shape but leaving the formula open:
+> "each of these artifact detectors adjust/scale/dial the bpp+ #, but how they do it, the blending
+> formula we use is up for discussion. Cause yeah some will correlate"
+
+**Proposal: do not blend the residuals. Blend their bit-equivalents.**
+
+Each artifact gives, from the film's own ladder, a level `L` at the operating point and a slope `S`.
+Ask one question, in bits:
+
+```
+m = (T / L)^(1/S)      "how much bitrate would bring this artifact to its visibility threshold"
+```
+
+Then combine as **`m = max` over artifacts**, because the bits have to clear *every* one.
+
+Three properties fall out, and they are the reason to prefer this over a weighted sum:
+
+1. **Correlation becomes harmless.** If blocking and banding both demand 1.4×, the answer is 1.4×,
+   not 1.96×. Correlated detectors *cannot* double-count under a max. That is the caution above,
+   answered structurally rather than by tuning weights.
+2. **Bidirectional for free.** All artifacts below threshold → `m < 1` → the file has more bits than
+   it needs → BPP+ shifts *up*. No special case, which was Brennan's requirement from the start.
+3. **The units already match BPP+.** BPP+ is `sqrt(bpp/target)`, so a bitrate multiplier converts
+   directly — no invented constant, which is the thing this whole line of work has been stuck on.
+
+Measured on the six ladder films (banding only — blocking and blur have no calibrated threshold yet):
+
+```
+The Man Standing Next   L 6.042  S -1.30   needs 1.80x more bits
+Almost Famous           L 3.483  S -0.18   3.33x  <- but see the fragility below
+Swingers                L 8.911  S -0.22   175x   <- unreachable
+The Big Sleep           L 0.086  S -2.95   could run at 0.31x — banding not binding
+```
+
+**KNOWN FRAGILITY: small `|S|` makes `m` explode.** Almost Famous at −0.18 gives 3.33× and Swingers
+at −0.22 gives 175×; that gap is slope noise, not signal. So the rule needs a guard — below some
+`|S|`, classify as *baked-in / unreachable* rather than computing a number. Which is the honest
+reading anyway: a flat slope means bits will not fix it.
 
 ## Reproduce
 
 ```sh
+node scripts/grade-detector.js       # split-half grade for every detector, no labels needed
 node scripts/banding-correction.js   # reliability + precision-by-level
 node scripts/artifact-shift.js       # the self-calibrating shift, no free parameter
-node scripts/banding-ladder.js       # per-film slope: is one cross-film S enough?
+node scripts/banding-ladder.js       # per-film slopes for banding + blocking + blur, one decode
+node scripts/cvqad-calibrate.js      # the external test: does the residual predict subjective score
 ```

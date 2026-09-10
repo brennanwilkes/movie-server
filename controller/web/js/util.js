@@ -94,8 +94,23 @@ const qbarCls = (band) => (band ? ` qbar q-${band}` : '');
 // which is most of the library today and renders bare — marking a thousand films provisional would
 // make the mark meaningless.
 const BPP_RSE_LOOSE = 0.10;
-const bppSpan = (plus, band, basis, rse) => {
+// `hi` renders a RANGE — used for a TV series, where `plus` is the worst season and `hi` the best.
+// A show is not one file: Lost's seasons run 74 to 149, so any single figure for the show is a
+// fiction, and the mean is the worst kind because it hides the season worth acting on. Everything
+// else on the badge (colour, confidence marks, tooltip) describes the WORST season, which is the one
+// the reader is deciding about. Omitted or equal to `plus` renders exactly as before.
+const bppSpan = (plus, band, basis, rse, art, hi) => {
   if (plus == null) return '';
+  const ranged = hi != null && hi !== plus;
+  // NO ARTIFACT READING. The score is still valid — it is just the unadjusted one, missing the
+  // provenance term that every measured unit carries. Rendered ITALIC, the same channel already
+  // used for "estimated complexity", because to a reader both say the same thing: this number is
+  // built on less than the full picture. The tooltip distinguishes them; the styling does not need
+  // to, and a fourth visual channel would be one more than anyone can hold in their head.
+  //
+  // `art === undefined` means the PAYLOAD predates this field (an older cached verdict), which is
+  // not the same as "measured and absent". Those render exactly as they always did.
+  const noArt = art === null;
   const est = bppEstimated(basis);
   const meas = bppMeasured(basis);
   const loose = typeof rse === 'number' && rse > BPP_RSE_LOOSE;
@@ -110,11 +125,25 @@ const bppSpan = (plus, band, basis, rse) => {
   }
   // Neither class when basis is absent (an older cached verdict, or a payload predating the probe) —
   // the badge then renders exactly as it always did rather than claiming a confidence we do not have.
-  const cls = est ? ' est' : (meas ? ' meas' : '');
+  if (noArt) {
+    tip += '\n\nNO ARTIFACT READING (italic): the nightly artifact probe has not measured this file'
+      + ' yet, so the score carries no provenance adjustment — it is judged on bits and content'
+      + ' alone. Two files with the same bitrate and content can still differ in quality by a factor'
+      + ' of two, and that difference is what the adjustment captures.';
+  }
+  if (ranged) {
+    tip += `\n\nSEASON RANGE: this show's ${hi > plus ? 'measured seasons' : 'season'} score from`
+      + ` ${plus} (worst) to ${hi} (best). A series is not one file — the season is the unit that`
+      + ` gets graded, replaced and upgraded, and a single figure for the whole show hides the season`
+      + ` worth acting on. The colour and the marks above describe the WORST season. Open the Upgrade`
+      + ` tab to act on one season at a time.`;
+  }
+  const cls = `${est ? ' est' : (meas ? ' meas' : '')}${noArt ? ' noart' : ''}`;
   return `<span class="mbps ${band || ''}${cls}${loose ? ' prov' : ''}" title="${esc(tip)}"`
     + ` aria-label="${esc(BPP_WORD[band] || '')}${est ? ', estimated' : (meas ? ', measured' : '')}`
-    + `${loose ? ', provisional' : ''}">`
-    + `${plus}${loose ? '<sup class="prov-mark">*</sup>' : ''}<small>bpp+</small></span>`;
+    + `${loose ? ', provisional' : ''}${noArt ? ', no artifact reading' : ''}">`
+    + `${ranged ? `${plus}&ndash;${hi}` : plus}${loose ? '<sup class="prov-mark">*</sup>' : ''}`
+    + `<small>bpp+</small></span>`;
 };
 
 // ── AUDIO ────────────────────────────────────────────────────────────────────────────────────
@@ -182,4 +211,30 @@ function fmtDur(s) {
   if (s >= 86400) return `${Math.floor(s / 86400)}d ${Math.round((s % 86400) / 3600)}h`;
   if (s >= 3600) return `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m`;
   return `${Math.max(1, Math.round(s / 60))} min`;
+}
+
+// ── Source-tier badge ──
+// Moved here from library.js when the Library tab became the Quality tab; it is now shared.
+// "Bluray-1080p" → "Bluray", coloured by tier. NOTE sheets.js has a second, server-driven source
+// pill (r.srcRank) for release candidates — do not add a third.
+// Green / amber / red, and HDTV is RED: a broadcast capture is not a near-miss, it is the bottom
+// of the tier ladder alongside DVD and SD.
+const SRC_TIER = [[/remux/i, 'ok'], [/bluray|blu-ray|brrip|bdrip/i, 'ok'], [/web-?dl/i, 'ok'],
+  [/webrip/i, 'warn'], [/hdtv|dvd|sdtv|\bcam\b|telesync|tvrip/i, 'bad']];
+const srcTierLabel = (source) => String(source || '')
+  .replace(/-?(2160|1080|720|576|480)p/i, '').replace(/[-\s]+$/, '');
+const srcTierCls = (source) => {
+  if (!source) return '';
+  for (const [re, c] of SRC_TIER) if (re.test(source)) return c;
+  return '';
+};
+function srcBadge(source) {
+  if (!source) return '';
+  return `<span class="format ${srcTierCls(source)}">${esc(srcTierLabel(source))}</span>`;
+}
+// Audio badge — INFORMATION ONLY, deliberately uncoloured (see audioCls above).
+function audioBadge(codec, ch) {
+  if (!codec) return '';
+  const c = String(codec).toUpperCase();
+  return `<span class="format ${audioCls(c)}">${esc(ch ? `${c} ${ch}` : c)}</span>`;
 }

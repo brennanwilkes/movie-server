@@ -1,0 +1,57 @@
+{
+ "generated": 1787862623713,
+ "units": {
+  "mv:388": {
+   "title": "Casablanca (1943)",
+   "source": "Bluray-1080p",
+   "bpp": 0.4237,
+   "cxEff": 0.27853,
+   "bppPlus": 123,
+   "codec": "h264",
+   "n": 12,
+   "cambi": 0.01868,
+   "block": 1.29596,
+   "blur": 7.2658,
+   "grain": 1.0817
+  },
+  "tv:48:1": {
+   "title": "Better Call Saul S01",
+   "source": "Bluray-1080p Remux",
+   "bpp": 0.04736,
+   "cxEff": 0.05564,
+   "bppPlus": 92,
+   "codec": "h264",
+   "n": 12,
+   "cambi": 6.21941,
+   "block": 1.54544,
+   "blur": 7.34447,
+   "grain": 0.69877
+  },
+  "mv:130": {
+   "title": "E.T. the Extra-Terrestrial (1982)",
+   "source": "Bluray-720p",
+   "bpp": 0.14893,
+   "cxEff": 0.09801,
+   "bppPlus": 123,
+   "codec": "h264",
+   "n": 12,
+   "cambi": 2.90278,
+   "block": 1.81022,
+   "blur": 6.72551,
+   "grain": 0.92543
+  },
+  "mv:586": {
+   "title": "The Star Wars Holiday Special (1978)",
+   "source": "DVD",
+   "bpp": 0.1767,
+   "cxEff": 0.23003,
+   "bppPlus": 88,
+   "codec": "h264",
+   "n": 12,
+   "cambi": 0.93274,
+   "block": 1.30723,
+   "blur": 6.56757,
+   "grain": 0.9624
+  }
+ }
+}

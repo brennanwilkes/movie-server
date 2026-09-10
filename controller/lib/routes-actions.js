@@ -22,7 +22,7 @@ const {
   srcRank, REENC_RE, audioOf, refusedReason, scopeOf, SCOPE_LABEL, resOf, codecOf, TENBIT_RE,
   supersedes, editionRefusal, overResCeiling,
 } = require('./release-rules');
-const { videoLabel, gpuTier, bppOf, bppBand, bppIndex, bppBasis, bppRSE, arrTitle } = require('./arr-inspect');
+const { videoLabel, gpuTier, bppOf, bppBand, bppIndex, bppBasis, bppRSE, bppArtifact, arrTitle } = require('./arr-inspect');
 
 // The Library tab's quality figure. bpp, NOT Mbps — see the block comment above bppOf() in
 // arr-inspect.js for why raw Mbps is not comparable across this library (only 171 of 860 movies
@@ -40,15 +40,80 @@ const { videoLabel, gpuTier, bppOf, bppBand, bppIndex, bppBasis, bppRSE, arrTitl
 // the film is scored against its own measured complexity (2026-08-06 cutover); without it, against
 // the flat fallback exactly as before. Callers that know which title they are describing should pass
 // it — otherwise this endpoint reports a different BPP+ than the Audit tab does for the same file.
+// MediaInfo's exact runtime in seconds, or 0. Same parser as probe.js and audit.js.
+function miSecs(mi) {
+  const rt = mi && mi.runTime;
+  if (!rt) return 0;
+  const p = String(rt).split(':').map(Number);
+  if (p.some((n) => !Number.isFinite(n))) return 0;
+  while (p.length < 3) p.unshift(0);
+  return p[0] * 3600 + p[1] * 60 + p[2];
+}
+
 function bppFields(mi, sizeBytes, runtimeMinutes, key) {
-  const fallback = (sizeBytes > 0 && runtimeMinutes > 0) ? (sizeBytes * 8) / (runtimeMinutes * 60) : null;
+  // *** THE DURATION MUST COME FROM THE SAME PLACE THE PROBE AND THE AUDIT TAB USE. ***
+  // This took *arr's `runtime`, which is INTEGER MINUTES, while probe.js and audit.js both parse
+  // MediaInfo's exact `runTime`. Measured on The Shawshank Redemption: Radarr says 142 min,
+  // MediaInfo says 142.6 — a 0.41% shorter duration, hence a 0.41% higher bitrate, hence bpp
+  // 0.14829 here against 0.14769 everywhere else, hence **BPP+ 89 on the Library tab and 88 on the
+  // Audit tab for the same file**. Small, but it is the same number disagreeing with itself, which
+  // is worse than being slightly wrong: a person checking one surface against the other cannot tell
+  // a real change from this.
+  // MediaInfo wins where it exists; *arr's minutes remain the fallback for a file with no mediaInfo.
+  const sec = miSecs(mi) || (runtimeMinutes > 0 ? runtimeMinutes * 60 : 0);
+  const fallback = (sizeBytes > 0 && sec > 0) ? (sizeBytes * 8) / sec : null;
   const bpp = bppOf(mi, fallback, key);
   // bppPlus is what the UI renders: raw bpp lives between 0.02 and 0.44 across the whole library,
   // so the differences that matter are in the third decimal. See bppIndex() in arr-inspect.js.
   // bppRSE is the relative error OF THE INDEX, or null when we cannot say. The client renders a
   // trailing "*" past a threshold and puts the figure in a tooltip; it is not shown otherwise.
   return { bpp, bppPlus: bppIndex(bpp, key), bppBand: bppBand(bpp, key), cxBasis: bppBasis(key),
-    bppRSE: bppRSE(key) };
+    bppRSE: bppRSE(key), bppArt: bppArtifact(key) };
+}
+
+// A SERIES IS NOT ONE FILE, AND bppFields CANNOT BE ASKED TO PRETEND IT IS.
+//
+// The old row passed the WHOLE SERIES' sizeOnDisk with ONE EPISODE'S mediaInfo. That was survivable
+// while the duration came from `s.runtime * episodeFileCount` — total bytes over total runtime is at
+// least dimensionally honest. Then bppFields learned to prefer MediaInfo's exact runTime over *arr's
+// integer minutes (the Shawshank 88-vs-89 fix, which was right for a MOVIE) and the series branch
+// silently began dividing the whole show's bytes by ONE EPISODE'S seconds. Measured 2026-08-30:
+// Lost read bpp 35.2 and BPP+ 1335 against a true per-season ~0.18 — every one of the 98 series rows
+// was inflated by roughly its episode count and painted 'wow'.
+//
+// The fix is not a better average. A season is the unit that gets graded, replaced and upgraded, and
+// Lost's own seasons run 74 to 149 — a single number for the show is a fiction whichever way it is
+// computed, and the mean would hide exactly the season worth acting on. So the row reports the RANGE
+// across the show's measured seasons, and colours it by the WORST one, because the worst season is
+// what a person opening this row is deciding about.
+function seriesBpp(s, mi, sizeBytes, runtimeMinutes, seasons) {
+  const scored = (seasons || [])
+    .map((u) => ({ plus: bppIndex(u.bpp, u.key), u }))
+    .filter((x) => x.plus != null)
+    .sort((a, b) => a.plus - b.plus);
+  if (!scored.length) {
+    // Nothing probed for this show. Total bytes over TOTAL runtime — never one episode's — so the
+    // fallback is at least self-consistent, and bppBasis reports it as an estimate.
+    const sec = runtimeMinutes > 0 ? runtimeMinutes * 60 : 0;
+    const bpp = bppOf(mi, sec > 0 && sizeBytes > 0 ? (sizeBytes * 8) / sec : null, `tv:${s.id}`);
+    return { bpp, bppPlus: bppIndex(bpp, `tv:${s.id}`), bppBand: bppBand(bpp, `tv:${s.id}`),
+      cxBasis: bppBasis(`tv:${s.id}`), bppRSE: bppRSE(`tv:${s.id}`), bppArt: bppArtifact(`tv:${s.id}`),
+      bppPlusMax: null, bppSeasons: 0 };
+  }
+  const worst = scored[0];
+  const best = scored[scored.length - 1];
+  // Every per-row field is taken from the WORST season, so the badge's colour, its confidence
+  // marks and its tooltip all describe one real unit rather than a blend of several.
+  return {
+    bpp: worst.u.bpp,
+    bppPlus: worst.plus,
+    bppPlusMax: best.plus,
+    bppSeasons: scored.length,
+    bppBand: bppBand(worst.u.bpp, worst.u.key),
+    cxBasis: bppBasis(worst.u.key),
+    bppRSE: bppRSE(worst.u.key),
+    bppArt: bppArtifact(worst.u.key),
+  };
 }
 const {
   buildDeletePlan, planItems, executeDelete, buildDeletePlanFromHash,
@@ -140,6 +205,19 @@ app.get('/api/library', async (req, res) => {
         });
       } else {
         const seriesList = await arrGet('sonarr', '/series');
+        // THE PROBE'S OWN SEASON UNITS, fetched ONCE for the whole response (getUnits is cached for
+        // an hour inside probe.js, so this is not a per-series enumeration). These carry the exact
+        // per-season bpp the Audit and Upgrade tabs score off, which is what makes the Library row
+        // agree with them instead of inventing a parallel number. Absent (*arr down, nothing probed)
+        // degrades to the old whole-series estimate rather than blanking the column.
+        let seasonsBySeries = new Map();
+        try {
+          for (const u of await require('./probe').getUnits()) {
+            if (u.kind !== 'season' || u.bpp == null) continue;
+            if (!seasonsBySeries.has(u.id)) seasonsBySeries.set(u.id, []);
+            seasonsBySeries.get(u.id).push(u);
+          }
+        } catch { /* fall back to the series-level estimate below */ }
         let miBySeries = {};
         await Promise.allSettled(seriesList.filter((s) => s.statistics && s.statistics.episodeFileCount > 0).map(async (s) => {
           const efs = await arrGet('sonarr', `/episodefile?seriesId=${s.id}`, 5000);
@@ -158,7 +236,7 @@ app.get('/api/library', async (req, res) => {
           // measured 2026-08-18). complexityForKey() now aggregates the show's own measured seasons
           // (episode-weighted, all-or-nothing) and reports basis 'measured:series', which is strictly
           // more information than a global constant. See seriesComplexity() in probe.js.
-          ...bppFields(mi && mi.mi, sizeBytes, runtimeMinutes, `tv:${s.id}`) };
+          ...seriesBpp(s, mi && mi.mi, sizeBytes, runtimeMinutes, seasonsBySeries.get(s.id)) };
           if (!item.hasFile) {
             const qe = qByItemId[s.id];
             if (qe) {

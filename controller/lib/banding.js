@@ -87,6 +87,9 @@ let _last = null;
 let _child = null;
 let _session = null;
 let _units = [];
+// Keyed alongside the array: bandingClipsFor() is on the adequacy scoring path and is called per
+// row on an Audit render, so it cannot afford a .find() over ~1050 units per lookup.
+let _unitByKey = new Map();
 
 // ---- cache ------------------------------------------------------------------------------------
 function load() {
@@ -129,6 +132,10 @@ function stale(u) {
   const e = entryFor(u);
   if (!e || e.error) return false;
   if (e.measuredFrom !== fileId(firstFile(u))) return true;
+  // A season is two sampled episodes and this job only ever reads the first, so the test above
+  // cannot see a replacement of the second. probe.unitFingerprint covers both. Legacy entries have
+  // no unitFrom and keep the single-file test until their next visit writes one.
+  if (e.unitFrom && e.unitFrom !== probe.unitFingerprint(u)) return true;
   if ((e.v || 0) < VERSION) return true;
   return (e.samples || 0) < SAMPLES;
 }
@@ -192,7 +199,9 @@ async function bandingTick() {
     const manual = !!(_session && !_session.stopping);
     await refreshUnits(60 * 1000);
     // Same gate as the probe: window, night budget, Movie Mode, CPU temp, playback, Jellyfin.
-    const blocked = await probe.probeGate(manual);
+    // Pass our own name so the heavy lease does not block us from work we already hold it for, and
+    // so a probe encode in flight makes this return "yielding to the probe job" rather than silence.
+    const blocked = await probe.probeGate(manual, 'banding');
     if (blocked) { reportProgress({ detail: `${blocked} · ${pending().length} left` }); return; }
     // The probe wins whenever it has FRESH work — a never-measured or replaced unit. Its refinement
     // work does not outrank a unit that has never been measured at all.
@@ -212,6 +221,13 @@ async function bandingTick() {
     const u = queue[0];
     const f = firstFile(u);
 
+    // Take the heavy lease. probeGate() above already refused if the probe held it, but that check
+    // and this claim are separated by several awaits, so the claim has to be made properly here.
+    // Returning without measuring is correct: the next 60s tick will try again.
+    if (!probe.acquireHeavy('banding')) {
+      reportProgress({ detail: `yielding to the ${probe.heavyHolder()} job · ${queue.length} left` });
+      return;
+    }
     _busy = true;
     reportProgress({ detail: `measuring ${u.title}` });
     const t0 = Date.now();
@@ -221,6 +237,7 @@ async function bandingTick() {
     const visits = (prev && prev.measuredFrom === fileId(f) ? (prev.visits || 0) : 0);
     const r = await run(f.path, probe.phaseForVisit(visits));
     const wallMs = Date.now() - t0;
+    probe.releaseHeavy('banding');
     _busy = false;
     probe.billNight(wallMs);
 
@@ -243,7 +260,7 @@ async function bandingTick() {
       samplePos: Array.isArray(r.samplePos) ? r.samplePos : null,
       samples: r.samplesOk, seclen: r.seclen,
       visits: visits + 1,
-      wallMs, measuredFrom: fileId(f),
+      wallMs, measuredFrom: fileId(f), unitFrom: probe.unitFingerprint(u),
     });
     _dirty = true; save();
     _last = { title: u.title, cambiMean: r.cambiMean, secs: Math.round(wallMs / 1000), ts: Date.now() };
@@ -255,7 +272,14 @@ async function bandingTick() {
     reportProgress();
   } catch (e) {
     console.log(`banding: tick error — ${e.message}`);
-  } finally { _busy = false; _tickLock = false; }
+  } finally {
+    // BELT AND BRACES ON THE LEASE. The release after run() is the normal path, but run() sits
+    // behind several awaits that can throw, and a leaked lease would stall every heavy job until
+    // the 30-minute expiry reaped it. releaseHeavy ignores a call from a job that does not hold it,
+    // so this is safe to call unconditionally.
+    probe.releaseHeavy('banding');
+    _busy = false; _tickLock = false;
+  }
 }
 
 // ---- manual session ---------------------------------------------------------------------------
@@ -266,6 +290,9 @@ async function bandingTick() {
 function sessionStart() {
   _session = { started: Date.now(), stopping: false };
   console.log('banding: manual session started — schedule waived, safety gates still on');
+  // Paint the card from HERE, not from the tick — bandingTick() no-ops while `_tickLock` is held,
+  // which it is for the ~2 minutes a unit takes. See the same note in artifacts.js.
+  reportProgress();
   bandingTick();
   return _session;
 }
@@ -274,6 +301,10 @@ function sessionStop(why = 'stopped') {
   const s = { ..._session, stopped: Date.now(), why };
   _session = null;
   kill(why);
+  // Push the card immediately rather than waiting for the next 60s tick — the whole complaint about
+  // Stop was that it appeared to do nothing, and a minute of stale buttons is indistinguishable
+  // from a dropped click.
+  reportProgress();
   console.log(`banding: manual session stopped — ${why}`);
   return s;
 }
@@ -287,7 +318,11 @@ const sessionLive = () => !!(_session && !_session.stopping);
 let _unitsAt = 0;
 async function refreshUnits(maxAgeMs = 10 * 60 * 1000) {
   if (_units.length && Date.now() - _unitsAt < maxAgeMs) return;
-  try { _units = await probe.getUnits(); _unitsAt = Date.now(); } catch { /* keep what we have */ }
+  try {
+    _units = await probe.getUnits();
+    _unitByKey = new Map(_units.map((u) => [u.key, u]));
+    _unitsAt = Date.now();
+  } catch { /* keep what we have */ }
 }
 
 // THE CONTRACT, which is easy to get wrong: stateFn is called SYNCHRONOUSLY by jobs.js and must
@@ -321,6 +356,12 @@ function reportProgress(extra = {}) {
   jobs.report('banding', {
     detail,
     progress: total ? { done, total } : null,
+    // ACTIONS ARE STATE, NOT A FIXED LIST. Declaring both at define() time meant Stop was rendered
+    // whether or not a session existed, so pressing it did stop the session and then still offered
+    // Stop — the button never acknowledged the click, which reads as "the click was ignored".
+    // probe.js has always swapped its list here; this job and artifacts.js declared theirs once and
+    // never updated it. Reported on every tick, so the card corrects itself on the next poll.
+    actions: sessionLive() ? ['stop-session'] : ['start-session'],
     ...(extra.report || {}),
   });
 }
@@ -332,7 +373,13 @@ function bandingFor(key) {
   const e = cache.get(key);
   if (!e || e.error || e.cambiMean == null) return null;
   return { cambi: e.cambiMean, cambiMax: e.cambiMax, yavg: e.yavg,
-    bands: e.cambiMean >= BAND_HIGH, samples: e.samples, ts: e.ts };
+    bands: e.cambiMean >= BAND_HIGH, samples: e.samples, ts: e.ts,
+    // Per-clip readings and where they came from, for the lab's control-points plot. Read-only and
+    // NOT the adequacy path — that goes through bandingClipsFor(), which additionally refuses a
+    // reading whose file has been replaced. Displaying a stale reading is fine; scoring with one is
+    // not, and keeping the two entry points separate is what makes that distinction enforceable.
+    sampleCambi: Array.isArray(e.sampleCambi) ? e.sampleCambi : null,
+    samplePos: Array.isArray(e.samplePos) ? e.samplePos : null };
 }
 
 // ---- HTTP -------------------------------------------------------------------------------------
@@ -437,7 +484,10 @@ app.post('/api/banding/run', async (req, res) => {
   const key = String((req.body && req.body.key) || req.query.key || '');
   if (!toolReady()) return res.status(503).json({ error: 'libvmaf tool not installed' });
   if (_busy) return res.status(409).json({ error: 'already measuring' });
-  try { _units = await probe.getUnits(); } catch { /* keep the previous list */ }
+  try {
+    _units = await probe.getUnits();
+    _unitByKey = new Map(_units.map((u) => [u.key, u]));
+  } catch { /* keep the previous list */ }
   const u = _units.find((x) => x.key === key);
   if (!u) return res.status(404).json({ error: `no unit ${key}` });
   const f = firstFile(u);
@@ -470,6 +520,7 @@ function startBanding() {
     what: 'Measures banding — the artifact BPP+ cannot see',
     every: null,
     scheduleText: 'nightly, after the quality probe · shares its budget',
+    // swapped by reportProgress() as the session opens and closes — see the note there.
     pausedByMovieMode: true, actions: ['start-session'],
   }, bandingTick);
   jobs.report('banding', { stateFn: bandingState });
@@ -485,5 +536,26 @@ function startBanding() {
     + `, ${cache.size} measured, threshold ${BAND_HIGH}`);
 }
 
-module.exports = { startBanding, bandingFor, bandingTick, sessionStart, sessionStop, sessionLive,
+// PER-CLIP readings for the adequacy term. Deliberately separate from bandingFor(): that returns
+// the summary, and a summary is exactly what the adequacy term must not use — a mean hides the one
+// banded scene it needs to see.
+function bandingClipsFor(key) {
+  const e = cache.get(key);
+  if (!e || e.error || !Array.isArray(e.sampleCambi) || !e.sampleCambi.length) return null;
+  // SAME RULE AS artifactFor(): a reading of a file we no longer hold must not move a score. These
+  // clips are the adequacy term's only evidence, and adequacy is the one term that can RAISE a
+  // score — so a replaced copy's clean clips would hand the new file credit it never earned.
+  // Returning null degrades to no adequacy shift, which is the correct answer for "we have not
+  // measured this file yet", and the nightly re-measure fills it back in.
+  const u = _unitByKey.get(key);
+  if (u && stale(u)) return null;
+  return e.sampleCambi;
+}
+
+// Units with no valid banding reading for the file on disk. Read by probe.js so its refinement
+// cannot hold the night window while this backfill still has real work — see backfillPending().
+const pendingCount = () => pending().length;
+
+module.exports = { startBanding, bandingFor, bandingClipsFor, bandingTick, pendingCount,
+  sessionStart, sessionStop, sessionLive,
   bandingCache: cache, BAND_HIGH };

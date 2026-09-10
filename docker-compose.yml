@@ -229,6 +229,23 @@ services:
       # empty, so a fresh box explains itself instead of failing silently. :ro because nothing
       # should ever write here.
       - ./tools:/tools:ro
+      # The repo's research data, read-only. Needed by POST /api/artifacts/import, which seeds the
+      # artifact cache from data/artifact-backfill.json — 1048 units already measured offline with
+      # the identical recipe. Without this the nightly job would spend weeks of night budget
+      # reproducing numbers we already hold. :ro because the controller must never write here; the
+      # research scripts on the host own this directory.
+      - ./data:/app/data:ro
+      # Jellyfin's RESIZED-IMAGE CACHE, read-write, for one job: deleting zero-byte entries.
+      #
+      # Jellyfin sometimes leaves a 0-byte file behind when generating a thumbnail, then serves it
+      # forever as "200 OK, Content-Type: image/jpeg, Content-Length: 0" — because the file
+      # existing is all it checks. Clients cannot recover: BitmapFactory returns null and the card
+      # stays black. That is the black-poster bug (2026-09-07: 49 of 955 movie posters affected,
+      # 157 dead cache files). The originals were all intact — only the cache was broken.
+      #
+      # Scoped to cache/images, not all of /config, so this can only ever touch regenerable
+      # thumbnails — never Jellyfin's database, settings or metadata. See lib/jf-image-cache.js.
+      - ${CONFIG}/jellyfin/cache/images:/jf-image-cache
     # Published on :80 so the dashboard has a clean, no-port URL (http://<hostname>),
     # plus :8088 kept for compatibility / direct access.
     ports: ["0.0.0.0:80:${CONTROLLER_PORT:-8088}", "0.0.0.0:${CONTROLLER_PORT:-8088}:${CONTROLLER_PORT:-8088}"]

@@ -1,0 +1,390 @@
+{
+ "generated": 1787779909644,
+ "levels": [
+  1,
+  0.7,
+  0.5
+ ],
+ "films": [
+  {
+   "key": "mv:490",
+   "title": "12 Angry Men (1957)",
+   "cxEff": 1.20615,
+   "rows": [
+    {
+     "name": "default",
+     "filter": "blockdetect",
+     "byLevel": [
+      1.322898666666667,
+      1.2702653333333334,
+      1.2480626333333333
+     ],
+     "swing": 1.059961761000296,
+     "mono": false
+    },
+    {
+     "name": "h264 4-8",
+     "filter": "blockdetect=period_min=4:period_max=8",
+     "byLevel": [
+      1.3143466333333336,
+      1.2464007333333333,
+      1.2172221
+     ],
+     "swing": 1.0797919568937613,
+     "mono": false
+    },
+    {
+     "name": "exact 8",
+     "filter": "blockdetect=period_min=8:period_max=8",
+     "byLevel": [
+      1.3143466333333336,
+      1.2440489000000001,
+      1.2096137999999999
+     ],
+     "swing": 1.0865836958319537,
+     "mono": false
+    },
+    {
+     "name": "exact 4",
+     "filter": "blockdetect=period_min=4:period_max=4",
+     "byLevel": [
+      1.2231514666666667,
+      1.1910762000000001,
+      1.1747696
+     ],
+     "swing": 1.0411841323325584,
+     "mono": false
+    },
+    {
+     "name": "wide 3-16",
+     "filter": "blockdetect=period_min=3:period_max=16",
+     "byLevel": [
+      1.3222593333333332,
+      1.2628405,
+      1.2377893666666668
+     ],
+     "swing": 1.0682426016424278,
+     "mono": false
+    },
+    {
+     "name": "blur default",
+     "filter": "blurdetect",
+     "byLevel": [
+      4.604372000000001,
+      4.718800866666666,
+      4.854754766666667
+     ],
+     "swing": 1.0543793522040934,
+     "mono": true
+    },
+    {
+     "name": "blur low thr",
+     "filter": "blurdetect=low=0.02:high=0.06",
+     "byLevel": [
+      3.6301166666666664,
+      3.7451689666666668,
+      3.8774431333333332
+     ],
+     "swing": 1.068131823127815,
+     "mono": true
+    },
+    {
+     "name": "blur radius 100",
+     "filter": "blurdetect=radius=100",
+     "byLevel": [
+      4.6043720666666665,
+      4.718800866666666,
+      4.8547552
+     ],
+     "swing": 1.0543794310511918,
+     "mono": true
+    }
+   ]
+  },
+  {
+   "key": "mv:122",
+   "title": "A Man Called Otto (2022)",
+   "cxEff": 0.11595,
+   "rows": [
+    {
+     "name": "default",
+     "filter": "blockdetect",
+     "byLevel": [
+      2.2429691,
+      2.5508995666666667,
+      2.6079234000000002
+     ],
+     "swing": 1.1627103556620555,
+     "mono": true
+    },
+    {
+     "name": "h264 4-8",
+     "filter": "blockdetect=period_min=4:period_max=8",
+     "byLevel": [
+      2.102135233333333,
+      2.251997766666667,
+      2.1058819
+     ],
+     "swing": 1.0712906243884692,
+     "mono": false
+    },
+    {
+     "name": "exact 8",
+     "filter": "blockdetect=period_min=8:period_max=8",
+     "byLevel": [
+      2.102135233333333,
+      2.251997766666667,
+      2.1058819
+     ],
+     "swing": 1.0712906243884692,
+     "mono": false
+    },
+    {
+     "name": "exact 4",
+     "filter": "blockdetect=period_min=4:period_max=4",
+     "byLevel": [
+      1.5919119333333336,
+      1.6487673999999999,
+      1.5382232
+     ],
+     "swing": 1.071864863304623,
+     "mono": false
+    },
+    {
+     "name": "wide 3-16",
+     "filter": "blockdetect=period_min=3:period_max=16",
+     "byLevel": [
+      2.2429691,
+      2.5508995666666667,
+      2.6079234000000002
+     ],
+     "swing": 1.1627103556620555,
+     "mono": true
+    },
+    {
+     "name": "blur default",
+     "filter": "blurdetect",
+     "byLevel": [
+      10.9700394,
+      11.086290133333334,
+      11.236329766666666
+     ],
+     "swing": 1.0242743309259825,
+     "mono": true
+    },
+    {
+     "name": "blur low thr",
+     "filter": "blurdetect=low=0.02:high=0.06",
+     "byLevel": [
+      10.4948883,
+      10.609208933333333,
+      10.901751333333332
+     ],
+     "swing": 1.0387677335578056,
+     "mono": true
+    },
+    {
+     "name": "blur radius 100",
+     "filter": "blurdetect=radius=100",
+     "byLevel": [
+      10.970106566666667,
+      11.086342533333331,
+      11.236450999999997
+     ],
+     "swing": 1.024279110846802,
+     "mono": true
+    }
+   ]
+  },
+  {
+   "key": "mv:198",
+   "title": "Forgetting Sarah Marshall (2008)",
+   "cxEff": 0.12283,
+   "rows": [
+    {
+     "name": "default",
+     "filter": "blockdetect",
+     "byLevel": [
+      1.5808081333333333,
+      1.7398459,
+      1.8621673333333335
+     ],
+     "swing": 1.1779844081436492,
+     "mono": true
+    },
+    {
+     "name": "h264 4-8",
+     "filter": "blockdetect=period_min=4:period_max=8",
+     "byLevel": [
+      1.4747333333333332,
+      1.5427419666666669,
+      1.5606837333333334
+     ],
+     "swing": 1.0582819944848787,
+     "mono": true
+    },
+    {
+     "name": "exact 8",
+     "filter": "blockdetect=period_min=8:period_max=8",
+     "byLevel": [
+      1.4747333333333332,
+      1.5427419666666669,
+      1.5606837333333334
+     ],
+     "swing": 1.0582819944848787,
+     "mono": true
+    },
+    {
+     "name": "exact 4",
+     "filter": "blockdetect=period_min=4:period_max=4",
+     "byLevel": [
+      1.2694686333333334,
+      1.2814559333333333,
+      1.2657356
+     ],
+     "swing": 1.0124199187676584,
+     "mono": false
+    },
+    {
+     "name": "wide 3-16",
+     "filter": "blockdetect=period_min=3:period_max=16",
+     "byLevel": [
+      1.5808081333333333,
+      1.7398459,
+      1.8621673333333335
+     ],
+     "swing": 1.1779844081436492,
+     "mono": true
+    },
+    {
+     "name": "blur default",
+     "filter": "blurdetect",
+     "byLevel": [
+      8.262745966666666,
+      8.391419666666666,
+      8.5706644
+     ],
+     "swing": 1.0372658719722874,
+     "mono": true
+    },
+    {
+     "name": "blur low thr",
+     "filter": "blurdetect=low=0.02:high=0.06",
+     "byLevel": [
+      7.967676566666666,
+      8.138582900000001,
+      8.333525100000001
+     ],
+     "swing": 1.045916589393687,
+     "mono": true
+    },
+    {
+     "name": "blur radius 100",
+     "filter": "blurdetect=radius=100",
+     "byLevel": [
+      8.262745966666666,
+      8.391429266666668,
+      8.5706645
+     ],
+     "swing": 1.0372658840748015,
+     "mono": true
+    }
+   ]
+  },
+  {
+   "key": "mv:577",
+   "title": "Arrival (2016)",
+   "cxEff": 0.03808,
+   "rows": [
+    {
+     "name": "default",
+     "filter": "blockdetect",
+     "byLevel": [
+      2.2441905666666666,
+      2.587075733333333,
+      2.8528747666666665
+     ],
+     "swing": 1.2712266101822576,
+     "mono": true
+    },
+    {
+     "name": "h264 4-8",
+     "filter": "blockdetect=period_min=4:period_max=8",
+     "byLevel": [
+      2.126627733333333,
+      2.4454821333333334,
+      2.5927621000000003
+     ],
+     "swing": 1.219189451618801,
+     "mono": true
+    },
+    {
+     "name": "exact 8",
+     "filter": "blockdetect=period_min=8:period_max=8",
+     "byLevel": [
+      2.126627733333333,
+      2.4454821333333334,
+      2.5927621000000003
+     ],
+     "swing": 1.219189451618801,
+     "mono": true
+    },
+    {
+     "name": "exact 4",
+     "filter": "blockdetect=period_min=4:period_max=4",
+     "byLevel": [
+      1.6471172,
+      1.7626799333333334,
+      1.8037453666666667
+     ],
+     "swing": 1.0950923022761627,
+     "mono": true
+    },
+    {
+     "name": "wide 3-16",
+     "filter": "blockdetect=period_min=3:period_max=16",
+     "byLevel": [
+      2.2441905666666666,
+      2.587075733333333,
+      2.8528747666666665
+     ],
+     "swing": 1.2712266101822576,
+     "mono": true
+    },
+    {
+     "name": "blur default",
+     "filter": "blurdetect",
+     "byLevel": [
+      6.939064833333333,
+      6.9714961,
+      7.0956519
+     ],
+     "swing": 1.0225660186822965,
+     "mono": true
+    },
+    {
+     "name": "blur low thr",
+     "filter": "blurdetect=low=0.02:high=0.06",
+     "byLevel": [
+      5.370472033333333,
+      5.458176333333333,
+      5.576051633333333
+     ],
+     "swing": 1.0382796146640394,
+     "mono": true
+    },
+    {
+     "name": "blur radius 100",
+     "filter": "blurdetect=radius=100",
+     "byLevel": [
+      6.939064833333333,
+      6.9714961,
+      7.0956519
+     ],
+     "swing": 1.0225660186822965,
+     "mono": true
+    }
+   ]
+  }
+ ]
+}

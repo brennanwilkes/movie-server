@@ -574,6 +574,37 @@
 			'.mn-award-sundance .mn-award-mark,.mn-award-sundance .mn-award-title{color:#f26d3d;}' +
 			'.mn-award-win .mn-award-title,.mn-award-cannes .mn-award-title,' +
 			'.mn-award-sundance .mn-award-title{font-weight:600;}' +
+			// ── CREW ROW (a card row under Cast, see addCrewSection) ──
+			// Jellyfin's own card classes do the sizing and text treatment; these rules only cover
+			// what our cards do differently.
+			//
+			// The row scrolls with plain CSS overflow rather than Jellyfin's emby-scroller web
+			// component: that component is initialised over their own markup by their own code and
+			// does not adopt an injected section, so its scroll buttons would render dead.
+			'.mn-crew-section{margin-bottom:1.6em;}' +
+			'.mn-crew-items{display:flex;overflow-x:auto;gap:0;scrollbar-width:thin;' +
+			'-webkit-overflow-scrolling:touch;padding-bottom:.4em;}' +
+			'.mn-crew-card{flex:0 0 auto;text-decoration:none;color:inherit;}' +
+			// coveredImage normally gets its background from Jellyfin's lazy loader; ours is set
+			// inline, so it just needs the sizing behaviour.
+			'.mn-crew-img{background-size:cover;background-position:center;background-repeat:no-repeat;}' +
+			// Most crew have no TMDB headshot (editors and designers especially), so the fallback
+			// is the common case and has to look deliberate rather than broken.
+			'.mn-crew-noimg{display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);}' +
+			'.mn-crew-noimg .cardImageIcon{font-size:3.2em;opacity:.5;}' +
+			'.mn-crew-role{opacity:.72;font-size:92%;}' +
+			// A card with no person page behind it: muted role as a standing hint, and no pointer
+			// cursor, so it never claims to be a link.
+			'.mn-crew-nolink{cursor:default;}' +
+			'.mn-crew-nolink .mn-crew-role{opacity:.38;}' +
+			// "Nothing here" on press. A shake, not a pulse — a pulse reads as "loading", which
+			// would be a lie.
+			'@keyframes mnCrewShake{0%,100%{transform:translateX(0);}' +
+			'20%{transform:translateX(-5px);}40%{transform:translateX(5px);}' +
+			'60%{transform:translateX(-3px);}80%{transform:translateX(3px);}}' +
+			'.mn-crew-shake{animation:mnCrewShake .28s ease-in-out;}' +
+			// Non-performers hidden out of Jellyfin's Cast row (they are in the Crew row instead).
+			'.mn-hidden-crew{display:none !important;}' +
 
 			// LABEL ON ITS OWN ROW ON MOBILE. Jellyfin lays a .detailsGroupItem out as a flex ROW
 			// whose .label reserves `flex-basis: 4.5em` — about 72px, roughly a fifth of a 390px
@@ -1673,6 +1704,11 @@
 				});
 			}
 			addAwardRows(id, item);
+			// Isolated: this shares a promise with the trailer wiring and the awards block above,
+			// so a throw in here would reject it, land in the error handler below, clear the guard
+			// and have the next scan() try the whole thing again — forever. The crew row is the
+			// least important thing on this page and must never cost the rest of it.
+			try { addCrewSection(id, item); } catch (e) { /* no crew row, page otherwise intact */ }
 		}, function () {
 			// Clear the guard so the next scan retries rather than leaving the page permanently
 			// undecorated after one transient failure.
@@ -1804,6 +1840,142 @@
 				g2.insertBefore(el, g2.firstChild);
 			})
 			.catch(function () { /* controller down — the page is simply awardless, never broken */ });
+	}
+
+	// ---- CREW ROW on the detail page -----------------------------------------------------------
+	// The heads of department — cinematographer, editor, composer, production and costume designer
+	// — alongside the director and writers, each with their Oscar record, as a ROW OF HEADSHOTS
+	// directly beneath Cast.
+	//
+	// It was first built as a text list inside the details group next to Awards. Wrong shape
+	// (Brennan, 2026-09-07: "should be a row of head shots below the 'Cast' row") — people belong
+	// in a card row, the way the cast already is; a stack of names reads like metadata, not people.
+	//
+	// WHY AN ENDPOINT AND NOT JELLYFIN'S OWN PEOPLE LIST: Jellyfin stores only Actor, Director and
+	// Writer. There is no cinematographer or editor anywhere in its data. The controller reads the
+	// real crew from TMDB and annotates it from the same Oscar table these plaques use
+	// (controller/lib/crew.js).
+	//
+	// The markup deliberately mirrors Jellyfin's own person card (.card.overflowPortraitCard
+	// .personCard > .cardBox > .cardScalable > .cardImageContainer, plus .cardText rows) so the
+	// row inherits the page's card sizing, hover and text treatment for free.
+	//
+	// One deliberate difference: these cards carry NO data-id. The generic flair decorator scans
+	// `.card[data-id]`, so leaving it off keeps it away from these cards entirely — no cleanup
+	// race over the plaque — and the plaque is inserted here instead, straight from the counts
+	// /api/crew already returned. The link target rides in data-mn-person instead.
+	// The Oscar badge for a crew card, in whichever form the CAST cards beside it are using.
+	//
+	// Desktop gets the full plaque. Mobile gets the compact corner pill (.mn-oscar-text), because
+	// that is what decorateItem gives a person card at this width — a crew card showing
+	// "1 OSCAR WIN / 3 NOMINATIONS" next to a cast card showing the pill looked like two different
+	// features. Wording follows the same hostW>=150 branch: these cards are ~170px on a phone.
+	//
+	// The trophy is written as a surrogate-pair ESCAPE, never a literal emoji: the JavaScript
+	// Injector plugin strips 4-byte UTF-8 from the script it serves.
+	function crewPlaqueHtml(c) {
+		if (c.oscarWins <= 0 && c.oscarNoms <= 0) return '';
+		if (!document.documentElement.classList.contains('layout-mobile')) {
+			return oscarPlaqueHtml(c.oscarWins, c.oscarNoms, 0, 0, '', '', false);
+		}
+		var text = c.oscarWins > 0
+			? '\uD83C\uDFC6 ' + c.oscarWins + ' win' + (c.oscarWins > 1 ? 's' : '')
+				+ (c.oscarNoms > 0 ? ' · ' + c.oscarNoms + ' nom' + (c.oscarNoms > 1 ? 's' : '') : '')
+			: '\uD83C\uDFC6 ' + c.oscarNoms + ' nom' + (c.oscarNoms > 1 ? 's' : '');
+		return '<div class="mn-oscar-text' + (c.oscarWins === 0 ? ' mn-oscar-silver' : '') + '">'
+			+ text + '</div>';
+	}
+
+	function crewCardHtml(c) {
+		var linked = !!c.personId;
+		var href = linked ? '#/details?id=' + encodeURIComponent(c.personId) : null;
+		var plaque = crewPlaqueHtml(c);
+		// background-image inline rather than Jellyfin's data-src + .lazy: their lazy loader is
+		// driven by their own observer over their own cards and does not adopt ours, so a .lazy
+		// card of mine would simply never load its image.
+		var img = c.image
+			? '<div class="cardImageContainer coveredImage cardContent mn-crew-img" style="background-image:url(\'' + encodeURI(c.image) + '\');">' + plaque + '</div>'
+			: '<div class="cardImageContainer coveredImage cardContent mn-crew-img mn-crew-noimg">'
+				+ '<span class="cardImageIcon material-icons person" aria-hidden="true"></span>' + plaque + '</div>';
+		var inner = '<div class="cardScalable"><div class="cardPadder cardPadder-overflowPortrait"></div>' + img + '</div>'
+			+ '<div class="cardText cardTextCentered cardText-first"><bdi>' + escHtml(c.name) + '</bdi></div>'
+			+ '<div class="cardText cardTextCentered mn-crew-role"><bdi>' + escHtml(c.role || '') + '</bdi></div>';
+		var cls = 'card overflowPortraitCard personCard mn-crew-card' + (linked ? ' card-hoverable' : ' mn-crew-nolink');
+		var open = linked
+			? '<a class="' + cls + '" href="' + href + '" data-mn-person="' + escHtml(c.personId) + '">'
+			: '<div class="' + cls + '" role="button" tabindex="0">';
+		var close = linked ? '</a>' : '</div>';
+		return open + '<div class="cardBox cardBox-bottompadded">' + inner + '</div>' + close;
+	}
+
+	function addCrewSection(id, item) {
+		var page = document.querySelector('.itemDetailPage:not(.hide)');
+		if (!page) return;
+		// Jellyfin's own people section. Everything here hangs off it, so without it there is
+		// nothing to do — release the guard so the next scan() retries once it has rendered.
+		var cast = page.querySelector('#castCollapsible');
+		if (!cast) { page.removeAttribute('data-mn-extras-id'); return; }
+
+		var pid = (item && item.ProviderIds) || {};
+		var tmdb = pid.Tmdb || pid.TMDB || '';
+		// Crew is a FILM concept; a Person page has no crew of its own.
+		if (!tmdb || (item && item.Type === 'Person')) return;
+
+		// Idempotent per item: the details page is reused across navigations, so a stale crew row
+		// from the previous film must be replaced rather than appended to.
+		var existing = page.querySelector('#mnCrewSection');
+		if (existing && existing.getAttribute('data-mn-crew-id') === id) return;
+		if (existing) existing.remove();
+
+		var base = controllerBase();
+		if (!base) return;
+
+		fetch(base + '/api/crew?tmdb=' + encodeURIComponent(tmdb))
+			.then(function (r) { return r.ok ? r.json() : null; })
+			.then(function (d) {
+				var crew = (d && d.crew) || [];
+				if (!crew.length) return;   // no crew data — no empty row
+				// Re-resolve: the fetch is async and the user may have navigated away.
+				var p2 = document.querySelector('.itemDetailPage:not(.hide)');
+				var cast2 = p2 && p2.querySelector('#castCollapsible');
+				if (!cast2 || itemIdFromHash() !== id) return;
+				if (p2.querySelector('#mnCrewSection[data-mn-crew-id="' + id + '"]')) return;
+
+				// CAST becomes performers only. Jellyfin's People mixes the director and writers in
+				// with the actors, so without this the same person appears in both rows — and once
+				// crewPeopleSweep has written every head of department into People, this row would
+				// hold the entire crew twice over. Cards are HIDDEN rather than removed: Jellyfin
+				// owns this DOM and re-renders it, and removing its nodes fights that.
+				var header = cast2.querySelector('#peopleHeader');
+				if (header) header.textContent = 'Cast';
+				cast2.querySelectorAll('.card[data-type]').forEach(function (card) {
+					var t = card.getAttribute('data-type');
+					card.classList.toggle('mn-hidden-crew', t !== 'Actor' && t !== 'GuestStar');
+				});
+
+				var sec = document.createElement('div');
+				sec.id = 'mnCrewSection';
+				sec.className = 'verticalSection detailVerticalSection mn-crew-section';
+				sec.setAttribute('data-mn-crew-id', id);
+				sec.innerHTML = '<h2 class="sectionTitle sectionTitle-cards padded-right">Crew</h2>'
+					+ '<div class="itemsContainer mn-crew-items">' + crew.map(crewCardHtml).join('') + '</div>';
+				// Directly after Cast: cast first because that is who you recognise, crew second
+				// because that is what you look one up for.
+				cast2.parentNode.insertBefore(sec, cast2.nextSibling);
+
+				// A crew member with no Jellyfin person record has no page to open. Rather than a
+				// dead press, shake the card — the same answer the Fire Stick gives.
+				sec.querySelectorAll('.mn-crew-nolink').forEach(function (card) {
+					card.addEventListener('click', function () {
+						card.classList.remove('mn-crew-shake');
+						// Reflow between remove and add, or re-adding the class in the same frame
+						// does not restart the animation.
+						void card.offsetWidth;
+						card.classList.add('mn-crew-shake');
+					});
+				});
+			})
+			.catch(function () { /* controller down — the page is simply crewless, never broken */ });
 	}
 
 	function itemIdFromHash() {

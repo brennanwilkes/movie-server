@@ -113,6 +113,22 @@ main { padding: 16px; display: grid; gap: 16px; }
    One caption line is always visible; the full reasoning hides behind "why?". Explanations are
    worth keeping but are reference material, so they must not cost vertical space by default. */
 .phead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+/* A control mounted in the panel header rather than in a toolbar of its own — pushed to the right
+   so the title stays the leftmost thing on the row. */
+.phead .head-ctl { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+/* Header controls are SECONDARY to the panel's content, so they take a compact size rather than the
+   form-field default — but they must all take the SAME one. `select` and `button.act` inherit their
+   padding and font from one shared rule, and sizing only the select (as this did) left an 11px
+   dropdown beside a 14px button. Set both, and pin an explicit height so the borders line up
+   exactly rather than merely landing close. */
+.phead .head-ctl select,
+.phead .head-ctl button.act {
+  font-size: 11px; line-height: 1; height: 24px; padding: 0 8px; border-radius: 5px;
+}
+/* A toggle that RELABELS itself ("sorted" <-> "timestamp") changes width as it is pressed, which
+   shifts everything beside it. Reserve the wider label's width once. */
+.phead .head-ctl button.act { min-width: 76px; }
+.phead .head-ctl button.act:disabled { opacity: 0.45; cursor: not-allowed; border-color: var(--line); }
 .phead h2 { margin: 0; }
 button.why {
   background: none; border: none; color: var(--dim); font: inherit; font-size: 11px;
@@ -188,6 +204,20 @@ button.why:hover, button.why.on { color: var(--accent); }
 }
 .chart { width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 250px);
          min-height: 280px; margin: 0 auto; display: block; }
+
+/* ---- blend page ---------------------------------------------------------------------------
+   Its scatter runs the full width of the panel at the viewBox's 7:3 ratio. It used to be locked
+   square — both axes are BPP+ on the same domain, so the identity diagonal read at 45° — but that
+   cost two thirds of a 1600px screen and squeezed every mover into one narrow column. The ratio
+   here must match the viewBox in views/blend.js or preserveAspectRatio letterboxes it. Still
+   capped on height so the page never scrolls past its own axes. */
+.blend-page .chart-wrap { display: grid; gap: 10px; }
+.blend-page .chart {
+  /* Height cap applied through the WIDTH, not max-height: clamping the height of an aspect-ratio
+     box leaves the width at 100% and preserveAspectRatio letterboxes the svg inside it. */
+  width: min(100%, calc((100vh - 300px) * 1120 / 480)); aspect-ratio: 1120 / 480;
+  height: auto; max-height: none; min-height: 0; margin: 0 auto;
+}
 
 svg { display: block; width: 100%; height: auto; overflow: visible; }
 .axis line, .axis path { stroke: var(--line); }
@@ -269,3 +299,116 @@ tbody tr:hover { background: var(--panel2); }
 /* ---- overview square 4: source-tier donut ---------------------------------------------------- */
 .pie { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .pie svg { width: 200px; height: 200px; }
+
+/* The film picker: a control row, not a panel. Sits tight above the two top tiles. */
+.film-pick { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.film-pick select { min-width: 320px; max-width: 46vw; }
+.film-pick .cap { margin: 0; }
+
+/* TABLE HEADERS MUST NOT WRAP. A two-line header on a one-line column steals a row of height from
+   every screen and makes the header band ragged; the column can simply be as wide as its name. */
+th { white-space: nowrap; }
+
+/* ---- the Table tab -----------------------------------------------------------------------------
+   THE PAGE SCROLLS, NOT THE TABLE. A scroll container inside the page gives you two scrollbars and
+   a viewport-sized window onto a 900-row table, which is worse than the page simply being long.
+   Dropping max-height/overflow also lets `position: sticky` headers work against the PAGE scroll,
+   which is what makes them useful.
+
+   AND IT MUST FIT SIDEWAYS. 30 columns with non-wrapping headers will overflow at any comfortable
+   font size, so this table gets its own tighter type and short header labels. Horizontal scrolling
+   a wide table is the thing being avoided — a smaller font is the cheaper trade. */
+.tbl-scroll { max-height: none; overflow: visible; }
+.tbl-scroll table { font-size: 11px; table-layout: auto; }
+.tbl-scroll th, .tbl-scroll td { padding: 3px 5px; }
+.tbl-scroll th { font-size: 10px; letter-spacing: .02em; }
+/* The title is the only unbounded-width column; cap it and ellipsise so it cannot push the numeric
+   columns off the right edge. The full title is still in the CSV and the row's own tooltip. */
+.tbl-scroll td:first-child {
+  max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tbl-scroll tbody tr { content-visibility: auto; contain-intrinsic-size: 22px; }
+
+/* The film page's top row: headline and artifacts side by side. Their natural heights differ, and
+   the grid stretches both to the taller one — which left the shorter one's numbers bunched against
+   its top edge with dead space below. Distribute the wrapped stat rows over the full height. */
+.film-top .panel { display: flex; flex-direction: column; }
+.film-top .pbody { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+/* A GRID, not a wrapped flex row. `.stat` is normally flex-wrap, which packs items left-to-right
+   and leaves a ragged last row; stretching that to fill a tall tile just turned the ragged gaps
+   into huge ones. A fixed-track grid gives aligned columns, and `grid-auto-rows: 1fr` makes the
+   rows share the leftover height equally instead of it pooling at the bottom (bunched) or between
+   two rows (the huge gaps). Each cell centres its own number so the result reads as a table of
+   figures rather than as text floating in space. */
+.film-top .pbody > .stat {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+  grid-auto-rows: minmax(46px, 1fr);
+  gap: 2px 16px;
+  align-content: stretch;
+}
+.film-top .pbody > .stat > div {
+  min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px;
+}
+
+/* "Nearest by" + its metric picker on one line, so the dropdown costs no vertical space. */
+.near-head { display: flex; align-items: baseline; gap: 10px; margin: 14px 0 6px; }
+.near-head h3 { margin: 0; }
+.near-head select { font-size: 11px; padding: 1px 4px; }
+
+/* ---- ARTIFACT BUDGET BARS -------------------------------------------------------------------
+   Replaces a level/threshold table. The reader was being asked to divide two 3-decimal numbers in
+   their head for four detectors, and "5.507 vs 2.817" (nearly double) reads the same in a column as
+   "7.004 vs 8.026" (just under). 100% is the VISIBILITY threshold and sits at the MIDDLE of the
+   track, not the end, because a real film goes past it — Finding Nemo bands at 195%. */
+.artbars { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.artbar { display: flex; align-items: center; gap: 8px; }
+.ab-label { flex: 0 0 74px; font-size: 11px; color: var(--dim); }
+.ab-track {
+  position: relative; flex: 1 1 auto; height: 12px; border-radius: 6px;
+  background: var(--panel2); overflow: hidden;
+}
+.ab-fill { position: absolute; inset: 0 auto 0 0; border-radius: 6px; transition: width .2s; }
+/* The threshold, drawn ON TOP of the fill so an over-threshold bar visibly crosses it. */
+.ab-mark { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--fg); opacity: .55; }
+.ab-pct { flex: 0 0 44px; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--dim); }
+.ab-pct.over { color: var(--bad); font-weight: 600; }
+.ab-raw {
+  flex: 0 0 108px; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--fg);
+}
+.ab-raw i { color: var(--dim); font-style: normal; }
+/* Mini indicators under a stat tile. Deliberately the SAME visual language as the artifact bars
+   above them — same track colour, same radius-to-height ratio, same threshold tick — just scaled to
+   tile width. Two bar idioms on one screen that look different read as two unrelated things. */
+/* The chart's summary numbers sit ABOVE the chart. Below it they hung off a variable-height svg and
+   drifted, which is what made the row look detached and pushed the panel past its neighbour. */
+/* EVEN COLUMNS, NOT A FLEX CLUMP. `.stat` is flex with a fixed gap, so five short numbers bunched
+   at the left of a wide panel and left a ragged void on the right. Equal grid columns spread them
+   across the full width whatever the count.
+   Vertical rhythm is symmetric on purpose: 12px below the numbers, then the rule, then 12px (2 here
+   + the .pbody grid's 10) before Nearest by — so the block is not visibly closer to one neighbour
+   than the other. */
+.plot-head.stat {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+  gap: 12px; margin: 0 0 12px;
+}
+.plot-head.stat > div { min-width: 0; }
+/* Spacing above it comes from .plot-head's margin, below from the .pbody grid gap. */
+.pbody hr { border: 0; border-top: 1px solid var(--line); margin: 0 0 2px; width: 100%; }
+/* The film picker occupies the Unit+Search slot on the Film tab.
+   FIXED WIDTH, AND NOTHING ELSE ON THE BAR CHANGES. The first version shrank the sliders, labels,
+   selects and reset button to force one line — so every control resized as you tabbed between pages
+   and the bar visibly reflowed on navigation, which is worse than the wrapping it was avoiding.
+   Only this one control differs now, sized to occupy exactly what the two it replaces did (Unit
+   block + gap + Search block), so the rest of the row lands on the same pixels as everywhere else. */
+.filters #film-pick {
+  flex: 0 0 424px; width: 424px; min-width: 0;
+  text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+}
+/* NO forced single line. `flex-wrap: nowrap` was added when the picker was oversized and shoving the
+   row about; at 424px it occupies LESS than the Unit+Search pair it replaced (~462px), so this bar
+   now wraps at exactly the same point as every other tab's and is no taller than theirs. Forcing one
+   line on top of that only produced a horizontal scrollbar with Samples cut off — trading a second
+   row nobody minded for an overflow everybody would. */

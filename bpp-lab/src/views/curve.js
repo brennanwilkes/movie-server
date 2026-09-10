@@ -74,6 +74,51 @@ const COLOURS = {
     of: (r, ex) => ramp((Math.log(Math.max(0.1, r.gb || 0.1)) - ex.lo) / (ex.hi - ex.lo)),
     legend: (ex) => [`small · ${fmt.n(Math.exp(ex.lo), 1)} GB`, `large · ${fmt.n(Math.exp(ex.hi), 1)} GB`],
   },
+  // ---- THE ARTIFACT TERM AS COLOUR (merged from the deleted Blend tab) ------------------------
+  // P is SIGNED and centred on the library, so it does NOT go on the blue->yellow ramp: a diverging
+  // scale is the honest one, because zero is a real midpoint (exactly as damaged as the bitrate
+  // predicts) rather than an arbitrary low end. Green = cleaner than predicted, red = more damaged.
+  prov: {
+    key: 'prov', label: 'provenance P',
+    scale: (rows) => {
+      const v = rows.map((r) => r.P).filter(Number.isFinite).map(Math.abs).sort((a, b) => a - b);
+      return { hi: v.length ? v[Math.floor(v.length * 0.95)] : 1 };
+    },
+    of: (r, ex) => {
+      if (r.P == null) return '#3a4048';
+      const t = Math.max(-1, Math.min(1, r.P / (ex.hi || 1)));
+      // Symmetric ramp through a neutral grey, so "near zero" reads as neutral rather than as a
+      // colour that happens to sit halfway between the extremes.
+      const c = t >= 0 ? [[136, 143, 152], [224, 87, 91]] : [[136, 143, 152], [78, 201, 138]];
+      const u = Math.abs(t);
+      return `rgb(${c[0].map((a, i) => Math.round(a + (c[1][i] - a) * u)).join(',')})`;
+    },
+    legend: (ex) => [`cleaner than predicted · −${fmt.n(ex.hi, 2)}`,
+      `more damaged · +${fmt.n(ex.hi, 2)}`, 'grey = not measured'],
+  },
+  // WHICH artifact dominates. Categorical, so no ramp at all — this is the "colour by which
+  // artifact drives it" view, and the thing it is for is spotting whether one detector owns a whole
+  // region of the supply curve (which would mean P is measuring position, not provenance).
+  drives: {
+    key: 'drives', label: 'dominant artifact',
+    scale: () => ({}),
+    of: (r) => DRIVE_COLOR[r.drives] || '#3a4048',
+    legend: () => Object.entries(DRIVE_COLOR).map(([k, v]) => `${k} · ${v}`),
+    swatches: () => Object.entries(DRIVE_COLOR).map(([k, v]) => [v, k]).concat([['#3a4048', 'not measured']]),
+  },
+  codec: {
+    key: 'codec', label: 'codec',
+    scale: () => ({}),
+    of: (r) => (r.codec === 'hevc' ? '#b18cf0' : r.codec === 'h264' ? '#4a9eda' : '#3a4048'),
+    legend: () => [],
+    swatches: () => [['#4a9eda', 'h264'], ['#b18cf0', 'hevc'], ['#3a4048', 'other']],
+  },
+};
+
+// One colour per detector, shared by the curve legend and the film page so "blur" is the same
+// colour everywhere. Deliberately not the BAND palette — these are categories, not verdicts.
+const DRIVE_COLOR = {
+  banding: '#e0575b', blocking: '#e8a33d', blur: '#4a9eda', 'grain kept': '#4ec98a',
 };
 
 const XAXES = {
@@ -107,16 +152,34 @@ const XAXES = {
     axisLabel: 'banding — CAMBI over 4 sampled clips (log) · higher = more visible stepping',
     fmt: (v) => fmt.n(v, 2),
   },
+  // PROVENANCE P AS THE X AXIS. The only LINEAR axis here, and it has to be: P is signed and
+  // centred on zero, so a log scale cannot represent it at all. `linear: true` is read by
+  // chartPanel when it builds the scale — do not remove it thinking the default is harmless.
+  prov: {
+    label: 'provenance P', get: (r) => r.P, linear: true,
+    has: (r) => r.P != null,
+    domain: (rows) => {
+      const v = rows.map((r) => r.P).filter(Number.isFinite).sort((a, b) => a - b);
+      if (!v.length) return [-1, 1];
+      const m = Math.max(Math.abs(v[0]), Math.abs(v[v.length - 1])) * 1.05;
+      return [-m, m];   // symmetric, so zero sits dead centre and the eye can read the sign
+    },
+    axisLabel: 'provenance P — damage relative to what bits and content predict · 0 = as predicted',
+    fmt: (v) => fmt.n(v, 1),
+  },
 };
 
-// The three overlays, in the order they stack on the chart (top to bottom).
+// The overlays, in the order they stack on the chart (top to bottom). The fourth is the artifact
+// shift: it redraws the SAME films at their artifact-adjusted score, so the whole cloud's movement
+// is visible at once rather than one film at a time in a table.
 const OVERLAYS = [
   { key: 'showFace', label: 'face value', color: 'var(--accent)' },
   { key: 'showAudio', label: 'audio', color: 'var(--ok)' },
   { key: 'showCut', label: 'correction', color: 'var(--warn)' },
+  { key: 'showArt', label: 'show BPP+₀', color: '#e0575b' },
 ];
 
-const ui = { colour: 'band', xAxis: 'supply', showFace: true, showAudio: true, showCut: true, showTrend: true, showSpread: false };
+const ui = { colour: 'band', xAxis: 'supply', showFace: true, showAudio: true, showCut: true, showTrend: true, showSpread: false, showArt: false, showErr: true };
 
 export default function curve(host) {
   host.appendChild(chartPanel(host));
@@ -147,7 +210,9 @@ function chartPanel(host) {
   const maxY = Math.min(300, Math.ceil(Math.max(...rows.map(naiveOf)) / 20) * 20);
   const c = plot({
     width: 900, height: 480, pad: { t: 16, r: 18, b: 42, l: 52 },
-    x: log(xdom[0], xdom[1]), y: linear(0, maxY),
+    // P is the one axis that must be linear — it is signed and centred on zero. Every other axis
+    // spans orders of magnitude and is log.
+    x: X.linear ? linear(xdom[0], xdom[1]) : log(xdom[0], xdom[1]), y: linear(0, maxY),
     xLabel: X.axisLabel, yLabel: 'BPP+',
   });
 
@@ -174,12 +239,19 @@ function chartPanel(host) {
 
   const def = COLOURS[ui.colour];
   const ex = def.scale ? def.scale(rows) : null;
+  // THE ARTIFACT SHIFT MOVES THE DOTS THEMSELVES. An earlier cut drew a hairline from each film's
+  // score to its adjusted score; at 900 films that is 900 more strokes and the cloud reads as
+  // hatching rather than as a distribution. Moving the points is what the toggle is FOR — you are
+  // asking to see the library as the artifact term sees it, not to see the two side by side.
+  // Unmeasured units do not move (scoreOf falls back to bppPlus), so they stay in place and the
+  // parts of the cloud that shift are exactly the parts that carry a reading.
+  const scoreOf = (r) => (ui.showArt && r.artState !== 'none' ? r.bppPlus0 : r.bppPlus);
   for (const r of rows) {
     const x = c.x(Math.min(xdom[1], Math.max(xdom[0], X.get(r))));
-    const y = c.y(Math.min(maxY, r.bppPlus));
-    if (r.cxRSE != null) {
+    const y = c.y(Math.min(maxY, scoreOf(r)));
+    if (ui.showErr && r.cxRSE != null) {
       c.g.appendChild(errBar(x, y, {
-        dy: Math.abs(c.y(r.bppPlus * (1 - r.cxRSE / 2)) - y), cap: 2,
+        dy: Math.abs(c.y(scoreOf(r) * (1 - r.cxRSE / 2)) - y), cap: 2,
       }));
     }
     const dot = el('circle', { class: 'dot', cx: x, cy: y, r: 2.6, fill: def.of(r, ex), opacity: 0.55 });
@@ -189,10 +261,17 @@ function chartPanel(host) {
       ['audio removed', Math.round(videoOf(r))],
       ['raw measurement', Math.round(rawOf(r))],
       ['score shown', r.bppPlus],
+      ...(ui.showArt ? [['plotted at', scoreOf(r)]] : []),
       ['banding', r.cambi == null ? 'not measured' : `${fmt.n(r.cambi, 2)}${r.bands ? ' — visible' : ''}`],
       ['starved-copy cut', r.biasFactor > 1 ? `+${Math.round((r.biasFactor - 1) * 100)}% harder` : 'none'],
       ['audio', r.audioShare != null ? fmt.pct(r.audioShare, 0) : '—'],
       ['complexity', fmt.n(r.cxEff, 4)],
+      // The artifact term, merged in from the deleted Blend tab. 'not measured' is spelled out
+      // rather than left blank — a missing P is a real state, not an absence of interest.
+      ['provenance P', r.P == null ? 'not measured' : fmt.n(r.P, 2)],
+      ['BPP+₀ (no provenance)', r.artState === 'none' ? '—' : `${r.bppPlus0} (${r.artDelta > 0 ? '+' : ''}${fmt.n(r.artDelta, 1)})`],
+      ['effective bits', r.artBits == null ? '—' : `×${fmt.n(r.artBits, 3)}`],
+      ['drives', r.drives || '—'],
     ]);
     const go = () => { sessionStorage.setItem('bpp-lab.film', r.key); location.hash = 'film'; };
     attachTip(dot, tip);
@@ -207,7 +286,7 @@ function chartPanel(host) {
     c.g.appendChild(hit);
   }
 
-  drawOverlays(c, binned(rows, X.get, xdom), rows, X, xdom, maxY);
+  drawOverlays(c, binned(rows, X.get, xdom, !!X.linear), rows, X, xdom, maxY);
   c.svg.classList.add('chart');
   p.body.appendChild(c.svg);
   return p;
@@ -294,11 +373,18 @@ function drawOverlays(c, bins, rows, X, xdom, maxY) {
 // uncertainty is cxRSE/2 (BPP+ ∝ cxEff^-1/2), so a film with a wide error bar counts less than a
 // pinned one. Today ~11 films have a cxRSE, so precision-weighting is near-inert; when every film
 // gains an error bar in the next backfill it becomes the whole point.
-function localFit(rows, get, xdom, bw = 0.8, n = 48) {
+// `isLinear` threads the axis's own space through, exactly as binned() does. On the signed P axis
+// Math.log() is NaN for half the domain, which would silently drop those films from the trend
+// rather than erroring — a trendline fitted on only the positive half, drawn as if it were all.
+function localFit(rows, get, xdom, isLinear = false, bw = 0.8, n = 48) {
+  const fwd = isLinear ? (v) => v : Math.log;
+  // The trend follows whatever the dots are showing — a trendline through unadjusted scores drawn
+  // over adjusted dots would be a line through data that is not on the chart.
+  const sc = (r) => (ui.showArt && r.artState !== 'none' ? r.bppPlus0 : r.bppPlus);
   const pts = rows
-    .map((r) => [Math.log(get(r)), r.bppPlus, r.cxRSE != null ? (r.bppPlus * r.cxRSE / 2) ** 2 : 0])
+    .map((r) => [fwd(get(r)), sc(r), r.cxRSE != null ? (sc(r) * r.cxRSE / 2) ** 2 : 0])
     .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
-  const lo = Math.log(xdom[0]); const hi = Math.log(xdom[1]);
+  const lo = fwd(xdom[0]); const hi = fwd(xdom[1]);
   const span = hi - lo;
   const out = [];
   for (let i = 0; i <= n; i += 1) {
@@ -344,13 +430,14 @@ function localFit(rows, get, xdom, bw = 0.8, n = 48) {
 }
 
 function drawTrend(c, rows, X, xdom, maxY) {
-  const fit = localFit(rows, X.get, xdom);
+  const fit = localFit(rows, X.get, xdom, !!X.linear);
+  const inv = X.linear ? (v) => v : Math.exp;
   if (fit.length < 3) return;
-  const line = fit.map((p) => [c.x(Math.exp(p.x)), c.y(Math.min(maxY, p.y))]);
+  const line = fit.map((p) => [c.x(inv(p.x)), c.y(Math.min(maxY, p.y))]);
   // ±2 SE ≈ the fit's ~95% confidence band — small, because the trend with hundreds of dots in every
   // window is very well pinned. This is the trend's OWN uncertainty, the honest thing to shade.
-  const seTop = fit.map((p) => [c.x(Math.exp(p.x)), c.y(Math.min(maxY, p.y + 2 * p.se))]);
-  const seBot = fit.map((p) => [c.x(Math.exp(p.x)), c.y(Math.min(maxY, Math.max(0, p.y - 2 * p.se)))]);
+  const seTop = fit.map((p) => [c.x(inv(p.x)), c.y(Math.min(maxY, p.y + 2 * p.se))]);
+  const seBot = fit.map((p) => [c.x(inv(p.x)), c.y(Math.min(maxY, Math.max(0, p.y - 2 * p.se)))]);
   c.g.appendChild(el('path', {
     d: `${path(seTop)}L${seBot.slice().reverse().map((q) => `${q[0].toFixed(2)},${q[1].toFixed(2)}`).join('L')}Z`,
     fill: 'var(--dim)', opacity: 0.10, stroke: 'none', 'pointer-events': 'none',
@@ -364,10 +451,11 @@ function drawTrend(c, rows, X, xdom, maxY) {
 // Deliberately separate from the trendline's own SE band — huge by construction and redundant with
 // the dots, so it defaults OFF and is labelled as spread, not uncertainty.
 function drawSpread(c, rows, X, xdom, maxY) {
-  const fit = localFit(rows, X.get, xdom);
+  const fit = localFit(rows, X.get, xdom, !!X.linear);
+  const inv = X.linear ? (v) => v : Math.exp;
   if (fit.length < 3) return;
-  const top = fit.map((p) => [c.x(Math.exp(p.x)), c.y(Math.min(maxY, p.y + p.sd))]);
-  const bot = fit.map((p) => [c.x(Math.exp(p.x)), c.y(Math.min(maxY, Math.max(0, p.y - p.sd)))]);
+  const top = fit.map((p) => [c.x(inv(p.x)), c.y(Math.min(maxY, p.y + p.sd))]);
+  const bot = fit.map((p) => [c.x(inv(p.x)), c.y(Math.min(maxY, Math.max(0, p.y - p.sd)))]);
   c.g.appendChild(el('path', {
     d: `${path(top)}L${bot.slice().reverse().map((q) => `${q[0].toFixed(2)},${q[1].toFixed(2)}`).join('L')}Z`,
     fill: 'var(--dim)', opacity: 0.13, stroke: 'none', 'pointer-events': 'none',
@@ -392,6 +480,10 @@ function controls(host, rows, p) {
   }
   bar.appendChild(switchToggle('trendline', ui.showTrend, { color: 'var(--fg)', onChange: (on) => { ui.showTrend = on; host.replaceChildren(); curve(host); } }));
   bar.appendChild(switchToggle('spread', ui.showSpread, { color: 'var(--dim)', onChange: (on) => { ui.showSpread = on; host.replaceChildren(); curve(host); } }));
+  // The per-dot complexity error bars. On by default because they are the honest width of each
+  // point, but they are the densest ink on the chart and the first thing to turn off when reading
+  // the SHAPE of the cloud rather than any individual film.
+  bar.appendChild(switchToggle('error bars', ui.showErr, { color: 'var(--warn)', title: 'per-film complexity error, halved for the square root', onChange: (on) => { ui.showErr = on; host.replaceChildren(); curve(host); } }));
   const sp = h('div', 'spacer');
   bar.appendChild(sp);
   bar.appendChild(h('span', 'meta', XAXES[ui.xAxis].has
@@ -441,8 +533,16 @@ function scaleLegend(def, rows) {
   if (def.key === 'band') {
     return legend(BANDS.map((b) => [b.color, b.label]));
   }
+  // CATEGORICAL colour modes (dominant artifact, codec) get swatches, not a gradient. A continuous
+  // bar under a set of unordered categories would imply an ordering that does not exist.
+  if (def.swatches) return legend(def.swatches());
   const ex = def.scale(rows);
-  return cbar(`linear-gradient(to right, ${ramp(0)}, ${ramp(1)})`, ...def.legend(ex));
+  // P is DIVERGING: green at one end, neutral grey in the middle, red at the other. Rendering it on
+  // the sequential blue->yellow ramp would hide the sign, which is the only thing P is read for.
+  const bg = def.key === 'prov'
+    ? 'linear-gradient(to right, rgb(78,201,138), rgb(136,143,152), rgb(224,87,91))'
+    : `linear-gradient(to right, ${ramp(0)}, ${ramp(1)})`;
+  return cbar(bg, ...def.legend(ex));
 }
 
 function cbar(bg, lo, hi) {
@@ -457,14 +557,18 @@ function cbar(bg, lo, hi) {
 
 // Binned medians along the log x axis. Bins under 4 films are dropped — a median of two is not a
 // summary, and a jagged edge reads as structure that is not there.
-function binned(rows, get, xdom) {
+function binned(rows, get, xdom, isLinear = false) {
   const BINS = 16;
-  const lo = Math.log(xdom[0]); const hi = Math.log(xdom[1]);
+  // THE P AXIS IS SIGNED, so Math.log(xdom[0]) is NaN on it and every bin edge would come out NaN —
+  // silently producing zero bins and an overlay that just vanishes. Bin in the axis's OWN space.
+  const fwd = isLinear ? (v) => v : Math.log;
+  const inv = isLinear ? (v) => v : Math.exp;
+  const lo = fwd(xdom[0]); const hi = fwd(xdom[1]);
   const med = (a) => { const v = [...a].sort((x, y) => x - y); return v[Math.floor(v.length / 2)]; };
   const out = [];
   for (let i = 0; i < BINS; i += 1) {
-    const a = Math.exp(lo + ((hi - lo) * i) / BINS);
-    const b = Math.exp(lo + ((hi - lo) * (i + 1)) / BINS);
+    const a = inv(lo + ((hi - lo) * i) / BINS);
+    const b = inv(lo + ((hi - lo) * (i + 1)) / BINS);
     const inBin = rows.filter((r) => { const x = get(r); return x >= a && x < b; });
     if (inBin.length < 4) continue;
     out.push({
@@ -472,7 +576,10 @@ function binned(rows, get, xdom) {
       naive: med(inBin.map(naiveOf)),
       video: med(inBin.map(videoOf)),
       raw: med(inBin.map(rawOf)),
-      shown: med(inBin.map((r) => r.bppPlus)),
+      // Follows the artifact toggle for the same reason the trendline does: the overlay bands are
+      // measured DOWN TO the score being plotted, so against shifted dots an unshifted floor would
+      // make the correction band the wrong height.
+      shown: med(inBin.map((r) => (ui.showArt && r.artState !== 'none' ? r.bppPlus0 : r.bppPlus))),
       n: inBin.length,
     });
   }

@@ -1,0 +1,2085 @@
+{
+ "generated": "vmaf-vs-mos",
+ "geometry": "both scaled to width 1920",
+ "units": {
+  "basketball-2021__fast__x264_500.mp4": {
+   "seq": "basketball-2021",
+   "file": "basketball-2021__fast__x264_500.mp4",
+   "cx": 0.21455,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 70.385235,
+   "vmafNeg": 68.625579
+  },
+  "basketball-2021__offline__x264_100.mp4": {
+   "seq": "basketball-2021",
+   "file": "basketball-2021__offline__x264_100.mp4",
+   "cx": 0.21455,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 8.435054,
+   "vmafNeg": 8.294804
+  },
+  "basketball-2021__offline__x264_4000.mp4": {
+   "seq": "basketball-2021",
+   "file": "basketball-2021__offline__x264_4000.mp4",
+   "cx": 0.21455,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 93.286305,
+   "vmafNeg": 91.379294
+  },
+  "basketball-2021__offline__x264_500.mp4": {
+   "seq": "basketball-2021",
+   "file": "basketball-2021__offline__x264_500.mp4",
+   "cx": 0.21455,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 70.525414,
+   "vmafNeg": 68.735075
+  },
+  "bike-show-2023__fast__x264_1500.mp4": {
+   "seq": "bike-show-2023",
+   "file": "bike-show-2023__fast__x264_1500.mp4",
+   "cx": 0.21256,
+   "srcW": 3840,
+   "srcH": 1620,
+   "vmaf": 51.048762,
+   "vmafNeg": 49.110356
+  },
+  "bike-show-2023__fast__x264_6000.mp4": {
+   "seq": "bike-show-2023",
+   "file": "bike-show-2023__fast__x264_6000.mp4",
+   "cx": 0.21256,
+   "srcW": 3840,
+   "srcH": 1620,
+   "vmaf": 68.948058,
+   "vmafNeg": 67.286985
+  },
+  "bike-show-2023__fast__x264_700.mp4": {
+   "seq": "bike-show-2023",
+   "file": "bike-show-2023__fast__x264_700.mp4",
+   "cx": 0.21256,
+   "srcW": 3840,
+   "srcH": 1620,
+   "vmaf": 29.536697,
+   "vmafNeg": 28.297525
+  },
+  "bike-show-2023__slow__x264_1500.mp4": {
+   "seq": "bike-show-2023",
+   "file": "bike-show-2023__slow__x264_1500.mp4",
+   "cx": 0.21256,
+   "srcW": 3840,
+   "srcH": 1620,
+   "vmaf": 46.954688,
+   "vmafNeg": 45.109284
+  },
+  "bike-show-2023__slow__x264_6000.mp4": {
+   "seq": "bike-show-2023",
+   "file": "bike-show-2023__slow__x264_6000.mp4",
+   "cx": 0.21256,
+   "srcW": 3840,
+   "srcH": 1620,
+   "vmaf": 68.672119,
+   "vmafNeg": 66.953102
+  },
+  "bike-show-2023__slow__x264_700.mp4": {
+   "seq": "bike-show-2023",
+   "file": "bike-show-2023__slow__x264_700.mp4",
+   "cx": 0.21256,
+   "srcW": 3840,
+   "srcH": 1620,
+   "vmaf": 22.530819,
+   "vmafNeg": 21.576963
+  },
+  "boxing-training-2023__fast__x264_1500.mp4": {
+   "seq": "boxing-training-2023",
+   "file": "boxing-training-2023__fast__x264_1500.mp4",
+   "cx": 0.10506,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 54.693377,
+   "vmafNeg": 52.418337
+  },
+  "boxing-training-2023__fast__x264_5000.mp4": {
+   "seq": "boxing-training-2023",
+   "file": "boxing-training-2023__fast__x264_5000.mp4",
+   "cx": 0.10506,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 56.872163,
+   "vmafNeg": 54.706915
+  },
+  "boxing-training-2023__fast__x264_700.mp4": {
+   "seq": "boxing-training-2023",
+   "file": "boxing-training-2023__fast__x264_700.mp4",
+   "cx": 0.10506,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 47.701885,
+   "vmafNeg": 45.296858
+  },
+  "boxing-training-2023__slow__x264_700.mp4": {
+   "seq": "boxing-training-2023",
+   "file": "boxing-training-2023__slow__x264_700.mp4",
+   "cx": 0.10506,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 46.96993,
+   "vmafNeg": 44.583796
+  },
+  "boys-ugc__offline__x264_41.mp4": {
+   "seq": "boys-ugc",
+   "file": "boys-ugc__offline__x264_41.mp4",
+   "cx": 0.43895,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 37.700275,
+   "vmafNeg": 34.979084
+  },
+  "canary-wharf-2022__fast__x264_2000.mp4": {
+   "seq": "canary-wharf-2022",
+   "file": "canary-wharf-2022__fast__x264_2000.mp4",
+   "cx": 0.64137,
+   "srcW": 2048,
+   "srcH": 1152,
+   "vmaf": 55.52422,
+   "vmafNeg": 52.974115
+  },
+  "canary-wharf-2022__fast__x264_400.mp4": {
+   "seq": "canary-wharf-2022",
+   "file": "canary-wharf-2022__fast__x264_400.mp4",
+   "cx": 0.64137,
+   "srcW": 2048,
+   "srcH": 1152,
+   "vmaf": 37.854192,
+   "vmafNeg": 35.836676
+  },
+  "canary-wharf-2022__fast__x264_8000.mp4": {
+   "seq": "canary-wharf-2022",
+   "file": "canary-wharf-2022__fast__x264_8000.mp4",
+   "cx": 0.64137,
+   "srcW": 2048,
+   "srcH": 1152,
+   "vmaf": 71.693504,
+   "vmafNeg": 69.174049
+  },
+  "canary-wharf-2022__medium__x264_2000.mp4": {
+   "seq": "canary-wharf-2022",
+   "file": "canary-wharf-2022__medium__x264_2000.mp4",
+   "cx": 0.64137,
+   "srcW": 2048,
+   "srcH": 1152,
+   "vmaf": 59.270244,
+   "vmafNeg": 57.223757
+  },
+  "canary-wharf-2022__medium__x264_400.mp4": {
+   "seq": "canary-wharf-2022",
+   "file": "canary-wharf-2022__medium__x264_400.mp4",
+   "cx": 0.64137,
+   "srcW": 2048,
+   "srcH": 1152,
+   "vmaf": 38.459675,
+   "vmafNeg": 37.186786
+  },
+  "canary-wharf-2022__medium__x264_8000.mp4": {
+   "seq": "canary-wharf-2022",
+   "file": "canary-wharf-2022__medium__x264_8000.mp4",
+   "cx": 0.64137,
+   "srcW": 2048,
+   "srcH": 1152,
+   "vmaf": 73.013247,
+   "vmafNeg": 70.893385
+  },
+  "canary-wharf-2022__slow__x264_2000.mp4": {
+   "seq": "canary-wharf-2022",
+   "file": "canary-wharf-2022__slow__x264_2000.mp4",
+   "cx": 0.64137,
+   "srcW": 2048,
+   "srcH": 1152,
+   "vmaf": 59.262771,
+   "vmafNeg": 57.231549
+  },
+  "canary-wharf-2022__slow__x264_400.mp4": {
+   "seq": "canary-wharf-2022",
+   "file": "canary-wharf-2022__slow__x264_400.mp4",
+   "cx": 0.64137,
+   "srcW": 2048,
+   "srcH": 1152,
+   "vmaf": 38.416637,
+   "vmafNeg": 37.103011
+  },
+  "canary-wharf-2022__slow__x264_8000.mp4": {
+   "seq": "canary-wharf-2022",
+   "file": "canary-wharf-2022__slow__x264_8000.mp4",
+   "cx": 0.64137,
+   "srcW": 2048,
+   "srcH": 1152,
+   "vmaf": 73.060801,
+   "vmafNeg": 70.93763
+  },
+  "children-walking-2022__fast__x264_1500.mp4": {
+   "seq": "children-walking-2022",
+   "file": "children-walking-2022__fast__x264_1500.mp4",
+   "cx": 0.41778,
+   "srcW": 1440,
+   "srcH": 1080,
+   "vmaf": 55.298911,
+   "vmafNeg": 53.390754
+  },
+  "children-walking-2022__fast__x264_400.mp4": {
+   "seq": "children-walking-2022",
+   "file": "children-walking-2022__fast__x264_400.mp4",
+   "cx": 0.41778,
+   "srcW": 1440,
+   "srcH": 1080,
+   "vmaf": 21.255901,
+   "vmafNeg": 21.040156
+  },
+  "children-walking-2022__fast__x264_8000.mp4": {
+   "seq": "children-walking-2022",
+   "file": "children-walking-2022__fast__x264_8000.mp4",
+   "cx": 0.41778,
+   "srcW": 1440,
+   "srcH": 1080,
+   "vmaf": 98.086379,
+   "vmafNeg": 96.456868
+  },
+  "children-walking-2022__medium__x264_1500.mp4": {
+   "seq": "children-walking-2022",
+   "file": "children-walking-2022__medium__x264_1500.mp4",
+   "cx": 0.41778,
+   "srcW": 1440,
+   "srcH": 1080,
+   "vmaf": 57.508607,
+   "vmafNeg": 56.095137
+  },
+  "children-walking-2022__medium__x264_400.mp4": {
+   "seq": "children-walking-2022",
+   "file": "children-walking-2022__medium__x264_400.mp4",
+   "cx": 0.41778,
+   "srcW": 1440,
+   "srcH": 1080,
+   "vmaf": 15.70145,
+   "vmafNeg": 15.685711
+  },
+  "children-walking-2022__medium__x264_8000.mp4": {
+   "seq": "children-walking-2022",
+   "file": "children-walking-2022__medium__x264_8000.mp4",
+   "cx": 0.41778,
+   "srcW": 1440,
+   "srcH": 1080,
+   "vmaf": 98.884482,
+   "vmafNeg": 97.780746
+  },
+  "children-walking-2022__slow__x264_1500.mp4": {
+   "seq": "children-walking-2022",
+   "file": "children-walking-2022__slow__x264_1500.mp4",
+   "cx": 0.41778,
+   "srcW": 1440,
+   "srcH": 1080,
+   "vmaf": 58.22126,
+   "vmafNeg": 56.770339
+  },
+  "children-walking-2022__slow__x264_400.mp4": {
+   "seq": "children-walking-2022",
+   "file": "children-walking-2022__slow__x264_400.mp4",
+   "cx": 0.41778,
+   "srcW": 1440,
+   "srcH": 1080,
+   "vmaf": 15.907043,
+   "vmafNeg": 15.891007
+  },
+  "children-walking-2022__slow__x264_8000.mp4": {
+   "seq": "children-walking-2022",
+   "file": "children-walking-2022__slow__x264_8000.mp4",
+   "cx": 0.41778,
+   "srcW": 1440,
+   "srcH": 1080,
+   "vmaf": 98.97486,
+   "vmafNeg": 97.89867
+  },
+  "chili-pepper-2021__fast__x264_1000.mp4": {
+   "seq": "chili-pepper-2021",
+   "file": "chili-pepper-2021__fast__x264_1000.mp4",
+   "cx": 0.12326,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 17.384188,
+   "vmafNeg": 16.755929
+  },
+  "chili-pepper-2021__fast__x264_2000.mp4": {
+   "seq": "chili-pepper-2021",
+   "file": "chili-pepper-2021__fast__x264_2000.mp4",
+   "cx": 0.12326,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 42.318194,
+   "vmafNeg": 40.994914
+  },
+  "chili-pepper-2021__fast__x264_4000.mp4": {
+   "seq": "chili-pepper-2021",
+   "file": "chili-pepper-2021__fast__x264_4000.mp4",
+   "cx": 0.12326,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 66.359698,
+   "vmafNeg": 64.668252
+  },
+  "chili-pepper-2021__offline__x264_1000.mp4": {
+   "seq": "chili-pepper-2021",
+   "file": "chili-pepper-2021__offline__x264_1000.mp4",
+   "cx": 0.12326,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 34.580937,
+   "vmafNeg": 33.678699
+  },
+  "chili-pepper-2021__offline__x264_2000.mp4": {
+   "seq": "chili-pepper-2021",
+   "file": "chili-pepper-2021__offline__x264_2000.mp4",
+   "cx": 0.12326,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 56.967216,
+   "vmafNeg": 55.692629
+  },
+  "chili-pepper-2021__offline__x264_4000.mp4": {
+   "seq": "chili-pepper-2021",
+   "file": "chili-pepper-2021__offline__x264_4000.mp4",
+   "cx": 0.12326,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 74.960678,
+   "vmafNeg": 73.460528
+  },
+  "christmas-cats-2021__fast__x264_1000.mp4": {
+   "seq": "christmas-cats-2021",
+   "file": "christmas-cats-2021__fast__x264_1000.mp4",
+   "cx": 2.17075,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 39.942254,
+   "vmafNeg": 38.85036
+  },
+  "christmas-cats-2021__fast__x264_12000.mp4": {
+   "seq": "christmas-cats-2021",
+   "file": "christmas-cats-2021__fast__x264_12000.mp4",
+   "cx": 2.17075,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 61.586266,
+   "vmafNeg": 60.130431
+  },
+  "christmas-cats-2021__fast__x264_4000.mp4": {
+   "seq": "christmas-cats-2021",
+   "file": "christmas-cats-2021__fast__x264_4000.mp4",
+   "cx": 2.17075,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 47.612038,
+   "vmafNeg": 46.383377
+  },
+  "christmas-cats-2021__offline__x264_1000.mp4": {
+   "seq": "christmas-cats-2021",
+   "file": "christmas-cats-2021__offline__x264_1000.mp4",
+   "cx": 2.17075,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 41.045924,
+   "vmafNeg": 39.960915
+  },
+  "christmas-cats-2021__offline__x264_12000.mp4": {
+   "seq": "christmas-cats-2021",
+   "file": "christmas-cats-2021__offline__x264_12000.mp4",
+   "cx": 2.17075,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 64.562484,
+   "vmafNeg": 62.998441
+  },
+  "christmas-cats-2021__offline__x264_4000.mp4": {
+   "seq": "christmas-cats-2021",
+   "file": "christmas-cats-2021__offline__x264_4000.mp4",
+   "cx": 2.17075,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 51.16728,
+   "vmafNeg": 49.882524
+  },
+  "cockatoo-2021__fast__x264_100.mp4": {
+   "seq": "cockatoo-2021",
+   "file": "cockatoo-2021__fast__x264_100.mp4",
+   "cx": 0.03285,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 29.132104,
+   "vmafNeg": 26.650554
+  },
+  "cockatoo-2021__fast__x264_2000.mp4": {
+   "seq": "cockatoo-2021",
+   "file": "cockatoo-2021__fast__x264_2000.mp4",
+   "cx": 0.03285,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 95.962559,
+   "vmafNeg": 94.743915
+  },
+  "cockatoo-2021__fast__x264_300.mp4": {
+   "seq": "cockatoo-2021",
+   "file": "cockatoo-2021__fast__x264_300.mp4",
+   "cx": 0.03285,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 76.85626,
+   "vmafNeg": 73.986187
+  },
+  "cockatoo-2021__offline__x264_100.mp4": {
+   "seq": "cockatoo-2021",
+   "file": "cockatoo-2021__offline__x264_100.mp4",
+   "cx": 0.03285,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 24.115285,
+   "vmafNeg": 20.702615
+  },
+  "cockatoo-2021__offline__x264_2000.mp4": {
+   "seq": "cockatoo-2021",
+   "file": "cockatoo-2021__offline__x264_2000.mp4",
+   "cx": 0.03285,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 96.191124,
+   "vmafNeg": 95.004006
+  },
+  "cockatoo-2021__offline__x264_300.mp4": {
+   "seq": "cockatoo-2021",
+   "file": "cockatoo-2021__offline__x264_300.mp4",
+   "cx": 0.03285,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 78.201269,
+   "vmafNeg": 75.386454
+  },
+  "country-rest-2023__fast__x264_2500.mp4": {
+   "seq": "country-rest-2023",
+   "file": "country-rest-2023__fast__x264_2500.mp4",
+   "cx": 0.17319,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 92.094783,
+   "vmafNeg": 89.877817
+  },
+  "country-rest-2023__fast__x264_6000.mp4": {
+   "seq": "country-rest-2023",
+   "file": "country-rest-2023__fast__x264_6000.mp4",
+   "cx": 0.17319,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 97.050029,
+   "vmafNeg": 95.563334
+  },
+  "country-rest-2023__fast__x264_700.mp4": {
+   "seq": "country-rest-2023",
+   "file": "country-rest-2023__fast__x264_700.mp4",
+   "cx": 0.17319,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 62.404444,
+   "vmafNeg": 59.652468
+  },
+  "country-rest-2023__slow__x264_2500.mp4": {
+   "seq": "country-rest-2023",
+   "file": "country-rest-2023__slow__x264_2500.mp4",
+   "cx": 0.17319,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 92.40301,
+   "vmafNeg": 90.092493
+  },
+  "country-rest-2023__slow__x264_6000.mp4": {
+   "seq": "country-rest-2023",
+   "file": "country-rest-2023__slow__x264_6000.mp4",
+   "cx": 0.17319,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 97.155274,
+   "vmafNeg": 95.654547
+  },
+  "country-rest-2023__slow__x264_700.mp4": {
+   "seq": "country-rest-2023",
+   "file": "country-rest-2023__slow__x264_700.mp4",
+   "cx": 0.17319,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 60.418869,
+   "vmafNeg": 57.455412
+  },
+  "crowd-run-2019__subjective__x264_1000.mp4": {
+   "seq": "crowd-run-2019",
+   "file": "crowd-run-2019__subjective__x264_1000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 10.333799,
+   "vmafNeg": 10.111411
+  },
+  "crowd-run-2019__subjective__x264_2000.mp4": {
+   "seq": "crowd-run-2019",
+   "file": "crowd-run-2019__subjective__x264_2000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 29.944193,
+   "vmafNeg": 29.254188
+  },
+  "crowd-run-2019__subjective__x264_4000.mp4": {
+   "seq": "crowd-run-2019",
+   "file": "crowd-run-2019__subjective__x264_4000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 54.90719,
+   "vmafNeg": 53.65278
+  },
+  "crowd-run-2020__fast__x264_33.mp4": {
+   "seq": "crowd-run-2020",
+   "file": "crowd-run-2020__fast__x264_33.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 55.306796,
+   "vmafNeg": 53.989308
+  },
+  "crowd-run-2020__fast__x264_38.mp4": {
+   "seq": "crowd-run-2020",
+   "file": "crowd-run-2020__fast__x264_38.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 27.879051,
+   "vmafNeg": 27.220506
+  },
+  "crowd-run-2020__fast__x264_42.mp4": {
+   "seq": "crowd-run-2020",
+   "file": "crowd-run-2020__fast__x264_42.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 10.615202,
+   "vmafNeg": 10.385847
+  },
+  "crowd-run-2020__offline__x264_33.mp4": {
+   "seq": "crowd-run-2020",
+   "file": "crowd-run-2020__offline__x264_33.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 54.584015,
+   "vmafNeg": 53.360839
+  },
+  "crowd-run-2020__offline__x264_38.mp4": {
+   "seq": "crowd-run-2020",
+   "file": "crowd-run-2020__offline__x264_38.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 26.768697,
+   "vmafNeg": 26.171814
+  },
+  "crowd-run-2020__offline__x264_42.mp4": {
+   "seq": "crowd-run-2020",
+   "file": "crowd-run-2020__offline__x264_42.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 10.596706,
+   "vmafNeg": 10.372234
+  },
+  "crowd-run-2021__fast__x264_1000.mp4": {
+   "seq": "crowd-run-2021",
+   "file": "crowd-run-2021__fast__x264_1000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 10.630699,
+   "vmafNeg": 10.40114
+  },
+  "crowd-run-2021__fast__x264_2000.mp4": {
+   "seq": "crowd-run-2021",
+   "file": "crowd-run-2021__fast__x264_2000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 29.639784,
+   "vmafNeg": 28.921972
+  },
+  "crowd-run-2021__fast__x264_4000.mp4": {
+   "seq": "crowd-run-2021",
+   "file": "crowd-run-2021__fast__x264_4000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 51.949944,
+   "vmafNeg": 50.69596
+  },
+  "crowd-run-2021__offline__x264_1000.mp4": {
+   "seq": "crowd-run-2021",
+   "file": "crowd-run-2021__offline__x264_1000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 8.903273,
+   "vmafNeg": 8.714061
+  },
+  "crowd-run-2021__offline__x264_2000.mp4": {
+   "seq": "crowd-run-2021",
+   "file": "crowd-run-2021__offline__x264_2000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 29.331784,
+   "vmafNeg": 28.662471
+  },
+  "crowd-run-2021__offline__x264_4000.mp4": {
+   "seq": "crowd-run-2021",
+   "file": "crowd-run-2021__offline__x264_4000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 53.311058,
+   "vmafNeg": 52.098741
+  },
+  "crowd-run-2023__fast__x264_2000.mp4": {
+   "seq": "crowd-run-2023",
+   "file": "crowd-run-2023__fast__x264_2000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 28.809187,
+   "vmafNeg": 27.848676
+  },
+  "crowd-run-2023__fast__x264_6000.mp4": {
+   "seq": "crowd-run-2023",
+   "file": "crowd-run-2023__fast__x264_6000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 62.427407,
+   "vmafNeg": 60.387341
+  },
+  "crowd-run-2023__fast__x264_700.mp4": {
+   "seq": "crowd-run-2023",
+   "file": "crowd-run-2023__fast__x264_700.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 6.979975,
+   "vmafNeg": 6.873805
+  },
+  "crowd-run-2023__slow__x264_2000.mp4": {
+   "seq": "crowd-run-2023",
+   "file": "crowd-run-2023__slow__x264_2000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 27.561009,
+   "vmafNeg": 26.628682
+  },
+  "crowd-run-2023__slow__x264_6000.mp4": {
+   "seq": "crowd-run-2023",
+   "file": "crowd-run-2023__slow__x264_6000.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 62.583176,
+   "vmafNeg": 60.344658
+  },
+  "crowd-run-2023__slow__x264_700.mp4": {
+   "seq": "crowd-run-2023",
+   "file": "crowd-run-2023__slow__x264_700.mp4",
+   "cx": 0.68857,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 6.278575,
+   "vmafNeg": 6.221861
+  },
+  "diy-mixer-2021__fast__x264_1000.mp4": {
+   "seq": "diy-mixer-2021",
+   "file": "diy-mixer-2021__fast__x264_1000.mp4",
+   "cx": 0.19656,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 77.414991,
+   "vmafNeg": 75.198053
+  },
+  "diy-mixer-2021__fast__x264_12000.mp4": {
+   "seq": "diy-mixer-2021",
+   "file": "diy-mixer-2021__fast__x264_12000.mp4",
+   "cx": 0.19656,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 96.628392,
+   "vmafNeg": 95.428722
+  },
+  "diy-mixer-2021__fast__x264_300.mp4": {
+   "seq": "diy-mixer-2021",
+   "file": "diy-mixer-2021__fast__x264_300.mp4",
+   "cx": 0.19656,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 34.122465,
+   "vmafNeg": 32.787818
+  },
+  "diy-mixer-2021__offline__x264_1000.mp4": {
+   "seq": "diy-mixer-2021",
+   "file": "diy-mixer-2021__offline__x264_1000.mp4",
+   "cx": 0.19656,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 79.335244,
+   "vmafNeg": 77.099709
+  },
+  "diy-mixer-2021__offline__x264_12000.mp4": {
+   "seq": "diy-mixer-2021",
+   "file": "diy-mixer-2021__offline__x264_12000.mp4",
+   "cx": 0.19656,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 96.935237,
+   "vmafNeg": 95.784795
+  },
+  "diy-mixer-2021__offline__x264_300.mp4": {
+   "seq": "diy-mixer-2021",
+   "file": "diy-mixer-2021__offline__x264_300.mp4",
+   "cx": 0.19656,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 33.27601,
+   "vmafNeg": 31.884709
+  },
+  "fantastic-movie-2023__fast__x264_1000.mp4": {
+   "seq": "fantastic-movie-2023",
+   "file": "fantastic-movie-2023__fast__x264_1000.mp4",
+   "cx": 0.15566,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 10.620949,
+   "vmafNeg": 9.036717
+  },
+  "fantastic-movie-2023__fast__x264_3000.mp4": {
+   "seq": "fantastic-movie-2023",
+   "file": "fantastic-movie-2023__fast__x264_3000.mp4",
+   "cx": 0.15566,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 12.444631,
+   "vmafNeg": 10.506714
+  },
+  "fantastic-movie-2023__fast__x264_8000.mp4": {
+   "seq": "fantastic-movie-2023",
+   "file": "fantastic-movie-2023__fast__x264_8000.mp4",
+   "cx": 0.15566,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 12.76511,
+   "vmafNeg": 10.744942
+  },
+  "fantastic-movie-2023__slow__x264_1000.mp4": {
+   "seq": "fantastic-movie-2023",
+   "file": "fantastic-movie-2023__slow__x264_1000.mp4",
+   "cx": 0.15566,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 10.402575,
+   "vmafNeg": 8.846571
+  },
+  "fantastic-movie-2023__slow__x264_3000.mp4": {
+   "seq": "fantastic-movie-2023",
+   "file": "fantastic-movie-2023__slow__x264_3000.mp4",
+   "cx": 0.15566,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 12.498617,
+   "vmafNeg": 10.530587
+  },
+  "fantastic-movie-2023__slow__x264_8000.mp4": {
+   "seq": "fantastic-movie-2023",
+   "file": "fantastic-movie-2023__slow__x264_8000.mp4",
+   "cx": 0.15566,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 12.794465,
+   "vmafNeg": 10.761598
+  },
+  "football-2023__fast__x264_10000.mp4": {
+   "seq": "football-2023",
+   "file": "football-2023__fast__x264_10000.mp4",
+   "cx": 0.31788,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 87.724047,
+   "vmafNeg": 85.362655
+  },
+  "football-2023__fast__x264_3000.mp4": {
+   "seq": "football-2023",
+   "file": "football-2023__fast__x264_3000.mp4",
+   "cx": 0.31788,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 84.222071,
+   "vmafNeg": 81.613536
+  },
+  "football-2023__fast__x264_700.mp4": {
+   "seq": "football-2023",
+   "file": "football-2023__fast__x264_700.mp4",
+   "cx": 0.31788,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 69.87579,
+   "vmafNeg": 67.05602
+  },
+  "football-2023__slow__x264_10000.mp4": {
+   "seq": "football-2023",
+   "file": "football-2023__slow__x264_10000.mp4",
+   "cx": 0.31788,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 87.736331,
+   "vmafNeg": 85.361611
+  },
+  "football-2023__slow__x264_3000.mp4": {
+   "seq": "football-2023",
+   "file": "football-2023__slow__x264_3000.mp4",
+   "cx": 0.31788,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 84.228167,
+   "vmafNeg": 81.581742
+  },
+  "football-2023__slow__x264_700.mp4": {
+   "seq": "football-2023",
+   "file": "football-2023__slow__x264_700.mp4",
+   "cx": 0.31788,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 68.4165,
+   "vmafNeg": 65.351146
+  },
+  "game-streamer-ugc__offline__x264_32.mp4": {
+   "seq": "game-streamer-ugc",
+   "file": "game-streamer-ugc__offline__x264_32.mp4",
+   "cx": 0.80381,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 79.39107,
+   "vmafNeg": 77.512369
+  },
+  "game-streamer-ugc__offline__x264_34.mp4": {
+   "seq": "game-streamer-ugc",
+   "file": "game-streamer-ugc__offline__x264_34.mp4",
+   "cx": 0.80381,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 74.91507,
+   "vmafNeg": 73.106459
+  },
+  "game-streamer-ugc__offline__x264_36.mp4": {
+   "seq": "game-streamer-ugc",
+   "file": "game-streamer-ugc__offline__x264_36.mp4",
+   "cx": 0.80381,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 70.71963,
+   "vmafNeg": 68.951106
+  },
+  "grain-2021__fast__x264_1000.mp4": {
+   "seq": "grain-2021",
+   "file": "grain-2021__fast__x264_1000.mp4",
+   "cx": 1.27678,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 56.355641,
+   "vmafNeg": 54.703388
+  },
+  "grain-2021__fast__x264_12000.mp4": {
+   "seq": "grain-2021",
+   "file": "grain-2021__fast__x264_12000.mp4",
+   "cx": 1.27678,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 78.929705,
+   "vmafNeg": 77.331136
+  },
+  "grain-2021__fast__x264_4000.mp4": {
+   "seq": "grain-2021",
+   "file": "grain-2021__fast__x264_4000.mp4",
+   "cx": 1.27678,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 68.082944,
+   "vmafNeg": 66.200477
+  },
+  "grain-2021__offline__x264_1000.mp4": {
+   "seq": "grain-2021",
+   "file": "grain-2021__offline__x264_1000.mp4",
+   "cx": 1.27678,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 58.080804,
+   "vmafNeg": 56.343797
+  },
+  "grain-2021__offline__x264_12000.mp4": {
+   "seq": "grain-2021",
+   "file": "grain-2021__offline__x264_12000.mp4",
+   "cx": 1.27678,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 78.487974,
+   "vmafNeg": 76.908424
+  },
+  "grain-2021__offline__x264_4000.mp4": {
+   "seq": "grain-2021",
+   "file": "grain-2021__offline__x264_4000.mp4",
+   "cx": 1.27678,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 68.638455,
+   "vmafNeg": 66.817666
+  },
+  "happy-dog-ugc__offline__x264_32.mp4": {
+   "seq": "happy-dog-ugc",
+   "file": "happy-dog-ugc__offline__x264_32.mp4",
+   "cx": 0.23519,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 70.844453,
+   "vmafNeg": 69.135632
+  },
+  "happy-dog-ugc__offline__x264_38.mp4": {
+   "seq": "happy-dog-ugc",
+   "file": "happy-dog-ugc__offline__x264_38.mp4",
+   "cx": 0.23519,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 47.882412,
+   "vmafNeg": 46.435512
+  },
+  "happy-dog-ugc__offline__x264_48.mp4": {
+   "seq": "happy-dog-ugc",
+   "file": "happy-dog-ugc__offline__x264_48.mp4",
+   "cx": 0.23519,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 19.344512,
+   "vmafNeg": 18.626056
+  },
+  "in-the-car-2022__fast__x264_12000.mp4": {
+   "seq": "in-the-car-2022",
+   "file": "in-the-car-2022__fast__x264_12000.mp4",
+   "cx": 0.20981,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 99.064006,
+   "vmafNeg": 98.612359
+  },
+  "in-the-car-2022__fast__x264_400.mp4": {
+   "seq": "in-the-car-2022",
+   "file": "in-the-car-2022__fast__x264_400.mp4",
+   "cx": 0.20981,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 46.705236,
+   "vmafNeg": 45.218185
+  },
+  "in-the-car-2022__fast__x264_4000.mp4": {
+   "seq": "in-the-car-2022",
+   "file": "in-the-car-2022__fast__x264_4000.mp4",
+   "cx": 0.20981,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 93.168986,
+   "vmafNeg": 91.248364
+  },
+  "in-the-car-2022__medium__x264_12000.mp4": {
+   "seq": "in-the-car-2022",
+   "file": "in-the-car-2022__medium__x264_12000.mp4",
+   "cx": 0.20981,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 99.033928,
+   "vmafNeg": 98.669114
+  },
+  "in-the-car-2022__medium__x264_400.mp4": {
+   "seq": "in-the-car-2022",
+   "file": "in-the-car-2022__medium__x264_400.mp4",
+   "cx": 0.20981,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 41.478136,
+   "vmafNeg": 40.495139
+  },
+  "in-the-car-2022__medium__x264_4000.mp4": {
+   "seq": "in-the-car-2022",
+   "file": "in-the-car-2022__medium__x264_4000.mp4",
+   "cx": 0.20981,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 94.301274,
+   "vmafNeg": 92.916866
+  },
+  "in-the-car-2022__slow__x264_12000.mp4": {
+   "seq": "in-the-car-2022",
+   "file": "in-the-car-2022__slow__x264_12000.mp4",
+   "cx": 0.20981,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 99.031961,
+   "vmafNeg": 98.670698
+  },
+  "in-the-car-2022__slow__x264_400.mp4": {
+   "seq": "in-the-car-2022",
+   "file": "in-the-car-2022__slow__x264_400.mp4",
+   "cx": 0.20981,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 41.544742,
+   "vmafNeg": 40.53713
+  },
+  "in-the-car-2022__slow__x264_4000.mp4": {
+   "seq": "in-the-car-2022",
+   "file": "in-the-car-2022__slow__x264_4000.mp4",
+   "cx": 0.20981,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 94.310722,
+   "vmafNeg": 92.924045
+  },
+  "in-to-tree-2023__fast__x264_2500.mp4": {
+   "seq": "in-to-tree-2023",
+   "file": "in-to-tree-2023__fast__x264_2500.mp4",
+   "cx": 0.4153,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 70.396025,
+   "vmafNeg": 67.459604
+  },
+  "in-to-tree-2023__fast__x264_6000.mp4": {
+   "seq": "in-to-tree-2023",
+   "file": "in-to-tree-2023__fast__x264_6000.mp4",
+   "cx": 0.4153,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 84.918102,
+   "vmafNeg": 81.93669
+  },
+  "in-to-tree-2023__fast__x264_700.mp4": {
+   "seq": "in-to-tree-2023",
+   "file": "in-to-tree-2023__fast__x264_700.mp4",
+   "cx": 0.4153,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 27.944179,
+   "vmafNeg": 26.996729
+  },
+  "in-to-tree-2023__slow__x264_2500.mp4": {
+   "seq": "in-to-tree-2023",
+   "file": "in-to-tree-2023__slow__x264_2500.mp4",
+   "cx": 0.4153,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 70.484287,
+   "vmafNeg": 67.202909
+  },
+  "in-to-tree-2023__slow__x264_6000.mp4": {
+   "seq": "in-to-tree-2023",
+   "file": "in-to-tree-2023__slow__x264_6000.mp4",
+   "cx": 0.4153,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 84.905609,
+   "vmafNeg": 81.695993
+  },
+  "in-to-tree-2023__slow__x264_700.mp4": {
+   "seq": "in-to-tree-2023",
+   "file": "in-to-tree-2023__slow__x264_700.mp4",
+   "cx": 0.4153,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 26.691776,
+   "vmafNeg": 25.651827
+  },
+  "lemonade-ads-2021__fast__x264_300.mp4": {
+   "seq": "lemonade-ads-2021",
+   "file": "lemonade-ads-2021__fast__x264_300.mp4",
+   "cx": 0.1109,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 28.067733,
+   "vmafNeg": 25.064348
+  },
+  "lemonade-ads-2021__fast__x264_800.mp4": {
+   "seq": "lemonade-ads-2021",
+   "file": "lemonade-ads-2021__fast__x264_800.mp4",
+   "cx": 0.1109,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 78.651024,
+   "vmafNeg": 75.601437
+  },
+  "lemonade-ads-2021__fast__x264_8000.mp4": {
+   "seq": "lemonade-ads-2021",
+   "file": "lemonade-ads-2021__fast__x264_8000.mp4",
+   "cx": 0.1109,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 99.27658,
+   "vmafNeg": 98.623858
+  },
+  "lemonade-ads-2021__offline__x264_300.mp4": {
+   "seq": "lemonade-ads-2021",
+   "file": "lemonade-ads-2021__offline__x264_300.mp4",
+   "cx": 0.1109,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 24.66723,
+   "vmafNeg": 22.153713
+  },
+  "lemonade-ads-2021__offline__x264_800.mp4": {
+   "seq": "lemonade-ads-2021",
+   "file": "lemonade-ads-2021__offline__x264_800.mp4",
+   "cx": 0.1109,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 80.23859,
+   "vmafNeg": 77.076104
+  },
+  "lemonade-ads-2021__offline__x264_8000.mp4": {
+   "seq": "lemonade-ads-2021",
+   "file": "lemonade-ads-2021__offline__x264_8000.mp4",
+   "cx": 0.1109,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 99.305299,
+   "vmafNeg": 98.61004
+  },
+  "light-show-ugc__offline__x264_26.mp4": {
+   "seq": "light-show-ugc",
+   "file": "light-show-ugc__offline__x264_26.mp4",
+   "cx": 0.20094,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 88.659184,
+   "vmafNeg": 86.576372
+  },
+  "light-show-ugc__offline__x264_31.mp4": {
+   "seq": "light-show-ugc",
+   "file": "light-show-ugc__offline__x264_31.mp4",
+   "cx": 0.20094,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 77.82987,
+   "vmafNeg": 75.366527
+  },
+  "light-show-ugc__offline__x264_38.mp4": {
+   "seq": "light-show-ugc",
+   "file": "light-show-ugc__offline__x264_38.mp4",
+   "cx": 0.20094,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 54.319697,
+   "vmafNeg": 51.883641
+  },
+  "making-alcohol-2019__subjective__x264_1000.mp4": {
+   "seq": "making-alcohol-2019",
+   "file": "making-alcohol-2019__subjective__x264_1000.mp4",
+   "cx": 0.14895,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 65.035087,
+   "vmafNeg": 63.291085
+  },
+  "making-alcohol-2019__subjective__x264_2000.mp4": {
+   "seq": "making-alcohol-2019",
+   "file": "making-alcohol-2019__subjective__x264_2000.mp4",
+   "cx": 0.14895,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 88.111838,
+   "vmafNeg": 86.16151
+  },
+  "making-alcohol-2019__subjective__x264_4000.mp4": {
+   "seq": "making-alcohol-2019",
+   "file": "making-alcohol-2019__subjective__x264_4000.mp4",
+   "cx": 0.14895,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 97.166672,
+   "vmafNeg": 95.898604
+  },
+  "mordor-gameplay-2021__fast__x264_1000.mp4": {
+   "seq": "mordor-gameplay-2021",
+   "file": "mordor-gameplay-2021__fast__x264_1000.mp4",
+   "cx": 1.3486,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 21.797202,
+   "vmafNeg": 21.499814
+  },
+  "mordor-gameplay-2021__fast__x264_12000.mp4": {
+   "seq": "mordor-gameplay-2021",
+   "file": "mordor-gameplay-2021__fast__x264_12000.mp4",
+   "cx": 1.3486,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 71.540847,
+   "vmafNeg": 69.947227
+  },
+  "mordor-gameplay-2021__fast__x264_4000.mp4": {
+   "seq": "mordor-gameplay-2021",
+   "file": "mordor-gameplay-2021__fast__x264_4000.mp4",
+   "cx": 1.3486,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 49.72967,
+   "vmafNeg": 48.579223
+  },
+  "mordor-gameplay-2021__offline__x264_1000.mp4": {
+   "seq": "mordor-gameplay-2021",
+   "file": "mordor-gameplay-2021__offline__x264_1000.mp4",
+   "cx": 1.3486,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 19.312177,
+   "vmafNeg": 19.065967
+  },
+  "mordor-gameplay-2021__offline__x264_12000.mp4": {
+   "seq": "mordor-gameplay-2021",
+   "file": "mordor-gameplay-2021__offline__x264_12000.mp4",
+   "cx": 1.3486,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 72.737411,
+   "vmafNeg": 71.125567
+  },
+  "mordor-gameplay-2021__offline__x264_4000.mp4": {
+   "seq": "mordor-gameplay-2021",
+   "file": "mordor-gameplay-2021__offline__x264_4000.mp4",
+   "cx": 1.3486,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 50.894673,
+   "vmafNeg": 49.726408
+  },
+  "motorcycles-2022__fast__x264_1500.mp4": {
+   "seq": "motorcycles-2022",
+   "file": "motorcycles-2022__fast__x264_1500.mp4",
+   "cx": 0.0989,
+   "srcW": 1920,
+   "srcH": 810,
+   "vmaf": 90.834674,
+   "vmafNeg": 88.349539
+  },
+  "motorcycles-2022__fast__x264_400.mp4": {
+   "seq": "motorcycles-2022",
+   "file": "motorcycles-2022__fast__x264_400.mp4",
+   "cx": 0.0989,
+   "srcW": 1920,
+   "srcH": 810,
+   "vmaf": 41.819476,
+   "vmafNeg": 39.354425
+  },
+  "motorcycles-2022__fast__x264_6000.mp4": {
+   "seq": "motorcycles-2022",
+   "file": "motorcycles-2022__fast__x264_6000.mp4",
+   "cx": 0.0989,
+   "srcW": 1920,
+   "srcH": 810,
+   "vmaf": 99.801945,
+   "vmafNeg": 99.465057
+  },
+  "motorcycles-2022__medium__x264_1500.mp4": {
+   "seq": "motorcycles-2022",
+   "file": "motorcycles-2022__medium__x264_1500.mp4",
+   "cx": 0.0989,
+   "srcW": 1920,
+   "srcH": 810,
+   "vmaf": 93.113912,
+   "vmafNeg": 91.211785
+  },
+  "motorcycles-2022__medium__x264_400.mp4": {
+   "seq": "motorcycles-2022",
+   "file": "motorcycles-2022__medium__x264_400.mp4",
+   "cx": 0.0989,
+   "srcW": 1920,
+   "srcH": 810,
+   "vmaf": 38.561914,
+   "vmafNeg": 36.487478
+  },
+  "motorcycles-2022__medium__x264_6000.mp4": {
+   "seq": "motorcycles-2022",
+   "file": "motorcycles-2022__medium__x264_6000.mp4",
+   "cx": 0.0989,
+   "srcW": 1920,
+   "srcH": 810,
+   "vmaf": 99.888586,
+   "vmafNeg": 99.760569
+  },
+  "motorcycles-2022__slow__x264_1500.mp4": {
+   "seq": "motorcycles-2022",
+   "file": "motorcycles-2022__slow__x264_1500.mp4",
+   "cx": 0.0989,
+   "srcW": 1920,
+   "srcH": 810,
+   "vmaf": 93.116154,
+   "vmafNeg": 91.205808
+  },
+  "motorcycles-2022__slow__x264_400.mp4": {
+   "seq": "motorcycles-2022",
+   "file": "motorcycles-2022__slow__x264_400.mp4",
+   "cx": 0.0989,
+   "srcW": 1920,
+   "srcH": 810,
+   "vmaf": 38.527343,
+   "vmafNeg": 36.507809
+  },
+  "motorcycles-2022__slow__x264_6000.mp4": {
+   "seq": "motorcycles-2022",
+   "file": "motorcycles-2022__slow__x264_6000.mp4",
+   "cx": 0.0989,
+   "srcW": 1920,
+   "srcH": 810,
+   "vmaf": 99.886779,
+   "vmafNeg": 99.754615
+  },
+  "mountain-dog-ugc__offline__x264_32.mp4": {
+   "seq": "mountain-dog-ugc",
+   "file": "mountain-dog-ugc__offline__x264_32.mp4",
+   "cx": 0.62814,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 61.12615,
+   "vmafNeg": 59.21276
+  },
+  "mountain-dog-ugc__offline__x264_34.mp4": {
+   "seq": "mountain-dog-ugc",
+   "file": "mountain-dog-ugc__offline__x264_34.mp4",
+   "cx": 0.62814,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 52.826161,
+   "vmafNeg": 51.064235
+  },
+  "mountain-dog-ugc__offline__x264_37.mp4": {
+   "seq": "mountain-dog-ugc",
+   "file": "mountain-dog-ugc__offline__x264_37.mp4",
+   "cx": 0.62814,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 42.412736,
+   "vmafNeg": 40.744285
+  },
+  "nfl-2021__fast__x264_2000.mp4": {
+   "seq": "nfl-2021",
+   "file": "nfl-2021__fast__x264_2000.mp4",
+   "cx": 0.19053,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 79.236679,
+   "vmafNeg": 76.768405
+  },
+  "nfl-2021__fast__x264_500.mp4": {
+   "seq": "nfl-2021",
+   "file": "nfl-2021__fast__x264_500.mp4",
+   "cx": 0.19053,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 15.400917,
+   "vmafNeg": 14.617202
+  },
+  "nfl-2021__fast__x264_8000.mp4": {
+   "seq": "nfl-2021",
+   "file": "nfl-2021__fast__x264_8000.mp4",
+   "cx": 0.19053,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 98.730117,
+   "vmafNeg": 97.843333
+  },
+  "nfl-2021__offline__x264_2000.mp4": {
+   "seq": "nfl-2021",
+   "file": "nfl-2021__offline__x264_2000.mp4",
+   "cx": 0.19053,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 81.61254,
+   "vmafNeg": 79.214846
+  },
+  "nfl-2021__offline__x264_500.mp4": {
+   "seq": "nfl-2021",
+   "file": "nfl-2021__offline__x264_500.mp4",
+   "cx": 0.19053,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 13.111035,
+   "vmafNeg": 12.493946
+  },
+  "nfl-2021__offline__x264_8000.mp4": {
+   "seq": "nfl-2021",
+   "file": "nfl-2021__offline__x264_8000.mp4",
+   "cx": 0.19053,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 99.10427,
+   "vmafNeg": 98.43294
+  },
+  "park-joy-2022__fast__x264_2000.mp4": {
+   "seq": "park-joy-2022",
+   "file": "park-joy-2022__fast__x264_2000.mp4",
+   "cx": 0.90411,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 35.422078,
+   "vmafNeg": 34.131445
+  },
+  "park-joy-2022__fast__x264_600.mp4": {
+   "seq": "park-joy-2022",
+   "file": "park-joy-2022__fast__x264_600.mp4",
+   "cx": 0.90411,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 8.90016,
+   "vmafNeg": 8.818103
+  },
+  "park-joy-2022__fast__x264_6000.mp4": {
+   "seq": "park-joy-2022",
+   "file": "park-joy-2022__fast__x264_6000.mp4",
+   "cx": 0.90411,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 63.916647,
+   "vmafNeg": 61.649906
+  },
+  "park-joy-2022__medium__x264_2000.mp4": {
+   "seq": "park-joy-2022",
+   "file": "park-joy-2022__medium__x264_2000.mp4",
+   "cx": 0.90411,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 35.824582,
+   "vmafNeg": 35.035923
+  },
+  "park-joy-2022__medium__x264_600.mp4": {
+   "seq": "park-joy-2022",
+   "file": "park-joy-2022__medium__x264_600.mp4",
+   "cx": 0.90411,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 4.895927,
+   "vmafNeg": 4.886298
+  },
+  "park-joy-2022__medium__x264_6000.mp4": {
+   "seq": "park-joy-2022",
+   "file": "park-joy-2022__medium__x264_6000.mp4",
+   "cx": 0.90411,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 65.996806,
+   "vmafNeg": 64.621836
+  },
+  "park-joy-2022__slow__x264_2000.mp4": {
+   "seq": "park-joy-2022",
+   "file": "park-joy-2022__slow__x264_2000.mp4",
+   "cx": 0.90411,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 35.827373,
+   "vmafNeg": 35.039642
+  },
+  "park-joy-2022__slow__x264_600.mp4": {
+   "seq": "park-joy-2022",
+   "file": "park-joy-2022__slow__x264_600.mp4",
+   "cx": 0.90411,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 5.252037,
+   "vmafNeg": 5.239933
+  },
+  "park-joy-2022__slow__x264_6000.mp4": {
+   "seq": "park-joy-2022",
+   "file": "park-joy-2022__slow__x264_6000.mp4",
+   "cx": 0.90411,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 65.968465,
+   "vmafNeg": 64.60737
+  },
+  "pool-underwater-ugc__offline__x264_35.mp4": {
+   "seq": "pool-underwater-ugc",
+   "file": "pool-underwater-ugc__offline__x264_35.mp4",
+   "cx": 0.93366,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 43.76073,
+   "vmafNeg": 42.179725
+  },
+  "pool-underwater-ugc__offline__x264_39.mp4": {
+   "seq": "pool-underwater-ugc",
+   "file": "pool-underwater-ugc__offline__x264_39.mp4",
+   "cx": 0.93366,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 20.696753,
+   "vmafNeg": 19.72907
+  },
+  "pool-underwater-ugc__offline__x264_42.mp4": {
+   "seq": "pool-underwater-ugc",
+   "file": "pool-underwater-ugc__offline__x264_42.mp4",
+   "cx": 0.93366,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 9.30255,
+   "vmafNeg": 8.712472
+  },
+  "shakerwalk-2021__fast__x264_2000.mp4": {
+   "seq": "shakerwalk-2021",
+   "file": "shakerwalk-2021__fast__x264_2000.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 60.270905,
+   "vmafNeg": 58.755504
+  },
+  "shakerwalk-2021__fast__x264_500.mp4": {
+   "seq": "shakerwalk-2021",
+   "file": "shakerwalk-2021__fast__x264_500.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 17.631035,
+   "vmafNeg": 17.509811
+  },
+  "shakerwalk-2021__fast__x264_8000.mp4": {
+   "seq": "shakerwalk-2021",
+   "file": "shakerwalk-2021__fast__x264_8000.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 89.396809,
+   "vmafNeg": 87.728102
+  },
+  "shakerwalk-2021__offline__x264_2000.mp4": {
+   "seq": "shakerwalk-2021",
+   "file": "shakerwalk-2021__offline__x264_2000.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 63.795163,
+   "vmafNeg": 62.296653
+  },
+  "shakerwalk-2021__offline__x264_500.mp4": {
+   "seq": "shakerwalk-2021",
+   "file": "shakerwalk-2021__offline__x264_500.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 16.263419,
+   "vmafNeg": 16.167053
+  },
+  "shakerwalk-2021__offline__x264_8000.mp4": {
+   "seq": "shakerwalk-2021",
+   "file": "shakerwalk-2021__offline__x264_8000.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 90.917612,
+   "vmafNeg": 89.384921
+  },
+  "shakewalk-2022__fast__x264_2000.mp4": {
+   "seq": "shakewalk-2022",
+   "file": "shakewalk-2022__fast__x264_2000.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 58.444509,
+   "vmafNeg": 56.471235
+  },
+  "shakewalk-2022__fast__x264_400.mp4": {
+   "seq": "shakewalk-2022",
+   "file": "shakewalk-2022__fast__x264_400.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 17.240844,
+   "vmafNeg": 17.139164
+  },
+  "shakewalk-2022__fast__x264_8000.mp4": {
+   "seq": "shakewalk-2022",
+   "file": "shakewalk-2022__fast__x264_8000.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 90.304293,
+   "vmafNeg": 88.026945
+  },
+  "shakewalk-2022__medium__x264_2000.mp4": {
+   "seq": "shakewalk-2022",
+   "file": "shakewalk-2022__medium__x264_2000.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 63.200257,
+   "vmafNeg": 61.729654
+  },
+  "shakewalk-2022__medium__x264_400.mp4": {
+   "seq": "shakewalk-2022",
+   "file": "shakewalk-2022__medium__x264_400.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 14.467691,
+   "vmafNeg": 14.448158
+  },
+  "shakewalk-2022__medium__x264_8000.mp4": {
+   "seq": "shakewalk-2022",
+   "file": "shakewalk-2022__medium__x264_8000.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 91.055398,
+   "vmafNeg": 89.497514
+  },
+  "shakewalk-2022__slow__x264_2000.mp4": {
+   "seq": "shakewalk-2022",
+   "file": "shakewalk-2022__slow__x264_2000.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 63.919846,
+   "vmafNeg": 62.452901
+  },
+  "shakewalk-2022__slow__x264_400.mp4": {
+   "seq": "shakewalk-2022",
+   "file": "shakewalk-2022__slow__x264_400.mp4",
+   "cx": 0.5976,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 14.609871,
+   "vmafNeg": 14.560378
+  },
+  "social-advertisment-2023__fast__x264_1500.mp4": {
+   "seq": "social-advertisment-2023",
+   "file": "social-advertisment-2023__fast__x264_1500.mp4",
+   "cx": 0.11011,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 83.073088,
+   "vmafNeg": 80.308647
+  },
+  "social-advertisment-2023__fast__x264_5000.mp4": {
+   "seq": "social-advertisment-2023",
+   "file": "social-advertisment-2023__fast__x264_5000.mp4",
+   "cx": 0.11011,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 99.435777,
+   "vmafNeg": 98.755508
+  },
+  "social-advertisment-2023__fast__x264_700.mp4": {
+   "seq": "social-advertisment-2023",
+   "file": "social-advertisment-2023__fast__x264_700.mp4",
+   "cx": 0.11011,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 50.300503,
+   "vmafNeg": 47.632266
+  },
+  "social-advertisment-2023__slow__x264_1500.mp4": {
+   "seq": "social-advertisment-2023",
+   "file": "social-advertisment-2023__slow__x264_1500.mp4",
+   "cx": 0.11011,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 81.897766,
+   "vmafNeg": 78.932738
+  },
+  "social-advertisment-2023__slow__x264_5000.mp4": {
+   "seq": "social-advertisment-2023",
+   "file": "social-advertisment-2023__slow__x264_5000.mp4",
+   "cx": 0.11011,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 99.350471,
+   "vmafNeg": 98.611804
+  },
+  "social-advertisment-2023__slow__x264_700.mp4": {
+   "seq": "social-advertisment-2023",
+   "file": "social-advertisment-2023__slow__x264_700.mp4",
+   "cx": 0.11011,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 47.999074,
+   "vmafNeg": 45.453478
+  },
+  "support-clip-2021__fast__x264_300.mp4": {
+   "seq": "support-clip-2021",
+   "file": "support-clip-2021__fast__x264_300.mp4",
+   "cx": 0.05172,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 79.281116,
+   "vmafNeg": 77.140535
+  },
+  "support-clip-2021__fast__x264_6000.mp4": {
+   "seq": "support-clip-2021",
+   "file": "support-clip-2021__fast__x264_6000.mp4",
+   "cx": 0.05172,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 97.824907,
+   "vmafNeg": 97.288728
+  },
+  "support-clip-2021__offline__x264_100.mp4": {
+   "seq": "support-clip-2021",
+   "file": "support-clip-2021__offline__x264_100.mp4",
+   "cx": 0.05172,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 20.347464,
+   "vmafNeg": 19.112338
+  },
+  "support-clip-2021__offline__x264_300.mp4": {
+   "seq": "support-clip-2021",
+   "file": "support-clip-2021__offline__x264_300.mp4",
+   "cx": 0.05172,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 77.527741,
+   "vmafNeg": 74.978504
+  },
+  "support-clip-2021__offline__x264_6000.mp4": {
+   "seq": "support-clip-2021",
+   "file": "support-clip-2021__offline__x264_6000.mp4",
+   "cx": 0.05172,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 97.936871,
+   "vmafNeg": 97.419813
+  },
+  "the-sky-ride-2022__fast__x264_2000.mp4": {
+   "seq": "the-sky-ride-2022",
+   "file": "the-sky-ride-2022__fast__x264_2000.mp4",
+   "cx": 0.08723,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 95.822446,
+   "vmafNeg": 93.737272
+  },
+  "the-sky-ride-2022__fast__x264_400.mp4": {
+   "seq": "the-sky-ride-2022",
+   "file": "the-sky-ride-2022__fast__x264_400.mp4",
+   "cx": 0.08723,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 74.157402,
+   "vmafNeg": 70.688154
+  },
+  "the-sky-ride-2022__fast__x264_8000.mp4": {
+   "seq": "the-sky-ride-2022",
+   "file": "the-sky-ride-2022__fast__x264_8000.mp4",
+   "cx": 0.08723,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 97.778242,
+   "vmafNeg": 96.482233
+  },
+  "the-sky-ride-2022__medium__x264_2000.mp4": {
+   "seq": "the-sky-ride-2022",
+   "file": "the-sky-ride-2022__medium__x264_2000.mp4",
+   "cx": 0.08723,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 95.901556,
+   "vmafNeg": 94.271109
+  },
+  "the-sky-ride-2022__medium__x264_400.mp4": {
+   "seq": "the-sky-ride-2022",
+   "file": "the-sky-ride-2022__medium__x264_400.mp4",
+   "cx": 0.08723,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 76.61055,
+   "vmafNeg": 73.662618
+  },
+  "the-sky-ride-2022__medium__x264_8000.mp4": {
+   "seq": "the-sky-ride-2022",
+   "file": "the-sky-ride-2022__medium__x264_8000.mp4",
+   "cx": 0.08723,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 97.989735,
+   "vmafNeg": 97.014618
+  },
+  "the-sky-ride-2022__slow__x264_2000.mp4": {
+   "seq": "the-sky-ride-2022",
+   "file": "the-sky-ride-2022__slow__x264_2000.mp4",
+   "cx": 0.08723,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 95.890302,
+   "vmafNeg": 94.274996
+  },
+  "the-sky-ride-2022__slow__x264_400.mp4": {
+   "seq": "the-sky-ride-2022",
+   "file": "the-sky-ride-2022__slow__x264_400.mp4",
+   "cx": 0.08723,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 76.640553,
+   "vmafNeg": 73.778837
+  },
+  "the-sky-ride-2022__slow__x264_8000.mp4": {
+   "seq": "the-sky-ride-2022",
+   "file": "the-sky-ride-2022__slow__x264_8000.mp4",
+   "cx": 0.08723,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 97.998272,
+   "vmafNeg": 97.024535
+  },
+  "tiktokers-2022__fast__x264_2000.mp4": {
+   "seq": "tiktokers-2022",
+   "file": "tiktokers-2022__fast__x264_2000.mp4",
+   "cx": 0.10049,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 93.489232,
+   "vmafNeg": 91.442271
+  },
+  "tiktokers-2022__fast__x264_400.mp4": {
+   "seq": "tiktokers-2022",
+   "file": "tiktokers-2022__fast__x264_400.mp4",
+   "cx": 0.10049,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 59.213094,
+   "vmafNeg": 55.901844
+  },
+  "tiktokers-2022__fast__x264_8000.mp4": {
+   "seq": "tiktokers-2022",
+   "file": "tiktokers-2022__fast__x264_8000.mp4",
+   "cx": 0.10049,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 97.754042,
+   "vmafNeg": 96.426545
+  },
+  "tiktokers-2022__medium__x264_2000.mp4": {
+   "seq": "tiktokers-2022",
+   "file": "tiktokers-2022__medium__x264_2000.mp4",
+   "cx": 0.10049,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 94.183815,
+   "vmafNeg": 92.562749
+  },
+  "tiktokers-2022__medium__x264_400.mp4": {
+   "seq": "tiktokers-2022",
+   "file": "tiktokers-2022__medium__x264_400.mp4",
+   "cx": 0.10049,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 58.488495,
+   "vmafNeg": 55.87382
+  },
+  "tiktokers-2022__medium__x264_8000.mp4": {
+   "seq": "tiktokers-2022",
+   "file": "tiktokers-2022__medium__x264_8000.mp4",
+   "cx": 0.10049,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 98.123152,
+   "vmafNeg": 97.079938
+  },
+  "tiktokers-2022__slow__x264_2000.mp4": {
+   "seq": "tiktokers-2022",
+   "file": "tiktokers-2022__slow__x264_2000.mp4",
+   "cx": 0.10049,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 94.258431,
+   "vmafNeg": 92.626782
+  },
+  "tiktokers-2022__slow__x264_400.mp4": {
+   "seq": "tiktokers-2022",
+   "file": "tiktokers-2022__slow__x264_400.mp4",
+   "cx": 0.10049,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 58.085895,
+   "vmafNeg": 55.496427
+  },
+  "tiktokers-2022__slow__x264_8000.mp4": {
+   "seq": "tiktokers-2022",
+   "file": "tiktokers-2022__slow__x264_8000.mp4",
+   "cx": 0.10049,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 98.133229,
+   "vmafNeg": 97.087559
+  },
+  "tourist-ugc__offline__x264_25.mp4": {
+   "seq": "tourist-ugc",
+   "file": "tourist-ugc__offline__x264_25.mp4",
+   "cx": 0.11802,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 87.049696,
+   "vmafNeg": 84.908528
+  },
+  "tourist-ugc__offline__x264_31.mp4": {
+   "seq": "tourist-ugc",
+   "file": "tourist-ugc__offline__x264_31.mp4",
+   "cx": 0.11802,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 73.88913,
+   "vmafNeg": 71.593958
+  },
+  "tourist-ugc__offline__x264_37.mp4": {
+   "seq": "tourist-ugc",
+   "file": "tourist-ugc__offline__x264_37.mp4",
+   "cx": 0.11802,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 51.989641,
+   "vmafNeg": 49.913061
+  },
+  "tractor-2019__subjective__x264_1000.mp4": {
+   "seq": "tractor-2019",
+   "file": "tractor-2019__subjective__x264_1000.mp4",
+   "cx": 0.31684,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 62.181032,
+   "vmafNeg": 60.489443
+  },
+  "tractor-2019__subjective__x264_2000.mp4": {
+   "seq": "tractor-2019",
+   "file": "tractor-2019__subjective__x264_2000.mp4",
+   "cx": 0.31684,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 87.493229,
+   "vmafNeg": 85.467084
+  },
+  "tractor-2019__subjective__x264_4000.mp4": {
+   "seq": "tractor-2019",
+   "file": "tractor-2019__subjective__x264_4000.mp4",
+   "cx": 0.31684,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 97.790305,
+   "vmafNeg": 96.452883
+  },
+  "tractor-2021__fast__x264_2000.mp4": {
+   "seq": "tractor-2021",
+   "file": "tractor-2021__fast__x264_2000.mp4",
+   "cx": 0.41798,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 77.246089,
+   "vmafNeg": 75.093935
+  },
+  "tractor-2021__fast__x264_6000.mp4": {
+   "seq": "tractor-2021",
+   "file": "tractor-2021__fast__x264_6000.mp4",
+   "cx": 0.41798,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 96.957636,
+   "vmafNeg": 95.507361
+  },
+  "tractor-2021__fast__x264_800.mp4": {
+   "seq": "tractor-2021",
+   "file": "tractor-2021__fast__x264_800.mp4",
+   "cx": 0.41798,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 40.853961,
+   "vmafNeg": 39.567899
+  },
+  "tractor-2021__offline__x264_2000.mp4": {
+   "seq": "tractor-2021",
+   "file": "tractor-2021__offline__x264_2000.mp4",
+   "cx": 0.41798,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 77.724082,
+   "vmafNeg": 75.508381
+  },
+  "tractor-2021__offline__x264_6000.mp4": {
+   "seq": "tractor-2021",
+   "file": "tractor-2021__offline__x264_6000.mp4",
+   "cx": 0.41798,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 97.585923,
+   "vmafNeg": 96.199185
+  },
+  "tractor-2021__offline__x264_800.mp4": {
+   "seq": "tractor-2021",
+   "file": "tractor-2021__offline__x264_800.mp4",
+   "cx": 0.41798,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 38.64916,
+   "vmafNeg": 37.356921
+  },
+  "wedding-party-2019__subjective__x264_1000.mp4": {
+   "seq": "wedding-party-2019",
+   "file": "wedding-party-2019__subjective__x264_1000.mp4",
+   "cx": 0.27583,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 40.165848,
+   "vmafNeg": 38.502397
+  },
+  "wedding-party-2019__subjective__x264_2000.mp4": {
+   "seq": "wedding-party-2019",
+   "file": "wedding-party-2019__subjective__x264_2000.mp4",
+   "cx": 0.27583,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 75.57277,
+   "vmafNeg": 73.350184
+  },
+  "wedding-party-2019__subjective__x264_4000.mp4": {
+   "seq": "wedding-party-2019",
+   "file": "wedding-party-2019__subjective__x264_4000.mp4",
+   "cx": 0.27583,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 97.813099,
+   "vmafNeg": 96.788395
+  },
+  "basketball-2021__fast__x264_100.mp4": {
+   "seq": "basketball-2021",
+   "file": "basketball-2021__fast__x264_100.mp4",
+   "cx": 0.21455,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 11.776355,
+   "vmafNeg": 11.441194
+  },
+  "basketball-2021__fast__x264_4000.mp4": {
+   "seq": "basketball-2021",
+   "file": "basketball-2021__fast__x264_4000.mp4",
+   "cx": 0.21455,
+   "srcW": 1920,
+   "srcH": 1080,
+   "vmaf": 92.793493,
+   "vmafNeg": 90.906487
+  }
+ }
+}

@@ -168,7 +168,56 @@ function setPersonOscarIndex(people) {
   }
   personOscarRows = rows;
   personOscarBuiltAt = Date.now();
-  console.log(`personOscarIndex: ${rows.length} awarded people indexed`);
+  // Built from the SAME list, in the same pass: crew.js needs normalised-name → Jellyfin person
+  // id so the detail page's crew cards can link to a real person page. Piggy-backing here means
+  // no second /Persons call — that query costs ~50s and returns ~9.7 MB.
+  personIdByName = new Map();
+  for (const p of people) if (p.Id && p.Name) personIdByName.set(normName(p.Name), p.Id);
+  console.log(`personOscarIndex: ${rows.length} awarded people indexed, ${personIdByName.size} names → ids`);
+}
+
+// normName → Jellyfin person Id, for crew.js. NOT every crew member is in here: Jellyfin only
+// creates a Person for someone an item actually credits, and items credit only Actor/Director/
+// Writer — measured 2026-09-07, directors resolve 93% of the time but cinematographers, editors
+// and composers ~8%, and production/costume designers 0%. Callers must handle a miss as normal.
+let personIdByName = null;
+
+// Shares getPersonOscarIndex's rebuild path, so a cold or stale index is refreshed by the same
+// single /Persons fetch rather than a second one.
+//
+// BLOCKING. Only for callers that can wait minutes — the nightly sweep, not a request handler.
+async function getPersonIdIndex() {
+  await getPersonOscarIndex();
+  return personIdByName || new Map();
+}
+
+// NON-BLOCKING variant, for request handlers.
+//
+// The rebuild behind getPersonIdIndex is a single /Persons query that returns ~9.7 MB and takes
+// ~50s when the box is idle — and simply TIMES OUT when Jellyfin is busy, which is exactly when a
+// detail page is most likely to be open. Awaiting it inside GET /api/crew meant the Fire Stick's
+// 6s client timeout won every time: no crew row at all, and when the fetch failed outright the
+// index came back empty so every crew member looked unlinkable. Both were live regressions.
+//
+// So: answer from whatever index exists right now — even an empty one — and warm it in the
+// background for next time. A cold first request costs the crew their links for one page view,
+// which is worth far more than costing everyone the row.
+function peekPersonIdIndex() {
+  const fresh = personOscarRows && (Date.now() - personOscarBuiltAt) < PERSON_OSCAR_TTL_MS;
+  if (!fresh && !personOscarBusy) {
+    // Fire and forget; getPersonOscarIndex has its own busy guard so this cannot pile up.
+    getPersonOscarIndex().catch(() => { /* logged inside */ });
+  }
+  return personIdByName || new Map();
+}
+
+// Force the next getPersonIdIndex()/getPersonOscarIndex() to refetch.
+//
+// crewPeopleSweep creates Jellyfin Person records that did not exist when this index was built,
+// and the index is cached for a DAY. Without this, crew cards for people the sweep just created
+// would keep reporting "no person page" until tomorrow — the shake would be lying.
+function invalidatePersonIndex() {
+  personOscarBuiltAt = 0;
 }
 
 let personOscarBusy = false;
@@ -331,4 +380,6 @@ app.get('/api/awards', (req, res) => {
   } catch (e) { res.status(500).json({ error: String((e && e.message) || e) }); }
 });
 
-module.exports = { oscarTagsSweep: tracked, startOscarTagsTimer, getPersonOscarIndex, personOscarIndexAge };
+// normName is exported for crew.js, which annotates TMDB crew with Oscar counts out of the same
+// personAwards table and MUST key it identically — see MATCHING at the top of this file.
+module.exports = { oscarTagsSweep: tracked, startOscarTagsTimer, getPersonOscarIndex, personOscarIndexAge, normName, getPersonIdIndex, peekPersonIdIndex, invalidatePersonIndex };

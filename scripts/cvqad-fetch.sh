@@ -18,13 +18,16 @@ set -u
 
 DIR=/data/research/cvqad
 MIN_FREE_GB=20
+PATHS=""          # defaults to $DIR/paths.txt; override to fetch a different list
 while [ $# -gt 0 ]; do
   case "$1" in
     --dir) DIR="$2"; shift 2 ;;
     --min-free) MIN_FREE_GB="$2"; shift 2 ;;
+    --paths) PATHS="$2"; shift 2 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
+[ -n "$PATHS" ] || PATHS="$DIR/paths.txt"
 
 BASE=https://huggingface.co/datasets/deepfakesMSU/CVQAD/resolve/main
 CLIPS="$DIR/clips"
@@ -37,7 +40,7 @@ esac
 
 freeGb() { df -BG --output=avail "$CLIPS" | tail -1 | tr -dc '0-9'; }
 
-total=$(wc -l < "$DIR/paths.txt")
+total=$(wc -l < "$PATHS")
 n=0; got=0; skipped=0; failed=0
 while IFS= read -r p; do
   [ -n "$p" ] || continue
@@ -61,6 +64,6 @@ while IFS= read -r p; do
     failed=$((failed + 1))
     echo "[$n/$total] FAIL $p"
   fi
-done < "$DIR/paths.txt"
+done < "$PATHS"
 
 echo "done: $got fetched, $skipped already present, $failed failed, $(ls "$CLIPS" | wc -l) clips on disk"

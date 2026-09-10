@@ -1,10 +1,15 @@
-import { load, state, applyFilters, TIER_OPTIONS, tierMatches } from './data.js';
+import { load, state, applyFilters, TIER_OPTIONS, tierMatches, DEFAULT_FILTERS } from './data.js';
 import overview from './views/overview.js';
 import curve from './views/curve.js';
 import film from './views/film.js';
 import table from './views/table.js';
 import { h, dualRange, switchToggle } from './ui.js';
 
+// The Blend tab was DELETED 2026-08-29 and its contents merged into the four views below. It was a
+// separate tab because the artifact term was a separate experiment; now that the term is decided
+// (strength 1.0, no free parameters) it is just another property of a film, and a property belongs
+// beside every other property rather than on an island. P is now an axis, a colour, a table column
+// and a film stat. A stale `#blend` bookmark falls back to Overview via the check below.
 const VIEWS = [
   { id: 'overview', label: 'Overview', view: overview },
   { id: 'curve', label: 'Quality curve', view: curve },
@@ -30,19 +35,40 @@ function renderFilters() {
   const host = document.getElementById('filters');
   host.replaceChildren();
   host.style.display = 'flex';
+  host.classList.toggle('oneline', current === 'film');
 
-  host.appendChild(label('Unit', select(
-    [['movie', 'Movies'], ['season', 'TV seasons'], ['all', 'All']],
-    state.filters.kind,
-    (v) => { state.filters.kind = v; applyFilters(); renderBody(); },
-  )));
+  // ON THE FILM TAB, THE TITLE PICKER TAKES THE UNIT AND SEARCH SLOT. That tab shows exactly one
+  // film, so a Unit selector and a title-contains box are two ways of narrowing a list the page
+  // never displays — and the picker was costing a whole extra row of vertical space below the bar to
+  // do the same job better. The remaining filters (Top 100, tier, size, year, samples) still matter:
+  // they scope WHICH films the picker offers.
+  //
+  // Both are RESET on the way in rather than merely hidden. A hidden 'TV seasons' or a hidden search
+  // string would silently shrink the picker's list with no visible cause — the exact class of bug
+  // where a control you cannot see is still filtering what you can.
+  if (current === 'film') {
+    if (state.filters.kind !== 'all' || state.filters.q) {
+      state.filters.kind = 'all';
+      state.filters.q = '';
+      applyFilters();
+    }
+    const pick = document.createElement('select');
+    pick.id = 'film-pick';
+    host.appendChild(label('Film', pick));
+  } else {
+    host.appendChild(label('Unit', select(
+      [['movie', 'Movies'], ['season', 'TV seasons'], ['all', 'All']],
+      state.filters.kind,
+      (v) => { state.filters.kind = v; applyFilters(); renderBody(); },
+    )));
 
-  const inp = document.createElement('input');
-  inp.type = 'search'; inp.placeholder = 'title contains…'; inp.value = state.filters.q;
-  inp.oninput = debounce(() => { state.filters.q = inp.value; applyFilters(); renderBody(); }, 180);
-  const qLabel = label('Search', inp);
-  qLabel.classList.add('grow');
-  host.appendChild(qLabel);
+    const inp = document.createElement('input');
+    inp.type = 'search'; inp.placeholder = 'title contains…'; inp.value = state.filters.q;
+    inp.oninput = debounce(() => { state.filters.q = inp.value; applyFilters(); renderBody(); }, 180);
+    const qLabel = label('Search', inp);
+    qLabel.classList.add('grow');
+    host.appendChild(qLabel);
+  }
 
   // Top 100: ELo-rank membership pulled from the controller's Top 100 playlist (dataset.top100).
   // A switch, like every other toggle in the app — one shared component (ui.js switchToggle) so the
@@ -132,10 +158,10 @@ function renderFilters() {
   clear.className = 'act clearfilters';
   clear.textContent = 'reset filters';
   clear.onclick = () => {
-    Object.assign(state.filters, {
-      kind: 'movie', minSamples: 0, q: '', measuredOnly: true,
-      top100: false, tier: '', sizeMin: null, sizeMax: null, yearMin: null, yearMax: null,
-    });
+    // One source of truth for the defaults. Inline copies here and in data.js would drift the first
+    // time a filter is added, and applyFilters() persists — so a stale reset would then WRITE the
+    // wrong shape to storage rather than merely showing it.
+    Object.assign(state.filters, DEFAULT_FILTERS);
     renderFilters();
     applyFilters();
     renderBody();

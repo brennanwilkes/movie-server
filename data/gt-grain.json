@@ -1,0 +1,251 @@
+{
+ "recipe": "hqdn3d 4:3:6:4 difference YAVG @1920w",
+ "units": {
+  "basketball-2021": {
+   "seq": "basketball-2021",
+   "cx": 0.21455,
+   "grain": 1.12567,
+   "frames": 239
+  },
+  "bike-show-2023": {
+   "seq": "bike-show-2023",
+   "cx": 0.21256,
+   "grain": 1.11085,
+   "frames": 239
+  },
+  "boxing-training-2023": {
+   "seq": "boxing-training-2023",
+   "cx": 0.10506,
+   "grain": 0.98456,
+   "frames": 238
+  },
+  "boys-ugc": {
+   "seq": "boys-ugc",
+   "cx": 0.43895,
+   "grain": 1.12411,
+   "frames": 249
+  },
+  "canary-wharf-2022": {
+   "seq": "canary-wharf-2022",
+   "cx": 0.64137,
+   "grain": 1.14802,
+   "frames": 239
+  },
+  "children-walking-2022": {
+   "seq": "children-walking-2022",
+   "cx": 0.41778,
+   "grain": 1.1602,
+   "frames": 249
+  },
+  "chili-pepper-2021": {
+   "seq": "chili-pepper-2021",
+   "cx": 0.12326,
+   "grain": 1.07427,
+   "frames": 599
+  },
+  "christmas-cats-2021": {
+   "seq": "christmas-cats-2021",
+   "cx": 2.17075,
+   "grain": 1.21112,
+   "frames": 249
+  },
+  "cockatoo-2021": {
+   "seq": "cockatoo-2021",
+   "cx": 0.03285,
+   "grain": 0.80703,
+   "frames": 249
+  },
+  "country-rest-2023": {
+   "seq": "country-rest-2023",
+   "cx": 0.17319,
+   "grain": 0.93803,
+   "frames": 249
+  },
+  "crowd-run-2019": {
+   "seq": "crowd-run-2019",
+   "cx": 0.68857,
+   "grain": 1.25235,
+   "frames": 499
+  },
+  "crowd-run-2020": {
+   "seq": "crowd-run-2020",
+   "cx": 0.68857,
+   "grain": 1.25235,
+   "frames": 499
+  },
+  "crowd-run-2021": {
+   "seq": "crowd-run-2021",
+   "cx": 0.68857,
+   "grain": 1.25235,
+   "frames": 499
+  },
+  "crowd-run-2023": {
+   "seq": "crowd-run-2023",
+   "cx": 0.68857,
+   "grain": 1.25235,
+   "frames": 499
+  },
+  "diy-mixer-2021": {
+   "seq": "diy-mixer-2021",
+   "cx": 0.19656,
+   "grain": 1.1746,
+   "frames": 249
+  },
+  "fantastic-movie-2023": {
+   "seq": "fantastic-movie-2023",
+   "cx": 0.15566,
+   "grain": 1.01641,
+   "frames": 239
+  },
+  "football-2023": {
+   "seq": "football-2023",
+   "cx": 0.31788,
+   "grain": 1.00705,
+   "frames": 299
+  },
+  "game-streamer-ugc": {
+   "seq": "game-streamer-ugc",
+   "cx": 0.80381,
+   "grain": 1.00515,
+   "frames": 299
+  },
+  "grain-2021": {
+   "seq": "grain-2021",
+   "cx": 1.27678,
+   "grain": 0.91019,
+   "frames": 249
+  },
+  "happy-dog-ugc": {
+   "seq": "happy-dog-ugc",
+   "cx": 0.23519,
+   "grain": 1.12651,
+   "frames": 599
+  },
+  "in-the-car-2022": {
+   "seq": "in-the-car-2022",
+   "cx": 0.20981,
+   "grain": 0.85411,
+   "frames": 299
+  },
+  "in-to-tree-2023": {
+   "seq": "in-to-tree-2023",
+   "cx": 0.4153,
+   "grain": 1.38413,
+   "frames": 499
+  },
+  "lemonade-ads-2021": {
+   "seq": "lemonade-ads-2021",
+   "cx": 0.1109,
+   "grain": 0.86766,
+   "frames": 249
+  },
+  "light-show-ugc": {
+   "seq": "light-show-ugc",
+   "cx": 0.20094,
+   "grain": 1.04415,
+   "frames": 297
+  },
+  "making-alcohol-2019": {
+   "seq": "making-alcohol-2019",
+   "cx": 0.14895,
+   "grain": 1.30745,
+   "frames": 359
+  },
+  "mordor-gameplay-2021": {
+   "seq": "mordor-gameplay-2021",
+   "cx": 1.3486,
+   "grain": 1.00416,
+   "frames": 389
+  },
+  "motorcycles-2022": {
+   "seq": "motorcycles-2022",
+   "cx": 0.0989,
+   "grain": 1.00346,
+   "frames": 239
+  },
+  "mountain-dog-ugc": {
+   "seq": "mountain-dog-ugc",
+   "cx": 0.62814,
+   "grain": 1.16255,
+   "frames": 299
+  },
+  "nfl-2021": {
+   "seq": "nfl-2021",
+   "cx": 0.19053,
+   "grain": 1.16958,
+   "frames": 299
+  },
+  "park-joy-2022": {
+   "seq": "park-joy-2022",
+   "cx": 0.90411,
+   "grain": 1.13633,
+   "frames": 499
+  },
+  "pool-underwater-ugc": {
+   "seq": "pool-underwater-ugc",
+   "cx": 0.93366,
+   "grain": 1.07597,
+   "frames": 249
+  },
+  "shakerwalk-2021": {
+   "seq": "shakerwalk-2021",
+   "cx": 0.5976,
+   "grain": 1.18201,
+   "frames": 249
+  },
+  "shakewalk-2022": {
+   "seq": "shakewalk-2022",
+   "cx": 0.5976,
+   "grain": 1.18201,
+   "frames": 249
+  },
+  "social-advertisment-2023": {
+   "seq": "social-advertisment-2023",
+   "cx": 0.11011,
+   "grain": 1.1782,
+   "frames": 249
+  },
+  "support-clip-2021": {
+   "seq": "support-clip-2021",
+   "cx": 0.05172,
+   "grain": 0.50072,
+   "frames": 299
+  },
+  "the-sky-ride-2022": {
+   "seq": "the-sky-ride-2022",
+   "cx": 0.08723,
+   "grain": 0.76414,
+   "frames": 249
+  },
+  "tiktokers-2022": {
+   "seq": "tiktokers-2022",
+   "cx": 0.10049,
+   "grain": 0.84269,
+   "frames": 249
+  },
+  "tourist-ugc": {
+   "seq": "tourist-ugc",
+   "cx": 0.11802,
+   "grain": 1.01182,
+   "frames": 599
+  },
+  "tractor-2019": {
+   "seq": "tractor-2019",
+   "cx": 0.31684,
+   "grain": 1.18814,
+   "frames": 374
+  },
+  "tractor-2021": {
+   "seq": "tractor-2021",
+   "cx": 0.41798,
+   "grain": 1.16208,
+   "frames": 249
+  },
+  "wedding-party-2019": {
+   "seq": "wedding-party-2019",
+   "cx": 0.27583,
+   "grain": 1.02731,
+   "frames": 359
+  }
+ }
+}

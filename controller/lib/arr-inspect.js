@@ -270,8 +270,22 @@ function bppTargetFor(key) {
 //
 // This is why the signature was extended rather than replaced: there are 12 call sites, and a
 // mistake at any of them should degrade to the old behaviour rather than to a wrong number.
-const bppIndex = (bpp, key) => (bpp == null ? null
-  : Math.round(100 * Math.sqrt(bpp / bppTargetFor(key).target)));
+// THE ADEQUACY TERM, injected like the complexity resolver so this module stays formula-pure.
+// It is applied on the SCORE rather than the target because it is a shift, not a multiplier: the
+// artifact estimator says which side of the elbow a film sits on, and 100 is the elbow.
+let _resolveAdequacy = null;
+function setAdequacyResolver(fn) { _resolveAdequacy = fn; }
+function adequacyShift(plus, key) {
+  if (!key || !_resolveAdequacy || plus == null) return 0;
+  // A broken resolver must never take the whole Library and Audit tabs down with it.
+  try { const d = _resolveAdequacy(key, plus); return Number.isFinite(d) ? d : 0; } catch { return 0; }
+}
+const bppIndex = (bpp, key) => {
+  if (bpp == null) return null;
+  const t = bppTargetFor(key).target;
+  const raw = 100 * Math.sqrt(bpp / t);
+  return Math.round(raw + adequacyShift(raw, key));
+};
 const BPP_INDEX_BANDS = [[125, 'wow'], [100, 'ok'], [75, 'warn'], [0, 'bad']];
 const BPP_RANK = { wow: 0, ok: 1, warn: 2, bad: 3 };
 function bppBand(bpp, key) {
@@ -323,6 +337,20 @@ function bppDisagree(key) {
 function bppRatioR(key) {
   if (!key || !_resolveTarget) return null;
   try { const r = _resolveTarget(key); return r && r.R > 0 ? r.R : null; } catch { return null; }
+}
+// THE ARTIFACT FACTOR ALREADY BAKED INTO THIS UNIT'S TARGET, or null when the unit has no artifact
+// measurement. Carried so the UI can say WHY a score is provisional: 'estimated complexity' and
+// 'no artifact reading' are different gaps and a person chasing one should not be shown the other.
+//
+// A factor of exactly 1 with a reading present is NOT the same as null. 1 means "measured, and this
+// copy is exactly as damaged as its bitrate predicts"; null means "we have not looked". Collapsing
+// them would be the same null-means-clean error the banding contract exists to prevent.
+function bppArtifact(key) {
+  if (!key || !_resolveTarget) return null;
+  try {
+    const r = _resolveTarget(key);
+    return r && r.artifactFactor != null ? r.artifactFactor : null;
+  } catch { return null; }
 }
 const bppConfident = (key) => {
   const e = bppRSE(key);
@@ -380,6 +408,6 @@ async function diagnose(app, id, seasons) {
   return diskOnlyBlocker(rels);
 }
 
-module.exports = { videoLabel, gpuTier, dimsOf, bppOf, bppSource, bppBand, bppIndex,
+module.exports = { videoLabel, gpuTier, dimsOf, bppOf, bppSource, bppBand, bppIndex, bppArtifact, setAdequacyResolver,
   bppBasis, bppRSE, bppConfident, bppRatioR, bppDisagree, BPP_RSE_LOOSE, bppTargetFor, setComplexityResolver, setAudioResolver,
   BPP_TARGET, BPP_INDEX_BANDS, BPP_RANK, X265_EFFICIENCY, freeUnderCap, arrTitle, arrHasActivity, diskOnlyBlocker, diagnose };

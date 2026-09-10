@@ -675,6 +675,17 @@ async function buildDownloads() {
 // slow cycle under load self-throttles instead of stacking).
 let _dl = { served: [], raw: [], summary: null, ts: 0 };
 let _dlRefreshing = false;
+// ── Watchdog — the snapshot loop must never freeze ──────────────────────────
+// Every downstream call here is timed by AbortSignal.timeout, but that does not
+// guarantee a run settles: a wedged upstream socket can still leave an awaited
+// promise hanging. REPRODUCED 2026-08-30 — the Downloads tab served a snapshot
+// frozen for 19h because _dlRefreshing was only released when the run SETTLED,
+// so every 5s tick silently bailed at `if (_dlRefreshing) return;` and titles
+// completed after the frozen instant (Glass Onion, French Dispatch, …) never
+// appeared. A hard timer releases the lock so the loop resumes on the next
+// tick; a ghost run that eventually settles is ignored via a generation counter.
+const DL_WATCHDOG_MS = 90000;   // healthy builds are 1-45s; 90s means wedged
+let _dlGeneration = 0;
 // Smoothed max individual ETA from qBit — exponential moving average to dampen the
 // short-window noise in per-torrent ETAs (a 2-seed torrent might momentarily blip from
 // 30 min to 4h after a tracker timeout, then recover). 0.25 weight = 4-cycle (20s) half-life.
@@ -692,13 +703,23 @@ const asDeclinedRow = (hash, d) => ({ title: d.title, progress: 0, state: 'Decli
 async function refreshDownloads() {
   if (_dlRefreshing) return;
   _dlRefreshing = true;
+  const gen = ++_dlGeneration;
+  const watchdog = setTimeout(() => {
+    // Only the current generation's timer may free the lock — a ghost run's own
+    // timer is cleared when it finally settles, so it cannot double-trigger.
+    if (_dlGeneration !== gen) return;
+    console.log(`refreshDownloads WEDGED: a build exceeded ${DL_WATCHDOG_MS}ms — releasing the snapshot lock (ghost run abandoned; next tick rebuilds)`);
+    _dlRefreshing = false;
+  }, DL_WATCHDOG_MS);
   try {
     const raw = await buildDownloads();
+    if (_dlGeneration !== gen) return;   // watchdog fired and a fresh run owns the loop — abandon quietly
     const served = raw.map(({ _recover, ...r }) => r);
     const now = Math.floor(Date.now() / 1000), DAY = 86400;
     for (const [h, d] of declined) if (now - d.ts <= DAY) served.unshift(asDeclinedRow(h, d));
     for (const [h, b] of blocked) if (now - b.ts <= DAY) served.unshift(asDeclinedRow(h, b));
     const summary = await downloadSummary(served);
+    if (_dlGeneration !== gen) return;   // a newer run published while we awaited the summary — keep theirs
     _dl = { served, raw, summary, ts: Date.now() };
 
     // Snapshot currently known hashes BEFORE the transition loop so the Movie Mode
@@ -748,7 +769,10 @@ async function refreshDownloads() {
       }
     }
   } catch (e) { console.log('refreshDownloads failed (keeping last snapshot):', e.message || e); }
-  finally { _dlRefreshing = false; }
+  finally {
+    clearTimeout(watchdog);
+    if (_dlGeneration === gen) _dlRefreshing = false;   // a superseded (ghost) run must NOT release a newer run's lock
+  }
 }
 // A mutation just changed qBittorrent/*arr state — drop the caches that would keep serving
 // the pre-mutation view and rebuild the snapshot now, so the UI reflects the action on its

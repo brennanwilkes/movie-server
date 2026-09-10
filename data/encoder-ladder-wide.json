@@ -1,0 +1,1291 @@
+{
+ "generated": 1787797905253,
+ "encoders": [
+  "x264 veryfast",
+  "x264 medium",
+  "x264 slower",
+  "x265 medium"
+ ],
+ "films": [
+  {
+   "key": "tv:87:1",
+   "title": "Mr. Robot S01",
+   "cxEff": 0.03239,
+   "kbps": 1015,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 10.37461086111111,
+     "block": 3.2547512333333337,
+     "blur": 9.823447966666667,
+     "grain": 0.7260145106382979
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 9.619378513888888,
+     "block": 2.6593676,
+     "blur": 9.745447566666668,
+     "grain": 0.7450671134751774
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 9.38094428472222,
+     "block": 2.3878863333333333,
+     "blur": 9.6473149,
+     "grain": 0.7494017375886525
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 8.85951377777778,
+     "block": 1.6027938,
+     "blur": 9.4619688,
+     "grain": 0.7548135106382977
+    }
+   ]
+  },
+  {
+   "key": "tv:33:2",
+   "title": "Bloodline S02",
+   "cxEff": 0.06407,
+   "kbps": 751,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 9.149331041666665,
+     "block": 2.2584906666666664,
+     "blur": 7.714469066666667,
+     "grain": 0.8352193758865248
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 8.073254604166666,
+     "block": 1.9762851000000001,
+     "blur": 7.5728598,
+     "grain": 0.8594700992907803
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 7.590226708333333,
+     "block": 1.8018337333333332,
+     "blur": 7.357355666666667,
+     "grain": 0.8679701205673759
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 7.218584881944445,
+     "block": 1.2912739333333334,
+     "blur": 7.1962603,
+     "grain": 0.8729600709219859
+    }
+   ]
+  },
+  {
+   "key": "tv:107:1",
+   "title": "The West Wing S01",
+   "cxEff": 0.07852,
+   "kbps": 737,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 8.476981215277778,
+     "block": 2.3125690666666667,
+     "blur": 8.740358233333334,
+     "grain": 0.8406592765957446
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 7.318834916666667,
+     "block": 1.9418513999999998,
+     "blur": 8.730090599999999,
+     "grain": 0.8539767234042553
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 6.629730201388888,
+     "block": 1.7365427666666668,
+     "blur": 8.639391633333334,
+     "grain": 0.8505848368794325
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 6.036694881944444,
+     "block": 1.2931439666666666,
+     "blur": 8.444923266666668,
+     "grain": 0.8551884397163122
+    }
+   ]
+  },
+  {
+   "key": "mv:153",
+   "title": "Backrooms (2026)",
+   "cxEff": 0.08988,
+   "kbps": 1540,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 2.48492375,
+     "block": 2.8507805333333334,
+     "blur": 6.377245933333334,
+     "grain": 0.6841482198581561
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 2.1828286458333337,
+     "block": 2.3899591333333334,
+     "blur": 6.299464433333334,
+     "grain": 0.701545680851064
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 2.0479488124999996,
+     "block": 2.1540245,
+     "blur": 6.311155133333333,
+     "grain": 0.7072655602836879
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 1.9759804097222224,
+     "block": 1.4656284,
+     "blur": 6.308056133333333,
+     "grain": 0.699616695035461
+    }
+   ]
+  },
+  {
+   "key": "mv:37",
+   "title": "Pulp Fiction (1994)",
+   "cxEff": 0.09882,
+   "kbps": 6374,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 3.1733591874999996,
+     "block": 1.9999425333333332,
+     "blur": 7.9361809,
+     "grain": 0.897004063829787
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.7131271319444444,
+     "block": 1.5750456,
+     "blur": 7.8941944333333325,
+     "grain": 0.9179014326241134
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 0.5095123888888887,
+     "block": 1.4480037999999997,
+     "blur": 7.871771,
+     "grain": 0.9217541418439718
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 2.4757928958333326,
+     "block": 1.3559973333333335,
+     "blur": 7.8781384999999995,
+     "grain": 0.8860299078014183
+    }
+   ]
+  },
+  {
+   "key": "mv:809",
+   "title": "Hit Man (2024)",
+   "cxEff": 0.10791,
+   "kbps": 522,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 1.609793715277778,
+     "block": 1.6673735666666667,
+     "blur": 8.284225900000001,
+     "grain": 1.3200548085106385
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 1.4881457916666667,
+     "block": 1.5167712666666666,
+     "blur": 7.991645666666667,
+     "grain": 1.343341283687943
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 1.4844701736111112,
+     "block": 1.4590767666666666,
+     "blur": 7.804962433333333,
+     "grain": 1.3412841702127658
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.9877548680555558,
+     "block": 1.1420815,
+     "blur": 7.625000766666666,
+     "grain": 1.373333340425532
+    }
+   ]
+  },
+  {
+   "key": "mv:381",
+   "title": "GoodFellas (1990)",
+   "cxEff": 0.11668,
+   "kbps": 8577,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 1.6856065972222218,
+     "block": 1.7441556,
+     "blur": 6.2116511333333335,
+     "grain": 0.9727101631205675
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.46124065277777776,
+     "block": 1.4355476666666667,
+     "blur": 6.186737433333334,
+     "grain": 1.0062959716312054
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 0.3754016041666666,
+     "block": 1.3325478333333332,
+     "blur": 6.158976066666668,
+     "grain": 1.0151614255319148
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.9502654166666669,
+     "block": 1.2645286999999998,
+     "blur": 6.2108229,
+     "grain": 0.975083730496454
+    }
+   ]
+  },
+  {
+   "key": "mv:368",
+   "title": "Easy A (2010)",
+   "cxEff": 0.12516,
+   "kbps": 487,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 2.777581472222222,
+     "block": 1.8777201000000001,
+     "blur": 7.5896392666666666,
+     "grain": 0.7629728936170213
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 2.4157174027777777,
+     "block": 1.6265779333333334,
+     "blur": 7.468445233333333,
+     "grain": 0.798734815602837
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 2.129653840277778,
+     "block": 1.487315333333333,
+     "blur": 7.2933525999999995,
+     "grain": 0.8087829858156027
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 1.7630133124999998,
+     "block": 1.2115836000000002,
+     "blur": 7.125049733333334,
+     "grain": 0.8287003049645391
+    }
+   ]
+  },
+  {
+   "key": "mv:74",
+   "title": "Star Wars: The Force Awakens (2015)",
+   "cxEff": 0.13555,
+   "kbps": 3455,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 2.3067807499999993,
+     "block": 3.5080248,
+     "blur": 8.181436266666667,
+     "grain": 0.7223272765957445
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 1.1265363125,
+     "block": 3.2874763666666666,
+     "blur": 8.084802799999999,
+     "grain": 0.7453280000000001
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 0.7956238472222222,
+     "block": 3.0301383333333334,
+     "blur": 8.010143666666668,
+     "grain": 0.7645458510638298
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 1.6790252152777778,
+     "block": 2.5407891333333334,
+     "blur": 7.9917717999999995,
+     "grain": 0.7338688510638298
+    }
+   ]
+  },
+  {
+   "key": "mv:211",
+   "title": "The Hobbit: An Unexpected Journey (2012)",
+   "cxEff": 0.14364,
+   "kbps": 1206,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 4.410762069444444,
+     "block": 2.116062533333334,
+     "blur": 6.6612930666666665,
+     "grain": 1.078548936170213
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 3.460968229166667,
+     "block": 1.837295,
+     "blur": 6.630191833333334,
+     "grain": 1.1088115106382979
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 3.3214134166666667,
+     "block": 1.712627933333333,
+     "blur": 6.4277728,
+     "grain": 1.1126411418439714
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 2.6297258888888884,
+     "block": 1.2149493333333334,
+     "blur": 6.0881338000000005,
+     "grain": 1.1474958581560284
+    }
+   ]
+  },
+  {
+   "key": "mv:50",
+   "title": "The Irishman (2019)",
+   "cxEff": 0.15277,
+   "kbps": 4084,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 5.976342243055556,
+     "block": 2.2096193,
+     "blur": 9.110499566666666,
+     "grain": 0.8308895957446808
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 3.4914797013888887,
+     "block": 2.0565716333333333,
+     "blur": 8.969638966666666,
+     "grain": 0.8675052978723405
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 2.7728664444444444,
+     "block": 1.8725176666666667,
+     "blur": 8.810972666666666,
+     "grain": 0.8911321205673759
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 4.164638791666667,
+     "block": 2.0795143,
+     "blur": 8.969931700000002,
+     "grain": 0.8376484539007092
+    }
+   ]
+  },
+  {
+   "key": "mv:302",
+   "title": "In Bruges (2008)",
+   "cxEff": 0.16229,
+   "kbps": 490,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 4.126374826388889,
+     "block": 1.7464392999999998,
+     "blur": 6.7643534,
+     "grain": 0.8828249929078013
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 3.437231736111111,
+     "block": 1.6065042333333333,
+     "blur": 6.616296433333333,
+     "grain": 0.9102015531914894
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 3.064352145833334,
+     "block": 1.4515487333333332,
+     "blur": 6.4894486,
+     "grain": 0.9227012198581561
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 2.6937671319444445,
+     "block": 1.2029617333333336,
+     "blur": 6.4061061,
+     "grain": 0.9369469361702126
+    }
+   ]
+  },
+  {
+   "key": "mv:135",
+   "title": "Mission: Impossible - Ghost Protocol (2011)",
+   "cxEff": 0.1739,
+   "kbps": 867,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 3.7269752083333323,
+     "block": 4.2221215,
+     "blur": 9.313127366666667,
+     "grain": 0.9140189432624113
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 3.5334062222222222,
+     "block": 4.537136366666666,
+     "blur": 9.2877532,
+     "grain": 0.9435311631205675
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 3.571525694444444,
+     "block": 4.708130866666667,
+     "blur": 9.082582133333332,
+     "grain": 0.9446509219858156
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 3.2436017569444453,
+     "block": 2.4846534666666664,
+     "blur": 8.7059918,
+     "grain": 0.9461910709219858
+    }
+   ]
+  },
+  {
+   "key": "mv:344",
+   "title": "Four Christmases (2008)",
+   "cxEff": 0.18572,
+   "kbps": 530,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 3.0563082569444444,
+     "block": 2.3259274,
+     "blur": 9.9823902,
+     "grain": 0.9274345319148939
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 2.7447855833333334,
+     "block": 2.024941166666667,
+     "blur": 9.926218,
+     "grain": 0.9731389645390071
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 2.732126138888889,
+     "block": 1.8852016333333335,
+     "blur": 9.764004666666667,
+     "grain": 0.9765426028368794
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 2.1501003055555556,
+     "block": 1.2611543333333335,
+     "blur": 9.7324014,
+     "grain": 1.0121008723404257
+    }
+   ]
+  },
+  {
+   "key": "mv:469",
+   "title": "Die Another Day (2002)",
+   "cxEff": 0.20013,
+   "kbps": 1170,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 1.9990405277777779,
+     "block": 1.9269487666666667,
+     "blur": 7.7453079,
+     "grain": 0.9456049787234041
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 1.4738577499999999,
+     "block": 1.6223907333333332,
+     "blur": 7.5773258000000006,
+     "grain": 0.9744295815602836
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 1.2887745763888887,
+     "block": 1.4911122,
+     "blur": 7.473185433333334,
+     "grain": 0.974338219858156
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 1.1572515416666669,
+     "block": 1.1961631333333334,
+     "blur": 7.391180466666667,
+     "grain": 0.9775612624113476
+    }
+   ]
+  },
+  {
+   "key": "mv:62",
+   "title": "A Bronx Tale (1993)",
+   "cxEff": 0.21856,
+   "kbps": 1350,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 1.800856847222222,
+     "block": 1.7145727,
+     "blur": 6.202178,
+     "grain": 1.0498554539007092
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 1.327443388888889,
+     "block": 1.5257521666666667,
+     "blur": 6.0803498,
+     "grain": 1.080895283687943
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 1.2024269652777777,
+     "block": 1.4484273666666665,
+     "blur": 5.9739113999999995,
+     "grain": 1.080725659574468
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.924809298611111,
+     "block": 1.1706528333333333,
+     "blur": 5.817408433333333,
+     "grain": 1.1056172198581564
+    }
+   ]
+  },
+  {
+   "key": "mv:55",
+   "title": "The Intern (2015)",
+   "cxEff": 0.23919,
+   "kbps": 1230,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 4.978860555555556,
+     "block": 2.4260815,
+     "blur": 7.5452395999999995,
+     "grain": 0.824732085106383
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 4.421550041666666,
+     "block": 1.9750967,
+     "blur": 7.3920198,
+     "grain": 0.8629161631205674
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 3.4288519861111113,
+     "block": 1.5749942,
+     "blur": 7.274771266666666,
+     "grain": 0.8817801418439716
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 3.6618955277777783,
+     "block": 1.2512551333333333,
+     "blur": 7.231449466666667,
+     "grain": 0.880007219858156
+    }
+   ]
+  },
+  {
+   "key": "mv:227",
+   "title": "Seven Samurai (1954)",
+   "cxEff": 0.2786,
+   "kbps": 1500,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 3.749564687500001,
+     "block": 1.7869314666666665,
+     "blur": 6.231666333333333,
+     "grain": 0.9381536099290781
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 2.9391329374999997,
+     "block": 1.4373292,
+     "blur": 6.1364299,
+     "grain": 0.98252690070922
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 2.4807234652777774,
+     "block": 1.3046099666666666,
+     "blur": 6.021663733333334,
+     "grain": 0.9940488014184398
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 2.5154778333333336,
+     "block": 1.1628028,
+     "blur": 6.047491666666667,
+     "grain": 0.9896161134751774
+    }
+   ]
+  },
+  {
+   "key": "mv:106",
+   "title": "Moneyball (2011)",
+   "cxEff": 0.34666,
+   "kbps": 5436,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 4.407720097222222,
+     "block": 1.7015135,
+     "blur": 8.8580205,
+     "grain": 0.9012929716312058
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 2.0912119930555555,
+     "block": 1.3962527666666666,
+     "blur": 8.780554799999999,
+     "grain": 0.9429621205673762
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 1.7183951805555555,
+     "block": 1.2979311999999998,
+     "blur": 8.732450033333334,
+     "grain": 0.9499511985815602
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 3.020539923611112,
+     "block": 1.1511165666666665,
+     "blur": 8.7631041,
+     "grain": 0.9095692978723404
+    }
+   ]
+  },
+  {
+   "key": "mv:490",
+   "title": "12 Angry Men (1957)",
+   "cxEff": 1.20615,
+   "kbps": 18614,
+   "rows": [
+    {
+     "name": "x264 veryfast",
+     "rank": 1,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast"
+     ],
+     "cambi": 0.4968783680555556,
+     "block": 1.3828797000000002,
+     "blur": 5.0935630000000005,
+     "grain": 1.110266170212766
+    },
+    {
+     "name": "x264 medium",
+     "rank": 2,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.18062956944444442,
+     "block": 1.2598886666666667,
+     "blur": 4.780353566666666,
+     "grain": 1.1683298014184398
+    },
+    {
+     "name": "x264 slower",
+     "rank": 3,
+     "args": [
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slower"
+     ],
+     "cambi": 0.10396165972222225,
+     "block": 1.2524616333333334,
+     "blur": 4.6284655,
+     "grain": 1.1861780425531918
+    },
+    {
+     "name": "x265 medium",
+     "rank": 4,
+     "args": [
+      "-c:v",
+      "libx265",
+      "-preset",
+      "medium"
+     ],
+     "cambi": 0.18229511805555557,
+     "block": 1.200588,
+     "blur": 4.8611349666666674,
+     "grain": 1.1887060709219857
+    }
+   ]
+  }
+ ]
+}

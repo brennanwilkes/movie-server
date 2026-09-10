@@ -1,0 +1,798 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Quality tab — mockup</title>
+<style>
+:root{
+  --bg:#0b0d12; --card:#161a23; --card-2:#1d2230; --text:#eef1f6; --muted:#8b93a7;
+  --line:#262c3a; --accent:#4f8cff; --ok:#28d9a0; --wow:#c79cf7; --off:#5b6270;
+  --warn:#ffb020; --danger:#ff453a; --radius:16px; --tabbar-h:58px;
+  --topbar-h:calc(env(safe-area-inset-top) + 65px);
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);
+  font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  padding-bottom:calc(72px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* band colours — hue is IDENTITY; order is carried by the rail's LENGTH */
+.q-wow{--qc:var(--wow)} .q-ok{--qc:var(--ok)} .q-warn{--qc:var(--warn)} .q-bad{--qc:var(--danger)}
+
+.topbar{position:sticky;top:0;z-index:5;padding:calc(env(safe-area-inset-top) + 14px) 20px 12px;
+  background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line)}
+.topbar h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.02em}
+main{padding:var(--s4);max-width:640px;margin:0 auto}
+body.tab-wide main{max-width:900px}
+@media (min-width:1024px){body.tab-wide main{max-width:1440px;padding:var(--s4) 20px}}
+h2.sec{margin:var(--s5) 0 var(--s2);font-size:13px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--muted)}
+
+/* ── control block: ONE container, 2 rows, 88px ───────────────────────── */
+.qctl{position:sticky;top:var(--topbar-h);z-index:4;display:flex;flex-direction:column;gap:var(--s2);
+  padding:var(--s2) 0;background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(12px)}
+.qctl-a{display:flex;gap:var(--s2)}
+.segmented{display:flex;background:var(--card-2);border-radius:12px;padding:4px;gap:4px;flex:0 0 172px}
+.segmented button{flex:1;min-width:0;min-height:36px;border:0;border-radius:9px;background:transparent;
+  color:var(--muted);font-weight:600;font-size:14px;cursor:pointer}
+.segmented button.active{background:var(--card);color:var(--text)}
+.search{flex:1;min-width:0;min-height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--line);
+  background:var(--card);color:var(--text);font-size:16px}
+.qctl-b-wrap{position:relative;min-width:0}
+.qctl-b{display:flex;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:none;
+  scroll-padding:0 8px;-webkit-overflow-scrolling:touch;
+  /* the fade IS the affordance, and it is a mask so it works over any background.
+     It retracts on its own at each end — no scroll listener needed. */
+  mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 22px),transparent 100%);
+  mask-composite:intersect}
+.qctl-b::-webkit-scrollbar{display:none}
+.qsel{flex:none;min-height:36px;padding:0 28px 0 11px;border-radius:10px;border:1px solid var(--line);
+  background:var(--card);color:var(--text);font-size:13.5px;font-weight:600;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b93a7' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center}
+.qdir,.qgear{flex:none;width:36px;height:36px;border-radius:10px;border:1px solid var(--line);
+  background:var(--card);color:var(--text);font-size:14px;cursor:pointer;position:relative}
+.qgear b{position:absolute;top:-4px;right:-4px;min-width:15px;height:15px;border-radius:99px;
+  background:var(--accent);color:#fff;font-size:9.5px;font-weight:800;line-height:15px}
+.chip{flex:none;height:32px;padding:0 11px;border-radius:8px;border:1px solid var(--line);
+  background:var(--card);color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.chip.on{background:color-mix(in srgb,var(--accent) 16%,var(--card));border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--text);
+  padding-right:4px;display:inline-flex;align-items:center;gap:2px}
+.chip.on em{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;font-style:normal;
+  color:var(--muted);font-size:13px}
+
+/* ── the sticky mini-header: ONE set of labels, not 4216 ──────────────── */
+.qlist-wrap{--qgrid:1fr repeat(4,minmax(0,56px))}
+.qhead b{font-weight:700}
+.qhead{position:sticky;top:calc(var(--topbar-h) + 104px);z-index:3;height:26px;display:grid;
+  grid-template-columns:var(--qgrid);column-gap:var(--s2);
+  align-items:center;padding:0 var(--s4) 0 20px;
+  background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+.qhead span{text-align:right}
+.qhead .qh-t{text-align:left;display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
+.qhead .qh-t b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qhead .on{color:var(--text)}
+/* the position readout rides in the TITLE cell, outside the numeric tracks, so it can never
+   shift a column. Live: the range of the sorted value across the rows on screen. */
+.qhead .pos{flex:none;margin-left:auto;font-variant-numeric:tabular-nums;letter-spacing:0;
+  padding:1px 6px;border-radius:6px;background:var(--card-2);color:var(--muted);white-space:nowrap}
+
+/* ── the list: one panel, hairline rows, FIXED 76px ───────────────────── */
+.qlist{list-style:none;margin:0;padding:0;background:var(--card);border-radius:var(--radius);overflow:hidden}
+.qrow{position:relative;height:76px;padding:var(--s3) var(--s4) var(--s3) 20px;
+  display:grid;grid-template-rows:24px 1fr;row-gap:var(--s1);
+  border-top:1px solid var(--line);cursor:pointer;
+  content-visibility:auto;contain-intrinsic-size:auto 76px}
+.qrow:first-child{border-top:0}
+.qrow:active{background:var(--card-2)}
+.qrow:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+/* THE RAIL — length = BPP+ (0-150), hue = band. Length is the channel that survives
+   every CVD type, greyscale and 4px. */
+.qrow::before{content:'';position:absolute;left:0;top:10px;bottom:10px;width:4px;
+  border-radius:0 3px 3px 0;background:var(--qc)}
+.qr-head{display:flex;align-items:baseline;gap:8px;min-width:0}
+.qr-flags{flex:none;display:flex;gap:4px;align-items:center}
+.qr-title{flex:1;min-width:0;display:flex;align-items:baseline;gap:7px;overflow:hidden}
+.qr-title b{min-width:0;font-weight:600;font-size:16px;line-height:1.4;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qr-title i{flex:none;font-style:normal;font-weight:500;color:var(--muted);font-size:14px}
+.qr-plus{flex:0 0 46px;text-align:right;font-size:22px;font-weight:700;line-height:1.1;
+  font-variant-numeric:tabular-nums;color:var(--qc)}
+.qr-cols{display:grid;grid-template-columns:var(--qgrid);column-gap:var(--s2);align-items:baseline}
+.qr-cols .qr-n:first-of-type{grid-column:2}
+
+.qr-n{text-align:right;font-size:13px;font-weight:600;line-height:1.4;
+  font-variant-numeric:tabular-nums slashed-zero;color:#dbe1ea}
+.qr-n .over,.qg-c .over{color:var(--warn);font-weight:750}
+.qr-n .over::before,.qg-c .over::before{content:'▲';font-size:7.5px;margin-right:2px;vertical-align:1.5px}
+.nul{color:var(--muted);font-weight:500;display:inline-block;min-width:3ch;text-align:right}
+.qr-tail{display:flex;gap:4px;justify-content:flex-end;align-items:center;overflow:hidden}
+.flg{flex:none;padding:2px 5px;border-radius:6px;font-size:10.5px;font-weight:700;letter-spacing:.02em;
+  font-variant-numeric:tabular-nums}
+.flg.s {background:color-mix(in srgb,var(--muted) 18%,transparent);color:#c3cad8}
+.flg.hv{background:color-mix(in srgb,var(--danger) 10%,transparent);color:var(--danger)}
+.flg.bd{background:color-mix(in srgb,var(--warn) 10%,transparent);color:var(--warn)}
+.flg.gd{background:color-mix(in srgb,var(--ok) 10%,transparent);color:var(--ok)}
+.flg.t1{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}
+@media (max-width:360px){
+  .qlist-wrap{--qgrid:1fr repeat(3,minmax(0,52px))}
+  .qhead .h-gb,.qr-cols .c-gb{display:none}
+  .qr-title b{font-size:15px}
+  .qr-plus{font-size:20px;flex-basis:42px}
+  .qctl-a{flex-wrap:wrap}.segmented{flex:1 1 100%}.search{flex:1 1 100%}
+}
+.qfoot{margin-top:var(--s3);font-size:12.5px;color:var(--muted);display:flex;gap:var(--s2);align-items:center}
+.qfoot button{height:30px;padding:0 10px;border-radius:8px;background:var(--card-2);border:1px solid var(--line);
+  color:var(--muted);font-size:12px;font-weight:600;cursor:pointer}
+
+/* ── desktop grid ─────────────────────────────────────────────────────── */
+.qgrid-wrap{display:none}
+@media (min-width:700px){
+  .qlist-wrap{display:none}
+  .qgrid-wrap{display:block;position:relative;background:var(--card);border-radius:var(--radius);overflow:hidden}
+  /* horizontal-scroll affordance: an overlay on the WRAPPER, toggled by a scroll listener that
+     compares scrollLeft/scrollWidth. Never permanent — the default 10-column set does not
+     overflow a 1440px window, and a shadow over nothing is a lie. */
+  .qgrid-wrap::after{content:'';position:absolute;top:0;right:0;bottom:0;width:34px;pointer-events:none;
+    background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--bg) 86%,transparent));
+    opacity:0;transition:opacity .15s}
+  .qgrid-wrap.can-r::after{opacity:1}
+  /* the title column width lives on the SCROLLER (which carries --qgc), not on the row —
+     a custom property must be defined at or above the element that consumes it. */
+  .qgrid{--tw:232px}
+  @media (min-width:1024px){.qgrid{--tw:300px}}
+  .qgrid{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  .qg-row{display:grid;grid-template-columns:var(--qgc);align-items:center;height:34px;
+    border-top:1px solid var(--line);position:relative;padding-left:4px;
+    content-visibility:auto;contain-intrinsic-size:auto 34px}
+  .qg-row:not(.qg-head)::after{content:'';position:absolute;left:0;top:7px;bottom:7px;width:3px;
+    background:var(--qc);height:auto}
+  .qg-head{height:32px;position:sticky;top:0;z-index:2;background:var(--card);border-top:0;
+    font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+  .qg-head .qg-c em{font-style:normal;font-size:9px;position:absolute;right:4px;top:50%;margin-top:-5px}
+  .qg-head .qg-c{position:relative;padding-right:14px}
+  .qg-head .on{color:var(--text)}
+  .qg-row:hover:not(.qg-head){background:var(--card-2)}
+  .qg-t{position:sticky;left:0;z-index:1;background:inherit;padding:0 14px 0 12px;
+    font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;min-width:0}
+  .qg-t b.nm{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qg-t .flg{flex:none}
+  .qg-t i{font-style:normal;font-weight:500;color:var(--muted);font-size:12px}
+  .qg-c{width:var(--w);text-align:right;padding-right:10px;font-size:13px;font-weight:500;
+    color:#dbe1ea;font-variant-numeric:tabular-nums slashed-zero}
+  .qg-c.hl{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+  .qg-c b{font-weight:700;color:var(--qc)} .qg-c i{font-style:italic;color:var(--muted)}
+  .qg-row b.q-wow{color:var(--wow)}.qg-row b.q-ok{color:var(--ok)}
+  .qg-row b.q-warn{color:var(--warn)}.qg-row b.q-bad{color:var(--danger)}
+  .qgrid.scrolled .qg-t{box-shadow:8px 0 10px -8px rgba(0,0,0,.75)}
+}
+
+/* ── film page ────────────────────────────────────────────────────────── */
+.card{background:var(--card);border-radius:var(--radius);padding:var(--s4)}
+.fhead{display:flex;align-items:center;gap:10px;margin-bottom:var(--s3)}
+.fback{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);
+  color:var(--text);cursor:pointer;flex:none}
+.ftitle{font-size:20px;font-weight:700;line-height:1.25;min-width:0}
+.fsub{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;font-size:12.5px;color:var(--muted)}
+.fhero{display:flex;align-items:flex-end;gap:var(--s4);margin-bottom:var(--s4)}
+.fplus{font-size:52px;font-weight:700;line-height:.95;letter-spacing:-.02em;
+  color:color-mix(in srgb,var(--qc) 88%,var(--text))}
+.fband{font-size:13px;font-weight:600;color:var(--qc);text-transform:uppercase;letter-spacing:.06em}
+.fconf{font-size:11px;color:var(--muted);margin-top:2px}
+.qstats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
+@media (min-width:700px){.qstats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:1024px){.qstats{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.stat{background:var(--card-2);border-radius:12px;padding:8px 11px;min-width:0}
+.stat-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.stat-val{font-size:18px;font-weight:700;color:var(--text);white-space:nowrap;margin-top:1px}
+.stat-val small{font-size:12px;font-weight:600;color:var(--muted);margin-left:3px}
+
+/* percentile row: TWO POSITIONS + the peer distribution — no fill, no rank-as-length */
+.pr{margin-top:var(--s4)}
+.pr-top{display:flex;align-items:baseline;gap:var(--s2);font-size:13px}
+.pr-l{flex:1;color:var(--muted);font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.04em}
+.pr-v{font-weight:700;font-variant-numeric:tabular-nums}
+.pr-p{color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums;min-width:36px;text-align:right}
+.pr-p sup{font-size:8.5px}
+.pr-track{position:relative;height:26px;margin-top:5px;border-radius:6px;background:var(--card-2);overflow:hidden}
+.pr-hist{position:absolute;inset:0}
+.pr-hist span{position:absolute;bottom:0;background:color-mix(in srgb,var(--muted) 26%,transparent)}
+.pr-ref{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed color-mix(in srgb,var(--text) 45%,transparent)}
+.pr-ref.med{border-left-style:dotted;border-left-color:color-mix(in srgb,var(--muted) 60%,transparent)}
+.pr-track{overflow:visible}
+.pr-hist{overflow:hidden;border-radius:6px}
+.pr-dot{position:absolute;top:50%;left:calc(7px + (var(--x) / 100) * (100% - 14px));
+  width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:99px;
+  background:var(--text);box-shadow:0 0 0 2.5px var(--qc),0 0 0 4.5px var(--card-2)}
+.pr-ends{position:relative;display:flex;justify-content:space-between;margin-top:3px;
+  font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pr-reflbl{position:absolute;transform:translateX(-50%);white-space:nowrap}
+
+/* artifact meters: position + hatch. No severity hue. */
+.abs{display:flex;flex-direction:column;gap:var(--s3);margin-top:var(--s3)}
+.ab{display:grid;grid-template-columns:1fr auto;row-gap:var(--s1)}
+.ab-l{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.ab-r{font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--text);text-align:right}
+.ab-r i{color:var(--muted);font-style:normal}
+.ab-r b{display:inline-block;min-width:38px;text-align:right;color:var(--muted);font-weight:600}
+.ab-r b.bad{color:var(--danger);font-weight:800}
+.ab-track{grid-column:1/-1;position:relative;height:10px;border-radius:5px;background:var(--card-2);overflow:hidden}
+.ab-fill{height:100%;border-radius:5px 0 0 5px;background:color-mix(in srgb,var(--muted) 52%,transparent)}
+.ab-track.over .ab-fill{background:repeating-linear-gradient(45deg,transparent 0 3px,color-mix(in srgb,var(--danger) 60%,transparent) 3px 6px),color-mix(in srgb,var(--danger) 22%,transparent)}
+.ab-tick{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--text);opacity:.75}
+
+.abhint{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:2px}
+
+/* waterfall on the published score axis */
+.wf{position:relative;height:56px;margin:var(--s4) 0 var(--s2)}
+.wf-ax{position:absolute;left:0;right:0;bottom:18px;height:1px;background:var(--line)}
+.wf-t{position:absolute;bottom:18px;width:1px;height:5px;background:var(--line)}
+.wf-t b{position:absolute;bottom:-17px;left:50%;transform:translateX(-50%);font-size:10px;
+  font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.wf-span{position:absolute;top:23px;height:7px;border-radius:4px;min-width:14px}
+.wf-span.add{background:color-mix(in srgb,var(--text) 34%,transparent)}
+.wf-span.sub{background:repeating-linear-gradient(45deg,transparent 0 3px,color-mix(in srgb,var(--muted) 62%,transparent) 3px 6px),color-mix(in srgb,var(--muted) 16%,transparent)}
+.wf-end{position:absolute;top:20px;width:13px;height:13px;margin-left:-6.5px;border-radius:99px}
+.wf-end.from{background:var(--card);box-shadow:0 0 0 2.5px var(--muted)}
+.wf-end.to{background:var(--qc);box-shadow:0 0 0 2.5px var(--card)}
+.wf-lbl{position:absolute;top:0;transform:translateX(-50%);font-size:10.5px;font-weight:700;
+  color:var(--muted);font-style:normal;white-space:nowrap}
+.wf-t.key{background:color-mix(in srgb,var(--text) 40%,transparent);height:8px}
+.wf-t.key b{color:var(--text)}
+.wf-cap{display:flex;justify-content:space-between;gap:var(--s3);font-size:11.5px;color:var(--muted);
+  align-items:baseline}
+.wf-cap b{color:var(--text);font-variant-numeric:tabular-nums}
+.wf-cap em{font-style:normal;display:block;font-size:10.5px;opacity:.85}
+.wf-key{display:inline-block;width:9px;height:9px;border-radius:99px;margin-right:5px}
+.wf-key.from{background:var(--card);box-shadow:0 0 0 2px var(--muted)}
+.wf-key.to{background:var(--wow);box-shadow:0 0 0 2px var(--card)}
+
+/* chart */
+.cp-wrap{margin-top:var(--s3)}
+.cp svg{width:100%;height:auto;display:block;touch-action:pan-y}
+.cp-g{stroke:var(--line);stroke-width:1}
+.cp-ax{fill:var(--muted);font-size:10px;font-variant-numeric:tabular-nums}
+.cp-se{fill:color-mix(in srgb,var(--accent) 12%,transparent)}
+.cp-mean{stroke:var(--accent);stroke-width:2}
+.cp-thr{stroke:var(--warn);stroke-width:1.5;stroke-dasharray:5 4}
+.cp-dot{fill:var(--text);stroke:var(--card);stroke-width:2}
+.cp-dot.sel{fill:var(--warn);r:7}
+.cp-hit{fill:transparent}
+.cp-read{display:flex;gap:var(--s2);align-items:baseline;margin-top:var(--s2);padding:8px 10px;
+  background:var(--card-2);border-radius:10px;font-size:12.5px}
+.cp-read b{font-variant-numeric:tabular-nums;font-size:14px}
+.cp-read span{color:var(--muted)}
+.head-ctl{display:flex;gap:6px;align-items:center;margin-left:auto}
+.panel-head{display:flex;align-items:center;gap:var(--s2)}
+.panel-head h3{margin:0;font-size:15px;font-weight:700}
+.qhelp{width:26px;height:26px;flex:none;border-radius:99px;border:1px solid var(--line);
+  background:none;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer}
+.tog{height:30px;padding:0 10px;border-radius:9px;border:1px solid var(--line);background:var(--card-2);
+  color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;min-width:82px}
+.seasons{display:flex;gap:6px;overflow-x:auto;margin:0 0 var(--s4);scrollbar-width:none;
+  mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 20px),transparent 100%)}
+.seasons button{flex:none;width:54px;height:46px;border-radius:10px;border:1px solid var(--line);
+  background:var(--card);cursor:pointer;display:grid;place-items:center;gap:1px;padding:0}
+.seasons button.on{background:var(--card-2);border-bottom:3px solid var(--qc)}
+.seasons em{font-style:normal;font-size:10.5px;font-weight:700;color:var(--muted)}
+.seasons b{font-size:15px;font-weight:700}
+
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;
+  background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(12px);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabbar button{flex:1;min-width:0;background:none;border:0;color:var(--muted);cursor:pointer;
+  padding:8px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px}
+.tabbar button.active{color:var(--accent)}
+.tabbar svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+</style></head><body class="tab-wide">
+<header class="topbar"><div class="header-disk-row"><h1>Library</h1></div></header>
+<main>
+
+  <div class="qctl">
+    <div class="qctl-a">
+      <div class="segmented"><button>Movies</button><button>TV</button><button class="active">All</button></div>
+      <input class="search" type="search" placeholder="Search titles…">
+    </div>
+    <div class="qctl-b-wrap"><div class="qctl-b">
+      <select class="qsel"><option>Sort BPP+</option></select>
+      <button class="qdir">↑</button>
+      <button class="qgear">⚙<b>2</b></button>
+      <button class="chip on">8–40 GB<em>×</em></button>
+      <button class="chip on">Banded<em>×</em></button>
+      <button class="chip">Top 100</button>
+      <button class="chip">Under 75</button>
+      <button class="chip">HEVC</button>
+      <button class="chip">Unmeasured</button>
+    </div></div>
+  </div>
+
+  <div class="qlist-wrap">
+  <div class="qhead">
+    <span class="qh-t"><b class="on">TITLE&nbsp;▴</b><span class="pos">34–71</span></span>
+    <span class="h-cx">CX</span><span class="h-R">R</span><span class="h-gb">GB</span><span class="h-cambi">BAND</span>
+  </div>
+  <ul class="qlist">
+<li class="qrow q-bad" style="--qf:22.7%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Great Expectations</b><i>1946</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">34</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">220</span><span class="qr-n c-R">0.22</span><span class="qr-n c-gb">1.6</span><span class="qr-n c-cambi"><span class="over">120%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:23.3%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>True Lies</b><i>1994</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">35</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">263</span><span class="qr-n c-R">0.26</span><span class="qr-n c-gb">0.8</span><span class="qr-n c-cambi"><span class="over">151%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:24.0%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Fruitvale Station</b><i>2013</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">36</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">245</span><span class="qr-n c-R">0.25</span><span class="qr-n c-gb">1.3</span><span class="qr-n c-cambi"><span class="over">151%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:24.7%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>War of the Worlds</b><i>2005</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">37</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">257</span><span class="qr-n c-R">0.28</span><span class="qr-n c-gb">2.0</span><span class="qr-n c-cambi"><span class="over">176%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:24.7%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>A Million Miles Away</b><i>2023</i></span>
+    <span class="qr-flags"><span class="flg bd">WEBRip</span></span>
+    <span class="qr-plus">37</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">150</span><span class="qr-n c-R">0.29</span><span class="qr-n c-gb">1.5</span><span class="qr-n c-cambi"><span class="over">159%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:25.3%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Scarface</b><i>1983</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">38</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">294</span><span class="qr-n c-R">0.27</span><span class="qr-n c-gb">2.6</span><span class="qr-n c-cambi"><span class="over">119%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:26.0%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>John Wick: Chapter 4</b><i>2023</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">39</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">160</span><span class="qr-n c-R">0.28</span><span class="qr-n c-gb">1.8</span><span class="qr-n c-cambi"><span class="over">235%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:26.7%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Mission: Impossible - Ghost Protocol</b><i>2011</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">40</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">174</span><span class="qr-n c-R">0.35</span><span class="qr-n c-gb">1.5</span><span class="qr-n c-cambi"><span class="over">203%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:26.7%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Harry Potter and the Goblet of Fire</b><i>2005</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">40</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">181</span><span class="qr-n c-R">0.27</span><span class="qr-n c-gb">0.6</span><span class="qr-n c-cambi"><span class="over">150%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:27.3%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Band of Brothers</b></span>
+    <span class="qr-flags"><span class="flg s">S01</span></span>
+    <span class="qr-plus">41</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">216</span><span class="qr-n c-R">0.29</span><span class="qr-n c-gb">2.2</span><span class="qr-n c-cambi"><span class="over">154%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:28.7%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>The Pacific</b></span>
+    <span class="qr-flags"><span class="flg s">S01</span></span>
+    <span class="qr-plus">43</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">169</span><span class="qr-n c-R">0.38</span><span class="qr-n c-gb">2.3</span><span class="qr-n c-cambi"><span class="over">142%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:32.0%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>1923</b></span>
+    <span class="qr-flags"><span class="flg s">S01</span><span class="flg hv">HEVC</span></span>
+    <span class="qr-plus">48</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">92</span><span class="qr-n c-R">0.36</span><span class="qr-n c-gb">0.7</span><span class="qr-n c-cambi"><span class="over">211%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:27.3%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Star Wars: Episode III - Revenge of the Sith</b><i>2005</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">41</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">172</span><span class="qr-n c-R">0.32</span><span class="qr-n c-gb">1.5</span><span class="qr-n c-cambi"><span class="over">130%</span></span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:30.0%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Star Wars: Episode I - The Phantom Menace</b><i>1999</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">45</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">143</span><span class="qr-n c-R">0.39</span><span class="qr-n c-gb">1.7</span><span class="qr-n c-cambi"><span class="over">162%</span></span>
+  </div>
+</li>
+<li class="qrow q-warn" style="--qf:54.7%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>City of God</b><i>2002</i></span>
+    <span class="qr-flags"><span class="flg t1">★8</span></span>
+    <span class="qr-plus">82</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">272</span><span class="qr-n c-R">0.77</span><span class="qr-n c-gb">9.4</span><span class="qr-n c-cambi">40%</span>
+  </div>
+</li>
+<li class="qrow q-warn" style="--qf:56.0%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Indiana Jones and the Last Crusade</b><i>1989</i></span>
+    <span class="qr-flags"><span class="flg t1">★17</span></span>
+    <span class="qr-plus">84</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">463</span><span class="qr-n c-R">0.61</span><span class="qr-n c-gb">8.5</span><span class="qr-n c-cambi">7%</span>
+  </div>
+</li>
+<li class="qrow q-warn" style="--qf:58.7%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Parasite</b><i>2019</i></span>
+    <span class="qr-flags"><span class="flg t1">★15</span></span>
+    <span class="qr-plus">88</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">65</span><span class="qr-n c-R">4.77</span><span class="qr-n c-gb">3.1</span><span class="qr-n c-cambi">0%</span>
+  </div>
+</li>
+<li class="qrow q-ok" style="--qf:66.7%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Goldfinger</b><i>1964</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">100</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">176</span><span class="qr-n c-R">1.02</span><span class="qr-n c-gb">7.4</span><span class="qr-n c-cambi">8%</span>
+  </div>
+</li>
+<li class="qrow q-ok" style="--qf:66.7%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>The Lord of the Rings: The Two Towers</b><i>2002</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">100</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">291</span><span class="qr-n c-R">1.13</span><span class="qr-n c-gb">26.8</span><span class="qr-n c-cambi">2%</span>
+  </div>
+</li>
+<li class="qrow q-ok" style="--qf:66.7%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Harry Potter and the Chamber of Secrets</b><i>2002</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">100</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">97</span><span class="qr-n c-R">0.97</span><span class="qr-n c-gb">2.3</span><span class="qr-n c-cambi">53%</span>
+  </div>
+</li>
+<li class="qrow q-wow" style="--qf:83.3%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>North by Northwest</b><i>1959</i></span>
+    <span class="qr-flags"><span class="flg t1">★14</span></span>
+    <span class="qr-plus">125</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">114</span><span class="qr-n c-R">1.51</span><span class="qr-n c-gb">9.4</span><span class="qr-n c-cambi">10%</span>
+  </div>
+</li>
+<li class="qrow q-wow" style="--qf:84.0%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Casino Royale</b><i>2006</i></span>
+    <span class="qr-flags"></span>
+    <span class="qr-plus">126</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">234</span><span class="qr-n c-R">1.41</span><span class="qr-n c-gb">14.3</span><span class="qr-n c-cambi">8%</span>
+  </div>
+</li>
+<li class="qrow q-wow" style="--qf:84.0%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Apocalypse Now</b><i>1979</i></span>
+    <span class="qr-flags"><span class="flg gd">REMUX</span><span class="flg t1">★2</span></span>
+    <span class="qr-plus">126</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">247</span><span class="qr-n c-R">2.27</span><span class="qr-n c-gb">50.7</span><span class="qr-n c-cambi">2%</span>
+  </div>
+</li>
+<li class="qrow q-bad" style="--qf:33.3%" tabindex="0" role="button">
+  <div class="qr-head">
+    <span class="qr-title"><b>Battlestar Galactica (2003)</b></span>
+    <span class="qr-flags"><span class="flg s">S01</span><span class="flg hv">HEVC</span><span class="flg bd">HDTV</span></span>
+    <span class="qr-plus">50</span>
+  </div>
+  <div class="qr-cols">
+    <span class="qr-n c-cx">85</span><span class="qr-n c-R">0.50</span><span class="qr-n c-gb">0.7</span><span class="qr-n c-cambi"><span class="over">306%</span></span>
+  </div>
+</li>
+  </ul>
+  </div>
+
+  <div class="qgrid-wrap can-r"><div class="qgrid scrolled" style="--qgc:var(--tw) 58px 58px 54px 54px 62px 56px 62px 58px 62px 92px">
+<div class="qg-row qg-head">
+  <span class="qg-t"><b class="nm">TITLE</b></span>
+  <span class="qg-c on" style="--w:58px">BPP+<em>▴</em></span><span class="qg-c" style="--w:58px">BPP+₀</span><span class="qg-c" style="--w:54px">CX</span><span class="qg-c" style="--w:54px">R</span><span class="qg-c" style="--w:62px">SRC</span><span class="qg-c" style="--w:56px">GB</span><span class="qg-c" style="--w:62px">BAND</span><span class="qg-c" style="--w:58px">P</span><span class="qg-c" style="--w:62px">ΔADQ</span><span class="qg-c" style="--w:92px">TIER</span>
+</div>
+<div class="qg-row q-bad" style="--qf:22.7%">
+  <span class="qg-t"><b class="nm">Great Expectations</b><i>1946</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">34</b></span><span class="qg-c" style="--w:58px">37</span><span class="qg-c" style="--w:54px">220</span><span class="qg-c" style="--w:54px">0.22</span><span class="qg-c" style="--w:62px">1.8</span><span class="qg-c" style="--w:56px">1.6</span><span class="qg-c" style="--w:62px"><span class="over">120%</span></span><span class="qg-c" style="--w:58px">+0.98</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-bad" style="--qf:23.3%">
+  <span class="qg-t"><b class="nm">True Lies</b><i>1994</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">35</b></span><span class="qg-c" style="--w:58px">40</span><span class="qg-c" style="--w:54px">263</span><span class="qg-c" style="--w:54px">0.26</span><span class="qg-c" style="--w:62px">0.8</span><span class="qg-c" style="--w:56px">0.8</span><span class="qg-c" style="--w:62px"><span class="over">151%</span></span><span class="qg-c" style="--w:58px">+1.71</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">WEBDL</span>
+</div>
+<div class="qg-row q-bad" style="--qf:24.0%">
+  <span class="qg-t"><b class="nm">Fruitvale Station</b><i>2013</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">36</b></span><span class="qg-c" style="--w:58px">40</span><span class="qg-c" style="--w:54px">245</span><span class="qg-c" style="--w:54px">0.25</span><span class="qg-c" style="--w:62px">2.0</span><span class="qg-c" style="--w:56px">1.3</span><span class="qg-c" style="--w:62px"><span class="over">151%</span></span><span class="qg-c" style="--w:58px">+1.46</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-bad" style="--qf:24.7%">
+  <span class="qg-t"><b class="nm">War of the Worlds</b><i>2005</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">37</b></span><span class="qg-c" style="--w:58px">42</span><span class="qg-c" style="--w:54px">257</span><span class="qg-c" style="--w:54px">0.28</span><span class="qg-c" style="--w:62px">2.2</span><span class="qg-c" style="--w:56px">2.0</span><span class="qg-c" style="--w:62px"><span class="over">176%</span></span><span class="qg-c" style="--w:58px">+1.46</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-bad" style="--qf:24.7%">
+  <span class="qg-t"><b class="nm">A Million Miles Away</b><i>2023</i><span class="flg bd">WEBRip</span></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">37</b></span><span class="qg-c" style="--w:58px">43</span><span class="qg-c" style="--w:54px">150</span><span class="qg-c" style="--w:54px">0.29</span><span class="qg-c" style="--w:62px">1.6</span><span class="qg-c" style="--w:56px">1.5</span><span class="qg-c" style="--w:62px"><span class="over">159%</span></span><span class="qg-c" style="--w:58px">+1.77</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">WEBRip</span>
+</div>
+<div class="qg-row q-bad" style="--qf:25.3%">
+  <span class="qg-t"><b class="nm">Scarface</b><i>1983</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">38</b></span><span class="qg-c" style="--w:58px">42</span><span class="qg-c" style="--w:54px">294</span><span class="qg-c" style="--w:54px">0.27</span><span class="qg-c" style="--w:62px">1.9</span><span class="qg-c" style="--w:56px">2.6</span><span class="qg-c" style="--w:62px"><span class="over">119%</span></span><span class="qg-c" style="--w:58px">+1.18</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-bad" style="--qf:26.0%">
+  <span class="qg-t"><b class="nm">John Wick: Chapter 4</b><i>2023</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">39</b></span><span class="qg-c" style="--w:58px">42</span><span class="qg-c" style="--w:54px">160</span><span class="qg-c" style="--w:54px">0.28</span><span class="qg-c" style="--w:62px">1.4</span><span class="qg-c" style="--w:56px">1.8</span><span class="qg-c" style="--w:62px"><span class="over">235%</span></span><span class="qg-c" style="--w:58px">+1.07</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-bad" style="--qf:26.7%">
+  <span class="qg-t"><b class="nm">Mission: Impossible - Ghost Protocol</b><i>2011</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">40</b></span><span class="qg-c" style="--w:58px">47</span><span class="qg-c" style="--w:54px">174</span><span class="qg-c" style="--w:54px">0.35</span><span class="qg-c" style="--w:62px">1.4</span><span class="qg-c" style="--w:56px">1.5</span><span class="qg-c" style="--w:62px"><span class="over">203%</span></span><span class="qg-c" style="--w:58px">+1.99</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-bad" style="--qf:26.7%">
+  <span class="qg-t"><b class="nm">Harry Potter and the Goblet of Fire</b><i>2005</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">40</b></span><span class="qg-c" style="--w:58px">41</span><span class="qg-c" style="--w:54px">181</span><span class="qg-c" style="--w:54px">0.27</span><span class="qg-c" style="--w:62px">0.5</span><span class="qg-c" style="--w:56px">0.6</span><span class="qg-c" style="--w:62px"><span class="over">150%</span></span><span class="qg-c" style="--w:58px">+0.22</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">WEBDL</span>
+</div>
+<div class="qg-row q-bad" style="--qf:27.3%">
+  <span class="qg-t"><b class="nm">Band of Brothers</b><span class="flg s">S01</span></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">41</b></span><span class="qg-c" style="--w:58px">42</span><span class="qg-c" style="--w:54px">216</span><span class="qg-c" style="--w:54px">0.29</span><span class="qg-c" style="--w:62px">2.2</span><span class="qg-c" style="--w:56px">2.2</span><span class="qg-c" style="--w:62px"><span class="over">154%</span></span><span class="qg-c" style="--w:58px">+0.49</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-bad" style="--qf:28.7%">
+  <span class="qg-t"><b class="nm">The Pacific</b><span class="flg s">S01</span></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">43</b></span><span class="qg-c" style="--w:58px">49</span><span class="qg-c" style="--w:54px">169</span><span class="qg-c" style="--w:54px">0.38</span><span class="qg-c" style="--w:62px">3.0</span><span class="qg-c" style="--w:56px">2.3</span><span class="qg-c" style="--w:62px"><span class="over">142%</span></span><span class="qg-c" style="--w:58px">+1.67</span><span class="qg-c" style="--w:62px">+0.7</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-bad" style="--qf:32.0%">
+  <span class="qg-t"><b class="nm">1923</b><span class="flg s">S01</span><span class="flg hv">HEVC</span></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">48</b></span><span class="qg-c" style="--w:58px">48</span><span class="qg-c" style="--w:54px">92</span><span class="qg-c" style="--w:54px">0.36</span><span class="qg-c" style="--w:62px">0.8</span><span class="qg-c" style="--w:56px">0.7</span><span class="qg-c" style="--w:62px"><span class="over">211%</span></span><span class="qg-c" style="--w:58px">-0.00</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">WEBDL</span>
+</div>
+<div class="qg-row q-bad" style="--qf:27.3%">
+  <span class="qg-t"><b class="nm">Star Wars: Episode III - Revenge of the Sith</b><i>2005</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">41</b></span><span class="qg-c" style="--w:58px">45</span><span class="qg-c" style="--w:54px">172</span><span class="qg-c" style="--w:54px">0.32</span><span class="qg-c" style="--w:62px">1.3</span><span class="qg-c" style="--w:56px">1.5</span><span class="qg-c" style="--w:62px"><span class="over">130%</span></span><span class="qg-c" style="--w:58px">+1.35</span><span class="qg-c" style="--w:62px">+0.3</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-bad" style="--qf:30.0%">
+  <span class="qg-t"><b class="nm">Star Wars: Episode I - The Phantom Menace</b><i>1999</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">45</b></span><span class="qg-c" style="--w:58px">50</span><span class="qg-c" style="--w:54px">143</span><span class="qg-c" style="--w:54px">0.39</span><span class="qg-c" style="--w:62px">1.7</span><span class="qg-c" style="--w:56px">1.7</span><span class="qg-c" style="--w:62px"><span class="over">162%</span></span><span class="qg-c" style="--w:58px">+1.38</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-warn" style="--qf:54.7%">
+  <span class="qg-t"><b class="nm">City of God</b><i>2002</i><span class="flg t1">★8</span></span>
+  <span class="qg-c" style="--w:58px"><b class="q-warn">82</b></span><span class="qg-c" style="--w:58px">79</span><span class="qg-c" style="--w:54px">272</span><span class="qg-c" style="--w:54px">0.77</span><span class="qg-c" style="--w:62px">9.7</span><span class="qg-c" style="--w:56px">9.4</span><span class="qg-c" style="--w:62px">40%</span><span class="qg-c" style="--w:58px">+1.24</span><span class="qg-c" style="--w:62px">+7.7</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-warn" style="--qf:56.0%">
+  <span class="qg-t"><b class="nm">Indiana Jones and the Last Crusade</b><i>1989</i><span class="flg t1">★17</span></span>
+  <span class="qg-c" style="--w:58px"><b class="q-warn">84</b></span><span class="qg-c" style="--w:58px">67</span><span class="qg-c" style="--w:54px">463</span><span class="qg-c" style="--w:54px">0.61</span><span class="qg-c" style="--w:62px">9.0</span><span class="qg-c" style="--w:56px">8.5</span><span class="qg-c" style="--w:62px">7%</span><span class="qg-c" style="--w:58px">-0.01</span><span class="qg-c" style="--w:62px">+16.5</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-warn" style="--qf:58.7%">
+  <span class="qg-t"><b class="nm">Parasite</b><i>2019</i><span class="flg t1">★15</span></span>
+  <span class="qg-c" style="--w:58px"><b class="q-warn">88</b></span><span class="qg-c" style="--w:58px">88</span><span class="qg-c" style="--w:54px">65</span><span class="qg-c" style="--w:54px">4.77</span><span class="qg-c" style="--w:62px">13.5</span><span class="qg-c" style="--w:56px">3.1</span><span class="qg-c" style="--w:62px">0%</span><span class="qg-c" style="--w:58px">-3.03</span><span class="qg-c" style="--w:62px"><span class="nul" title="no per-clip banding">—</span></span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-ok" style="--qf:66.7%">
+  <span class="qg-t"><b class="nm">Goldfinger</b><i>1964</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-ok">100</b></span><span class="qg-c" style="--w:58px">96</span><span class="qg-c" style="--w:54px">176</span><span class="qg-c" style="--w:54px">1.02</span><span class="qg-c" style="--w:62px">9.0</span><span class="qg-c" style="--w:56px">7.4</span><span class="qg-c" style="--w:62px">8%</span><span class="qg-c" style="--w:58px">-0.44</span><span class="qg-c" style="--w:62px">+2.0</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-ok" style="--qf:66.7%">
+  <span class="qg-t"><b class="nm">The Lord of the Rings: The Two Towers</b><i>2002</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-ok">100</b></span><span class="qg-c" style="--w:58px">103</span><span class="qg-c" style="--w:54px">291</span><span class="qg-c" style="--w:54px">1.13</span><span class="qg-c" style="--w:62px">15.2</span><span class="qg-c" style="--w:56px">26.8</span><span class="qg-c" style="--w:62px">2%</span><span class="qg-c" style="--w:58px">+0.50</span><span class="qg-c" style="--w:62px">+0.0</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-ok" style="--qf:66.7%">
+  <span class="qg-t"><b class="nm">Harry Potter and the Chamber of Secrets</b><i>2002</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-ok">100</b></span><span class="qg-c" style="--w:58px">92</span><span class="qg-c" style="--w:54px">97</span><span class="qg-c" style="--w:54px">0.97</span><span class="qg-c" style="--w:62px">1.9</span><span class="qg-c" style="--w:56px">2.3</span><span class="qg-c" style="--w:62px">53%</span><span class="qg-c" style="--w:58px">-0.85</span><span class="qg-c" style="--w:62px">+3.0</span><span class="qg-c" style="--w:92px">WEBDL</span>
+</div>
+<div class="qg-row q-wow" style="--qf:83.3%">
+  <span class="qg-t"><b class="nm">North by Northwest</b><i>1959</i><span class="flg t1">★14</span></span>
+  <span class="qg-c" style="--w:58px"><b class="q-wow">125</b></span><span class="qg-c" style="--w:58px">123</span><span class="qg-c" style="--w:54px">114</span><span class="qg-c" style="--w:54px">1.51</span><span class="qg-c" style="--w:62px">9.2</span><span class="qg-c" style="--w:56px">9.4</span><span class="qg-c" style="--w:62px">10%</span><span class="qg-c" style="--w:58px">-0.20</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-wow" style="--qf:84.0%">
+  <span class="qg-t"><b class="nm">Casino Royale</b><i>2006</i></span>
+  <span class="qg-c" style="--w:58px"><b class="q-wow">126</b></span><span class="qg-c" style="--w:58px">119</span><span class="qg-c" style="--w:54px">234</span><span class="qg-c" style="--w:54px">1.41</span><span class="qg-c" style="--w:62px">13.2</span><span class="qg-c" style="--w:56px">14.3</span><span class="qg-c" style="--w:62px">8%</span><span class="qg-c" style="--w:58px">-0.70</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">Bluray</span>
+</div>
+<div class="qg-row q-wow" style="--qf:84.0%">
+  <span class="qg-t"><b class="nm">Apocalypse Now</b><i>1979</i><span class="flg gd">REMUX</span><span class="flg t1">★2</span></span>
+  <span class="qg-c" style="--w:58px"><b class="q-wow">126</b></span><span class="qg-c" style="--w:58px">146</span><span class="qg-c" style="--w:54px">247</span><span class="qg-c" style="--w:54px">2.27</span><span class="qg-c" style="--w:62px">37.2</span><span class="qg-c" style="--w:56px">50.7</span><span class="qg-c" style="--w:62px">2%</span><span class="qg-c" style="--w:58px">+1.78</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">Remux</span>
+</div>
+<div class="qg-row q-bad" style="--qf:33.3%">
+  <span class="qg-t"><b class="nm">Battlestar Galactica (2003)</b><span class="flg s">S01</span><span class="flg hv">HEVC</span><span class="flg bd">HDTV</span></span>
+  <span class="qg-c" style="--w:58px"><b class="q-bad">50</b></span><span class="qg-c" style="--w:58px">59</span><span class="qg-c" style="--w:54px">85</span><span class="qg-c" style="--w:54px">0.50</span><span class="qg-c" style="--w:62px">1.1</span><span class="qg-c" style="--w:56px">0.7</span><span class="qg-c" style="--w:62px"><span class="over">306%</span></span><span class="qg-c" style="--w:58px">+1.88</span><span class="qg-c" style="--w:62px">0.0</span><span class="qg-c" style="--w:92px">HDTV</span>
+</div>
+  </div></div>
+
+  <div class="qfoot"><span>812 of 1054 measured units</span><button>18 not measured →</button></div>
+
+  <h2 class="sec">Film page</h2>
+  <div class="card">
+    <div class="fhead">
+      <button class="fback">←</button>
+      <div style="min-width:0">
+        <div class="ftitle">Moneyball <span style="color:var(--muted);font-weight:500">2011</span></div>
+        <div class="fsub"><span class="flg gd">REMUX</span><span class="flg t1">★26</span>
+          <span>1920×1080 · 23.98 · 2h13 · 37.8 GB</span></div>
+      </div>
+    </div>
+    <div class="seasons" aria-label="Seasons of this show">
+      <button class="on q-warn"><em>S01</em><b style="color:var(--warn)">71</b></button>
+      <button class="q-ok"><em>S02</em><b style="color:var(--ok)">112</b></button>
+      <button class="q-wow"><em>S03</em><b style="color:var(--wow)">147</b></button>
+      <button class="q-bad"><em>S04</em><b style="color:var(--danger)">64</b></button>
+    </div>
+    <div class="fhero q-wow">
+      <div><div class="fplus">212</div></div>
+      <div style="padding-bottom:5px"><div class="fband">beyond the display</div>
+        <div class="fconf">measured · 16 clips · ±6%</div></div>
+    </div>
+    <div class="qstats">
+      <div class="stat"><div class="stat-label">at flat 0.13</div><div class="stat-val">232</div></div>
+      <div class="stat"><div class="stat-label">complexity ×1000</div><div class="stat-val">139</div></div>
+      <div class="stat"><div class="stat-label">supply R</div><div class="stat-val">5.47</div></div>
+      <div class="stat"><div class="stat-label">source</div><div class="stat-val">37.8<small>Mb/s</small></div></div>
+      <div class="stat"><div class="stat-label">audio share</div><div class="stat-val">8<small>%</small></div></div>
+      <div class="stat"><div class="stat-label">clips</div><div class="stat-val">16<small>eff</small></div></div>
+    </div>
+    <div class="pr">
+    <div class="pr-top"><span class="pr-l">BPP+</span><span class="pr-v q-wow">212</span>
+      <span class="pr-p">100<sup>th</sup></span></div>
+    <div class="pr-track">
+      <div class="pr-hist"><span style="left:0%;width:2.5%;height:4.918032786885246%"></span><span style="left:2.5%;width:2.5%;height:11.475409836065573%"></span><span style="left:5%;width:2.5%;height:12.295081967213115%"></span><span style="left:7.5%;width:2.5%;height:19.672131147540984%"></span><span style="left:10%;width:2.5%;height:36.885245901639344%"></span><span style="left:12.5%;width:2.5%;height:28.688524590163933%"></span><span style="left:15%;width:2.5%;height:57.377049180327866%"></span><span style="left:17.5%;width:2.5%;height:79.50819672131148%"></span><span style="left:20%;width:2.5%;height:79.50819672131148%"></span><span style="left:22.5%;width:2.5%;height:100%"></span><span style="left:25%;width:2.5%;height:79.50819672131148%"></span><span style="left:27.500000000000004%;width:2.5%;height:63.114754098360656%"></span><span style="left:30%;width:2.5%;height:41.80327868852459%"></span><span style="left:32.5%;width:2.5%;height:27.86885245901639%"></span><span style="left:35%;width:2.5%;height:16.39344262295082%"></span><span style="left:37.5%;width:2.5%;height:11.475409836065573%"></span><span style="left:40%;width:2.5%;height:13.114754098360656%"></span><span style="left:42.5%;width:2.5%;height:10.655737704918032%"></span><span style="left:45%;width:2.5%;height:12.295081967213115%"></span><span style="left:47.5%;width:2.5%;height:7.377049180327869%"></span><span style="left:50%;width:2.5%;height:5.737704918032787%"></span><span style="left:52.5%;width:2.5%;height:4.098360655737705%"></span><span style="left:55.00000000000001%;width:2.5%;height:4.098360655737705%"></span><span style="left:57.49999999999999%;width:2.5%;height:2%"></span><span style="left:60%;width:2.5%;height:2%"></span><span style="left:62.5%;width:2.5%;height:2.459016393442623%"></span><span style="left:65%;width:2.5%;height:2%"></span><span style="left:67.5%;width:2.5%;height:4.098360655737705%"></span><span style="left:70%;width:2.5%;height:2%"></span><span style="left:72.5%;width:2.5%;height:2%"></span><span style="left:75%;width:2.5%;height:2%"></span><span style="left:77.5%;width:2.5%;height:2%"></span><span style="left:80%;width:2.5%;height:2%"></span><span style="left:82.5%;width:2.5%;height:2%"></span><span style="left:85%;width:2.5%;height:2%"></span><span style="left:87.5%;width:2.5%;height:2%"></span><span style="left:90%;width:2.5%;height:2%"></span><span style="left:92.5%;width:2.5%;height:2%"></span><span style="left:95%;width:2.5%;height:2%"></span><span style="left:97.5%;width:2.5%;height:2%"></span></div>
+      <i class="pr-ref" style="left:35.48%"></i>
+      <b class="pr-dot q-wow" style="--x:95.70"></b>
+    </div>
+    <div class="pr-ends"><span>34</span>
+      <span class="pr-reflbl" style="left:35.48%">100</span>
+      <span>220</span></div>
+  </div>
+    <div class="pr">
+    <div class="pr-top"><span class="pr-l">complexity ×1000</span><span class="pr-v">139</span>
+      <span class="pr-p">40<sup>th</sup></span></div>
+    <div class="pr-track">
+      <div class="pr-hist"><span style="left:0%;width:2.5%;height:24.025974025974026%"></span><span style="left:2.5%;width:2.5%;height:58.44155844155844%"></span><span style="left:5%;width:2.5%;height:96.75324675324676%"></span><span style="left:7.5%;width:2.5%;height:98.7012987012987%"></span><span style="left:10%;width:2.5%;height:100%"></span><span style="left:12.5%;width:2.5%;height:64.28571428571429%"></span><span style="left:15%;width:2.5%;height:45.45454545454545%"></span><span style="left:17.5%;width:2.5%;height:27.27272727272727%"></span><span style="left:20%;width:2.5%;height:21.428571428571427%"></span><span style="left:22.5%;width:2.5%;height:10.38961038961039%"></span><span style="left:25%;width:2.5%;height:12.337662337662337%"></span><span style="left:27.500000000000004%;width:2.5%;height:4.545454545454546%"></span><span style="left:30%;width:2.5%;height:5.844155844155844%"></span><span style="left:32.5%;width:2.5%;height:5.844155844155844%"></span><span style="left:35%;width:2.5%;height:4.545454545454546%"></span><span style="left:37.5%;width:2.5%;height:2%"></span><span style="left:40%;width:2.5%;height:2%"></span><span style="left:42.5%;width:2.5%;height:2%"></span><span style="left:45%;width:2.5%;height:2%"></span><span style="left:47.5%;width:2.5%;height:2%"></span><span style="left:50%;width:2.5%;height:2%"></span><span style="left:52.5%;width:2.5%;height:2%"></span><span style="left:55.00000000000001%;width:2.5%;height:2%"></span><span style="left:57.49999999999999%;width:2.5%;height:2%"></span><span style="left:60%;width:2.5%;height:2%"></span><span style="left:62.5%;width:2.5%;height:2%"></span><span style="left:65%;width:2.5%;height:2%"></span><span style="left:67.5%;width:2.5%;height:2%"></span><span style="left:70%;width:2.5%;height:2%"></span><span style="left:72.5%;width:2.5%;height:2%"></span><span style="left:75%;width:2.5%;height:2%"></span><span style="left:77.5%;width:2.5%;height:2%"></span><span style="left:80%;width:2.5%;height:2%"></span><span style="left:82.5%;width:2.5%;height:2%"></span><span style="left:85%;width:2.5%;height:2%"></span><span style="left:87.5%;width:2.5%;height:2%"></span><span style="left:90%;width:2.5%;height:2%"></span><span style="left:92.5%;width:2.5%;height:2%"></span><span style="left:95%;width:2.5%;height:2%"></span><span style="left:97.5%;width:2.5%;height:2%"></span></div>
+      <i class="pr-ref med" style="left:10.36%"></i>
+      <b class="pr-dot" style="--x:8.92"></b>
+    </div>
+    <div class="pr-ends"><span>0.03</span>
+      
+      <span>1</span></div>
+  </div>
+    <div class="pr">
+    <div class="pr-top"><span class="pr-l">supply R</span><span class="pr-v">5.47</span>
+      <span class="pr-p">100<sup>th</sup></span></div>
+    <div class="pr-track">
+      <div class="pr-hist"><span style="left:0%;width:2.5%;height:14.096916299559473%"></span><span style="left:2.5%;width:2.5%;height:69.60352422907489%"></span><span style="left:5%;width:2.5%;height:100%"></span><span style="left:7.5%;width:2.5%;height:66.51982378854625%"></span><span style="left:10%;width:2.5%;height:48.89867841409692%"></span><span style="left:12.5%;width:2.5%;height:29.074889867841406%"></span><span style="left:15%;width:2.5%;height:19.823788546255507%"></span><span style="left:17.5%;width:2.5%;height:9.691629955947137%"></span><span style="left:20%;width:2.5%;height:9.251101321585903%"></span><span style="left:22.5%;width:2.5%;height:6.167400881057269%"></span><span style="left:25%;width:2.5%;height:7.929515418502203%"></span><span style="left:27.500000000000004%;width:2.5%;height:3.524229074889868%"></span><span style="left:30%;width:2.5%;height:2.2026431718061676%"></span><span style="left:32.5%;width:2.5%;height:2.643171806167401%"></span><span style="left:35%;width:2.5%;height:2%"></span><span style="left:37.5%;width:2.5%;height:2.643171806167401%"></span><span style="left:40%;width:2.5%;height:2%"></span><span style="left:42.5%;width:2.5%;height:2%"></span><span style="left:45%;width:2.5%;height:2%"></span><span style="left:47.5%;width:2.5%;height:2%"></span><span style="left:50%;width:2.5%;height:2%"></span><span style="left:52.5%;width:2.5%;height:2%"></span><span style="left:55.00000000000001%;width:2.5%;height:2%"></span><span style="left:57.49999999999999%;width:2.5%;height:2%"></span><span style="left:60%;width:2.5%;height:2%"></span><span style="left:62.5%;width:2.5%;height:2%"></span><span style="left:65%;width:2.5%;height:2%"></span><span style="left:67.5%;width:2.5%;height:2%"></span><span style="left:70%;width:2.5%;height:2%"></span><span style="left:72.5%;width:2.5%;height:2%"></span><span style="left:75%;width:2.5%;height:2%"></span><span style="left:77.5%;width:2.5%;height:2%"></span><span style="left:80%;width:2.5%;height:2%"></span><span style="left:82.5%;width:2.5%;height:2%"></span><span style="left:85%;width:2.5%;height:2%"></span><span style="left:87.5%;width:2.5%;height:2%"></span><span style="left:90%;width:2.5%;height:2%"></span><span style="left:92.5%;width:2.5%;height:2%"></span><span style="left:95%;width:2.5%;height:2%"></span><span style="left:97.5%;width:2.5%;height:2%"></span></div>
+      <i class="pr-ref" style="left:16.08%"></i>
+      <b class="pr-dot" style="--x:100.00"></b>
+    </div>
+    <div class="pr-ends"><span>0.14</span>
+      <span class="pr-reflbl" style="left:16.08%">R 1.0</span>
+      <span>5</span></div>
+  </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="panel-head"><h3>Where the score came from</h3><button class="qhelp">?</button></div>
+    <div class="wf">
+      <div class="wf-ax"></div><i class="wf-t" style="left:0.00%"><b>50</b></i><i class="wf-t" style="left:12.50%"><b>75</b></i><i class="wf-t key" style="left:25.00%"><b>100</b></i><i class="wf-t" style="left:37.50%"><b>125</b></i><i class="wf-t" style="left:50.00%"><b>150</b></i><i class="wf-t" style="left:75.00%"><b>200</b></i><i class="wf-t" style="left:100.00%"><b>250</b></i><i class="wf-span sub" style="left:81.00%;width:6.00%"></i><i class="wf-end from" style="left:87.00%"></i><i class="wf-end to q-wow" style="left:81.00%"></i><em class="wf-lbl" style="left:84.00%">-12 prov</em>
+    </div>
+    <div class="wf-cap"><span><i class="wf-key from"></i>BPP+₀ <b>224</b> <em>bits vs this film's own transparent cost</em></span>
+      <span><i class="wf-key to"></i>BPP+ <b>212</b> <em>after provenance</em></span></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="panel-head"><h3>Artifacts</h3><button class="qhelp">?</button></div>
+    <div class="abhint"><span>measured / visibility threshold</span><span>tick = threshold</span></div>
+    <div class="abs"><div class="ab">
+    <span class="ab-l">banding</span>
+    <span class="ab-r">0.09 <i>/ 2.82</i> <b class="ab-p">3%</b></span>
+    <div class="ab-track"><div class="ab-fill" style="width:1.5%"></div><i class="ab-tick"></i></div>
+  </div><div class="ab">
+    <span class="ab-l">blocking</span>
+    <span class="ab-r">1.69 <i>/ 3.71</i> <b class="ab-p">45%</b></span>
+    <div class="ab-track"><div class="ab-fill" style="width:22.7%"></div><i class="ab-tick"></i></div>
+  </div><div class="ab">
+    <span class="ab-l">blur</span>
+    <span class="ab-r">6.83 <i>/ 8.03</i> <b class="ab-p">85%</b></span>
+    <div class="ab-track"><div class="ab-fill" style="width:42.6%"></div><i class="ab-tick"></i></div>
+  </div></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="panel-head"><h3>Control points</h3>
+      <div class="head-ctl"><select class="qsel"><option>banding</option></select><button class="tog">sorted</button></div>
+      <button class="qhelp">?</button></div>
+    <div class="cp-wrap cp">
+      <svg viewBox="0 0 600 250" role="img">
+        <line class="cp-g" x1="34" x2="588" y1="220.0" y2="220.0"/>
+  <text class="cp-ax" x="28" y="223.5" text-anchor="end">0.00</text><line class="cp-g" x1="34" x2="588" y1="130.1" y2="130.1"/>
+  <text class="cp-ax" x="28" y="133.6" text-anchor="end">0.70</text><line class="cp-g" x1="34" x2="588" y1="40.2" y2="40.2"/>
+  <text class="cp-ax" x="28" y="43.7" text-anchor="end">2.8</text><line class="cp-g" x1="34" x2="588" y1="14.0" y2="14.0"/>
+  <text class="cp-ax" x="28" y="17.5" text-anchor="end">3.7</text>
+        <rect class="cp-se" x="34" y="180.5" width="554" height="18.9"/>
+        <line class="cp-mean" x1="34" x2="588" y1="188.5" y2="188.5"/>
+        <line class="cp-thr" x1="34" x2="588" y1="40.2" y2="40.2"/>
+        <text class="cp-ax" x="588" y="35.2" text-anchor="end" fill="#ffb020">visible 2.82</text>
+        <circle class="cp-hit" cx="61.6" cy="213.3" r="14"/>
+  <circle class="cp-dot" cx="61.6" cy="213.3" r="4.5"/><circle class="cp-hit" cx="124.0" cy="216.1" r="14"/>
+  <circle class="cp-dot" cx="124.0" cy="216.1" r="4.5"/><circle class="cp-hit" cx="186.2" cy="216.7" r="14"/>
+  <circle class="cp-dot" cx="186.2" cy="216.7" r="4.5"/><circle class="cp-hit" cx="248.6" cy="195.3" r="14"/>
+  <circle class="cp-dot" cx="248.6" cy="195.3" r="4.5"/><circle class="cp-hit" cx="310.9" cy="166.5" r="14"/>
+  <circle class="cp-dot" cx="310.9" cy="166.5" r="4.5"/><circle class="cp-hit" cx="373.2" cy="216.4" r="14"/>
+  <circle class="cp-dot" cx="373.2" cy="216.4" r="4.5"/><circle class="cp-hit" cx="435.5" cy="205.3" r="14"/>
+  <circle class="cp-dot" cx="435.5" cy="205.3" r="4.5"/><circle class="cp-hit" cx="497.9" cy="155.5" r="14"/>
+  <circle class="cp-dot sel" cx="497.9" cy="155.5" r="4.5"/><text class="cp-ax" x="34.0" y="236" text-anchor="start">0:00:00</text><text class="cp-ax" x="172.5" y="236" text-anchor="middle">0:33:19</text><text class="cp-ax" x="311.0" y="236" text-anchor="middle">1:06:37</text><text class="cp-ax" x="449.5" y="236" text-anchor="middle">1:39:56</text><text class="cp-ax" x="588.0" y="236" text-anchor="end">2:13:14</text>
+      </svg>
+      <div class="cp-read"><b>0.363</b><span>at 1:51:33 · clip 8 of 8 · 13% of threshold</span></div>
+    </div>
+  </div>
+</main>
+<nav class="tabbar">
+  <button><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></button>
+  <button><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg><span>Downloads</span></button>
+  <button class="active"><svg viewBox="0 0 24 24"><path d="M4 5h12v16H4zM16 7l4 1-3 13-4-1"/></svg><span>Library</span></button>
+  <button><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Audit</span></button>
+  <button><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span>Jobs</span></button>
+</nav>
+</body></html>

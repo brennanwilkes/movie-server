@@ -437,6 +437,49 @@ async function collectionsSweep() {
       const ur = await tfetch(`${HOST.jellyfin}/Items/${setId}/Images/Primary`, { method: 'POST', headers: { ...h, 'Content-Type': ir.headers.get('content-type') || 'image/jpeg' }, body: b64 }, 20000);
       return ur.ok;
     };
+    // MEMBERSHIP WRITES MUST BE CHUNKED. Jellyfin takes the ids in the QUERY STRING, and Kestrel's
+    // default max request line is 8 KB — a 33-char id plus its comma means anything past roughly
+    // 240 titles produces a URL the server refuses with 414.
+    //
+    // That is not theoretical: "Critically Loved" is 408 films, i.e. a 13,463-character URL, and
+    // its POST had been coming back 414 while nothing checked the response — so every sweep
+    // reported "reshuffled" and the shelf sat EMPTY (verified 2026-09-08: ChildCount 0, and the
+    // 414 reproduced by hand). The delete half of the rewrite failed the same way, which is why it
+    // could not even self-heal. The award and person/studio paths further down were already
+    // chunking at 100 for this reason; the generic bucket path was the one that never got it, so
+    // all three now go through here.
+    //
+    // Returns false if any chunk was rejected, and logs it — a silent membership write is exactly
+    // what hid this for as long as that collection has been over the limit.
+    const MEMBER_CHUNK = 100;
+    const writeMembers = async (setId, name, ids, method) => {
+      let ok = true;
+      for (let i = 0; i < ids.length; i += MEMBER_CHUNK) {
+        const chunk = ids.slice(i, i + MEMBER_CHUNK);
+        try {
+          const r = await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${chunk.join(',')}`, { method, headers: h }, 45000);
+          if (!(r.ok || r.status === 204)) {
+            ok = false;
+            console.log(`collectionsSweep: ${method} of ${chunk.length} member(s) of "${name}" rejected — HTTP ${r.status}`);
+          }
+        } catch (e) {
+          ok = false;
+          console.log(`collectionsSweep: ${method} of ${chunk.length} member(s) of "${name}" failed — ${e?.message || e}`);
+        }
+      }
+      return ok;
+    };
+    // Creating a collection carries its first members in the URL too, so it gets the same cap.
+    // Returns the new set's id, or null.
+    const createSet = async (name, ids) => {
+      const r = await tfetch(`${HOST.jellyfin}/Collections?${new URLSearchParams({ Name: name, Ids: ids.slice(0, MEMBER_CHUNK).join(',') })}`, { method: 'POST', headers: h }, 45000);
+      if (!r.ok) { console.log(`collectionsSweep: create of "${name}" rejected — HTTP ${r.status}`); return null; }
+      let setId = null;
+      try { setId = (await r.json()).Id; } catch { /* no body */ }
+      if (!setId) return null;
+      if (ids.length > MEMBER_CHUNK) await writeMembers(setId, name, ids.slice(MEMBER_CHUNK), 'POST');
+      return setId;
+    };
     const bq = new URLSearchParams({ IncludeItemTypes: 'BoxSet', Recursive: 'true', Limit: '500' });
     const sets = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${bq}`, { headers: h }, 45000)).Items) || [];
     const byName = new Map(sets.map((s) => [s.Name, s.Id]));
@@ -456,6 +499,12 @@ async function collectionsSweep() {
       'Oscar: Best Film Editing', 'Oscar: Best Cinematography',
       // Grouped person collections → replaced by individual ones
       'Great Actors', 'Great Directors', 'Great Cinematographers', 'Great Editors',
+      // Individual brothers → replaced by the single DIRECTOR_GROUPS "Coen Brothers" shelf.
+      // Jellyfin credits the brothers separately, so each of them was building his own thin
+      // shelf; the group entry merges them. Nothing recreates these names now, but the sets
+      // themselves outlived the rule (a 2-film "Joel Coen" was still showing on the web home
+      // page in Sept 2026) because a set is only ever deleted by name from this list.
+      'Joel Coen', 'Ethan Coen',
       // Old aliased studio names → replaced by direct names
       'Studio: A24', 'Studio: Ghibli', 'Studio: Pixar',
       // Only 1 doc in the library, not worth its own shelf
@@ -475,11 +524,9 @@ async function collectionsSweep() {
     for (const [name, { ids: want, desc }] of buckets) {
       let setId = byName.get(name);
       if (!setId) {
-        const r = await tfetch(`${HOST.jellyfin}/Collections?${new URLSearchParams({ Name: name, Ids: shuffle([...want]).join(',') })}`, { method: 'POST', headers: h }, 20000);
-        if (!r.ok) continue;
-        created++;
-        try { setId = (await r.json()).Id; } catch { setId = null; }
+        setId = await createSet(name, shuffle([...want]));
         if (!setId) continue;
+        created++;
         await ensureMeta(setId, desc);
         const pick = posterPick(want);
         if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
@@ -493,30 +540,44 @@ async function collectionsSweep() {
       // (clients page mid-rewrite → duplicate rows). Browse-order shuffle is
       // handled client-side by the TV/HSS rows, so a stale order is fine.
       if (have.length !== want.size || have.some((id) => !want.has(id))) {
-        if (have.length) await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${have.join(',')}`, { method: 'DELETE', headers: h }, 30000);
-        await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${shuffle([...want]).join(',')}`, { method: 'POST', headers: h }, 30000);
+        if (have.length) await writeMembers(setId, name, have, 'DELETE');
+        await writeMembers(setId, name, shuffle([...want]), 'POST');
         updated++;
       }
       const pick = posterPick(want);
       if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
     }
-    // Oscar winner collections: year-descending order (newest first), never shuffled.
+    // Award/festival collections: shuffled like every other shelf (2026-08-25). They used to be
+    // stored year-descending, but a Best Picture shelf that always opened on the last three
+    // winners read as a fixed list rather than something to browse — and the recency bias meant
+    // the pre-1990 winners were effectively invisible. `items` still carries the production year
+    // per member; nothing reads it now, but it's the cheap thing to keep if we ever want
+    // era-weighted ordering rather than flat random.
+    //
+    // AWARD_MIN: a shelf holding two or three films (a thin festival category like Cannes' Jury
+    // Prize) reads as broken rather than curated, so it's never created — and an existing one
+    // that has fallen below the floor is deleted. The awards data is static and the library only
+    // grows, so that delete path realistically only fires when files are removed; the next sweep
+    // recreates the set once it's back to 4. Deleting rather than tagging it "hidden-collection"
+    // is deliberate: that tag sits in the admin BlockedTags policy, which would hide the set from
+    // THIS sweep's own queries and make it create a duplicate when the set later grew.
+    const AWARD_MIN = 4;
     for (const [colName, { items, desc }] of oscarBuckets) {
-      const sorted = [...items.entries()].sort((a, b) => b[1] - a[1]);
-      const want = new Set(sorted.map(([id]) => id));
       let setId = byName.get(colName);
-      if (!setId) {
-        const ids = [...want];
-        // create collection with first chunk; add remaining chunks to it
-        const first = ids.slice(0, 100);
-        const r = await tfetch(`${HOST.jellyfin}/Collections?${new URLSearchParams({ Name: colName, Ids: first.join(',') })}`, { method: 'POST', headers: h }, 45000);
-        if (!r.ok) continue;
-        created++;
-        try { setId = (await r.json()).Id; } catch { setId = null; }
-        if (!setId) continue;
-        for (let i = 100; i < ids.length; i += 100) {
-          await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${ids.slice(i, i + 100).join(',')}`, { method: 'POST', headers: h }, 45000);
+      if (items.size < AWARD_MIN) {
+        if (setId) {
+          try {
+            const r = await tfetch(`${HOST.jellyfin}/Items/${setId}`, { method: 'DELETE', headers: h }, 15000);
+            if (r.ok || r.status === 204) { removed++; console.log(`collectionsSweep: dropped "${colName}" — only ${items.size} title(s), floor is ${AWARD_MIN}`); }
+          } catch { /* retried next sweep */ }
         }
+        continue;
+      }
+      const want = new Set(shuffle([...items.keys()]));
+      if (!setId) {
+        setId = await createSet(colName, [...want]);
+        if (!setId) continue;
+        created++;
         await ensureMeta(setId, desc);
         const pick = posterPick(want);
         if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
@@ -525,34 +586,36 @@ async function collectionsSweep() {
       await ensureMeta(setId, desc);
       const cq = new URLSearchParams({ ParentId: setId, Limit: '5000' });
       const have = (((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 30000)).json()).Items) || []).map((i) => i.Id);
-      if (have.length) {
-        for (let i = 0; i < have.length; i += 100) {
-          await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${have.slice(i, i + 100).join(',')}`, { method: 'DELETE', headers: h }, 45000);
-        }
-      }
-      const ids = [...want];
-      for (let i = 0; i < ids.length; i += 100) {
-        await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${ids.slice(i, i + 100).join(',')}`, { method: 'POST', headers: h }, 45000);
-      }
+      if (have.length) await writeMembers(setId, colName, have, 'DELETE');
+      await writeMembers(setId, colName, [...want], 'POST');
       updated++;
       const pick = posterPick(want);
       if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
     }
     // Person/studio collections: shuffled order, min 5 items.
+    //
+    // PERSON_MIN is enforced by DELETING a set that has fallen below it, not by skipping it — the
+    // same reasoning as AWARD_MIN above. Skipping only stopped the sweep from *touching* a thin
+    // set, so a shelf that had once qualified (or been created under an older rule) stayed in the
+    // library and stayed pickable as a home row: "Aaron Sorkin" was live with two films. The set
+    // is recreated the moment the person is back to five.
+    const PERSON_MIN = 5;
     for (const [colName, { items, desc }] of personBuckets) {
       const want = shuffle([...items.keys()]);
-      if (want.length < 5) continue;
       let setId = byName.get(colName);
-      if (!setId) {
-        const first = want.slice(0, 100);
-        const r = await tfetch(`${HOST.jellyfin}/Collections?${new URLSearchParams({ Name: colName, Ids: first.join(',') })}`, { method: 'POST', headers: h }, 45000);
-        if (!r.ok) continue;
-        created++;
-        try { setId = (await r.json()).Id; } catch { setId = null; }
-        if (!setId) continue;
-        for (let i = 100; i < want.length; i += 100) {
-          await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${want.slice(i, i + 100).join(',')}`, { method: 'POST', headers: h }, 45000);
+      if (want.length < PERSON_MIN) {
+        if (setId) {
+          try {
+            const r = await tfetch(`${HOST.jellyfin}/Items/${setId}`, { method: 'DELETE', headers: h }, 15000);
+            if (r.ok || r.status === 204) { removed++; console.log(`collectionsSweep: dropped "${colName}" — only ${want.length} title(s), floor is ${PERSON_MIN}`); }
+          } catch { /* retried next sweep */ }
         }
+        continue;
+      }
+      if (!setId) {
+        setId = await createSet(colName, want);
+        if (!setId) continue;
+        created++;
         await ensureMeta(setId, desc);
         const pick = posterPick(new Set(want));
         if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;
@@ -561,14 +624,8 @@ async function collectionsSweep() {
       await ensureMeta(setId, desc);
       const cq = new URLSearchParams({ ParentId: setId, Limit: '5000' });
       const have = (((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${cq}`, { headers: h }, 30000)).json()).Items) || []).map((i) => i.Id);
-      if (have.length) {
-        for (let i = 0; i < have.length; i += 100) {
-          await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${have.slice(i, i + 100).join(',')}`, { method: 'DELETE', headers: h }, 45000);
-        }
-      }
-      for (let i = 0; i < want.length; i += 100) {
-        await tfetch(`${HOST.jellyfin}/Collections/${setId}/Items?Ids=${want.slice(i, i + 100).join(',')}`, { method: 'POST', headers: h }, 45000);
-      }
+      if (have.length) await writeMembers(setId, colName, have, 'DELETE');
+      await writeMembers(setId, colName, want, 'POST');
       updated++;
       const pick = posterPick(new Set(want));
       if (pick && await setPoster(setId, pick.Id).catch(() => false)) postered++;

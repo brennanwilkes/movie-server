@@ -1,0 +1,1015 @@
+{
+ "generated": 1787763985460,
+ "films": {
+  "mv:66": {
+   "title": "Blade Runner 2049 (2017)",
+   "cxEff": 0.06696,
+   "bppPlus": 191,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 1.2339,
+   "bright": 160,
+   "acrossN": 721418
+  },
+  "mv:101": {
+   "title": "Ocean's Eleven (2001)",
+   "cxEff": 0.14982,
+   "bppPlus": 129,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 0.9618,
+   "bright": 160,
+   "acrossN": 108412
+  },
+  "mv:105": {
+   "title": "Ocean's Twelve (2004)",
+   "cxEff": 0.22597,
+   "bppPlus": 52,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 0.9998,
+   "bright": 160,
+   "acrossN": 417489
+  },
+  "mv:107": {
+   "title": "F1 (2025)",
+   "cxEff": 0.09689,
+   "bppPlus": 79,
+   "w": 1920,
+   "h": 804,
+   "gridRatio": 1.2616,
+   "bright": 140,
+   "acrossN": 32732
+  },
+  "mv:112": {
+   "title": "Saving Private Ryan (1998)",
+   "cxEff": 0.25262,
+   "bppPlus": 38,
+   "w": 1920,
+   "h": 1040,
+   "gridRatio": 0.986,
+   "bright": 160,
+   "acrossN": 301623
+  },
+  "mv:113": {
+   "title": "Sully (2016)",
+   "cxEff": 0.14463,
+   "bppPlus": 73,
+   "w": 1920,
+   "h": 808,
+   "gridRatio": 1.0273,
+   "bright": 160,
+   "acrossN": 231209
+  },
+  "mv:115": {
+   "title": "Cast Away (2000)",
+   "cxEff": 0.17452,
+   "bppPlus": 57,
+   "w": 1920,
+   "h": 1040,
+   "gridRatio": 1.0147,
+   "bright": 160,
+   "acrossN": 104917
+  },
+  "mv:116": {
+   "title": "Captain Phillips (2013)",
+   "cxEff": 0.17641,
+   "bppPlus": 55,
+   "w": 1920,
+   "h": 802,
+   "gridRatio": 1.0178,
+   "bright": 160,
+   "acrossN": 358705
+  },
+  "mv:121": {
+   "title": "You've Got Mail (1998)",
+   "cxEff": 0.312,
+   "bppPlus": 61,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0764,
+   "bright": 160,
+   "acrossN": 210113
+  },
+  "mv:122": {
+   "title": "A Man Called Otto (2022)",
+   "cxEff": 0.11595,
+   "bppPlus": 67,
+   "w": 1920,
+   "h": 1036,
+   "gridRatio": 0.9308,
+   "bright": 160,
+   "acrossN": 103347
+  },
+  "mv:127": {
+   "title": "Schindler's List (1993)",
+   "cxEff": 0.54797,
+   "bppPlus": 46,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.1299,
+   "bright": 160,
+   "acrossN": 215704
+  },
+  "mv:130": {
+   "title": "E.T. the Extra-Terrestrial (1982)",
+   "cxEff": 0.09801,
+   "bppPlus": 123,
+   "w": 1476,
+   "h": 800,
+   "gridRatio": 1.0157,
+   "bright": 160,
+   "acrossN": 59890
+  },
+  "mv:132": {
+   "title": "War of the Worlds (2005)",
+   "cxEff": 0.25663,
+   "bppPlus": 42,
+   "w": 1920,
+   "h": 1040,
+   "gridRatio": 1.0066,
+   "bright": 160,
+   "acrossN": 51552
+  },
+  "mv:134": {
+   "title": "Close Encounters of the Third Kind (1977)",
+   "cxEff": 0.34282,
+   "bppPlus": 58,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.1755,
+   "bright": 160,
+   "acrossN": 45628
+  },
+  "mv:135": {
+   "title": "Mission: Impossible - Ghost Protocol (2011)",
+   "cxEff": 0.1739,
+   "bppPlus": 47,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 1.0412,
+   "bright": 160,
+   "acrossN": 87136
+  },
+  "mv:136": {
+   "title": "Mission: Impossible (1996)",
+   "cxEff": 0.20178,
+   "bppPlus": 61,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 0.8177,
+   "bright": 160,
+   "acrossN": 406473
+  },
+  "mv:140": {
+   "title": "Mission: Impossible III (2006)",
+   "cxEff": 0.25383,
+   "bppPlus": 46,
+   "w": 1920,
+   "h": 816,
+   "gridRatio": 0.9632,
+   "bright": 160,
+   "acrossN": 323922
+  },
+  "mv:143": {
+   "title": "The Hunt for Red October (1990)",
+   "cxEff": 0.16921,
+   "bppPlus": 83,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0656,
+   "bright": 160,
+   "acrossN": 20845
+  },
+  "mv:144": {
+   "title": "The Last Emperor (1987)",
+   "cxEff": 0.14463,
+   "bppPlus": 81,
+   "w": 1920,
+   "h": 816,
+   "gridRatio": 1.061,
+   "bright": 160,
+   "acrossN": 56228
+  },
+  "mv:145": {
+   "title": "Once Upon a Time in the West (1968)",
+   "cxEff": 0.1931,
+   "bppPlus": 48,
+   "w": 1920,
+   "h": 816,
+   "gridRatio": 0.9736,
+   "bright": 160,
+   "acrossN": 110000
+  },
+  "mv:150": {
+   "title": "Dune (2021)",
+   "cxEff": 0.05083,
+   "bppPlus": 110,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 1.1303,
+   "bright": 160,
+   "acrossN": 143746
+  },
+  "mv:152": {
+   "title": "Obsession (2026)",
+   "cxEff": 0.05075,
+   "bppPlus": 103,
+   "w": 1620,
+   "h": 1080,
+   "gridRatio": 0.9971,
+   "bright": 160,
+   "acrossN": 23820
+  },
+  "mv:153": {
+   "title": "Backrooms (2026)",
+   "cxEff": 0.08988,
+   "bppPlus": 76,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0089,
+   "bright": 160,
+   "acrossN": 132175
+  },
+  "mv:155": {
+   "title": "The Sting (1973)",
+   "cxEff": 0.16908,
+   "bppPlus": 115,
+   "w": 1920,
+   "h": 1040,
+   "gridRatio": 0.9776,
+   "bright": 140,
+   "acrossN": 34925
+  },
+  "mv:156": {
+   "title": "Butch Cassidy and the Sundance Kid (1969)",
+   "cxEff": 0.15759,
+   "bppPlus": 123,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 0.9542,
+   "bright": 160,
+   "acrossN": 25551
+  },
+  "mv:157": {
+   "title": "All the President's Men (1976)",
+   "cxEff": 0.28136,
+   "bppPlus": 87,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.2797,
+   "bright": 160,
+   "acrossN": 845410
+  },
+  "mv:162": {
+   "title": "Sunset Boulevard (1950)",
+   "cxEff": 0.3521,
+   "bppPlus": 61,
+   "w": 1476,
+   "h": 1080,
+   "gridRatio": 1.0454,
+   "bright": 160,
+   "acrossN": 54185
+  },
+  "mv:163": {
+   "title": "Double Indemnity (1944)",
+   "cxEff": 0.30862,
+   "bppPlus": 47,
+   "w": 1424,
+   "h": 1080,
+   "gridRatio": 1.1781,
+   "bright": 160,
+   "acrossN": 114510
+  },
+  "mv:164": {
+   "title": "Witness for the Prosecution (1957)",
+   "cxEff": 0.1185,
+   "bppPlus": 99,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0529,
+   "bright": 160,
+   "acrossN": 97227
+  },
+  "mv:165": {
+   "title": "Sabrina (1954)",
+   "cxEff": 0.39939,
+   "bppPlus": 75,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0846,
+   "bright": 140,
+   "acrossN": 31610
+  },
+  "mv:168": {
+   "title": "The Bridge on the River Kwai (1957)",
+   "cxEff": 0.40892,
+   "bppPlus": 67,
+   "w": 1920,
+   "h": 752,
+   "gridRatio": 1.1617,
+   "bright": 160,
+   "acrossN": 258901
+  },
+  "mv:173": {
+   "title": "Goldfinger (1964)",
+   "cxEff": 0.17646,
+   "bppPlus": 96,
+   "w": 1804,
+   "h": 1080,
+   "gridRatio": 1.1057,
+   "bright": 160,
+   "acrossN": 286434
+  },
+  "mv:174": {
+   "title": "From Russia with Love (1963)",
+   "cxEff": 0.23742,
+   "bppPlus": 70,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0114,
+   "bright": 160,
+   "acrossN": 38825
+  },
+  "mv:175": {
+   "title": "Skyfall (2012)",
+   "cxEff": 0.13565,
+   "bppPlus": 142,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 1.1057,
+   "bright": 160,
+   "acrossN": 41685
+  },
+  "mv:179": {
+   "title": "No Time to Die (2021)",
+   "cxEff": 0.091,
+   "bppPlus": 82,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 1.0583,
+   "bright": 160,
+   "acrossN": 28674
+  },
+  "mv:181": {
+   "title": "Marty Supreme (2025)",
+   "cxEff": 0.05812,
+   "bppPlus": 102,
+   "w": 1920,
+   "h": 804,
+   "gridRatio": 0.9505,
+   "bright": 120,
+   "acrossN": 23266
+  },
+  "mv:182": {
+   "title": "One Battle After Another (2025)",
+   "cxEff": 0.09752,
+   "bppPlus": 68,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.781,
+   "bright": 120,
+   "acrossN": 49024
+  },
+  "mv:183": {
+   "title": "Grown Ups (2010)",
+   "cxEff": 0.17437,
+   "bppPlus": 47,
+   "w": 1920,
+   "h": 1040,
+   "gridRatio": 1.0403,
+   "bright": 160,
+   "acrossN": 142275
+  },
+  "mv:188": {
+   "title": "Happy Gilmore (1996)",
+   "cxEff": 0.16116,
+   "bppPlus": 73,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0095,
+   "bright": 160,
+   "acrossN": 163972
+  },
+  "mv:189": {
+   "title": "Jay Kelly (2025)",
+   "cxEff": 0.18694,
+   "bppPlus": 72,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 0.9684,
+   "bright": 160,
+   "acrossN": 59054
+  },
+  "mv:190": {
+   "title": "Anora (2024)",
+   "cxEff": 0.16757,
+   "bppPlus": 124,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 1.0055,
+   "bright": 160,
+   "acrossN": 349714
+  },
+  "mv:193": {
+   "title": "War Dogs (2016)",
+   "cxEff": 0.19949,
+   "bppPlus": 62,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 1.0121,
+   "bright": 160,
+   "acrossN": 256573
+  },
+  "mv:195": {
+   "title": "Superbad (2007)",
+   "cxEff": 0.09452,
+   "bppPlus": 77,
+   "w": 1920,
+   "h": 1040,
+   "gridRatio": 1.0275,
+   "bright": 160,
+   "acrossN": 195175
+  },
+  "mv:197": {
+   "title": "Knocked Up (2007)",
+   "cxEff": 0.14175,
+   "bppPlus": 45,
+   "w": 1280,
+   "h": 688,
+   "gridRatio": 0.9402,
+   "bright": 160,
+   "acrossN": 24439
+  },
+  "mv:198": {
+   "title": "Forgetting Sarah Marshall (2008)",
+   "cxEff": 0.12283,
+   "bppPlus": 64,
+   "w": 1920,
+   "h": 1040,
+   "gridRatio": 0.9911,
+   "bright": 160,
+   "acrossN": 108593
+  },
+  "mv:200": {
+   "title": "Donnie Brasco (1997)",
+   "cxEff": 0.197,
+   "bppPlus": 51,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 0.9804,
+   "bright": 160,
+   "acrossN": 40117
+  },
+  "mv:202": {
+   "title": "The Highwaymen (2019)",
+   "cxEff": 0.11597,
+   "bppPlus": 61,
+   "w": 1920,
+   "h": 1072,
+   "gridRatio": 0.942,
+   "bright": 160,
+   "acrossN": 198008
+  },
+  "mv:206": {
+   "title": "The Big Lebowski (1998)",
+   "cxEff": 0.0926,
+   "bppPlus": 150,
+   "w": 1920,
+   "h": 1040,
+   "gridRatio": 1.0951,
+   "bright": 160,
+   "acrossN": 91020
+  },
+  "mv:210": {
+   "title": "The Lord of the Rings: The Two Towers (2002)",
+   "cxEff": 0.29062,
+   "bppPlus": 103,
+   "w": 1920,
+   "h": 804,
+   "gridRatio": 1.2838,
+   "bright": 160,
+   "acrossN": 49069
+  },
+  "mv:216": {
+   "title": "The Dark Knight (2008)",
+   "cxEff": 0.12757,
+   "bppPlus": 95,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0182,
+   "bright": 160,
+   "acrossN": 107324
+  },
+  "mv:217": {
+   "title": "The Prestige (2006)",
+   "cxEff": 0.14927,
+   "bppPlus": 60,
+   "w": 1920,
+   "h": 818,
+   "gridRatio": 1.0131,
+   "bright": 140,
+   "acrossN": 25431
+  },
+  "mv:218": {
+   "title": "Dunkirk (2017)",
+   "cxEff": 0.20814,
+   "bppPlus": 91,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.5111,
+   "bright": 160,
+   "acrossN": 56093
+  },
+  "mv:221": {
+   "title": "It's a Wonderful Life (1946)",
+   "cxEff": 0.22382,
+   "bppPlus": 104,
+   "w": 1452,
+   "h": 1080,
+   "gridRatio": 1.0714,
+   "bright": 160,
+   "acrossN": 132660
+  },
+  "mv:222": {
+   "title": "Spirited Away (2001)",
+   "cxEff": 0.10014,
+   "bppPlus": 98,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0481,
+   "bright": 160,
+   "acrossN": 608326
+  },
+  "mv:247": {
+   "title": "The Birds (1963)",
+   "cxEff": 0.2457,
+   "bppPlus": 87,
+   "w": 1920,
+   "h": 1040,
+   "gridRatio": 1.0439,
+   "bright": 160,
+   "acrossN": 114290
+  },
+  "mv:256": {
+   "title": "2001: A Space Odyssey (1968)",
+   "cxEff": 0.11204,
+   "bppPlus": 141,
+   "w": 1920,
+   "h": 872,
+   "gridRatio": 1.1869,
+   "bright": 160,
+   "acrossN": 289790
+  },
+  "mv:257": {
+   "title": "Full Metal Jacket (1987)",
+   "cxEff": 0.19949,
+   "bppPlus": 76,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.1595,
+   "bright": 160,
+   "acrossN": 356258
+  },
+  "mv:300": {
+   "title": "Harry Potter and the Order of the Phoenix (2007)",
+   "cxEff": 0.13673,
+   "bppPlus": 81,
+   "w": 1280,
+   "h": 534,
+   "gridRatio": 0.9454,
+   "bright": 80,
+   "acrossN": 35532
+  },
+  "mv:328": {
+   "title": "Groundhog Day (1993)",
+   "cxEff": 0.08977,
+   "bppPlus": 86,
+   "w": 1920,
+   "h": 1040,
+   "gridRatio": 0.9761,
+   "bright": 140,
+   "acrossN": 25203
+  },
+  "mv:33": {
+   "title": "The Magician (2005)",
+   "cxEff": 0.11857,
+   "bppPlus": 56,
+   "w": 1280,
+   "h": 1024,
+   "gridRatio": 1.1305,
+   "bright": 160,
+   "acrossN": 112313
+  },
+  "mv:349": {
+   "title": "Paul (2011)",
+   "cxEff": 0.10643,
+   "bppPlus": 84,
+   "w": 1920,
+   "h": 816,
+   "gridRatio": 0.9416,
+   "bright": 160,
+   "acrossN": 308027
+  },
+  "mv:375": {
+   "title": "The Godfather (1972)",
+   "cxEff": 0.13669,
+   "bppPlus": 110,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 0.9391,
+   "bright": 160,
+   "acrossN": 136322
+  },
+  "mv:378": {
+   "title": "Heat (1995)",
+   "cxEff": 0.06527,
+   "bppPlus": 97,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 1.0318,
+   "bright": 160,
+   "acrossN": 42801
+  },
+  "mv:38": {
+   "title": "Django Unchained (2012)",
+   "cxEff": 0.09751,
+   "bppPlus": 108,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0302,
+   "bright": 160,
+   "acrossN": 59555
+  },
+  "mv:393": {
+   "title": "Rounders (1998)",
+   "cxEff": 0.16214,
+   "bppPlus": 58,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 0.9645,
+   "bright": 160,
+   "acrossN": 152961
+  },
+  "mv:40": {
+   "title": "Kill Bill: Vol. 1 (2003)",
+   "cxEff": 0.25017,
+   "bppPlus": 92,
+   "w": 1920,
+   "h": 792,
+   "gridRatio": 1.0545,
+   "bright": 160,
+   "acrossN": 408184
+  },
+  "mv:42": {
+   "title": "The Hateful Eight (2015)",
+   "cxEff": 0.11049,
+   "bppPlus": 77,
+   "w": 1920,
+   "h": 688,
+   "gridRatio": 1.0235,
+   "bright": 160,
+   "acrossN": 28346
+  },
+  "mv:44": {
+   "title": "Once Upon a Time... in Hollywood (2019)",
+   "cxEff": 0.16939,
+   "bppPlus": 58,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 0.9945,
+   "bright": 160,
+   "acrossN": 157239
+  },
+  "mv:445": {
+   "title": "The Big Sleep (1946)",
+   "cxEff": 0.23196,
+   "bppPlus": 117,
+   "w": 1488,
+   "h": 1080,
+   "gridRatio": 1.0772,
+   "bright": 160,
+   "acrossN": 48695
+  },
+  "mv:45": {
+   "title": "Jackie Brown (1997)",
+   "cxEff": 0.14741,
+   "bppPlus": 139,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.01,
+   "bright": 160,
+   "acrossN": 82183
+  },
+  "mv:476": {
+   "title": "Crazy Rich Asians (2018)",
+   "cxEff": 0.11328,
+   "bppPlus": 77,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 1.0397,
+   "bright": 160,
+   "acrossN": 574176
+  },
+  "mv:487": {
+   "title": "The Bishop's Wife (1947)",
+   "cxEff": 0.15689,
+   "bppPlus": 124,
+   "w": 1488,
+   "h": 1080,
+   "gridRatio": 1.2545,
+   "bright": 160,
+   "acrossN": 149649
+  },
+  "mv:51": {
+   "title": "Mean Streets (1973)",
+   "cxEff": 0.16581,
+   "bppPlus": 84,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.1259,
+   "bright": 160,
+   "acrossN": 26278
+  },
+  "mv:529": {
+   "title": "Contact (1997)",
+   "cxEff": 0.13402,
+   "bppPlus": 63,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 0.9604,
+   "bright": 160,
+   "acrossN": 61413
+  },
+  "mv:53": {
+   "title": "The Godfather Part II (1974)",
+   "cxEff": 0.1788,
+   "bppPlus": 99,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 0.735,
+   "bright": 160,
+   "acrossN": 226744
+  },
+  "mv:530": {
+   "title": "The Killing (1956)",
+   "cxEff": 0.28575,
+   "bppPlus": 40,
+   "w": 1792,
+   "h": 1072,
+   "gridRatio": 1.0596,
+   "bright": 160,
+   "acrossN": 209510
+  },
+  "mv:57": {
+   "title": "Once Upon a Time in America (1984)",
+   "cxEff": 0.05829,
+   "bppPlus": 107,
+   "w": 1920,
+   "h": 1038,
+   "gridRatio": 1.0372,
+   "bright": 160,
+   "acrossN": 48231
+  },
+  "mv:581": {
+   "title": "Super 8 (2011)",
+   "cxEff": 0.18853,
+   "bppPlus": 57,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 0.9464,
+   "bright": 160,
+   "acrossN": 125588
+  },
+  "mv:60": {
+   "title": "Meet the Fockers (2004)",
+   "cxEff": 0.31213,
+   "bppPlus": 41,
+   "w": 1280,
+   "h": 720,
+   "gridRatio": 0.9906,
+   "bright": 160,
+   "acrossN": 27906
+  },
+  "mv:650": {
+   "title": "The Texas Chain Saw Massacre (1974)",
+   "cxEff": 0.19103,
+   "bppPlus": 47,
+   "w": 1920,
+   "h": 1072,
+   "gridRatio": 0.979,
+   "bright": 160,
+   "acrossN": 523100
+  },
+  "mv:70": {
+   "title": "Crazy, Stupid, Love. (2011)",
+   "cxEff": 0.13345,
+   "bppPlus": 64,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 0.9558,
+   "bright": 160,
+   "acrossN": 185307
+  },
+  "mv:716": {
+   "title": "City of Men (2007)",
+   "cxEff": 1.0559,
+   "bppPlus": 48,
+   "w": 1280,
+   "h": 696,
+   "gridRatio": 0.9734,
+   "bright": 160,
+   "acrossN": 376514
+  },
+  "mv:732": {
+   "title": "Poor Things (2023)",
+   "cxEff": 0.14055,
+   "bppPlus": 65,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0086,
+   "bright": 160,
+   "acrossN": 663534
+  },
+  "mv:739": {
+   "title": "Decision to Leave (2022)",
+   "cxEff": 0.10743,
+   "bppPlus": 75,
+   "w": 1920,
+   "h": 804,
+   "gridRatio": 1.0902,
+   "bright": 160,
+   "acrossN": 260078
+  },
+  "mv:75": {
+   "title": "The Empire Strikes Back (1980)",
+   "cxEff": 0.11165,
+   "bppPlus": 140,
+   "w": 1920,
+   "h": 824,
+   "gridRatio": 1.0192,
+   "bright": 160,
+   "acrossN": 22294
+  },
+  "mv:776": {
+   "title": "Almost Famous (2000)",
+   "cxEff": 0.12385,
+   "bppPlus": 56,
+   "w": 1920,
+   "h": 1040,
+   "gridRatio": 1.0652,
+   "bright": 160,
+   "acrossN": 168612
+  },
+  "mv:784": {
+   "title": "Menace II Society (1993)",
+   "cxEff": 0.17089,
+   "bppPlus": 66,
+   "w": 1920,
+   "h": 1038,
+   "gridRatio": 1.0068,
+   "bright": 160,
+   "acrossN": 28384
+  },
+  "mv:82": {
+   "title": "Indiana Jones and the Kingdom of the Crystal Skull (2008)",
+   "cxEff": 0.24741,
+   "bppPlus": 68,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0991,
+   "bright": 140,
+   "acrossN": 67571
+  },
+  "mv:821": {
+   "title": "The Man Standing Next (2020)",
+   "cxEff": 0.05551,
+   "bppPlus": 93,
+   "w": 1920,
+   "h": 1024,
+   "gridRatio": 0.9718,
+   "bright": 160,
+   "acrossN": 173371
+  },
+  "mv:825": {
+   "title": "Kajillionaire (2020)",
+   "cxEff": 0.06359,
+   "bppPlus": 83,
+   "w": 1280,
+   "h": 720,
+   "gridRatio": 1.1997,
+   "bright": 160,
+   "acrossN": 26429
+  },
+  "mv:848": {
+   "title": "The Man Who Knew Too Much (1956)",
+   "cxEff": 0.37645,
+   "bppPlus": 55,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.1975,
+   "bright": 160,
+   "acrossN": 104295
+  },
+  "mv:851": {
+   "title": "Our Man in Havana (1960)",
+   "cxEff": 0.23146,
+   "bppPlus": 84,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.1674,
+   "bright": 160,
+   "acrossN": 98976
+  },
+  "mv:86": {
+   "title": "The Conversation (1974)",
+   "cxEff": 0.1022,
+   "bppPlus": 82,
+   "w": 1920,
+   "h": 1036,
+   "gridRatio": 1.0507,
+   "bright": 160,
+   "acrossN": 66103
+  },
+  "mv:87": {
+   "title": "American Graffiti (1973)",
+   "cxEff": 0.18961,
+   "bppPlus": 122,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.0369,
+   "bright": 160,
+   "acrossN": 42398
+  },
+  "mv:884": {
+   "title": "13 Rue Madeleine (1947)",
+   "cxEff": 0.10895,
+   "bppPlus": 89,
+   "w": 1280,
+   "h": 720,
+   "gridRatio": 0.9906,
+   "bright": 160,
+   "acrossN": 76038
+  },
+  "mv:89": {
+   "title": "A Streetcar Named Desire (1951)",
+   "cxEff": 0.24098,
+   "bppPlus": 66,
+   "w": 1480,
+   "h": 1080,
+   "gridRatio": 1.1501,
+   "bright": 120,
+   "acrossN": 35381
+  },
+  "mv:891": {
+   "title": "My Own Private Idaho (1991)",
+   "cxEff": 0.22521,
+   "bppPlus": 47,
+   "w": 1280,
+   "h": 720,
+   "gridRatio": 1.0785,
+   "bright": 160,
+   "acrossN": 36437
+  },
+  "mv:898": {
+   "title": "Blue Ruin (2014)",
+   "cxEff": 0.08819,
+   "bppPlus": 115,
+   "w": 1920,
+   "h": 1080,
+   "gridRatio": 1.1138,
+   "bright": 160,
+   "acrossN": 190413
+  },
+  "mv:91": {
+   "title": "Mutiny on the Bounty (1962)",
+   "cxEff": 0.17726,
+   "bppPlus": 93,
+   "w": 1920,
+   "h": 688,
+   "gridRatio": 1.0482,
+   "bright": 160,
+   "acrossN": 191507
+  },
+  "mv:918": {
+   "title": "Swingers (1996)",
+   "cxEff": 0.09825,
+   "bppPlus": 67,
+   "w": 1920,
+   "h": 1072,
+   "gridRatio": 1.0106,
+   "bright": 160,
+   "acrossN": 177065
+  },
+  "mv:96": {
+   "title": "The Matrix Revolutions (2003)",
+   "cxEff": 0.15273,
+   "bppPlus": 67,
+   "w": 1920,
+   "h": 800,
+   "gridRatio": 1.0829,
+   "bright": 160,
+   "acrossN": 556974
+  }
+ }
+}

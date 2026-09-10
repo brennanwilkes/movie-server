@@ -54,16 +54,44 @@
       <p id="downloads-empty" class="empty" hidden>Nothing downloading right now.</p>
     </section>
 
-    <!-- LIBRARY -->
+    <!-- LIBRARY, through the lens of BPP+. Two sub-views: the list and one film all the way down.
+         Every unit that has been measured, sortable on any derived column, read-only except for
+         the per-title Redownload/Remove actions that used to live on the old flat list. -->
     <section id="tab-library" class="tab" hidden>
-      <div class="segmented" id="lib-toggle">
-        <button data-app="radarr" class="active">Movies <span class="count" id="lib-count-radarr"></span></button>
-        <button data-app="sonarr">TV <span class="count" id="lib-count-sonarr"></span></button>
+      <div id="q-list">
+        <div class="qctl">
+          <div class="qctl-a">
+            <div class="segmented" id="q-kind">
+              <button data-kind="movie">Movies</button>
+              <button data-kind="tv">TV</button>
+              <button data-kind="all" class="active">All</button>
+            </div>
+            <input id="q-search" class="search" type="search" placeholder="Search titles…" autocomplete="off">
+          </div>
+          <div class="qctl-b-wrap">
+            <div class="qctl-b" id="q-chips">
+              <select id="q-sort" class="qsel" aria-label="Sort by"></select>
+              <button id="q-dir" class="qdir" aria-label="Reverse sort order">↓</button>
+              <button id="q-gear" class="qgear" aria-label="Columns and filters">⚙<b id="q-fcount" hidden>0</b></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="qgrid-wrap" id="q-grid-wrap" hidden>
+          <div class="qhead-strip" id="q-grid-head"></div>
+          <div class="qgrid" id="q-grid"></div>
+        </div>
+
+        <div id="q-loading" class="loading" hidden><span class="spinner"></span><span id="q-loading-text">Loading quality data…</span></div>
+        <p id="q-empty" class="empty" hidden></p>
+        <div id="q-error" class="qbanner" hidden>
+          <span id="q-error-text"></span>
+          <button id="q-retry" class="audit-btn">Retry</button>
+        </div>
+        <div id="q-foot" class="qfoot" hidden><span id="q-count"></span></div>
       </div>
-      <input id="lib-search" class="search" type="search" placeholder="Search to clean up…" autocomplete="off">
-      <ul id="library" class="list"></ul>
-      <div id="library-loading" class="loading" hidden><span class="spinner"></span>Loading library…</div>
-      <p id="library-empty" class="empty" hidden>Nothing here yet.</p>
+
+      <div id="q-film" hidden></div>
     </section>
 
     <!-- AUDIT — read-only reporting on the library's worst offenders. Each row carries a
@@ -270,6 +298,36 @@
   <!-- Toast -->
   <div id="toast" class="toast" hidden></div>
 
+  <!-- Per-panel help for the film page. -->
+  <div id="qf-help-backdrop" class="sheet-backdrop" hidden>
+    <div class="sheet">
+      <h3 id="qf-help-title">About</h3>
+      <p id="qf-help-text" class="qf-help-text"></p>
+      <div class="sheet-actions"><button class="btn-primary" id="qf-help-close">Got it</button></div>
+    </div>
+  </div>
+
+  <!-- Columns + Filters, one sheet with two tabs. .force-sheet gives it a fixed header/footer and
+       a scrolling body, so a long catalogue scrolls inside the sheet and the actions stay put. -->
+  <div id="q-sheet-backdrop" class="sheet-backdrop" hidden>
+    <div class="sheet force-sheet">
+      <div class="force-header">
+        <div class="segmented" id="q-sheet-tabs">
+          <button data-pane="cols" class="active">Columns</button>
+          <button data-pane="filters">Filters</button>
+        </div>
+      </div>
+      <div class="force-body">
+        <div id="q-pane-cols"></div>
+        <div id="q-pane-filters" hidden></div>
+      </div>
+      <div class="force-footer sheet-actions">
+        <button class="btn-ghost" id="q-sheet-reset">Reset</button>
+        <button class="btn-primary" id="q-sheet-done">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Bottom tab bar -->
   <nav class="tabbar">
     <button data-tab="home" class="active" aria-label="Home">
@@ -302,7 +360,10 @@
   <script src="js/tabs.js"></script>
   <script src="js/home.js"></script>
   <script src="js/downloads.js"></script>
-  <script src="js/library.js"></script>
+  <script src="js/quality-data.js"></script>
+  <script src="js/quality.js"></script>
+  <script src="js/qchart.js"></script>
+  <script src="js/film.js"></script>
   <script src="js/audit.js"></script>
   <script src="js/jobs.js"></script>
   <script src="js/sheets.js"></script>

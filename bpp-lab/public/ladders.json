@@ -1,0 +1,8077 @@
+{
+ "generated": 1787846638863,
+ "note": "Slopes travel between runs; levels do not. Use the nightly banding reading for cross-film level.",
+ "films": [
+  {
+   "key": "mv:445",
+   "title": "The Big Sleep (1946)",
+   "run": "artifact-ladder-v1.json",
+   "lossless": 0.00174,
+   "grainLossless": null,
+   "levelAt1": 0.08339,
+   "blockAt1": 1.21144,
+   "blurAt1": 7.5142,
+   "grainAt1": null,
+   "S": -2.8234941475286566,
+   "r2": 0.9873535604180197,
+   "n": 5,
+   "sBlock": -0.059374422635362405,
+   "sBlur": -0.017363096623065736,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 0.03358,
+     "block": 1.20133,
+     "blur": 7.48555,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.05721,
+     "block": 1.19864,
+     "blur": 7.50031,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 0.08339,
+     "block": 1.21144,
+     "blur": 7.5142,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.12522,
+     "block": 1.21599,
+     "blur": 7.5385,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.20365,
+     "block": 1.24668,
+     "blur": 7.5665,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:848",
+   "title": "The Man Who Knew Too Much (1956)",
+   "run": "artifact-ladder-v1.json",
+   "lossless": 0.15122,
+   "grainLossless": null,
+   "levelAt1": 0.38882,
+   "blockAt1": 2.13314,
+   "blurAt1": 5.98408,
+   "grainAt1": null,
+   "S": -0.8342875827233074,
+   "r2": 0.9987218618229828,
+   "n": 5,
+   "sBlock": -0.19661137167107398,
+   "sBlur": -0.0401718974564692,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 0.31583,
+     "block": 2.08517,
+     "blur": 5.92706,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.34287,
+     "block": 2.13571,
+     "blur": 5.9558,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 0.38882,
+     "block": 2.13314,
+     "blur": 5.98408,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.44681,
+     "block": 2.22479,
+     "blur": 6.02619,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.52541,
+     "block": 2.36854,
+     "blur": 6.07685,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:821",
+   "title": "The Man Standing Next (2020)",
+   "run": "banding-ladder-v3.json",
+   "lossless": 0.46177,
+   "grainLossless": null,
+   "levelAt1": 6.04218,
+   "blockAt1": null,
+   "blurAt1": null,
+   "grainAt1": null,
+   "S": -1.2992651278029923,
+   "r2": 0.9787362743124276,
+   "n": 5,
+   "sBlock": null,
+   "sBlur": null,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 3.88372,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 4.90466,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 6.04218,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 7.3545,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 8.74406,
+     "block": null,
+     "blur": null,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:716",
+   "title": "City of Men (2007)",
+   "run": "banding-ladder-v3.json",
+   "lossless": 1.3748,
+   "grainLossless": null,
+   "levelAt1": 1.59647,
+   "blockAt1": null,
+   "blurAt1": null,
+   "grainAt1": null,
+   "S": -0.277538544525718,
+   "r2": 0.9861376785476735,
+   "n": 5,
+   "sBlock": null,
+   "sBlur": null,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 1.51417,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.55662,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 1.59647,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.68825,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.7967,
+     "block": null,
+     "blur": null,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:776",
+   "title": "Almost Famous (2000)",
+   "run": "banding-ladder-v3.json",
+   "lossless": 2.44644,
+   "grainLossless": null,
+   "levelAt1": 3.48278,
+   "blockAt1": null,
+   "blurAt1": null,
+   "grainAt1": null,
+   "S": -0.17654154863714017,
+   "r2": 0.99222575665008,
+   "n": 5,
+   "sBlock": null,
+   "sBlur": null,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 3.29366,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 3.37318,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 3.48278,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 3.56112,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 3.67575,
+     "block": null,
+     "blur": null,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:918",
+   "title": "Swingers (1996)",
+   "run": "banding-ladder-v3.json",
+   "lossless": 7.17349,
+   "grainLossless": null,
+   "levelAt1": 8.91109,
+   "blockAt1": null,
+   "blurAt1": null,
+   "grainAt1": null,
+   "S": -0.22287472370445996,
+   "r2": 0.9982117986636705,
+   "n": 5,
+   "sBlock": null,
+   "sBlur": null,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 8.37955,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 8.62878,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 8.91109,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 9.25689,
+     "block": null,
+     "blur": null,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 9.61102,
+     "block": null,
+     "blur": null,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:181",
+   "title": "Marty Supreme (2025)",
+   "run": "artifact-ladder-v1.json",
+   "lossless": 1.42722,
+   "grainLossless": null,
+   "levelAt1": 5.12657,
+   "blockAt1": 2.29801,
+   "blurAt1": 6.74649,
+   "grainAt1": null,
+   "S": -0.8973744699611792,
+   "r2": 0.9988743439557892,
+   "n": 5,
+   "sBlock": -0.3697967442299886,
+   "sBlur": -0.03118419560371175,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 3.98746,
+     "block": 2.08776,
+     "blur": 6.69771,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 4.46773,
+     "block": 2.18728,
+     "blur": 6.72123,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 5.12657,
+     "block": 2.29801,
+     "blur": 6.74649,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 5.90121,
+     "block": 2.43873,
+     "blur": 6.77725,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 6.93871,
+     "block": 2.6281,
+     "blur": 6.83087,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:153",
+   "title": "Backrooms (2026)",
+   "run": "artifact-ladder-v1.json",
+   "lossless": 5.41356,
+   "grainLossless": null,
+   "levelAt1": 5.9669,
+   "blockAt1": 2.95795,
+   "blurAt1": 7.28037,
+   "grainAt1": null,
+   "S": -0.03715739926712199,
+   "r2": 0.850775747841937,
+   "n": 5,
+   "sBlock": -0.18061775259084784,
+   "sBlur": -0.045975435510166404,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 5.85608,
+     "block": 2.79732,
+     "blur": 7.22606,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 5.90365,
+     "block": 2.8627,
+     "blur": 7.26463,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 5.9669,
+     "block": 2.95795,
+     "blur": 7.28037,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 5.98185,
+     "block": 3.02206,
+     "blur": 7.35779,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 5.99284,
+     "block": 3.13087,
+     "blur": 7.4357,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:86",
+   "title": "The Conversation (1974)",
+   "run": "artifact-ladder-v1.json",
+   "lossless": 3.414,
+   "grainLossless": null,
+   "levelAt1": 4.68767,
+   "blockAt1": 1.75551,
+   "blurAt1": 9.69741,
+   "grainAt1": null,
+   "S": -0.2495540719773859,
+   "r2": 0.9977232384355287,
+   "n": 5,
+   "sBlock": -0.22545169330566706,
+   "sBlur": -0.03884305968555249,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 4.37271,
+     "block": 1.63503,
+     "blur": 9.62741,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 4.50436,
+     "block": 1.69177,
+     "blur": 9.65236,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 4.68767,
+     "block": 1.75551,
+     "blur": 9.69741,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 4.88286,
+     "block": 1.81436,
+     "blur": 9.76354,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 5.09314,
+     "block": 1.88095,
+     "blur": 9.85931,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:164",
+   "title": "Witness for the Prosecution (1957)",
+   "run": "artifact-ladder-v1.json",
+   "lossless": 0.01794,
+   "grainLossless": null,
+   "levelAt1": 0.06147,
+   "blockAt1": 1.18881,
+   "blurAt1": 6.81019,
+   "grainAt1": null,
+   "S": -1.9510132173448433,
+   "r2": 0.9882611657815967,
+   "n": 5,
+   "sBlock": -0.008514645706810707,
+   "sBlur": -0.013508231075456479,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 0.04129,
+     "block": 1.21122,
+     "blur": 6.78722,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.05213,
+     "block": 1.19638,
+     "blur": 6.7974,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 0.06147,
+     "block": 1.18881,
+     "blur": 6.81019,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.08959,
+     "block": 1.18809,
+     "blur": 6.82377,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.13978,
+     "block": 1.2195,
+     "blur": 6.84466,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:375",
+   "title": "The Godfather (1972)",
+   "run": "artifact-ladder-v1.json",
+   "lossless": 0.39091,
+   "grainLossless": null,
+   "levelAt1": 0.8963,
+   "blockAt1": 1.46343,
+   "blurAt1": 8.34748,
+   "grainAt1": null,
+   "S": -0.8417253539387137,
+   "r2": 0.9984424910836837,
+   "n": 5,
+   "sBlock": -0.03293175145151001,
+   "sBlur": -0.024942482509218745,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 0.72758,
+     "block": 1.43397,
+     "blur": 8.29846,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.79717,
+     "block": 1.4506,
+     "blur": 8.32019,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 0.8963,
+     "block": 1.46343,
+     "blur": 8.34748,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.02225,
+     "block": 1.47085,
+     "blur": 8.38449,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.22594,
+     "block": 1.46311,
+     "blur": 8.42637,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:101",
+   "title": "Ocean's Eleven (2001)",
+   "run": "artifact-ladder-v1.json",
+   "lossless": 0.08606,
+   "grainLossless": null,
+   "levelAt1": 0.38093,
+   "blockAt1": 1.43586,
+   "blurAt1": 8.51413,
+   "grainAt1": null,
+   "S": -1.7691445163797361,
+   "r2": 0.9995502066042468,
+   "n": 5,
+   "sBlock": -0.03303534229462015,
+   "sBlur": -0.013866631429779371,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 0.23813,
+     "block": 1.42677,
+     "blur": 8.50093,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.29807,
+     "block": 1.42859,
+     "blur": 8.5205,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 0.38093,
+     "block": 1.43586,
+     "blur": 8.51413,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.51514,
+     "block": 1.44647,
+     "blur": 8.54905,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.70895,
+     "block": 1.45423,
+     "blur": 8.57636,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:44",
+   "title": "Once Upon a Time... in Hollywood (2019)",
+   "run": "artifact-ladder-v1.json",
+   "lossless": 0.67637,
+   "grainLossless": null,
+   "levelAt1": 2.35213,
+   "blockAt1": 1.5699,
+   "blurAt1": 8.05209,
+   "grainAt1": null,
+   "S": -1.003811692151193,
+   "r2": 0.9988906594512434,
+   "n": 5,
+   "sBlock": -0.22839752215562348,
+   "sBlur": -0.053099549958622046,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 1.78792,
+     "block": 1.48218,
+     "blur": 7.94711,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.06051,
+     "block": 1.51621,
+     "blur": 7.99106,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 2.35213,
+     "block": 1.5699,
+     "blur": 8.05209,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.78434,
+     "block": 1.61662,
+     "blur": 8.11494,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 3.33866,
+     "block": 1.70984,
+     "blur": 8.21391,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:189",
+   "title": "Jay Kelly (2025)",
+   "run": "artifact-ladder-v1.json",
+   "lossless": 0.53948,
+   "grainLossless": null,
+   "levelAt1": 1.56422,
+   "blockAt1": 1.65672,
+   "blurAt1": 6.49692,
+   "grainAt1": null,
+   "S": -1.2858800612705854,
+   "r2": 0.9992195266455481,
+   "n": 5,
+   "sBlock": -0.131274914308029,
+   "sBlur": -0.018397794896708203,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 1.12796,
+     "block": 1.6149,
+     "blur": 6.47587,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.28922,
+     "block": 1.63734,
+     "blur": 6.48123,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 1.56422,
+     "block": 1.65672,
+     "blur": 6.49692,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.92314,
+     "block": 1.67455,
+     "blur": 6.51931,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.48251,
+     "block": 1.76285,
+     "blur": 6.54783,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:136",
+   "title": "Mission: Impossible (1996)",
+   "run": "artifact-ladder-v1.json",
+   "lossless": 1.64498,
+   "grainLossless": null,
+   "levelAt1": 2.27827,
+   "blockAt1": 1.96223,
+   "blurAt1": 9.36902,
+   "grainAt1": null,
+   "S": -0.3501894697321122,
+   "r2": 0.9977733886254214,
+   "n": 5,
+   "sBlock": -0.10544060532635934,
+   "sBlur": -0.02905122973269923,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 2.09808,
+     "block": 1.89776,
+     "blur": 9.2786,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.1882,
+     "block": 1.90741,
+     "blur": 9.30917,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 2.27827,
+     "block": 1.96223,
+     "blur": 9.36902,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.42692,
+     "block": 1.98316,
+     "blur": 9.39401,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.60658,
+     "block": 2.01946,
+     "blur": 9.44702,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:132",
+   "title": "War of the Worlds (2005)",
+   "run": "artifact-ladder-v1.json",
+   "lossless": 3.87564,
+   "grainLossless": null,
+   "levelAt1": 4.54343,
+   "blockAt1": 1.73038,
+   "blurAt1": 8.32933,
+   "grainAt1": null,
+   "S": 0.001587872944306196,
+   "r2": 0.009057761036314504,
+   "n": 5,
+   "sBlock": -0.060436531543947195,
+   "sBlur": -0.04636609563548051,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 4.52613,
+     "block": 1.70622,
+     "blur": 8.23379,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 4.57223,
+     "block": 1.71833,
+     "blur": 8.2788,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 4.54343,
+     "block": 1.73038,
+     "blur": 8.32933,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 4.52756,
+     "block": 1.75204,
+     "blur": 8.40208,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 4.54408,
+     "block": 1.77014,
+     "blur": 8.47032,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:150",
+   "title": "Dune (2021)",
+   "run": "artifact-ladder-blindspot.json",
+   "lossless": 4.10427,
+   "grainLossless": null,
+   "levelAt1": 6.56643,
+   "blockAt1": 2.70113,
+   "blurAt1": 6.44908,
+   "grainAt1": null,
+   "S": -0.6022968550561933,
+   "r2": 0.9960579269138581,
+   "n": 5,
+   "sBlock": -0.5147153799089701,
+   "sBlur": -0.03100797734239348,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 5.7383,
+     "block": 2.42234,
+     "blur": 6.39083,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 6.08593,
+     "block": 2.52382,
+     "blur": 6.3901,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 6.56643,
+     "block": 2.70113,
+     "blur": 6.44908,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 7.31765,
+     "block": 2.95089,
+     "blur": 6.46526,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 8.30082,
+     "block": 3.31887,
+     "blur": 6.50697,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:130",
+   "title": "E.T. the Extra-Terrestrial (1982)",
+   "run": "artifact-ladder-blindspot.json",
+   "lossless": 1.91099,
+   "grainLossless": null,
+   "levelAt1": 2.15041,
+   "blockAt1": 1.61059,
+   "blurAt1": 7.0789,
+   "grainAt1": null,
+   "S": -0.3048600701456189,
+   "r2": 0.9895497939653736,
+   "n": 5,
+   "sBlock": 0.10997487947766543,
+   "sBlur": -0.008547418831749809,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 2.02144,
+     "block": 1.68806,
+     "blur": 7.07413,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.07896,
+     "block": 1.64769,
+     "blur": 7.08567,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 2.15041,
+     "block": 1.61059,
+     "blur": 7.0789,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.27372,
+     "block": 1.58304,
+     "blur": 7.08078,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.4392,
+     "block": 1.5782,
+     "blur": 7.1209,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:57",
+   "title": "Once Upon a Time in America (1984)",
+   "run": "artifact-ladder-blindspot.json",
+   "lossless": 4.45439,
+   "grainLossless": null,
+   "levelAt1": 6.8592,
+   "blockAt1": 1.88889,
+   "blurAt1": 9.51907,
+   "grainAt1": null,
+   "S": -0.40111108291005776,
+   "r2": 0.9954706213266487,
+   "n": 5,
+   "sBlock": -0.30320930985830785,
+   "sBlur": -0.031718626075355125,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 6.21124,
+     "block": 1.7476,
+     "blur": 9.45427,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 6.44577,
+     "block": 1.80821,
+     "blur": 9.49189,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 6.8592,
+     "block": 1.88889,
+     "blur": 9.51907,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 7.3985,
+     "block": 1.98728,
+     "blur": 9.56675,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 7.89663,
+     "block": 2.10525,
+     "blur": 9.64776,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:122",
+   "title": "A Man Called Otto (2022)",
+   "run": "artifact-ladder-underscored.json",
+   "lossless": 0.80258,
+   "grainLossless": null,
+   "levelAt1": 3.26746,
+   "blockAt1": 1.5639,
+   "blurAt1": 7.94271,
+   "grainAt1": null,
+   "S": -0.8576207738408117,
+   "r2": 0.9970834403556682,
+   "n": 5,
+   "sBlock": -0.17256462045792823,
+   "sBlur": -0.04206018540075868,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 2.55322,
+     "block": 1.48539,
+     "blur": 7.87125,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.88276,
+     "block": 1.51522,
+     "blur": 7.91239,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 3.26746,
+     "block": 1.5639,
+     "blur": 7.94271,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 3.76024,
+     "block": 1.61042,
+     "blur": 7.97142,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 4.34159,
+     "block": 1.64738,
+     "blur": 8.09561,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:198",
+   "title": "Forgetting Sarah Marshall (2008)",
+   "run": "artifact-ladder-underscored.json",
+   "lossless": 0.12386,
+   "grainLossless": null,
+   "levelAt1": 0.89218,
+   "blockAt1": 1.46474,
+   "blurAt1": 7.90749,
+   "grainAt1": null,
+   "S": -1.5113541413731504,
+   "r2": 0.9891956397012421,
+   "n": 5,
+   "sBlock": -0.1342691664097888,
+   "sBlur": -0.04113498221792089,
+   "sGrain": null,
+   "r2Grain": null,
+   "points": [
+    {
+     "level": 1.3,
+     "cambi": 0.54822,
+     "block": 1.40842,
+     "blur": 7.83491,
+     "grain": null
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.6937,
+     "block": 1.4368,
+     "blur": 7.87667,
+     "grain": null
+    },
+    {
+     "level": 1,
+     "cambi": 0.89218,
+     "block": 1.46474,
+     "blur": 7.90749,
+     "grain": null
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.10892,
+     "block": 1.49993,
+     "blur": 7.97989,
+     "grain": null
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.40406,
+     "block": 1.52976,
+     "blur": 8.03429,
+     "grain": null
+    }
+   ]
+  },
+  {
+   "key": "mv:739",
+   "title": "Decision to Leave (2022)",
+   "run": "artifact-ladder-grain2.json",
+   "lossless": 0.34303,
+   "grainLossless": 0.90238,
+   "levelAt1": 1.99877,
+   "blockAt1": 1.73386,
+   "blurAt1": 6.57972,
+   "grainAt1": 0.86175,
+   "S": -0.9165086993768022,
+   "r2": 0.9456736789480775,
+   "n": 8,
+   "sBlock": -0.18111935119778452,
+   "sBlur": -0.04572555537825194,
+   "sGrain": 0.0615290482609152,
+   "r2Grain": 0.9793645668074774,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.6496,
+     "block": 1.51415,
+     "blur": 6.49005,
+     "grain": 0.89768
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.23953,
+     "block": 1.61617,
+     "blur": 6.52226,
+     "grain": 0.8811
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.71552,
+     "block": 1.6878,
+     "blur": 6.5592,
+     "grain": 0.86907
+    },
+    {
+     "level": 1,
+     "cambi": 1.99877,
+     "block": 1.73386,
+     "blur": 6.57972,
+     "grain": 0.86175
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.35968,
+     "block": 1.7963,
+     "blur": 6.63224,
+     "grain": 0.85206
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.89942,
+     "block": 1.89526,
+     "blur": 6.69228,
+     "grain": 0.84085
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.72272,
+     "block": 2.0407,
+     "blur": 6.83688,
+     "grain": 0.82072
+    },
+    {
+     "level": 0.3,
+     "cambi": 4.32282,
+     "block": 2.16685,
+     "blur": 7.15475,
+     "grain": 0.79042
+    }
+   ]
+  },
+  {
+   "key": "mv:825",
+   "title": "Kajillionaire (2020)",
+   "run": "artifact-ladder-grain2.json",
+   "lossless": 1.38856,
+   "grainLossless": 0.41312,
+   "levelAt1": 1.52595,
+   "blockAt1": 2.2589,
+   "blurAt1": 6.11684,
+   "grainAt1": 0.42535,
+   "S": -0.10026510320271713,
+   "r2": 0.9556125074319731,
+   "n": 8,
+   "sBlock": -0.37940378492777577,
+   "sBlur": -0.037179478817046537,
+   "sGrain": 0.01322818928971374,
+   "r2Grain": 0.7339664008013451,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.39621,
+     "block": 2.12713,
+     "blur": 6.02672,
+     "grain": 0.42516
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.44867,
+     "block": 2.14147,
+     "blur": 6.04892,
+     "grain": 0.42698
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.45916,
+     "block": 2.27832,
+     "blur": 6.09186,
+     "grain": 0.42602
+    },
+    {
+     "level": 1,
+     "cambi": 1.52595,
+     "block": 2.2589,
+     "blur": 6.11684,
+     "grain": 0.42535
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.52722,
+     "block": 3.00226,
+     "blur": 6.1598,
+     "grain": 0.42433
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.60683,
+     "block": 3.02224,
+     "blur": 6.21131,
+     "grain": 0.42368
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.63497,
+     "block": 3.19611,
+     "blur": 6.28121,
+     "grain": 0.41965
+    },
+    {
+     "level": 0.3,
+     "cambi": 1.70028,
+     "block": 4.58186,
+     "blur": 6.52366,
+     "grain": 0.41418
+    }
+   ]
+  },
+  {
+   "key": "mv:197",
+   "title": "Knocked Up (2007)",
+   "run": "artifact-ladder-grain2.json",
+   "lossless": 5.22114,
+   "grainLossless": 0.75521,
+   "levelAt1": 5.42609,
+   "blockAt1": 2.28794,
+   "blurAt1": 7.7916,
+   "grainAt1": 0.74044,
+   "S": 0.0121253028283627,
+   "r2": 0.03791364935276398,
+   "n": 8,
+   "sBlock": -0.04696921508214257,
+   "sBlur": -0.06022999994148896,
+   "sGrain": 0.04861012577375258,
+   "r2Grain": 0.8926185292100042,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 5.14094,
+     "block": 2.21442,
+     "blur": 7.54897,
+     "grain": 0.75464
+    },
+    {
+     "level": 1.5,
+     "cambi": 5.2958,
+     "block": 2.27493,
+     "blur": 7.67221,
+     "grain": 0.74882
+    },
+    {
+     "level": 1.15,
+     "cambi": 5.36991,
+     "block": 2.27657,
+     "blur": 7.77098,
+     "grain": 0.74376
+    },
+    {
+     "level": 1,
+     "cambi": 5.42609,
+     "block": 2.28794,
+     "blur": 7.7916,
+     "grain": 0.74044
+    },
+    {
+     "level": 0.85,
+     "cambi": 5.49321,
+     "block": 2.32855,
+     "blur": 7.84603,
+     "grain": 0.73344
+    },
+    {
+     "level": 0.7,
+     "cambi": 5.50782,
+     "block": 2.37462,
+     "blur": 7.9255,
+     "grain": 0.72792
+    },
+    {
+     "level": 0.5,
+     "cambi": 5.44208,
+     "block": 2.42438,
+     "blur": 8.14287,
+     "grain": 0.71214
+    },
+    {
+     "level": 0.3,
+     "cambi": 4.88734,
+     "block": 2.41731,
+     "blur": 8.61596,
+     "grain": 0.68026
+    }
+   ]
+  },
+  {
+   "key": "mv:91",
+   "title": "Mutiny on the Bounty (1962)",
+   "run": "artifact-ladder-grain2.json",
+   "lossless": 0.53353,
+   "grainLossless": 1.00986,
+   "levelAt1": 2.34666,
+   "blockAt1": 1.56168,
+   "blurAt1": 6.67357,
+   "grainAt1": 0.98765,
+   "S": -0.7077585197213161,
+   "r2": 0.9156385184883896,
+   "n": 8,
+   "sBlock": -0.12519147143668238,
+   "sBlur": -0.052033607293658767,
+   "sGrain": 0.02504153062102471,
+   "r2Grain": 0.9384821735516196,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.89516,
+     "block": 1.57266,
+     "blur": 6.49393,
+     "grain": 1.00111
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.61372,
+     "block": 1.54057,
+     "blur": 6.57628,
+     "grain": 0.99362
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.11719,
+     "block": 1.5369,
+     "blur": 6.63213,
+     "grain": 0.98997
+    },
+    {
+     "level": 1,
+     "cambi": 2.34666,
+     "block": 1.56168,
+     "blur": 6.67357,
+     "grain": 0.98765
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.66169,
+     "block": 1.60542,
+     "blur": 6.72596,
+     "grain": 0.98428
+    },
+    {
+     "level": 0.7,
+     "cambi": 3.04355,
+     "block": 1.67388,
+     "blur": 6.78779,
+     "grain": 0.97871
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.62203,
+     "block": 1.80433,
+     "blur": 6.89675,
+     "grain": 0.96818
+    },
+    {
+     "level": 0.3,
+     "cambi": 4.00944,
+     "block": 2.0034,
+     "blur": 7.28396,
+     "grain": 0.94888
+    }
+   ]
+  },
+  {
+   "key": "mv:222",
+   "title": "Spirited Away (2001)",
+   "run": "artifact-ladder-grain2.json",
+   "lossless": 1.75601,
+   "grainLossless": 0.63057,
+   "levelAt1": 1.90449,
+   "blockAt1": 5.27229,
+   "blurAt1": 4.83753,
+   "grainAt1": 0.62432,
+   "S": -0.37527365945521074,
+   "r2": 0.9161258040793263,
+   "n": 8,
+   "sBlock": 0.2886521320714168,
+   "sBlur": -0.0333005826043244,
+   "sGrain": 0.047248857895955364,
+   "r2Grain": 0.9114105959648909,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.64017,
+     "block": 5.78432,
+     "blur": 4.7904,
+     "grain": 0.636
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.69845,
+     "block": 5.56676,
+     "blur": 4.80708,
+     "grain": 0.63227
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.80234,
+     "block": 5.12187,
+     "blur": 4.82793,
+     "grain": 0.62773
+    },
+    {
+     "level": 1,
+     "cambi": 1.90449,
+     "block": 5.27229,
+     "blur": 4.83753,
+     "grain": 0.62432
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.02763,
+     "block": 4.82713,
+     "blur": 4.8576,
+     "grain": 0.6196
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.25089,
+     "block": 4.60242,
+     "blur": 4.89545,
+     "grain": 0.61207
+    },
+    {
+     "level": 0.5,
+     "cambi": 2.74103,
+     "block": 4.00747,
+     "blur": 4.96825,
+     "grain": 0.59744
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.44498,
+     "block": 3.1649,
+     "blur": 5.1477,
+     "grain": 0.57785
+    }
+   ]
+  },
+  {
+   "key": "mv:257",
+   "title": "Full Metal Jacket (1987)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.00683,
+   "grainLossless": 1.0206,
+   "levelAt1": 0.01386,
+   "blockAt1": 1.21695,
+   "blurAt1": 6.52561,
+   "grainAt1": 0.97491,
+   "S": -2.0117994618838138,
+   "r2": 0.887064461782586,
+   "n": 8,
+   "sBlock": -0.06808232746018264,
+   "sBlur": -0.015805447132482723,
+   "sGrain": 0.0674287950811094,
+   "r2Grain": 0.9656811844229248,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.00725,
+     "block": 1.27812,
+     "blur": 6.48572,
+     "grain": 1.01512
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.00911,
+     "block": 1.23701,
+     "blur": 6.50081,
+     "grain": 0.99718
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.01199,
+     "block": 1.22983,
+     "blur": 6.51877,
+     "grain": 0.98328
+    },
+    {
+     "level": 1,
+     "cambi": 0.01386,
+     "block": 1.21695,
+     "blur": 6.52561,
+     "grain": 0.97491
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.01904,
+     "block": 1.20325,
+     "blur": 6.53902,
+     "grain": 0.96358
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.03211,
+     "block": 1.21468,
+     "blur": 6.55779,
+     "grain": 0.94898
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.09687,
+     "block": 1.30679,
+     "blur": 6.6074,
+     "grain": 0.92362
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.44559,
+     "block": 1.4988,
+     "blur": 6.71039,
+     "grain": 0.88252
+    }
+   ]
+  },
+  {
+   "key": "mv:162",
+   "title": "Sunset Boulevard (1950)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.00006,
+   "grainLossless": 1.18632,
+   "levelAt1": 0.00521,
+   "blockAt1": 1.07753,
+   "blurAt1": 6.59174,
+   "grainAt1": 1.08787,
+   "S": -4.12716675953079,
+   "r2": 0.9789447563370626,
+   "n": 8,
+   "sBlock": -0.06482486082397372,
+   "sBlur": -0.021630061202396147,
+   "sGrain": 0.09998833908415293,
+   "r2Grain": 0.9837213384964961,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.00035,
+     "block": 1.07882,
+     "blur": 6.48998,
+     "grain": 1.17124
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.00142,
+     "block": 1.07937,
+     "blur": 6.53825,
+     "grain": 1.12611
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.00314,
+     "block": 1.08126,
+     "blur": 6.57201,
+     "grain": 1.10134
+    },
+    {
+     "level": 1,
+     "cambi": 0.00521,
+     "block": 1.07753,
+     "blur": 6.59174,
+     "grain": 1.08787
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.01257,
+     "block": 1.07248,
+     "blur": 6.60994,
+     "grain": 1.07182
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.03688,
+     "block": 1.07408,
+     "blur": 6.6358,
+     "grain": 1.05157
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.23956,
+     "block": 1.11894,
+     "blur": 6.69046,
+     "grain": 1.01239
+    },
+    {
+     "level": 0.3,
+     "cambi": 1.37096,
+     "block": 1.26782,
+     "blur": 6.79756,
+     "grain": 0.94602
+    }
+   ]
+  },
+  {
+   "key": "mv:45",
+   "title": "Jackie Brown (1997)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.52786,
+   "grainLossless": 0.9708,
+   "levelAt1": 0.59639,
+   "blockAt1": 7.31186,
+   "blurAt1": 7.79049,
+   "grainAt1": 0.94639,
+   "S": -0.4393497684844836,
+   "r2": 0.9096388874680917,
+   "n": 8,
+   "sBlock": -0.08424954154907975,
+   "sBlur": -0.015243388015105512,
+   "sGrain": 0.04825522852855407,
+   "r2Grain": 0.9678883899162415,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.49202,
+     "block": 7.20834,
+     "blur": 7.73242,
+     "grain": 0.97428
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.53037,
+     "block": 7.17554,
+     "blur": 7.75503,
+     "grain": 0.96177
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.56901,
+     "block": 7.11113,
+     "blur": 7.77971,
+     "grain": 0.95185
+    },
+    {
+     "level": 1,
+     "cambi": 0.59639,
+     "block": 7.31186,
+     "blur": 7.79049,
+     "grain": 0.94639
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.63603,
+     "block": 7.01575,
+     "blur": 7.8053,
+     "grain": 0.93819
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.68896,
+     "block": 7.23462,
+     "blur": 7.82854,
+     "grain": 0.92834
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.86588,
+     "block": 7.78345,
+     "blur": 7.88076,
+     "grain": 0.90944
+    },
+    {
+     "level": 0.3,
+     "cambi": 1.23681,
+     "block": 8.70181,
+     "blur": 7.98889,
+     "grain": 0.88185
+    }
+   ]
+  },
+  {
+   "key": "mv:206",
+   "title": "The Big Lebowski (1998)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.0142,
+   "grainLossless": 1.0305,
+   "levelAt1": 0.0537,
+   "blockAt1": 1.50874,
+   "blurAt1": 7.20277,
+   "grainAt1": 1.01498,
+   "S": -1.7805720712287787,
+   "r2": 0.946782844083558,
+   "n": 8,
+   "sBlock": 0.021296485932448074,
+   "sBlur": -0.008188204745170537,
+   "sGrain": 0.02541536227315381,
+   "r2Grain": 0.9549781968727231,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.01752,
+     "block": 1.61838,
+     "blur": 7.1751,
+     "grain": 1.03031
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.03124,
+     "block": 1.56956,
+     "blur": 7.18824,
+     "grain": 1.02338
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.04305,
+     "block": 1.52531,
+     "blur": 7.19572,
+     "grain": 1.01807
+    },
+    {
+     "level": 1,
+     "cambi": 0.0537,
+     "block": 1.50874,
+     "blur": 7.20277,
+     "grain": 1.01498
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.06643,
+     "block": 1.49445,
+     "blur": 7.21024,
+     "grain": 1.01094
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.08736,
+     "block": 1.47873,
+     "blur": 7.21979,
+     "grain": 1.00557
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.18852,
+     "block": 1.44514,
+     "blur": 7.24931,
+     "grain": 0.99596
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.84008,
+     "block": 1.59804,
+     "blur": 7.30246,
+     "grain": 0.97625
+    }
+   ]
+  },
+  {
+   "key": "mv:784",
+   "title": "Menace II Society (1993)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.94283,
+   "grainLossless": 1.00046,
+   "levelAt1": 2.14125,
+   "blockAt1": 1.37458,
+   "blurAt1": 7.99706,
+   "grainAt1": 0.95937,
+   "S": -0.5648114609685353,
+   "r2": 0.9717767699655375,
+   "n": 8,
+   "sBlock": -0.09401225771324284,
+   "sBlur": -0.050929690037451215,
+   "sGrain": 0.03739660978254603,
+   "r2Grain": 0.9985552931976744,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.15408,
+     "block": 1.40638,
+     "blur": 7.7751,
+     "grain": 0.99143
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.59737,
+     "block": 1.37768,
+     "blur": 7.87049,
+     "grain": 0.97531
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.95008,
+     "block": 1.36238,
+     "blur": 7.94623,
+     "grain": 0.96418
+    },
+    {
+     "level": 1,
+     "cambi": 2.14125,
+     "block": 1.37458,
+     "blur": 7.99706,
+     "grain": 0.95937
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.40519,
+     "block": 1.41877,
+     "blur": 8.05942,
+     "grain": 0.95278
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.71161,
+     "block": 1.47764,
+     "blur": 8.13693,
+     "grain": 0.94704
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.17719,
+     "block": 1.56152,
+     "blur": 8.30995,
+     "grain": 0.93541
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.67195,
+     "block": 1.67172,
+     "blur": 8.66331,
+     "grain": 0.91609
+    }
+   ]
+  },
+  {
+   "key": "mv:127",
+   "title": "Schindler's List (1993)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 1.39334,
+   "grainLossless": 1.08735,
+   "levelAt1": 1.80224,
+   "blockAt1": 3.37604,
+   "blurAt1": 8.04061,
+   "grainAt1": 1.05547,
+   "S": -0.24945787821460313,
+   "r2": 0.9844512169898612,
+   "n": 8,
+   "sBlock": -0.058846538778956466,
+   "sBlur": -0.09657842811423423,
+   "sGrain": 0.03265993079810965,
+   "r2Grain": 0.9884545354470398,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.488,
+     "block": 3.09431,
+     "blur": 7.56159,
+     "grain": 1.08278
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.68157,
+     "block": 3.30739,
+     "blur": 7.62247,
+     "grain": 1.06909
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.73567,
+     "block": 3.38852,
+     "blur": 7.8603,
+     "grain": 1.05988
+    },
+    {
+     "level": 1,
+     "cambi": 1.80224,
+     "block": 3.37604,
+     "blur": 8.04061,
+     "grain": 1.05547
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.88935,
+     "block": 3.61483,
+     "blur": 8.19791,
+     "grain": 1.04916
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.00368,
+     "block": 3.11432,
+     "blur": 8.38087,
+     "grain": 1.0424
+    },
+    {
+     "level": 0.5,
+     "cambi": 2.13048,
+     "block": 3.40124,
+     "blur": 8.64353,
+     "grain": 1.03359
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.5559,
+     "block": 3.66138,
+     "blur": 9.14337,
+     "grain": 1.00954
+    }
+   ]
+  },
+  {
+   "key": "mv:247",
+   "title": "The Birds (1963)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.11743,
+   "grainLossless": 1.12025,
+   "levelAt1": 0.14496,
+   "blockAt1": 1.26969,
+   "blurAt1": 6.84794,
+   "grainAt1": 1.10261,
+   "S": -0.676093760125038,
+   "r2": 0.7953066155329658,
+   "n": 8,
+   "sBlock": -0.07260216747400758,
+   "sBlur": -0.02688772560074622,
+   "sGrain": 0.03364713302677532,
+   "r2Grain": 0.9459882131516473,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.12119,
+     "block": 1.24988,
+     "blur": 6.73371,
+     "grain": 1.12296
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.13346,
+     "block": 1.26122,
+     "blur": 6.77006,
+     "grain": 1.11361
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.14027,
+     "block": 1.26502,
+     "blur": 6.81362,
+     "grain": 1.1069
+    },
+    {
+     "level": 1,
+     "cambi": 0.14496,
+     "block": 1.26969,
+     "blur": 6.84794,
+     "grain": 1.10261
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.15682,
+     "block": 1.27943,
+     "blur": 6.89355,
+     "grain": 1.09693
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.17374,
+     "block": 1.29515,
+     "blur": 6.93997,
+     "grain": 1.08904
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.23757,
+     "block": 1.32174,
+     "blur": 7.00707,
+     "grain": 1.07317
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.55518,
+     "block": 1.48304,
+     "blur": 7.09943,
+     "grain": 1.04629
+    }
+   ]
+  },
+  {
+   "key": "mv:87",
+   "title": "American Graffiti (1973)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.06916,
+   "grainLossless": 0.86338,
+   "levelAt1": 0.09163,
+   "blockAt1": 1.9779,
+   "blurAt1": 6.05282,
+   "grainAt1": 0.82831,
+   "S": -0.8138269417210539,
+   "r2": 0.919143568340554,
+   "n": 8,
+   "sBlock": -0.0815221809926151,
+   "sBlur": -0.031332112047910275,
+   "sGrain": 0.07789618485136017,
+   "r2Grain": 0.9625967069113615,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.06095,
+     "block": 1.92805,
+     "blur": 5.95761,
+     "grain": 0.8674
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.07239,
+     "block": 1.96536,
+     "blur": 5.99727,
+     "grain": 0.85211
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.08433,
+     "block": 1.96178,
+     "blur": 6.02746,
+     "grain": 0.83723
+    },
+    {
+     "level": 1,
+     "cambi": 0.09163,
+     "block": 1.9779,
+     "blur": 6.05282,
+     "grain": 0.82831
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.10571,
+     "block": 1.98963,
+     "blur": 6.08567,
+     "grain": 0.81728
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.12336,
+     "block": 2.03693,
+     "blur": 6.13605,
+     "grain": 0.80386
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.16051,
+     "block": 2.12521,
+     "blur": 6.22217,
+     "grain": 0.77885
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.35537,
+     "block": 2.30005,
+     "blur": 6.35083,
+     "grain": 0.73832
+    }
+   ]
+  },
+  {
+   "key": "mv:107",
+   "title": "F1 (2025)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 3.12735,
+   "grainLossless": 0.7109,
+   "levelAt1": 6.25009,
+   "blockAt1": 2.04147,
+   "blurAt1": 6.45822,
+   "grainAt1": 0.69153,
+   "S": -0.4521645567263499,
+   "r2": 0.9270262079802996,
+   "n": 8,
+   "sBlock": -0.19061765259915417,
+   "sBlur": -0.03347609048611265,
+   "sGrain": 0.052627824942791945,
+   "r2Grain": 0.9675984289107042,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 3.54074,
+     "block": 1.76301,
+     "blur": 6.39208,
+     "grain": 0.71381
+    },
+    {
+     "level": 1.5,
+     "cambi": 4.73577,
+     "block": 1.88985,
+     "blur": 6.41559,
+     "grain": 0.70519
+    },
+    {
+     "level": 1.15,
+     "cambi": 5.68866,
+     "block": 1.97115,
+     "blur": 6.435,
+     "grain": 0.69655
+    },
+    {
+     "level": 1,
+     "cambi": 6.25009,
+     "block": 2.04147,
+     "blur": 6.45822,
+     "grain": 0.69153
+    },
+    {
+     "level": 0.85,
+     "cambi": 6.87806,
+     "block": 2.11426,
+     "blur": 6.4859,
+     "grain": 0.68477
+    },
+    {
+     "level": 0.7,
+     "cambi": 7.55177,
+     "block": 2.20261,
+     "blur": 6.52643,
+     "grain": 0.67745
+    },
+    {
+     "level": 0.5,
+     "cambi": 8.35068,
+     "block": 2.37694,
+     "blur": 6.63126,
+     "grain": 0.66233
+    },
+    {
+     "level": 0.3,
+     "cambi": 8.86932,
+     "block": 2.59988,
+     "blur": 6.87152,
+     "grain": 0.64089
+    }
+   ]
+  },
+  {
+   "key": "mv:300",
+   "title": "Harry Potter and the Order of the Phoenix (2007)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 1.0841,
+   "grainLossless": 0.95244,
+   "levelAt1": 1.93912,
+   "blockAt1": 1.25826,
+   "blurAt1": 7.64616,
+   "grainAt1": 0.94196,
+   "S": -0.5966434209876756,
+   "r2": 0.9767958640856156,
+   "n": 8,
+   "sBlock": -0.11978936894404597,
+   "sBlur": -0.03528735600999869,
+   "sGrain": 0.02366111676975571,
+   "r2Grain": 0.9625733624484791,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.09482,
+     "block": 1.21476,
+     "blur": 7.56706,
+     "grain": 0.95499
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.40801,
+     "block": 1.23195,
+     "blur": 7.6018,
+     "grain": 0.95035
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.75432,
+     "block": 1.24427,
+     "blur": 7.62032,
+     "grain": 0.94464
+    },
+    {
+     "level": 1,
+     "cambi": 1.93912,
+     "block": 1.25826,
+     "blur": 7.64616,
+     "grain": 0.94196
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.21787,
+     "block": 1.28367,
+     "blur": 7.67384,
+     "grain": 0.93778
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.56891,
+     "block": 1.32541,
+     "blur": 7.7318,
+     "grain": 0.93243
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.0627,
+     "block": 1.40237,
+     "blur": 7.86437,
+     "grain": 0.92493
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.58038,
+     "block": 1.55937,
+     "blur": 8.17078,
+     "grain": 0.90942
+    }
+   ]
+  },
+  {
+   "key": "mv:165",
+   "title": "Sabrina (1954)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.12336,
+   "grainLossless": 4.94541,
+   "levelAt1": 0.18375,
+   "blockAt1": 1.11694,
+   "blurAt1": 6.80486,
+   "grainAt1": 4.38474,
+   "S": -0.4379502970823543,
+   "r2": 0.9565292147434546,
+   "n": 8,
+   "sBlock": 0.08046607935436428,
+   "sBlur": -0.034611470853629304,
+   "sGrain": 0.09561519891481095,
+   "r2Grain": 0.9964269045068951,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.1364,
+     "block": 1.26829,
+     "blur": 6.57161,
+     "grain": 4.77656
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.16242,
+     "block": 1.16959,
+     "blur": 6.70565,
+     "grain": 4.54869
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.17645,
+     "block": 1.13756,
+     "blur": 6.76887,
+     "grain": 4.43839
+    },
+    {
+     "level": 1,
+     "cambi": 0.18375,
+     "block": 1.11694,
+     "blur": 6.80486,
+     "grain": 4.38474
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.19804,
+     "block": 1.09612,
+     "blur": 6.83713,
+     "grain": 4.32399
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.20499,
+     "block": 1.07812,
+     "blur": 6.87707,
+     "grain": 4.25249
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.2493,
+     "block": 1.06871,
+     "blur": 6.95155,
+     "grain": 4.12519
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.35779,
+     "block": 1.07076,
+     "blur": 7.08299,
+     "grain": 3.88139
+    }
+   ]
+  },
+  {
+   "key": "mv:530",
+   "title": "The Killing (1956)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 1.78209,
+   "grainLossless": 0.97278,
+   "levelAt1": 2.42241,
+   "blockAt1": 1.37958,
+   "blurAt1": 6.71506,
+   "grainAt1": 0.926,
+   "S": -0.28765995807850886,
+   "r2": 0.9785371638073354,
+   "n": 8,
+   "sBlock": -0.10007447477256338,
+   "sBlur": -0.06520351604891127,
+   "sGrain": 0.058635131311719414,
+   "r2Grain": 0.9738686180420226,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.8601,
+     "block": 1.31656,
+     "blur": 6.49452,
+     "grain": 0.96347
+    },
+    {
+     "level": 1.5,
+     "cambi": 2.10832,
+     "block": 1.32966,
+     "blur": 6.61262,
+     "grain": 0.9441
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.31635,
+     "block": 1.36528,
+     "blur": 6.66671,
+     "grain": 0.9322
+    },
+    {
+     "level": 1,
+     "cambi": 2.42241,
+     "block": 1.37958,
+     "blur": 6.71506,
+     "grain": 0.926
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.55428,
+     "block": 1.40358,
+     "blur": 6.78232,
+     "grain": 0.91832
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.77685,
+     "block": 1.44999,
+     "blur": 6.85716,
+     "grain": 0.90752
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.0884,
+     "block": 1.52188,
+     "blur": 7.03902,
+     "grain": 0.88592
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.28061,
+     "block": 1.59915,
+     "blur": 7.48827,
+     "grain": 0.85069
+    }
+   ]
+  },
+  {
+   "key": "mv:144",
+   "title": "The Last Emperor (1987)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.28803,
+   "grainLossless": 1.1417,
+   "levelAt1": 1.00579,
+   "blockAt1": 1.30892,
+   "blurAt1": 7.17946,
+   "grainAt1": 1.10561,
+   "S": -0.9093396182610033,
+   "r2": 0.9743650359108,
+   "n": 8,
+   "sBlock": -0.052783386762577995,
+   "sBlur": -0.04773229976040744,
+   "sGrain": 0.029293527057601562,
+   "r2Grain": 0.9810749415990127,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.42364,
+     "block": 1.26905,
+     "blur": 6.98388,
+     "grain": 1.12826
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.63031,
+     "block": 1.25602,
+     "blur": 7.07295,
+     "grain": 1.11746
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.86392,
+     "block": 1.28524,
+     "blur": 7.12734,
+     "grain": 1.10976
+    },
+    {
+     "level": 1,
+     "cambi": 1.00579,
+     "block": 1.30892,
+     "blur": 7.17946,
+     "grain": 1.10561
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.23375,
+     "block": 1.32764,
+     "blur": 7.22851,
+     "grain": 1.09979
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.56796,
+     "block": 1.34257,
+     "blur": 7.29435,
+     "grain": 1.0931
+    },
+    {
+     "level": 0.5,
+     "cambi": 2.08376,
+     "block": 1.37014,
+     "blur": 7.43802,
+     "grain": 1.08224
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.55125,
+     "block": 1.39195,
+     "blur": 7.73026,
+     "grain": 1.06075
+    }
+   ]
+  },
+  {
+   "key": "mv:202",
+   "title": "The Highwaymen (2019)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 2.36779,
+   "grainLossless": 0.61281,
+   "levelAt1": 2.67789,
+   "blockAt1": 1.59267,
+   "blurAt1": 7.58216,
+   "grainAt1": 0.59633,
+   "S": -0.19023633105737783,
+   "r2": 0.9572900528348309,
+   "n": 8,
+   "sBlock": -0.10275190632402574,
+   "sBlur": -0.06180733924463562,
+   "sGrain": 0.056224886370491875,
+   "r2Grain": 0.9007340795730239,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 2.40679,
+     "block": 1.56278,
+     "blur": 7.36511,
+     "grain": 0.61135
+    },
+    {
+     "level": 1.5,
+     "cambi": 2.51228,
+     "block": 1.58795,
+     "blur": 7.45661,
+     "grain": 0.6047
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.59215,
+     "block": 1.59233,
+     "blur": 7.53025,
+     "grain": 0.59977
+    },
+    {
+     "level": 1,
+     "cambi": 2.67789,
+     "block": 1.59267,
+     "blur": 7.58216,
+     "grain": 0.59633
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.76661,
+     "block": 1.61265,
+     "blur": 7.64479,
+     "grain": 0.59258
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.9553,
+     "block": 1.65046,
+     "blur": 7.75754,
+     "grain": 0.58555
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.20995,
+     "block": 1.77445,
+     "blur": 7.99646,
+     "grain": 0.57002
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.49279,
+     "block": 1.9424,
+     "blur": 8.37656,
+     "grain": 0.54219
+    }
+   ]
+  },
+  {
+   "key": "mv:581",
+   "title": "Super 8 (2011)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 2.17498,
+   "grainLossless": 1.0253,
+   "levelAt1": 3.92312,
+   "blockAt1": 1.74707,
+   "blurAt1": 7.20844,
+   "grainAt1": 1.0026,
+   "S": -0.40762619081673906,
+   "r2": 0.9386562920592131,
+   "n": 8,
+   "sBlock": -0.14222514984319906,
+   "sBlur": -0.04276176990484212,
+   "sGrain": 0.023415280907647457,
+   "r2Grain": 0.995336392063246,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 2.43357,
+     "block": 1.58644,
+     "blur": 7.09862,
+     "grain": 1.02245
+    },
+    {
+     "level": 1.5,
+     "cambi": 3.10197,
+     "block": 1.64914,
+     "blur": 7.15094,
+     "grain": 1.01257
+    },
+    {
+     "level": 1.15,
+     "cambi": 3.61023,
+     "block": 1.71336,
+     "blur": 7.18415,
+     "grain": 1.00513
+    },
+    {
+     "level": 1,
+     "cambi": 3.92312,
+     "block": 1.74707,
+     "blur": 7.20844,
+     "grain": 1.0026
+    },
+    {
+     "level": 0.85,
+     "cambi": 4.29955,
+     "block": 1.80124,
+     "blur": 7.25425,
+     "grain": 0.99957
+    },
+    {
+     "level": 0.7,
+     "cambi": 4.70872,
+     "block": 1.85424,
+     "blur": 7.32444,
+     "grain": 0.99409
+    },
+    {
+     "level": 0.5,
+     "cambi": 5.26323,
+     "block": 1.96066,
+     "blur": 7.46147,
+     "grain": 0.9869
+    },
+    {
+     "level": 0.3,
+     "cambi": 5.49205,
+     "block": 2.11809,
+     "blur": 7.78286,
+     "grain": 0.9728
+    }
+   ]
+  },
+  {
+   "key": "mv:393",
+   "title": "Rounders (1998)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 2.95881,
+   "grainLossless": 0.86593,
+   "levelAt1": 4.46115,
+   "blockAt1": 1.77819,
+   "blurAt1": 8.03224,
+   "grainAt1": 0.83834,
+   "S": -0.3374975512036955,
+   "r2": 0.9713934250382465,
+   "n": 8,
+   "sBlock": -0.15298768590842593,
+   "sBlur": -0.06691857682505749,
+   "sGrain": 0.04004401037184501,
+   "r2Grain": 0.984476275941608,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 3.14953,
+     "block": 1.65281,
+     "blur": 7.80781,
+     "grain": 0.86366
+    },
+    {
+     "level": 1.5,
+     "cambi": 3.75093,
+     "block": 1.68987,
+     "blur": 7.88781,
+     "grain": 0.85082
+    },
+    {
+     "level": 1.15,
+     "cambi": 4.20422,
+     "block": 1.73715,
+     "blur": 7.9648,
+     "grain": 0.8425
+    },
+    {
+     "level": 1,
+     "cambi": 4.46115,
+     "block": 1.77819,
+     "blur": 8.03224,
+     "grain": 0.83834
+    },
+    {
+     "level": 0.85,
+     "cambi": 4.83097,
+     "block": 1.84079,
+     "blur": 8.09569,
+     "grain": 0.83326
+    },
+    {
+     "level": 0.7,
+     "cambi": 5.18345,
+     "block": 1.91701,
+     "blur": 8.22436,
+     "grain": 0.82713
+    },
+    {
+     "level": 0.5,
+     "cambi": 5.76749,
+     "block": 2.06367,
+     "blur": 8.49549,
+     "grain": 0.81496
+    },
+    {
+     "level": 0.3,
+     "cambi": 6.19912,
+     "block": 2.22811,
+     "blur": 8.98121,
+     "grain": 0.79299
+    }
+   ]
+  },
+  {
+   "key": "mv:145",
+   "title": "Once Upon a Time in the West (1968)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.3862,
+   "grainLossless": 0.99201,
+   "levelAt1": 1.215,
+   "blockAt1": 1.2865,
+   "blurAt1": 7.84524,
+   "grainAt1": 0.94262,
+   "S": -0.666926944109687,
+   "r2": 0.9499042917792964,
+   "n": 8,
+   "sBlock": -0.1317525053237908,
+   "sBlur": -0.04408566521686384,
+   "sGrain": 0.05532931292682327,
+   "r2Grain": 0.9739742368091303,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.56527,
+     "block": 1.17575,
+     "blur": 7.63162,
+     "grain": 0.98028
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.84254,
+     "block": 1.21858,
+     "blur": 7.73727,
+     "grain": 0.95964
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.08352,
+     "block": 1.26596,
+     "blur": 7.80456,
+     "grain": 0.94827
+    },
+    {
+     "level": 1,
+     "cambi": 1.215,
+     "block": 1.2865,
+     "blur": 7.84524,
+     "grain": 0.94262
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.406,
+     "block": 1.3018,
+     "blur": 7.92152,
+     "grain": 0.93522
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.64722,
+     "block": 1.35089,
+     "blur": 7.98282,
+     "grain": 0.92581
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.95068,
+     "block": 1.42176,
+     "blur": 8.11873,
+     "grain": 0.90675
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.17547,
+     "block": 1.54563,
+     "blur": 8.37243,
+     "grain": 0.86978
+    }
+   ]
+  },
+  {
+   "key": "mv:116",
+   "title": "Captain Phillips (2013)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 3.10514,
+   "grainLossless": 0.83643,
+   "levelAt1": 6.71278,
+   "blockAt1": 2.53407,
+   "blurAt1": 10.29415,
+   "grainAt1": 0.79521,
+   "S": -0.3282544161317802,
+   "r2": 0.8297117937277063,
+   "n": 8,
+   "sBlock": -0.22123961767709174,
+   "sBlur": -0.010416657792937673,
+   "sGrain": 0.06768023936170574,
+   "r2Grain": 0.9164025860561235,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 4.00172,
+     "block": 2.03912,
+     "blur": 10.04878,
+     "grain": 0.823
+    },
+    {
+     "level": 1.5,
+     "cambi": 5.45404,
+     "block": 2.24926,
+     "blur": 10.1814,
+     "grain": 0.80917
+    },
+    {
+     "level": 1.15,
+     "cambi": 6.2778,
+     "block": 2.44155,
+     "blur": 10.26508,
+     "grain": 0.80035
+    },
+    {
+     "level": 1,
+     "cambi": 6.71278,
+     "block": 2.53407,
+     "blur": 10.29415,
+     "grain": 0.79521
+    },
+    {
+     "level": 0.85,
+     "cambi": 7.13478,
+     "block": 2.67207,
+     "blur": 10.33444,
+     "grain": 0.78776
+    },
+    {
+     "level": 0.7,
+     "cambi": 7.5447,
+     "block": 2.80006,
+     "blur": 10.38047,
+     "grain": 0.77641
+    },
+    {
+     "level": 0.5,
+     "cambi": 8.13267,
+     "block": 3.05406,
+     "blur": 10.42577,
+     "grain": 0.75827
+    },
+    {
+     "level": 0.3,
+     "cambi": 7.92465,
+     "block": 3.13809,
+     "blur": 10.20195,
+     "grain": 0.71007
+    }
+   ]
+  },
+  {
+   "key": "mv:650",
+   "title": "The Texas Chain Saw Massacre (1974)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 1.9171,
+   "grainLossless": 0.70869,
+   "levelAt1": 2.59157,
+   "blockAt1": 1.65661,
+   "blurAt1": 8.33284,
+   "grainAt1": 0.68486,
+   "S": -0.22946073399822609,
+   "r2": 0.9100241296907621,
+   "n": 8,
+   "sBlock": -0.09678947547083869,
+   "sBlur": -0.027511737393859426,
+   "sGrain": 0.04218240975512105,
+   "r2Grain": 0.9600390400198268,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.98255,
+     "block": 1.53201,
+     "blur": 8.17988,
+     "grain": 0.70409
+    },
+    {
+     "level": 1.5,
+     "cambi": 2.26047,
+     "block": 1.59178,
+     "blur": 8.23996,
+     "grain": 0.69368
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.46014,
+     "block": 1.63414,
+     "blur": 8.29602,
+     "grain": 0.68806
+    },
+    {
+     "level": 1,
+     "cambi": 2.59157,
+     "block": 1.65661,
+     "blur": 8.33284,
+     "grain": 0.68486
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.73444,
+     "block": 1.68408,
+     "blur": 8.38242,
+     "grain": 0.68134
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.90511,
+     "block": 1.71086,
+     "blur": 8.43361,
+     "grain": 0.67541
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.12273,
+     "block": 1.77968,
+     "blur": 8.50095,
+     "grain": 0.66488
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.0814,
+     "block": 1.87578,
+     "blur": 8.65834,
+     "grain": 0.64256
+    }
+   ]
+  },
+  {
+   "key": "mv:152",
+   "title": "Obsession (2026)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 2.83562,
+   "grainLossless": 0.66267,
+   "levelAt1": 8.04536,
+   "blockAt1": 2.16189,
+   "blurAt1": 7.39372,
+   "grainAt1": 0.60615,
+   "S": -0.4370401503277035,
+   "r2": 0.8510908460576248,
+   "n": 8,
+   "sBlock": -0.2579485499321521,
+   "sBlur": -0.02590238250473738,
+   "sGrain": 0.08938822666537202,
+   "r2Grain": 0.9953972562594826,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 4.07673,
+     "block": 1.69613,
+     "blur": 7.25809,
+     "grain": 0.65237
+    },
+    {
+     "level": 1.5,
+     "cambi": 6.18533,
+     "block": 1.89489,
+     "blur": 7.32096,
+     "grain": 0.62919
+    },
+    {
+     "level": 1.15,
+     "cambi": 7.42377,
+     "block": 2.0493,
+     "blur": 7.37259,
+     "grain": 0.6147
+    },
+    {
+     "level": 1,
+     "cambi": 8.04536,
+     "block": 2.16189,
+     "blur": 7.39372,
+     "grain": 0.60615
+    },
+    {
+     "level": 0.85,
+     "cambi": 8.65696,
+     "block": 2.2751,
+     "blur": 7.399,
+     "grain": 0.59597
+    },
+    {
+     "level": 0.7,
+     "cambi": 9.35854,
+     "block": 2.41331,
+     "blur": 7.43077,
+     "grain": 0.58437
+    },
+    {
+     "level": 0.5,
+     "cambi": 10.18627,
+     "block": 2.65246,
+     "blur": 7.51707,
+     "grain": 0.56492
+    },
+    {
+     "level": 0.3,
+     "cambi": 10.32777,
+     "block": 2.83008,
+     "blur": 7.68362,
+     "grain": 0.54346
+    }
+   ]
+  },
+  {
+   "key": "mv:898",
+   "title": "Blue Ruin (2014)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.5245,
+   "grainLossless": 0.70748,
+   "levelAt1": 1.23948,
+   "blockAt1": 1.51032,
+   "blurAt1": 6.96276,
+   "grainAt1": 0.68923,
+   "S": -0.7894431999781482,
+   "r2": 0.9800978568300366,
+   "n": 8,
+   "sBlock": -0.04145719443487287,
+   "sBlur": -0.022646908560332496,
+   "sGrain": 0.044429958089373174,
+   "r2Grain": 0.949533639676262,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.5778,
+     "block": 1.69259,
+     "blur": 6.90272,
+     "grain": 0.70612
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.76233,
+     "block": 1.52539,
+     "blur": 6.93213,
+     "grain": 0.69872
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.05889,
+     "block": 1.50453,
+     "blur": 6.94832,
+     "grain": 0.693
+    },
+    {
+     "level": 1,
+     "cambi": 1.23948,
+     "block": 1.51032,
+     "blur": 6.96276,
+     "grain": 0.68923
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.43074,
+     "block": 1.52199,
+     "blur": 6.99263,
+     "grain": 0.68491
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.69029,
+     "block": 1.55226,
+     "blur": 7.02546,
+     "grain": 0.67793
+    },
+    {
+     "level": 0.5,
+     "cambi": 2.16173,
+     "block": 1.65716,
+     "blur": 7.09777,
+     "grain": 0.66319
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.784,
+     "block": 1.79324,
+     "blur": 7.2419,
+     "grain": 0.64435
+    }
+   ]
+  },
+  {
+   "key": "mv:89",
+   "title": "A Streetcar Named Desire (1951)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.69537,
+   "grainLossless": 1.05046,
+   "levelAt1": 1.81554,
+   "blockAt1": 1.44258,
+   "blurAt1": 7.71076,
+   "grainAt1": 1.00605,
+   "S": -0.9194240937425179,
+   "r2": 0.9839867982553602,
+   "n": 8,
+   "sBlock": -0.11801765541062678,
+   "sBlur": -0.04149564546807343,
+   "sGrain": 0.052982999590300346,
+   "r2Grain": 0.9887279092036192,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.87052,
+     "block": 1.44844,
+     "blur": 7.50716,
+     "grain": 1.0459
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.20902,
+     "block": 1.42659,
+     "blur": 7.61134,
+     "grain": 1.02652
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.52951,
+     "block": 1.43122,
+     "blur": 7.67424,
+     "grain": 1.01362
+    },
+    {
+     "level": 1,
+     "cambi": 1.81554,
+     "block": 1.44258,
+     "blur": 7.71076,
+     "grain": 1.00605
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.18628,
+     "block": 1.46655,
+     "blur": 7.75608,
+     "grain": 0.9974
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.80438,
+     "block": 1.53457,
+     "blur": 7.8081,
+     "grain": 0.98509
+    },
+    {
+     "level": 0.5,
+     "cambi": 4.01007,
+     "block": 1.64534,
+     "blur": 7.93882,
+     "grain": 0.96608
+    },
+    {
+     "level": 0.3,
+     "cambi": 5.32496,
+     "block": 1.83117,
+     "blur": 8.21341,
+     "grain": 0.93692
+    }
+   ]
+  },
+  {
+   "key": "mv:38",
+   "title": "Django Unchained (2012)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.12808,
+   "grainLossless": 0.75487,
+   "levelAt1": 0.72334,
+   "blockAt1": 3.27016,
+   "blurAt1": 6.94929,
+   "grainAt1": 0.72513,
+   "S": -1.2986357555214738,
+   "r2": 0.9917043997179745,
+   "n": 8,
+   "sBlock": -0.14137319622131214,
+   "sBlur": -0.019013078524594093,
+   "sGrain": 0.0480458301644601,
+   "r2Grain": 0.9881068021355053,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.24983,
+     "block": 3.00296,
+     "blur": 6.88146,
+     "grain": 0.75056
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.42794,
+     "block": 3.07115,
+     "blur": 6.90941,
+     "grain": 0.7392
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.58875,
+     "block": 3.27349,
+     "blur": 6.93929,
+     "grain": 0.72977
+    },
+    {
+     "level": 1,
+     "cambi": 0.72334,
+     "block": 3.27016,
+     "blur": 6.94929,
+     "grain": 0.72513
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.92475,
+     "block": 3.43459,
+     "blur": 6.93874,
+     "grain": 0.71841
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.26171,
+     "block": 3.62772,
+     "blur": 6.96022,
+     "grain": 0.71111
+    },
+    {
+     "level": 0.5,
+     "cambi": 2.15883,
+     "block": 3.98032,
+     "blur": 7.04354,
+     "grain": 0.69852
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.42707,
+     "block": 3.79935,
+     "blur": 7.17932,
+     "grain": 0.67988
+    }
+   ]
+  },
+  {
+   "key": "mv:115",
+   "title": "Cast Away (2000)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.96272,
+   "grainLossless": 1.10322,
+   "levelAt1": 1.94969,
+   "blockAt1": 1.56038,
+   "blurAt1": 9.96143,
+   "grainAt1": 1.05646,
+   "S": -0.5633771545992198,
+   "r2": 0.9715060448360369,
+   "n": 8,
+   "sBlock": -0.17056861826636743,
+   "sBlur": -0.06642152302222464,
+   "sGrain": 0.059803313923332733,
+   "r2Grain": 0.9098237680767498,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.0925,
+     "block": 1.39345,
+     "blur": 9.48004,
+     "grain": 1.08739
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.41096,
+     "block": 1.46437,
+     "blur": 9.67806,
+     "grain": 1.0733
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.73927,
+     "block": 1.51977,
+     "blur": 9.84253,
+     "grain": 1.06347
+    },
+    {
+     "level": 1,
+     "cambi": 1.94969,
+     "block": 1.56038,
+     "blur": 9.96143,
+     "grain": 1.05646
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.20397,
+     "block": 1.59502,
+     "blur": 10.03037,
+     "grain": 1.04981
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.49883,
+     "block": 1.64448,
+     "blur": 10.25549,
+     "grain": 1.03631
+    },
+    {
+     "level": 0.5,
+     "cambi": 2.9109,
+     "block": 1.77599,
+     "blur": 10.38414,
+     "grain": 1.00948
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.36823,
+     "block": 1.99321,
+     "blur": 10.90551,
+     "grain": 0.95619
+    }
+   ]
+  },
+  {
+   "key": "mv:732",
+   "title": "Poor Things (2023)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 2.91671,
+   "grainLossless": 1.00071,
+   "levelAt1": 3.10973,
+   "blockAt1": 2.42642,
+   "blurAt1": 10.46418,
+   "grainAt1": 0.98421,
+   "S": -0.08183627934329336,
+   "r2": 0.9960157172202969,
+   "n": 8,
+   "sBlock": 0.04922939045273295,
+   "sBlur": -0.04458800522801757,
+   "sGrain": 0.019221533202843154,
+   "r2Grain": 0.944311047173052,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 2.88924,
+     "block": 2.49789,
+     "blur": 10.18731,
+     "grain": 0.99579
+    },
+    {
+     "level": 1.5,
+     "cambi": 2.99611,
+     "block": 2.46397,
+     "blur": 10.32086,
+     "grain": 0.99003
+    },
+    {
+     "level": 1.15,
+     "cambi": 3.0769,
+     "block": 2.46065,
+     "blur": 10.4161,
+     "grain": 0.98652
+    },
+    {
+     "level": 1,
+     "cambi": 3.10973,
+     "block": 2.42642,
+     "blur": 10.46418,
+     "grain": 0.98421
+    },
+    {
+     "level": 0.85,
+     "cambi": 3.14362,
+     "block": 2.37168,
+     "blur": 10.58838,
+     "grain": 0.98057
+    },
+    {
+     "level": 0.7,
+     "cambi": 3.18661,
+     "block": 2.41063,
+     "blur": 10.67573,
+     "grain": 0.97758
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.30972,
+     "block": 2.28244,
+     "blur": 10.84097,
+     "grain": 0.97225
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.42418,
+     "block": 2.27904,
+     "blur": 11.17932,
+     "grain": 0.95477
+    }
+   ]
+  },
+  {
+   "key": "mv:173",
+   "title": "Goldfinger (1964)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 1.24375,
+   "grainLossless": 1.04973,
+   "levelAt1": 1.37168,
+   "blockAt1": 1.56236,
+   "blurAt1": 5.75636,
+   "grainAt1": 1.03324,
+   "S": -0.3633823599852237,
+   "r2": 0.8368746514210967,
+   "n": 8,
+   "sBlock": 0.004331692194232028,
+   "sBlur": -0.018216006472294988,
+   "sGrain": 0.02642993705218866,
+   "r2Grain": 0.9629350750257623,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.24756,
+     "block": 1.64662,
+     "blur": 5.72073,
+     "grain": 1.04992
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.29153,
+     "block": 1.5825,
+     "blur": 5.7339,
+     "grain": 1.0442
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.33387,
+     "block": 1.56231,
+     "blur": 5.7469,
+     "grain": 1.03776
+    },
+    {
+     "level": 1,
+     "cambi": 1.37168,
+     "block": 1.56236,
+     "blur": 5.75636,
+     "grain": 1.03324
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.43868,
+     "block": 1.56233,
+     "blur": 5.77004,
+     "grain": 1.02862
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.5598,
+     "block": 1.55595,
+     "blur": 5.78991,
+     "grain": 1.02294
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.87259,
+     "block": 1.55136,
+     "blur": 5.83791,
+     "grain": 1.01276
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.71225,
+     "block": 1.64087,
+     "blur": 5.95097,
+     "grain": 0.99418
+    }
+   ]
+  },
+  {
+   "key": "mv:168",
+   "title": "The Bridge on the River Kwai (1957)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.03303,
+   "grainLossless": 1.29346,
+   "levelAt1": 0.07103,
+   "blockAt1": 1.06114,
+   "blurAt1": 5.34518,
+   "grainAt1": 1.14862,
+   "S": -1.2627919051980792,
+   "r2": 0.8631922241248161,
+   "n": 8,
+   "sBlock": -0.04768853969844235,
+   "sBlur": -0.06051236125752636,
+   "sGrain": 0.08348805281249616,
+   "r2Grain": 0.9816206252834244,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.04079,
+     "block": 1.07304,
+     "blur": 5.01769,
+     "grain": 1.23363
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.05003,
+     "block": 1.05734,
+     "blur": 5.16592,
+     "grain": 1.18541
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.06457,
+     "block": 1.05867,
+     "blur": 5.24118,
+     "grain": 1.16034
+    },
+    {
+     "level": 1,
+     "cambi": 0.07103,
+     "block": 1.06114,
+     "blur": 5.34518,
+     "grain": 1.14862
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.08757,
+     "block": 1.06348,
+     "blur": 5.36336,
+     "grain": 1.1366
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.1083,
+     "block": 1.06556,
+     "blur": 5.42862,
+     "grain": 1.12348
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.14468,
+     "block": 1.07437,
+     "blur": 5.55892,
+     "grain": 1.09521
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.69856,
+     "block": 1.21137,
+     "blur": 5.68228,
+     "grain": 1.02477
+    }
+   ]
+  },
+  {
+   "key": "mv:156",
+   "title": "Butch Cassidy and the Sundance Kid (1969)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.30014,
+   "grainLossless": 1.03476,
+   "levelAt1": 0.64392,
+   "blockAt1": 1.30336,
+   "blurAt1": 7.05396,
+   "grainAt1": 0.99449,
+   "S": -0.7500195626279036,
+   "r2": 0.9781725301816944,
+   "n": 8,
+   "sBlock": -0.035120920415418595,
+   "sBlur": -0.01656261953717962,
+   "sGrain": 0.0585544759800837,
+   "r2Grain": 0.9539563685059395,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.35875,
+     "block": 1.36367,
+     "blur": 6.98176,
+     "grain": 1.03088
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.49173,
+     "block": 1.31884,
+     "blur": 7.01397,
+     "grain": 1.01316
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.58268,
+     "block": 1.3028,
+     "blur": 7.03348,
+     "grain": 1.00108
+    },
+    {
+     "level": 1,
+     "cambi": 0.64392,
+     "block": 1.30336,
+     "blur": 7.05396,
+     "grain": 0.99449
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.71455,
+     "block": 1.31839,
+     "blur": 7.07269,
+     "grain": 0.98642
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.80164,
+     "block": 1.34531,
+     "blur": 7.09144,
+     "grain": 0.97509
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.02574,
+     "block": 1.33862,
+     "blur": 7.14176,
+     "grain": 0.9536
+    },
+    {
+     "level": 0.3,
+     "cambi": 1.85587,
+     "block": 1.47574,
+     "blur": 7.22985,
+     "grain": 0.90903
+    }
+   ]
+  },
+  {
+   "key": "mv:134",
+   "title": "Close Encounters of the Third Kind (1977)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.02738,
+   "grainLossless": 0.92804,
+   "levelAt1": 0.05706,
+   "blockAt1": 1.27062,
+   "blurAt1": 5.22327,
+   "grainAt1": 0.85726,
+   "S": -1.3240512665797761,
+   "r2": 0.8914241146940624,
+   "n": 8,
+   "sBlock": -0.06827587317176793,
+   "sBlur": -0.03964737334974813,
+   "sGrain": 0.0728124790404201,
+   "r2Grain": 0.9491423296487072,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.0321,
+     "block": 1.30438,
+     "blur": 5.08504,
+     "grain": 0.89756
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.03879,
+     "block": 1.28868,
+     "blur": 5.15249,
+     "grain": 0.87434
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.05053,
+     "block": 1.27927,
+     "blur": 5.19335,
+     "grain": 0.86242
+    },
+    {
+     "level": 1,
+     "cambi": 0.05706,
+     "block": 1.27062,
+     "blur": 5.22327,
+     "grain": 0.85726
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.06279,
+     "block": 1.27148,
+     "blur": 5.25829,
+     "grain": 0.85059
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.09145,
+     "block": 1.29004,
+     "blur": 5.29429,
+     "grain": 0.83756
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.15064,
+     "block": 1.3382,
+     "blur": 5.37537,
+     "grain": 0.814
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.55137,
+     "block": 1.53826,
+     "blur": 5.53199,
+     "grain": 0.76543
+    }
+   ]
+  },
+  {
+   "key": "mv:174",
+   "title": "From Russia with Love (1963)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.13223,
+   "grainLossless": 1.08753,
+   "levelAt1": 0.26571,
+   "blockAt1": 1.28329,
+   "blurAt1": 5.28102,
+   "grainAt1": 1.05069,
+   "S": -1.2530947526179679,
+   "r2": 0.9280692954143801,
+   "n": 8,
+   "sBlock": -0.03727124141024401,
+   "sBlur": -0.02183533111467268,
+   "sGrain": 0.04988961184705718,
+   "r2Grain": 0.9456297716328295,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.1432,
+     "block": 1.30492,
+     "blur": 5.21795,
+     "grain": 1.08277
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.19076,
+     "block": 1.28682,
+     "blur": 5.24412,
+     "grain": 1.0686
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.228,
+     "block": 1.28613,
+     "blur": 5.26354,
+     "grain": 1.05717
+    },
+    {
+     "level": 1,
+     "cambi": 0.26571,
+     "block": 1.28329,
+     "blur": 5.28102,
+     "grain": 1.05069
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.31335,
+     "block": 1.28175,
+     "blur": 5.30017,
+     "grain": 1.04302
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.41309,
+     "block": 1.27776,
+     "blur": 5.3236,
+     "grain": 1.03401
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.76418,
+     "block": 1.31405,
+     "blur": 5.36705,
+     "grain": 1.01591
+    },
+    {
+     "level": 0.3,
+     "cambi": 1.98107,
+     "block": 1.43127,
+     "blur": 5.46449,
+     "grain": 0.97213
+    }
+   ]
+  },
+  {
+   "key": "mv:96",
+   "title": "The Matrix Revolutions (2003)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 1.92355,
+   "grainLossless": 0.85525,
+   "levelAt1": 4.07588,
+   "blockAt1": 1.56733,
+   "blurAt1": 7.31158,
+   "grainAt1": 0.82361,
+   "S": -0.5849847626902469,
+   "r2": 0.9705589561939235,
+   "n": 8,
+   "sBlock": -0.15837115710920616,
+   "sBlur": -0.0526024336348013,
+   "sGrain": 0.06204968980634406,
+   "r2Grain": 0.9532249255716947,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 2.09796,
+     "block": 1.43931,
+     "blur": 7.16929,
+     "grain": 0.85419
+    },
+    {
+     "level": 1.5,
+     "cambi": 2.93439,
+     "block": 1.48831,
+     "blur": 7.22268,
+     "grain": 0.84087
+    },
+    {
+     "level": 1.15,
+     "cambi": 3.66844,
+     "block": 1.53228,
+     "blur": 7.28604,
+     "grain": 0.82939
+    },
+    {
+     "level": 1,
+     "cambi": 4.07588,
+     "block": 1.56733,
+     "blur": 7.31158,
+     "grain": 0.82361
+    },
+    {
+     "level": 0.85,
+     "cambi": 4.52956,
+     "block": 1.61661,
+     "blur": 7.38006,
+     "grain": 0.81619
+    },
+    {
+     "level": 0.7,
+     "cambi": 5.07732,
+     "block": 1.66728,
+     "blur": 7.44115,
+     "grain": 0.80752
+    },
+    {
+     "level": 0.5,
+     "cambi": 5.94731,
+     "block": 1.76726,
+     "blur": 7.61099,
+     "grain": 0.78428
+    },
+    {
+     "level": 0.3,
+     "cambi": 7.02168,
+     "block": 2.00643,
+     "blur": 8.0338,
+     "grain": 0.7496
+    }
+   ]
+  },
+  {
+   "key": "mv:217",
+   "title": "The Prestige (2006)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.92452,
+   "grainLossless": 1.00078,
+   "levelAt1": 3.20511,
+   "blockAt1": 1.57799,
+   "blurAt1": 8.19557,
+   "grainAt1": 0.98495,
+   "S": -0.5347789046850449,
+   "r2": 0.8981441807624226,
+   "n": 8,
+   "sBlock": -0.06490781700384513,
+   "sBlur": -0.04993500241823131,
+   "sGrain": 0.020941156441737618,
+   "r2Grain": 0.9536989485365862,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.54661,
+     "block": 1.46885,
+     "blur": 8.01053,
+     "grain": 0.99537
+    },
+    {
+     "level": 1.5,
+     "cambi": 2.32215,
+     "block": 1.50821,
+     "blur": 8.09103,
+     "grain": 0.98728
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.8783,
+     "block": 1.55736,
+     "blur": 8.15675,
+     "grain": 0.98215
+    },
+    {
+     "level": 1,
+     "cambi": 3.20511,
+     "block": 1.57799,
+     "blur": 8.19557,
+     "grain": 0.98495
+    },
+    {
+     "level": 0.85,
+     "cambi": 3.5431,
+     "block": 1.59485,
+     "blur": 8.26709,
+     "grain": 0.97852
+    },
+    {
+     "level": 0.7,
+     "cambi": 3.96947,
+     "block": 1.62888,
+     "blur": 8.33177,
+     "grain": 0.97358
+    },
+    {
+     "level": 0.5,
+     "cambi": 4.53725,
+     "block": 1.6493,
+     "blur": 8.53406,
+     "grain": 0.96666
+    },
+    {
+     "level": 0.3,
+     "cambi": 4.61125,
+     "block": 1.66706,
+     "blur": 8.90741,
+     "grain": 0.95149
+    }
+   ]
+  },
+  {
+   "key": "mv:188",
+   "title": "Happy Gilmore (1996)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.20619,
+   "grainLossless": 1.15578,
+   "levelAt1": 0.57683,
+   "blockAt1": 8.1147,
+   "blurAt1": 7.99181,
+   "grainAt1": 1.12669,
+   "S": -0.6708641762861025,
+   "r2": 0.9517830137381534,
+   "n": 8,
+   "sBlock": -0.12498861848576154,
+   "sBlur": -0.046322199615122774,
+   "sGrain": 0.03139098186373349,
+   "r2Grain": 0.9175536341278682,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.25879,
+     "block": 7.11155,
+     "blur": 7.73152,
+     "grain": 1.14613
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.41289,
+     "block": 7.50471,
+     "blur": 7.85575,
+     "grain": 1.13673
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.52185,
+     "block": 8.01398,
+     "blur": 7.92955,
+     "grain": 1.12994
+    },
+    {
+     "level": 1,
+     "cambi": 0.57683,
+     "block": 8.1147,
+     "blur": 7.99181,
+     "grain": 1.12669
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.66895,
+     "block": 8.27103,
+     "blur": 8.04822,
+     "grain": 1.12247
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.76691,
+     "block": 8.53707,
+     "blur": 8.1122,
+     "grain": 1.11603
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.90422,
+     "block": 9.38663,
+     "blur": 8.30056,
+     "grain": 1.10325
+    },
+    {
+     "level": 0.3,
+     "cambi": 1.04506,
+     "block": 8.87215,
+     "blur": 8.50669,
+     "grain": 1.06964
+    }
+   ]
+  },
+  {
+   "key": "mv:891",
+   "title": "My Own Private Idaho (1991)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 4.69313,
+   "grainLossless": 0.89224,
+   "levelAt1": 5.27992,
+   "blockAt1": 2.35564,
+   "blurAt1": 7.57184,
+   "grainAt1": 0.88095,
+   "S": -0.09361076687542715,
+   "r2": 0.9321967040104462,
+   "n": 8,
+   "sBlock": -0.018156811643601417,
+   "sBlur": -0.02420903327502425,
+   "sGrain": 0.03661655562885848,
+   "r2Grain": 0.8614825975338533,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 4.74497,
+     "block": 2.37785,
+     "blur": 7.40571,
+     "grain": 0.89086
+    },
+    {
+     "level": 1.5,
+     "cambi": 4.99456,
+     "block": 2.32899,
+     "blur": 7.48872,
+     "grain": 0.88755
+    },
+    {
+     "level": 1.15,
+     "cambi": 5.17492,
+     "block": 2.34541,
+     "blur": 7.54112,
+     "grain": 0.88418
+    },
+    {
+     "level": 1,
+     "cambi": 5.27992,
+     "block": 2.35564,
+     "blur": 7.57184,
+     "grain": 0.88095
+    },
+    {
+     "level": 0.85,
+     "cambi": 5.38684,
+     "block": 2.37492,
+     "blur": 7.62227,
+     "grain": 0.87693
+    },
+    {
+     "level": 0.7,
+     "cambi": 5.51661,
+     "block": 2.40704,
+     "blur": 7.6314,
+     "grain": 0.86887
+    },
+    {
+     "level": 0.5,
+     "cambi": 5.67727,
+     "block": 2.4573,
+     "blur": 7.6974,
+     "grain": 0.8535
+    },
+    {
+     "level": 0.3,
+     "cambi": 5.6961,
+     "block": 2.41557,
+     "blur": 7.79179,
+     "grain": 0.82474
+    }
+   ]
+  },
+  {
+   "key": "mv:487",
+   "title": "The Bishop's Wife (1947)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.08229,
+   "grainLossless": 1.10079,
+   "levelAt1": 0.12519,
+   "blockAt1": 1.51568,
+   "blurAt1": 7.25591,
+   "grainAt1": 1.06646,
+   "S": -1.0610488121199761,
+   "r2": 0.8798371784049073,
+   "n": 8,
+   "sBlock": -0.10055783529416465,
+   "sBlur": -0.015318362081407596,
+   "sGrain": 0.05239497131755403,
+   "r2Grain": 0.9635998197645488,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.08026,
+     "block": 1.52052,
+     "blur": 7.19746,
+     "grain": 1.10097
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.0958,
+     "block": 1.51108,
+     "blur": 7.21856,
+     "grain": 1.08764
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.11206,
+     "block": 1.51961,
+     "blur": 7.24566,
+     "grain": 1.0741
+    },
+    {
+     "level": 1,
+     "cambi": 0.12519,
+     "block": 1.51568,
+     "blur": 7.25591,
+     "grain": 1.06646
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.14222,
+     "block": 1.52336,
+     "blur": 7.27423,
+     "grain": 1.05711
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.16943,
+     "block": 1.57209,
+     "blur": 7.296,
+     "grain": 1.04567
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.27643,
+     "block": 1.66205,
+     "blur": 7.34389,
+     "grain": 1.02506
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.80208,
+     "block": 1.89382,
+     "blur": 7.43241,
+     "grain": 0.98707
+    }
+   ]
+  },
+  {
+   "key": "mv:200",
+   "title": "Donnie Brasco (1997)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.9068,
+   "grainLossless": 0.94301,
+   "levelAt1": 2.53681,
+   "blockAt1": 3.17725,
+   "blurAt1": 6.85429,
+   "grainAt1": 0.88635,
+   "S": -0.5497098790832108,
+   "r2": 0.926853415580077,
+   "n": 8,
+   "sBlock": -0.4369210355728064,
+   "sBlur": -0.04916333332335402,
+   "sGrain": 0.06749538160605549,
+   "r2Grain": 0.9757102774246227,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.22574,
+     "block": 1.9572,
+     "blur": 6.61619,
+     "grain": 0.92731
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.81412,
+     "block": 2.37937,
+     "blur": 6.73196,
+     "grain": 0.90872
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.29133,
+     "block": 2.82674,
+     "blur": 6.80238,
+     "grain": 0.89423
+    },
+    {
+     "level": 1,
+     "cambi": 2.53681,
+     "block": 3.17725,
+     "blur": 6.85429,
+     "grain": 0.88635
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.80066,
+     "block": 3.65693,
+     "blur": 6.89417,
+     "grain": 0.8756
+    },
+    {
+     "level": 0.7,
+     "cambi": 3.08312,
+     "block": 4.66051,
+     "blur": 6.98612,
+     "grain": 0.86489
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.48488,
+     "block": 6.11824,
+     "blur": 7.10131,
+     "grain": 0.84346
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.86615,
+     "block": 3.65183,
+     "blur": 7.33848,
+     "grain": 0.80452
+    }
+   ]
+  },
+  {
+   "key": "mv:112",
+   "title": "Saving Private Ryan (1998)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.32064,
+   "grainLossless": 1.0369,
+   "levelAt1": 0.60043,
+   "blockAt1": 1.4629,
+   "blurAt1": 7.67359,
+   "grainAt1": 1.00059,
+   "S": -0.5049734930859013,
+   "r2": 0.9871568214940081,
+   "n": 8,
+   "sBlock": -0.109323197767346,
+   "sBlur": -0.05354371963069604,
+   "sGrain": 0.0524460124959949,
+   "r2Grain": 0.8778080826493376,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.3904,
+     "block": 1.35355,
+     "blur": 7.40513,
+     "grain": 1.0248
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.48163,
+     "block": 1.41146,
+     "blur": 7.51362,
+     "grain": 1.01266
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.56244,
+     "block": 1.44288,
+     "blur": 7.62148,
+     "grain": 1.00521
+    },
+    {
+     "level": 1,
+     "cambi": 0.60043,
+     "block": 1.4629,
+     "blur": 7.67359,
+     "grain": 1.00059
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.67242,
+     "block": 1.49056,
+     "blur": 7.75195,
+     "grain": 0.99489
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.74156,
+     "block": 1.5255,
+     "blur": 7.82881,
+     "grain": 0.98618
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.93304,
+     "block": 1.57781,
+     "blur": 8.0228,
+     "grain": 0.96526
+    },
+    {
+     "level": 0.3,
+     "cambi": 1.06847,
+     "block": 1.71156,
+     "blur": 8.25974,
+     "grain": 0.91211
+    }
+   ]
+  },
+  {
+   "key": "mv:210",
+   "title": "The Lord of the Rings: The Two Towers (2002)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.03877,
+   "grainLossless": 1.19205,
+   "levelAt1": 0.09178,
+   "blockAt1": 1.41258,
+   "blurAt1": 7.87303,
+   "grainAt1": 1.16966,
+   "S": -1.488676484074776,
+   "r2": 0.9557214807444343,
+   "n": 8,
+   "sBlock": 0.06915486452389905,
+   "sBlur": -0.020318376969748364,
+   "sGrain": 0.03344379935011182,
+   "r2Grain": 0.9614744832577288,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.03823,
+     "block": 1.54484,
+     "blur": 7.82335,
+     "grain": 1.19238
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.04565,
+     "block": 1.51366,
+     "blur": 7.85262,
+     "grain": 1.18413
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.06435,
+     "block": 1.43603,
+     "blur": 7.84249,
+     "grain": 1.17661
+    },
+    {
+     "level": 1,
+     "cambi": 0.09178,
+     "block": 1.41258,
+     "blur": 7.87303,
+     "grain": 1.16966
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.11979,
+     "block": 1.39365,
+     "blur": 7.9194,
+     "grain": 1.16033
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.16511,
+     "block": 1.37524,
+     "blur": 7.96041,
+     "grain": 1.14945
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.29786,
+     "block": 1.35678,
+     "blur": 8.03248,
+     "grain": 1.13289
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.74011,
+     "block": 1.3568,
+     "blur": 8.1501,
+     "grain": 1.1176
+    }
+   ]
+  },
+  {
+   "key": "mv:105",
+   "title": "Ocean's Twelve (2004)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.74546,
+   "grainLossless": 0.95796,
+   "levelAt1": 2.23558,
+   "blockAt1": 1.45592,
+   "blurAt1": 7.14825,
+   "grainAt1": 0.90833,
+   "S": -0.42415849828784163,
+   "r2": 0.9131444402298903,
+   "n": 8,
+   "sBlock": -0.0903070211418841,
+   "sBlur": -0.055574185023958445,
+   "sGrain": 0.049750820943893104,
+   "r2Grain": 0.9500038320015941,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.2118,
+     "block": 1.38298,
+     "blur": 6.94769,
+     "grain": 0.94128
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.75557,
+     "block": 1.39892,
+     "blur": 7.04877,
+     "grain": 0.92284
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.07451,
+     "block": 1.4321,
+     "blur": 7.1053,
+     "grain": 0.91312
+    },
+    {
+     "level": 1,
+     "cambi": 2.23558,
+     "block": 1.45592,
+     "blur": 7.14825,
+     "grain": 0.90833
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.36111,
+     "block": 1.47535,
+     "blur": 7.20993,
+     "grain": 0.90417
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.53244,
+     "block": 1.49338,
+     "blur": 7.29099,
+     "grain": 0.89721
+    },
+    {
+     "level": 0.5,
+     "cambi": 2.70816,
+     "block": 1.54765,
+     "blur": 7.45979,
+     "grain": 0.88157
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.07891,
+     "block": 1.67214,
+     "blur": 7.82719,
+     "grain": 0.84215
+    }
+   ]
+  },
+  {
+   "key": "mv:113",
+   "title": "Sully (2016)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 1.88567,
+   "grainLossless": 0.94944,
+   "levelAt1": 3.26645,
+   "blockAt1": 1.60337,
+   "blurAt1": 6.96998,
+   "grainAt1": 0.93603,
+   "S": -0.38392799987708426,
+   "r2": 0.9355958585132453,
+   "n": 8,
+   "sBlock": -0.06752140346373174,
+   "sBlur": -0.04408129370667751,
+   "sGrain": 0.02906232455124499,
+   "r2Grain": 0.9350392868633229,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 2.11366,
+     "block": 1.56735,
+     "blur": 6.81665,
+     "grain": 0.9491
+    },
+    {
+     "level": 1.5,
+     "cambi": 2.61157,
+     "block": 1.56309,
+     "blur": 6.87132,
+     "grain": 0.94364
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.99672,
+     "block": 1.58464,
+     "blur": 6.93878,
+     "grain": 0.93878
+    },
+    {
+     "level": 1,
+     "cambi": 3.26645,
+     "block": 1.60337,
+     "blur": 6.96998,
+     "grain": 0.93603
+    },
+    {
+     "level": 0.85,
+     "cambi": 3.56028,
+     "block": 1.63855,
+     "blur": 7.02157,
+     "grain": 0.93141
+    },
+    {
+     "level": 0.7,
+     "cambi": 3.90747,
+     "block": 1.65867,
+     "blur": 7.03905,
+     "grain": 0.92526
+    },
+    {
+     "level": 0.5,
+     "cambi": 4.38994,
+     "block": 1.70713,
+     "blur": 7.19371,
+     "grain": 0.91267
+    },
+    {
+     "level": 0.3,
+     "cambi": 4.48041,
+     "block": 1.78635,
+     "blur": 7.49988,
+     "grain": 0.89373
+    }
+   ]
+  },
+  {
+   "key": "mv:328",
+   "title": "Groundhog Day (1993)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 2.36386,
+   "grainLossless": 0.92417,
+   "levelAt1": 4.02927,
+   "blockAt1": 1.64086,
+   "blurAt1": 7.15261,
+   "grainAt1": 0.90897,
+   "S": -0.40746415319094176,
+   "r2": 0.9709853938346705,
+   "n": 8,
+   "sBlock": -0.17211798627081532,
+   "sBlur": -0.07085868992789669,
+   "sGrain": 0.038649463785245225,
+   "r2Grain": 0.8476230836277396,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 2.64867,
+     "block": 1.47277,
+     "blur": 6.9842,
+     "grain": 0.92083
+    },
+    {
+     "level": 1.5,
+     "cambi": 3.21852,
+     "block": 1.5161,
+     "blur": 7.0552,
+     "grain": 0.91616
+    },
+    {
+     "level": 1.15,
+     "cambi": 3.68098,
+     "block": 1.59054,
+     "blur": 7.11286,
+     "grain": 0.91146
+    },
+    {
+     "level": 1,
+     "cambi": 4.02927,
+     "block": 1.64086,
+     "blur": 7.15261,
+     "grain": 0.90897
+    },
+    {
+     "level": 0.85,
+     "cambi": 4.39879,
+     "block": 1.71315,
+     "blur": 7.23225,
+     "grain": 0.9042
+    },
+    {
+     "level": 0.7,
+     "cambi": 4.82742,
+     "block": 1.7805,
+     "blur": 7.31752,
+     "grain": 0.89777
+    },
+    {
+     "level": 0.5,
+     "cambi": 5.42585,
+     "block": 1.88666,
+     "blur": 7.63713,
+     "grain": 0.88343
+    },
+    {
+     "level": 0.3,
+     "cambi": 5.96969,
+     "block": 2.07068,
+     "blur": 8.10275,
+     "grain": 0.84598
+    }
+   ]
+  },
+  {
+   "key": "mv:884",
+   "title": "13 Rue Madeleine (1947)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 1.80029,
+   "grainLossless": 1.07905,
+   "levelAt1": 1.94988,
+   "blockAt1": 1.36326,
+   "blurAt1": 7.01832,
+   "grainAt1": 1.07186,
+   "S": -0.184614009301853,
+   "r2": 0.9626947806177913,
+   "n": 8,
+   "sBlock": -0.04437727391812375,
+   "sBlur": -0.02659065503813058,
+   "sGrain": 0.017433511761407703,
+   "r2Grain": 0.8674248418443472,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.75466,
+     "block": 1.4758,
+     "blur": 6.96558,
+     "grain": 1.07855
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.82523,
+     "block": 1.39019,
+     "blur": 6.97967,
+     "grain": 1.07581
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.9104,
+     "block": 1.36034,
+     "blur": 7.00399,
+     "grain": 1.07361
+    },
+    {
+     "level": 1,
+     "cambi": 1.94988,
+     "block": 1.36326,
+     "blur": 7.01832,
+     "grain": 1.07186
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.02577,
+     "block": 1.38293,
+     "blur": 7.04574,
+     "grain": 1.06936
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.09157,
+     "block": 1.40974,
+     "blur": 7.08232,
+     "grain": 1.06488
+    },
+    {
+     "level": 0.5,
+     "cambi": 2.30028,
+     "block": 1.48879,
+     "blur": 7.17613,
+     "grain": 1.05784
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.54814,
+     "block": 1.58809,
+     "blur": 7.37162,
+     "grain": 1.03861
+    }
+   ]
+  },
+  {
+   "key": "mv:60",
+   "title": "Meet the Fockers (2004)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.21975,
+   "grainLossless": 1.17986,
+   "levelAt1": 0.50422,
+   "blockAt1": 1.25485,
+   "blurAt1": 5.63346,
+   "grainAt1": 1.11921,
+   "S": -0.5043969247678279,
+   "r2": 0.9949075247169435,
+   "n": 8,
+   "sBlock": -0.2475740941777012,
+   "sBlur": -0.11343491846781792,
+   "sGrain": 0.05240953919490098,
+   "r2Grain": 0.9344943456364513,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.32567,
+     "block": 1.19302,
+     "blur": 5.32156,
+     "grain": 1.15276
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.41585,
+     "block": 1.20978,
+     "blur": 5.47517,
+     "grain": 1.13467
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.47265,
+     "block": 1.23665,
+     "blur": 5.5792,
+     "grain": 1.12486
+    },
+    {
+     "level": 1,
+     "cambi": 0.50422,
+     "block": 1.25485,
+     "blur": 5.63346,
+     "grain": 1.11921
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.53817,
+     "block": 1.28314,
+     "blur": 5.71489,
+     "grain": 1.11276
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.6137,
+     "block": 1.34697,
+     "blur": 5.82087,
+     "grain": 1.10196
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.69347,
+     "block": 1.57728,
+     "blur": 6.09919,
+     "grain": 1.07458
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.96751,
+     "block": 2.02068,
+     "blur": 6.83137,
+     "grain": 1.02962
+    }
+   ]
+  },
+  {
+   "key": "mv:218",
+   "title": "Dunkirk (2017)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.95085,
+   "grainLossless": 0.92263,
+   "levelAt1": 1.04473,
+   "blockAt1": 1.77681,
+   "blurAt1": 6.9562,
+   "grainAt1": 0.92018,
+   "S": -0.2868705999638433,
+   "r2": 0.9136512312229761,
+   "n": 8,
+   "sBlock": 0.022468248696857818,
+   "sBlur": -0.00964056406080341,
+   "sGrain": 0.01534231510263158,
+   "r2Grain": 0.822080083912742,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.92716,
+     "block": 1.75761,
+     "blur": 6.93945,
+     "grain": 0.92359
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.96696,
+     "block": 1.78407,
+     "blur": 6.9457,
+     "grain": 0.92266
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.01601,
+     "block": 1.78828,
+     "blur": 6.95644,
+     "grain": 0.92117
+    },
+    {
+     "level": 1,
+     "cambi": 1.04473,
+     "block": 1.77681,
+     "blur": 6.9562,
+     "grain": 0.92018
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.1033,
+     "block": 1.75286,
+     "blur": 6.96852,
+     "grain": 0.91852
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.17533,
+     "block": 1.71277,
+     "blur": 6.97031,
+     "grain": 0.91544
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.32185,
+     "block": 1.6486,
+     "blur": 7.01414,
+     "grain": 0.9085
+    },
+    {
+     "level": 0.3,
+     "cambi": 1.69034,
+     "block": 1.74045,
+     "blur": 7.08735,
+     "grain": 0.89362
+    }
+   ]
+  },
+  {
+   "key": "mv:182",
+   "title": "One Battle After Another (2025)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.9358,
+   "grainLossless": 1.01025,
+   "levelAt1": 4.37064,
+   "blockAt1": 1.89056,
+   "blurAt1": 7.49077,
+   "grainAt1": 0.94567,
+   "S": -0.596297467387013,
+   "r2": 0.8328211718247107,
+   "n": 8,
+   "sBlock": -0.13179700591420454,
+   "sBlur": -0.07018713039832328,
+   "sGrain": 0.05807900529100031,
+   "r2Grain": 0.9671792406426958,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.68195,
+     "block": 1.60169,
+     "blur": 7.15217,
+     "grain": 0.98531
+    },
+    {
+     "level": 1.5,
+     "cambi": 3.01877,
+     "block": 1.75357,
+     "blur": 7.30899,
+     "grain": 0.96417
+    },
+    {
+     "level": 1.15,
+     "cambi": 3.9035,
+     "block": 1.84972,
+     "blur": 7.42682,
+     "grain": 0.95236
+    },
+    {
+     "level": 1,
+     "cambi": 4.37064,
+     "block": 1.89056,
+     "blur": 7.49077,
+     "grain": 0.94567
+    },
+    {
+     "level": 0.85,
+     "cambi": 4.85853,
+     "block": 1.93843,
+     "blur": 7.57504,
+     "grain": 0.93849
+    },
+    {
+     "level": 0.7,
+     "cambi": 5.3882,
+     "block": 1.9874,
+     "blur": 7.69657,
+     "grain": 0.9286
+    },
+    {
+     "level": 0.5,
+     "cambi": 5.92277,
+     "block": 2.04987,
+     "blur": 7.88069,
+     "grain": 0.91053
+    },
+    {
+     "level": 0.3,
+     "cambi": 6.00038,
+     "block": 2.10839,
+     "blur": 8.29823,
+     "grain": 0.86801
+    }
+   ]
+  },
+  {
+   "key": "mv:179",
+   "title": "No Time to Die (2021)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.31162,
+   "grainLossless": 0.98419,
+   "levelAt1": 0.79879,
+   "blockAt1": 1.29606,
+   "blurAt1": 6.95083,
+   "grainAt1": 0.94909,
+   "S": -0.9403954730250786,
+   "r2": 0.98384277298892,
+   "n": 8,
+   "sBlock": -0.1772713744948897,
+   "sBlur": -0.04192730503785681,
+   "sGrain": 0.05707407700397123,
+   "r2Grain": 0.9600004760894167,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.3525,
+     "block": 1.21006,
+     "blur": 6.81395,
+     "grain": 0.98215
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.48823,
+     "block": 1.22887,
+     "blur": 6.88084,
+     "grain": 0.96693
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.66473,
+     "block": 1.26007,
+     "blur": 6.93935,
+     "grain": 0.95535
+    },
+    {
+     "level": 1,
+     "cambi": 0.79879,
+     "block": 1.29606,
+     "blur": 6.95083,
+     "grain": 0.94909
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.98557,
+     "block": 1.33587,
+     "blur": 6.99621,
+     "grain": 0.94172
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.24084,
+     "block": 1.41744,
+     "blur": 7.05458,
+     "grain": 0.92887
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.6429,
+     "block": 1.49766,
+     "blur": 7.19005,
+     "grain": 0.90792
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.27297,
+     "block": 1.73884,
+     "blur": 7.45498,
+     "grain": 0.8711
+    }
+   ]
+  },
+  {
+   "key": "mv:221",
+   "title": "It's a Wonderful Life (1946)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.01632,
+   "grainLossless": 1.17043,
+   "levelAt1": 0.05053,
+   "blockAt1": 1.25786,
+   "blurAt1": 6.57588,
+   "grainAt1": 1.14891,
+   "S": -1.8579494791416586,
+   "r2": 0.9617516670980467,
+   "n": 8,
+   "sBlock": 0.0962264570502005,
+   "sBlur": -0.02708017729370908,
+   "sGrain": 0.0335645604140592,
+   "r2Grain": 0.9490052249384076,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.01764,
+     "block": 1.46042,
+     "blur": 6.50439,
+     "grain": 1.16988
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.02578,
+     "block": 1.3708,
+     "blur": 6.52849,
+     "grain": 1.16215
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.03882,
+     "block": 1.29275,
+     "blur": 6.55442,
+     "grain": 1.15388
+    },
+    {
+     "level": 1,
+     "cambi": 0.05053,
+     "block": 1.25786,
+     "blur": 6.57588,
+     "grain": 1.14891
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.07245,
+     "block": 1.22527,
+     "blur": 6.59578,
+     "grain": 1.14244
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.11067,
+     "block": 1.19678,
+     "blur": 6.63096,
+     "grain": 1.13424
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.24064,
+     "block": 1.16062,
+     "blur": 6.71095,
+     "grain": 1.11825
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.76882,
+     "block": 1.23253,
+     "blur": 6.89448,
+     "grain": 1.09131
+    }
+   ]
+  },
+  {
+   "key": "mv:66",
+   "title": "Blade Runner 2049 (2017)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.61865,
+   "grainLossless": 0.77387,
+   "levelAt1": 0.78882,
+   "blockAt1": 1.48845,
+   "blurAt1": 7.48739,
+   "grainAt1": 0.77031,
+   "S": -0.7982849273396209,
+   "r2": 0.8594143856090414,
+   "n": 8,
+   "sBlock": -0.1551247357848423,
+   "sBlur": -0.006009345433137419,
+   "sGrain": 0.044019052378602326,
+   "r2Grain": 0.8014427231899706,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.61044,
+     "block": 1.38685,
+     "blur": 7.47233,
+     "grain": 0.77703
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.67119,
+     "block": 1.43772,
+     "blur": 7.4795,
+     "grain": 0.77674
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.73763,
+     "block": 1.46786,
+     "blur": 7.48492,
+     "grain": 0.77315
+    },
+    {
+     "level": 1,
+     "cambi": 0.78882,
+     "block": 1.48845,
+     "blur": 7.48739,
+     "grain": 0.77031
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.87496,
+     "block": 1.51602,
+     "blur": 7.49274,
+     "grain": 0.76643
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.01216,
+     "block": 1.56715,
+     "blur": 7.49959,
+     "grain": 0.76032
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.57795,
+     "block": 1.71109,
+     "blur": 7.52394,
+     "grain": 0.74183
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.32465,
+     "block": 1.92027,
+     "blur": 7.57105,
+     "grain": 0.70733
+    }
+   ]
+  },
+  {
+   "key": "mv:529",
+   "title": "Contact (1997)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 2.09564,
+   "grainLossless": 0.81252,
+   "levelAt1": 3.63122,
+   "blockAt1": 1.67979,
+   "blurAt1": 7.73937,
+   "grainAt1": 0.79645,
+   "S": -0.3000719868542614,
+   "r2": 0.9040919948964269,
+   "n": 8,
+   "sBlock": -0.09421997004948714,
+   "sBlur": -0.03549002856129117,
+   "sGrain": 0.02903011808899123,
+   "r2Grain": 0.9549354533323701,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 2.45631,
+     "block": 1.56301,
+     "blur": 7.63024,
+     "grain": 0.81294
+    },
+    {
+     "level": 1.5,
+     "cambi": 3.05269,
+     "block": 1.59122,
+     "blur": 7.67367,
+     "grain": 0.80543
+    },
+    {
+     "level": 1.15,
+     "cambi": 3.41497,
+     "block": 1.6484,
+     "blur": 7.71453,
+     "grain": 0.79985
+    },
+    {
+     "level": 1,
+     "cambi": 3.63122,
+     "block": 1.67979,
+     "blur": 7.73937,
+     "grain": 0.79645
+    },
+    {
+     "level": 0.85,
+     "cambi": 3.84728,
+     "block": 1.71975,
+     "blur": 7.76855,
+     "grain": 0.7947
+    },
+    {
+     "level": 0.7,
+     "cambi": 4.11948,
+     "block": 1.77271,
+     "blur": 7.83593,
+     "grain": 0.79061
+    },
+    {
+     "level": 0.5,
+     "cambi": 4.51874,
+     "block": 1.85798,
+     "blur": 7.98995,
+     "grain": 0.78249
+    },
+    {
+     "level": 0.3,
+     "cambi": 4.48253,
+     "block": 1.84617,
+     "blur": 8.21604,
+     "grain": 0.76289
+    }
+   ]
+  },
+  {
+   "key": "mv:163",
+   "title": "Double Indemnity (1944)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.03389,
+   "grainLossless": 1.02072,
+   "levelAt1": 1.01131,
+   "blockAt1": 1.5753,
+   "blurAt1": 7.32894,
+   "grainAt1": 0.97428,
+   "S": -1.7926753834051454,
+   "r2": 0.9406054037277647,
+   "n": 8,
+   "sBlock": -0.20679920263151597,
+   "sBlur": -0.05834943454983498,
+   "sGrain": 0.05366756142908779,
+   "r2Grain": 0.9856108568712632,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.10763,
+     "block": 1.41514,
+     "blur": 7.08244,
+     "grain": 1.01462
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.37263,
+     "block": 1.42926,
+     "blur": 7.2155,
+     "grain": 0.99284
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.71467,
+     "block": 1.51474,
+     "blur": 7.29592,
+     "grain": 0.9804
+    },
+    {
+     "level": 1,
+     "cambi": 1.01131,
+     "block": 1.5753,
+     "blur": 7.32894,
+     "grain": 0.97428
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.44331,
+     "block": 1.64976,
+     "blur": 7.39387,
+     "grain": 0.96649
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.04852,
+     "block": 1.74405,
+     "blur": 7.49831,
+     "grain": 0.95644
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.18407,
+     "block": 1.92641,
+     "blur": 7.71383,
+     "grain": 0.93848
+    },
+    {
+     "level": 0.3,
+     "cambi": 4.38378,
+     "block": 2.0871,
+     "blur": 7.99754,
+     "grain": 0.90427
+    }
+   ]
+  },
+  {
+   "key": "mv:82",
+   "title": "Indiana Jones and the Kingdom of the Crystal Skull (2008)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.35917,
+   "grainLossless": 0.85541,
+   "levelAt1": 0.48124,
+   "blockAt1": 3.80812,
+   "blurAt1": 6.79131,
+   "grainAt1": 0.83481,
+   "S": -0.4589259443665187,
+   "r2": 0.947080240447561,
+   "n": 8,
+   "sBlock": -0.43482045881392334,
+   "sBlur": -0.03164529320043416,
+   "sGrain": 0.025068147414020272,
+   "r2Grain": 0.9894566260741847,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.37624,
+     "block": 3.35508,
+     "blur": 6.66893,
+     "grain": 0.85102
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.41347,
+     "block": 3.84796,
+     "blur": 6.72458,
+     "grain": 0.84306
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.45675,
+     "block": 3.7355,
+     "blur": 6.76306,
+     "grain": 0.83776
+    },
+    {
+     "level": 1,
+     "cambi": 0.48124,
+     "block": 3.80812,
+     "blur": 6.79131,
+     "grain": 0.83481
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.52236,
+     "block": 3.90933,
+     "blur": 6.8256,
+     "grain": 0.83153
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.57282,
+     "block": 4.03681,
+     "blur": 6.86845,
+     "grain": 0.82732
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.68989,
+     "block": 5.61851,
+     "blur": 6.94457,
+     "grain": 0.82035
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.98239,
+     "block": 8.99827,
+     "blur": 7.13748,
+     "grain": 0.80703
+    }
+   ]
+  },
+  {
+   "key": "mv:70",
+   "title": "Crazy, Stupid, Love. (2011)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.27182,
+   "grainLossless": 0.97733,
+   "levelAt1": 1.77095,
+   "blockAt1": 1.51571,
+   "blurAt1": 10.97592,
+   "grainAt1": 0.92863,
+   "S": -1.1128251264419744,
+   "r2": 0.8912674627269377,
+   "n": 8,
+   "sBlock": -0.184026821403775,
+   "sBlur": -0.05682514766461812,
+   "sGrain": 0.06395868456328645,
+   "r2Grain": 0.9896756883944654,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.40029,
+     "block": 1.36839,
+     "blur": 10.68423,
+     "grain": 0.97547
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.82891,
+     "block": 1.38617,
+     "blur": 10.80458,
+     "grain": 0.94931
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.36084,
+     "block": 1.46903,
+     "blur": 10.93164,
+     "grain": 0.93488
+    },
+    {
+     "level": 1,
+     "cambi": 1.77095,
+     "block": 1.51571,
+     "blur": 10.97592,
+     "grain": 0.92863
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.27257,
+     "block": 1.57473,
+     "blur": 11.03797,
+     "grain": 0.9202
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.8791,
+     "block": 1.66163,
+     "blur": 11.17929,
+     "grain": 0.90694
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.50428,
+     "block": 1.84052,
+     "blur": 11.48676,
+     "grain": 0.87937
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.72496,
+     "block": 1.91756,
+     "blur": 12.06028,
+     "grain": 0.85476
+    }
+   ]
+  },
+  {
+   "key": "mv:121",
+   "title": "You've Got Mail (1998)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 1.48871,
+   "grainLossless": 1.14867,
+   "levelAt1": 1.90584,
+   "blockAt1": 1.41058,
+   "blurAt1": 8.21491,
+   "grainAt1": 1.07937,
+   "S": -0.2173998636233675,
+   "r2": 0.931383206120395,
+   "n": 8,
+   "sBlock": -0.06308849972116733,
+   "sBlur": -0.03066873060630897,
+   "sGrain": 0.04211155705659299,
+   "r2Grain": 0.9944267339255204,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.64363,
+     "block": 1.44429,
+     "blur": 7.99593,
+     "grain": 1.12607
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.78521,
+     "block": 1.42866,
+     "blur": 8.11299,
+     "grain": 1.0988
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.8704,
+     "block": 1.4312,
+     "blur": 8.19538,
+     "grain": 1.08605
+    },
+    {
+     "level": 1,
+     "cambi": 1.90584,
+     "block": 1.41058,
+     "blur": 8.21491,
+     "grain": 1.07937
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.96212,
+     "block": 1.39858,
+     "blur": 8.25561,
+     "grain": 1.07379
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.00658,
+     "block": 1.41469,
+     "blur": 8.29732,
+     "grain": 1.06761
+    },
+    {
+     "level": 0.5,
+     "cambi": 2.15234,
+     "block": 1.50164,
+     "blur": 8.37497,
+     "grain": 1.05388
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.69297,
+     "block": 1.67681,
+     "blur": 8.54708,
+     "grain": 1.0263
+    }
+   ]
+  },
+  {
+   "key": "mv:135",
+   "title": "Mission: Impossible - Ghost Protocol (2011)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 4.34848,
+   "grainLossless": 0.96581,
+   "levelAt1": 4.91859,
+   "blockAt1": 2.28577,
+   "blurAt1": 9.35922,
+   "grainAt1": 0.95429,
+   "S": -0.03791126597749566,
+   "r2": 0.29164536217019543,
+   "n": 8,
+   "sBlock": -0.01690028163702197,
+   "sBlur": -0.0400998124271259,
+   "sGrain": 0.04513224888866284,
+   "r2Grain": 0.7674761696177009,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 4.37469,
+     "block": 2.29912,
+     "blur": 8.98867,
+     "grain": 0.96162
+    },
+    {
+     "level": 1.5,
+     "cambi": 4.64666,
+     "block": 2.26133,
+     "blur": 9.18781,
+     "grain": 0.95945
+    },
+    {
+     "level": 1.15,
+     "cambi": 4.85497,
+     "block": 2.27357,
+     "blur": 9.2979,
+     "grain": 0.95622
+    },
+    {
+     "level": 1,
+     "cambi": 4.91859,
+     "block": 2.28577,
+     "blur": 9.35922,
+     "grain": 0.95429
+    },
+    {
+     "level": 0.85,
+     "cambi": 4.92758,
+     "block": 2.30068,
+     "blur": 9.43232,
+     "grain": 0.94947
+    },
+    {
+     "level": 0.7,
+     "cambi": 4.95587,
+     "block": 2.30775,
+     "blur": 9.51709,
+     "grain": 0.94379
+    },
+    {
+     "level": 0.5,
+     "cambi": 5.0195,
+     "block": 2.34291,
+     "blur": 9.64367,
+     "grain": 0.91945
+    },
+    {
+     "level": 0.3,
+     "cambi": 4.67698,
+     "block": 2.3561,
+     "blur": 9.7584,
+     "grain": 0.87054
+    }
+   ]
+  },
+  {
+   "key": "mv:51",
+   "title": "Mean Streets (1973)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.02061,
+   "grainLossless": 1.07641,
+   "levelAt1": 0.05789,
+   "blockAt1": 1.29636,
+   "blurAt1": 7.5207,
+   "grainAt1": 0.97435,
+   "S": -2.192726815950665,
+   "r2": 0.8627068875850179,
+   "n": 8,
+   "sBlock": -0.08611029935901046,
+   "sBlur": -0.02779665159326528,
+   "sGrain": 0.10533053737800317,
+   "r2Grain": 0.9934458007662612,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.02796,
+     "block": 1.43887,
+     "blur": 7.37427,
+     "grain": 1.06178
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.03699,
+     "block": 1.32465,
+     "blur": 7.43689,
+     "grain": 1.01637
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.04744,
+     "block": 1.31276,
+     "blur": 7.48501,
+     "grain": 0.98796
+    },
+    {
+     "level": 1,
+     "cambi": 0.05789,
+     "block": 1.29636,
+     "blur": 7.5207,
+     "grain": 0.97435
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.07477,
+     "block": 1.279,
+     "blur": 7.54727,
+     "grain": 0.95939
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.11335,
+     "block": 1.31254,
+     "blur": 7.58547,
+     "grain": 0.94087
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.4019,
+     "block": 1.45683,
+     "blur": 7.66287,
+     "grain": 0.9067
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.88787,
+     "block": 1.72688,
+     "blur": 7.82334,
+     "grain": 0.84829
+    }
+   ]
+  },
+  {
+   "key": "mv:40",
+   "title": "Kill Bill: Vol. 1 (2003)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.67313,
+   "grainLossless": 1.18027,
+   "levelAt1": 0.84137,
+   "blockAt1": 1.26105,
+   "blurAt1": 8.00682,
+   "grainAt1": 1.14386,
+   "S": -0.36320193677526735,
+   "r2": 0.9067970482912142,
+   "n": 8,
+   "sBlock": 0.020924912922708573,
+   "sBlur": -0.021156985595639218,
+   "sGrain": 0.03920673162851635,
+   "r2Grain": 0.9924174621311399,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.70042,
+     "block": 1.35188,
+     "blur": 7.9324,
+     "grain": 1.17893
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.75973,
+     "block": 1.29981,
+     "blur": 7.95936,
+     "grain": 1.16231
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.80498,
+     "block": 1.27158,
+     "blur": 7.98724,
+     "grain": 1.15078
+    },
+    {
+     "level": 1,
+     "cambi": 0.84137,
+     "block": 1.26105,
+     "blur": 8.00682,
+     "grain": 1.14386
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.87932,
+     "block": 1.25107,
+     "blur": 8.03806,
+     "grain": 1.13599
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.94339,
+     "block": 1.23313,
+     "blur": 8.06673,
+     "grain": 1.12688
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.0758,
+     "block": 1.2182,
+     "blur": 8.13136,
+     "grain": 1.1113
+    },
+    {
+     "level": 0.3,
+     "cambi": 1.54921,
+     "block": 1.32412,
+     "blur": 8.30079,
+     "grain": 1.0866
+    }
+   ]
+  },
+  {
+   "key": "mv:216",
+   "title": "The Dark Knight (2008)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.69603,
+   "grainLossless": 0.78099,
+   "levelAt1": 2.28218,
+   "blockAt1": 8.98523,
+   "blurAt1": 6.55292,
+   "grainAt1": 0.76506,
+   "S": -0.8694168413019796,
+   "r2": 0.9806110291509468,
+   "n": 8,
+   "sBlock": -0.33212838825380975,
+   "sBlur": -0.025854423748250435,
+   "sGrain": 0.023749019689072393,
+   "r2Grain": 0.9955627341481585,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.96889,
+     "block": 5.16515,
+     "blur": 6.50136,
+     "grain": 0.77996
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.44949,
+     "block": 5.90245,
+     "blur": 6.51323,
+     "grain": 0.77273
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.96339,
+     "block": 7.4739,
+     "blur": 6.54024,
+     "grain": 0.76795
+    },
+    {
+     "level": 1,
+     "cambi": 2.28218,
+     "block": 8.98523,
+     "blur": 6.55292,
+     "grain": 0.76506
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.73028,
+     "block": 9.1047,
+     "blur": 6.57714,
+     "grain": 0.76211
+    },
+    {
+     "level": 0.7,
+     "cambi": 3.34244,
+     "block": 9.57079,
+     "blur": 6.60738,
+     "grain": 0.75842
+    },
+    {
+     "level": 0.5,
+     "cambi": 4.39416,
+     "block": 10.82213,
+     "blur": 6.68442,
+     "grain": 0.7521
+    },
+    {
+     "level": 0.3,
+     "cambi": 5.54886,
+     "block": 9.23899,
+     "blur": 6.87469,
+     "grain": 0.74223
+    }
+   ]
+  },
+  {
+   "key": "mv:476",
+   "title": "Crazy Rich Asians (2018)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.3716,
+   "grainLossless": 0.91529,
+   "levelAt1": 1.55535,
+   "blockAt1": 1.51302,
+   "blurAt1": 8.46337,
+   "grainAt1": 0.89737,
+   "S": -0.9197016906946053,
+   "r2": 0.9584085868679699,
+   "n": 8,
+   "sBlock": -0.11889948313859743,
+   "sBlur": -0.03880835028580552,
+   "sGrain": 0.033885004575782446,
+   "r2Grain": 0.973545880042427,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.54259,
+     "block": 1.45878,
+     "blur": 8.35623,
+     "grain": 0.91729
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.9613,
+     "block": 1.43133,
+     "blur": 8.38879,
+     "grain": 0.90899
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.3301,
+     "block": 1.4755,
+     "blur": 8.42363,
+     "grain": 0.90085
+    },
+    {
+     "level": 1,
+     "cambi": 1.55535,
+     "block": 1.51302,
+     "blur": 8.46337,
+     "grain": 0.89737
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.89398,
+     "block": 1.56025,
+     "blur": 8.51279,
+     "grain": 0.89258
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.29992,
+     "block": 1.61868,
+     "blur": 8.57178,
+     "grain": 0.88601
+    },
+    {
+     "level": 0.5,
+     "cambi": 2.97148,
+     "block": 1.71212,
+     "blur": 8.72957,
+     "grain": 0.87429
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.5542,
+     "block": 1.80963,
+     "blur": 9.07818,
+     "grain": 0.85479
+    }
+   ]
+  },
+  {
+   "key": "mv:256",
+   "title": "2001: A Space Odyssey (1968)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.31995,
+   "grainLossless": 0.77003,
+   "levelAt1": 0.40966,
+   "blockAt1": 1.36302,
+   "blurAt1": 5.58681,
+   "grainAt1": 0.70585,
+   "S": -1.2404554364289337,
+   "r2": 0.8632554133356556,
+   "n": 8,
+   "sBlock": -0.1226142557024855,
+   "sBlur": -0.003926216328705865,
+   "sGrain": 0.12683456313365613,
+   "r2Grain": 0.9284258858277569,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.29916,
+     "block": 1.34865,
+     "blur": 5.57546,
+     "grain": 0.75517
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.32184,
+     "block": 1.34191,
+     "blur": 5.57846,
+     "grain": 0.73076
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.36376,
+     "block": 1.34902,
+     "blur": 5.58369,
+     "grain": 0.71388
+    },
+    {
+     "level": 1,
+     "cambi": 0.40966,
+     "block": 1.36302,
+     "blur": 5.58681,
+     "grain": 0.70585
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.49363,
+     "block": 1.38477,
+     "blur": 5.58681,
+     "grain": 0.69293
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.7019,
+     "block": 1.41977,
+     "blur": 5.59196,
+     "grain": 0.67599
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.438,
+     "block": 1.49872,
+     "blur": 5.60053,
+     "grain": 0.64401
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.65465,
+     "block": 1.76504,
+     "blur": 5.62345,
+     "grain": 0.57367
+    }
+   ]
+  },
+  {
+   "key": "mv:349",
+   "title": "Paul (2011)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 1.46674,
+   "grainLossless": 1.00234,
+   "levelAt1": 2.72225,
+   "blockAt1": 1.62955,
+   "blurAt1": 7.90707,
+   "grainAt1": 0.96309,
+   "S": -0.2363460582671381,
+   "r2": 0.684734079195582,
+   "n": 8,
+   "sBlock": -0.13217339625652078,
+   "sBlur": -0.06598339134938308,
+   "sGrain": 0.03963551721984923,
+   "r2Grain": 0.9675822599081882,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.68946,
+     "block": 1.38545,
+     "blur": 7.59691,
+     "grain": 0.98896
+    },
+    {
+     "level": 1.5,
+     "cambi": 2.29176,
+     "block": 1.4826,
+     "blur": 7.72112,
+     "grain": 0.97543
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.54753,
+     "block": 1.57893,
+     "blur": 7.83149,
+     "grain": 0.9664
+    },
+    {
+     "level": 1,
+     "cambi": 2.72225,
+     "block": 1.62955,
+     "blur": 7.90707,
+     "grain": 0.96309
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.86037,
+     "block": 1.68591,
+     "blur": 7.98417,
+     "grain": 0.95864
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.87033,
+     "block": 1.71298,
+     "blur": 8.09397,
+     "grain": 0.94897
+    },
+    {
+     "level": 0.5,
+     "cambi": 2.93775,
+     "block": 1.77236,
+     "blur": 8.32579,
+     "grain": 0.93653
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.84393,
+     "block": 1.8006,
+     "blur": 8.71491,
+     "grain": 0.90802
+    }
+   ]
+  },
+  {
+   "key": "mv:140",
+   "title": "Mission: Impossible III (2006)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.60749,
+   "grainLossless": 0.86214,
+   "levelAt1": 1.44073,
+   "blockAt1": 1.59948,
+   "blurAt1": 11.80717,
+   "grainAt1": 0.84697,
+   "S": -0.5942586947049161,
+   "r2": 0.9854310274725441,
+   "n": 8,
+   "sBlock": -0.1408649137529816,
+   "sBlur": -0.024252495298258004,
+   "sGrain": 0.028735953250290068,
+   "r2Grain": 0.8304223965754556,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.89163,
+     "block": 1.48629,
+     "blur": 11.59904,
+     "grain": 0.85734
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.18868,
+     "block": 1.51273,
+     "blur": 11.69529,
+     "grain": 0.85298
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.34387,
+     "block": 1.56663,
+     "blur": 11.80634,
+     "grain": 0.84846
+    },
+    {
+     "level": 1,
+     "cambi": 1.44073,
+     "block": 1.59948,
+     "blur": 11.80717,
+     "grain": 0.84697
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.58916,
+     "block": 1.64341,
+     "blur": 11.89494,
+     "grain": 0.84554
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.72325,
+     "block": 1.68796,
+     "blur": 12.07933,
+     "grain": 0.84144
+    },
+    {
+     "level": 0.5,
+     "cambi": 2.12891,
+     "block": 1.79994,
+     "blur": 12.14332,
+     "grain": 0.83295
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.2792,
+     "block": 1.976,
+     "blur": 12.10839,
+     "grain": 0.80284
+    }
+   ]
+  },
+  {
+   "key": "mv:195",
+   "title": "Superbad (2007)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 2.73243,
+   "grainLossless": 0.96137,
+   "levelAt1": 4.0024,
+   "blockAt1": 1.56147,
+   "blurAt1": 8.59617,
+   "grainAt1": 0.93725,
+   "S": -0.043153927381146526,
+   "r2": 0.24251771096259267,
+   "n": 8,
+   "sBlock": -0.09344599514948632,
+   "sBlur": -0.06401851220364715,
+   "sGrain": 0.038515176974836064,
+   "r2Grain": 0.9017529765182498,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 3.44099,
+     "block": 1.42346,
+     "blur": 8.20978,
+     "grain": 0.95264
+    },
+    {
+     "level": 1.5,
+     "cambi": 3.7803,
+     "block": 1.49949,
+     "blur": 8.39644,
+     "grain": 0.94545
+    },
+    {
+     "level": 1.15,
+     "cambi": 3.92681,
+     "block": 1.53576,
+     "blur": 8.51334,
+     "grain": 0.94002
+    },
+    {
+     "level": 1,
+     "cambi": 4.0024,
+     "block": 1.56147,
+     "blur": 8.59617,
+     "grain": 0.93725
+    },
+    {
+     "level": 0.85,
+     "cambi": 4.05479,
+     "block": 1.57822,
+     "blur": 8.69236,
+     "grain": 0.93213
+    },
+    {
+     "level": 0.7,
+     "cambi": 4.07194,
+     "block": 1.6057,
+     "blur": 8.82029,
+     "grain": 0.92317
+    },
+    {
+     "level": 0.5,
+     "cambi": 4.02642,
+     "block": 1.66447,
+     "blur": 9.0775,
+     "grain": 0.90936
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.75108,
+     "block": 1.73543,
+     "blur": 9.35104,
+     "grain": 0.87712
+    }
+   ]
+  },
+  {
+   "key": "mv:190",
+   "title": "Anora (2024)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.05926,
+   "grainLossless": 1.11516,
+   "levelAt1": 0.99713,
+   "blockAt1": 1.36235,
+   "blurAt1": 7.57299,
+   "grainAt1": 1.07358,
+   "S": -1.420645431318051,
+   "r2": 0.9113274039511008,
+   "n": 8,
+   "sBlock": -0.15011122946642363,
+   "sBlur": -0.023868427044179512,
+   "sGrain": 0.05925852100910624,
+   "r2Grain": 0.9639852653259895,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.12382,
+     "block": 1.30262,
+     "blur": 7.47501,
+     "grain": 1.11401
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.48882,
+     "block": 1.29259,
+     "blur": 7.52719,
+     "grain": 1.09526
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.82997,
+     "block": 1.33767,
+     "blur": 7.55932,
+     "grain": 1.08176
+    },
+    {
+     "level": 1,
+     "cambi": 0.99713,
+     "block": 1.36235,
+     "blur": 7.57299,
+     "grain": 1.07358
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.17441,
+     "block": 1.39242,
+     "blur": 7.60257,
+     "grain": 1.0635
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.38295,
+     "block": 1.42555,
+     "blur": 7.65366,
+     "grain": 1.05055
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.84837,
+     "block": 1.51672,
+     "blur": 7.7348,
+     "grain": 1.02746
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.10318,
+     "block": 1.79191,
+     "blur": 7.8538,
+     "grain": 0.98275
+    }
+   ]
+  },
+  {
+   "key": "mv:155",
+   "title": "The Sting (1973)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.36656,
+   "grainLossless": 1.09822,
+   "levelAt1": 0.59101,
+   "blockAt1": 1.2319,
+   "blurAt1": 6.12482,
+   "grainAt1": 1.07711,
+   "S": -0.6059511340966393,
+   "r2": 0.9833784163641323,
+   "n": 8,
+   "sBlock": 0.0080362406495573,
+   "sBlur": -0.015746675862708906,
+   "sGrain": 0.03718533595837624,
+   "r2Grain": 0.9654152252437761,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.37929,
+     "block": 1.2642,
+     "blur": 6.07765,
+     "grain": 1.10148
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.46647,
+     "block": 1.24908,
+     "blur": 6.09399,
+     "grain": 1.0916
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.53718,
+     "block": 1.23558,
+     "blur": 6.11211,
+     "grain": 1.08251
+    },
+    {
+     "level": 1,
+     "cambi": 0.59101,
+     "block": 1.2319,
+     "blur": 6.12482,
+     "grain": 1.07711
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.65161,
+     "block": 1.23119,
+     "blur": 6.13965,
+     "grain": 1.07035
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.74635,
+     "block": 1.22801,
+     "blur": 6.16,
+     "grain": 1.06105
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.89163,
+     "block": 1.21555,
+     "blur": 6.20182,
+     "grain": 1.04626
+    },
+    {
+     "level": 0.3,
+     "cambi": 1.36751,
+     "block": 1.25394,
+     "blur": 6.28098,
+     "grain": 1.01979
+    }
+   ]
+  },
+  {
+   "key": "mv:42",
+   "title": "The Hateful Eight (2015)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 1.87904,
+   "grainLossless": 0.78041,
+   "levelAt1": 4.7842,
+   "blockAt1": 2.24386,
+   "blurAt1": 7.74799,
+   "grainAt1": 0.72402,
+   "S": -0.5060038998229405,
+   "r2": 0.7947407063351424,
+   "n": 8,
+   "sBlock": -0.18756798395155339,
+   "sBlur": -0.06496920946445033,
+   "sGrain": 0.09025041287497766,
+   "r2Grain": 0.9623603546780903,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 2.26841,
+     "block": 1.98569,
+     "blur": 7.49201,
+     "grain": 0.76438
+    },
+    {
+     "level": 1.5,
+     "cambi": 3.21525,
+     "block": 2.05024,
+     "blur": 7.61538,
+     "grain": 0.74877
+    },
+    {
+     "level": 1.15,
+     "cambi": 4.07604,
+     "block": 2.14282,
+     "blur": 7.68439,
+     "grain": 0.73369
+    },
+    {
+     "level": 1,
+     "cambi": 4.7842,
+     "block": 2.24386,
+     "blur": 7.74799,
+     "grain": 0.72402
+    },
+    {
+     "level": 0.85,
+     "cambi": 5.66999,
+     "block": 2.38452,
+     "blur": 7.82328,
+     "grain": 0.71336
+    },
+    {
+     "level": 0.7,
+     "cambi": 6.26935,
+     "block": 2.58853,
+     "blur": 7.92087,
+     "grain": 0.7005
+    },
+    {
+     "level": 0.5,
+     "cambi": 6.34952,
+     "block": 2.74143,
+     "blur": 8.14998,
+     "grain": 0.67476
+    },
+    {
+     "level": 0.3,
+     "cambi": 6.06755,
+     "block": 2.75881,
+     "blur": 8.60508,
+     "grain": 0.63402
+    }
+   ]
+  },
+  {
+   "key": "mv:378",
+   "title": "Heat (1995)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 3.03254,
+   "grainLossless": 0.93876,
+   "levelAt1": 7.14262,
+   "blockAt1": 1.99513,
+   "blurAt1": 8.80154,
+   "grainAt1": 0.90446,
+   "S": -0.34748525368513716,
+   "r2": 0.7364617797242459,
+   "n": 8,
+   "sBlock": -0.16632622923215185,
+   "sBlur": -0.04685342870332435,
+   "sGrain": 0.04138815890884576,
+   "r2Grain": 0.9671743960271038,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 4.03111,
+     "block": 1.60719,
+     "blur": 8.57998,
+     "grain": 0.92748
+    },
+    {
+     "level": 1.5,
+     "cambi": 5.3834,
+     "block": 1.79787,
+     "blur": 8.66899,
+     "grain": 0.91803
+    },
+    {
+     "level": 1.15,
+     "cambi": 6.43404,
+     "block": 1.94241,
+     "blur": 8.75605,
+     "grain": 0.90984
+    },
+    {
+     "level": 1,
+     "cambi": 7.14262,
+     "block": 1.99513,
+     "blur": 8.80154,
+     "grain": 0.90446
+    },
+    {
+     "level": 0.85,
+     "cambi": 7.73664,
+     "block": 2.05313,
+     "blur": 8.86346,
+     "grain": 0.89729
+    },
+    {
+     "level": 0.7,
+     "cambi": 8.48334,
+     "block": 2.20676,
+     "blur": 8.9666,
+     "grain": 0.88892
+    },
+    {
+     "level": 0.5,
+     "cambi": 8.87367,
+     "block": 2.30692,
+     "blur": 9.15902,
+     "grain": 0.87633
+    },
+    {
+     "level": 0.3,
+     "cambi": 7.85711,
+     "block": 2.19563,
+     "blur": 9.44888,
+     "grain": 0.85113
+    }
+   ]
+  },
+  {
+   "key": "mv:175",
+   "title": "Skyfall (2012)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.13453,
+   "grainLossless": 1.01494,
+   "levelAt1": 0.15445,
+   "blockAt1": 1.36524,
+   "blurAt1": 5.97961,
+   "grainAt1": 0.99616,
+   "S": -0.7825129110614383,
+   "r2": 0.7705390372348867,
+   "n": 8,
+   "sBlock": 0.047872695530515576,
+   "sBlur": -0.014363076570903702,
+   "sGrain": 0.03931392924776411,
+   "r2Grain": 0.8859110794872115,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.13181,
+     "block": 1.42513,
+     "blur": 5.93357,
+     "grain": 1.01343
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.1349,
+     "block": 1.40113,
+     "blur": 5.94982,
+     "grain": 1.00712
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.14502,
+     "block": 1.3775,
+     "blur": 5.96865,
+     "grain": 1.00047
+    },
+    {
+     "level": 1,
+     "cambi": 0.15445,
+     "block": 1.36524,
+     "blur": 5.97961,
+     "grain": 0.99616
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.16716,
+     "block": 1.35065,
+     "blur": 5.99326,
+     "grain": 0.9909
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.19058,
+     "block": 1.33419,
+     "blur": 6.01255,
+     "grain": 0.98389
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.26977,
+     "block": 1.30284,
+     "blur": 6.04297,
+     "grain": 0.96943
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.75241,
+     "block": 1.30358,
+     "blur": 6.11588,
+     "grain": 0.93026
+    }
+   ]
+  },
+  {
+   "key": "mv:157",
+   "title": "All the President's Men (1976)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.84185,
+   "grainLossless": 1.00121,
+   "levelAt1": 1.05288,
+   "blockAt1": 1.53148,
+   "blurAt1": 7.93679,
+   "grainAt1": 0.94273,
+   "S": -0.39681913781918304,
+   "r2": 0.891534157406259,
+   "n": 8,
+   "sBlock": 0.039771450362908384,
+   "sBlur": -0.0230991652669695,
+   "sGrain": 0.07908538503717133,
+   "r2Grain": 0.9707629033714827,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.85597,
+     "block": 1.71821,
+     "blur": 7.80589,
+     "grain": 0.99243
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.94065,
+     "block": 1.60032,
+     "blur": 7.86669,
+     "grain": 0.96813
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.00931,
+     "block": 1.54623,
+     "blur": 7.90912,
+     "grain": 0.95188
+    },
+    {
+     "level": 1,
+     "cambi": 1.05288,
+     "block": 1.53148,
+     "blur": 7.93679,
+     "grain": 0.94273
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.11248,
+     "block": 1.52482,
+     "blur": 7.96229,
+     "grain": 0.93094
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.1723,
+     "block": 1.53065,
+     "blur": 8.00809,
+     "grain": 0.91575
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.33235,
+     "block": 1.49871,
+     "blur": 8.078,
+     "grain": 0.88853
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.08349,
+     "block": 1.58666,
+     "blur": 8.18935,
+     "grain": 0.83961
+    }
+   ]
+  },
+  {
+   "key": "mv:33",
+   "title": "The Magician (2005)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 9.23985,
+   "grainLossless": 0.84827,
+   "levelAt1": 9.89346,
+   "blockAt1": 2.67172,
+   "blurAt1": 8.7372,
+   "grainAt1": 0.83438,
+   "S": 0.04999674365741044,
+   "r2": 0.45321072145323704,
+   "n": 8,
+   "sBlock": -0.10930700724592526,
+   "sBlur": -0.04337959104788745,
+   "sGrain": 0.05326544150394732,
+   "r2Grain": 0.8278265883928412,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 9.53791,
+     "block": 2.39508,
+     "blur": 8.4631,
+     "grain": 0.84673
+    },
+    {
+     "level": 1.5,
+     "cambi": 9.84104,
+     "block": 2.49341,
+     "blur": 8.59794,
+     "grain": 0.84223
+    },
+    {
+     "level": 1.15,
+     "cambi": 9.93149,
+     "block": 2.61326,
+     "blur": 8.67354,
+     "grain": 0.83638
+    },
+    {
+     "level": 1,
+     "cambi": 9.89346,
+     "block": 2.67172,
+     "blur": 8.7372,
+     "grain": 0.83438
+    },
+    {
+     "level": 0.85,
+     "cambi": 9.86183,
+     "block": 2.73961,
+     "blur": 8.78793,
+     "grain": 0.82822
+    },
+    {
+     "level": 0.7,
+     "cambi": 9.74096,
+     "block": 2.79751,
+     "blur": 8.88429,
+     "grain": 0.82121
+    },
+    {
+     "level": 0.5,
+     "cambi": 9.32807,
+     "block": 2.88201,
+     "blur": 9.04808,
+     "grain": 0.79958
+    },
+    {
+     "level": 0.3,
+     "cambi": 8.60167,
+     "block": 2.97472,
+     "blur": 9.25318,
+     "grain": 0.75381
+    }
+   ]
+  },
+  {
+   "key": "mv:143",
+   "title": "The Hunt for Red October (1990)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.23923,
+   "grainLossless": 0.87611,
+   "levelAt1": 0.34555,
+   "blockAt1": 2.01282,
+   "blurAt1": 9.09288,
+   "grainAt1": 0.78323,
+   "S": -0.7759324476833134,
+   "r2": 0.8055236620559179,
+   "n": 8,
+   "sBlock": -0.14628503325926637,
+   "sBlur": -0.02237628355684264,
+   "sGrain": 0.10303155605473552,
+   "r2Grain": 0.9946266364941333,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.25861,
+     "block": 1.87621,
+     "blur": 8.91038,
+     "grain": 0.85091
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.28633,
+     "block": 1.92791,
+     "blur": 9.01938,
+     "grain": 0.81349
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.3184,
+     "block": 1.95415,
+     "blur": 9.0722,
+     "grain": 0.79354
+    },
+    {
+     "level": 1,
+     "cambi": 0.34555,
+     "block": 2.01282,
+     "blur": 9.09288,
+     "grain": 0.78323
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.36331,
+     "block": 2.01698,
+     "blur": 9.14067,
+     "grain": 0.77126
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.39483,
+     "block": 2.05362,
+     "blur": 9.17009,
+     "grain": 0.75472
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.55024,
+     "block": 2.23067,
+     "blur": 9.23518,
+     "grain": 0.72635
+    },
+    {
+     "level": 0.3,
+     "cambi": 1.51313,
+     "block": 2.58407,
+     "blur": 9.34778,
+     "grain": 0.68424
+    }
+   ]
+  },
+  {
+   "key": "mv:183",
+   "title": "Grown Ups (2010)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 1.53551,
+   "grainLossless": 0.95899,
+   "levelAt1": 3.05508,
+   "blockAt1": 1.56746,
+   "blurAt1": 9.57851,
+   "grainAt1": 0.94721,
+   "S": -0.3232040080348067,
+   "r2": 0.8647356274831386,
+   "n": 8,
+   "sBlock": -0.09631382936613517,
+   "sBlur": -0.028875799260418323,
+   "sGrain": 0.029270874537970195,
+   "r2Grain": 0.8486047337404007,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.88584,
+     "block": 1.47771,
+     "blur": 9.39173,
+     "grain": 0.957
+    },
+    {
+     "level": 1.5,
+     "cambi": 2.50874,
+     "block": 1.51679,
+     "blur": 9.49398,
+     "grain": 0.95269
+    },
+    {
+     "level": 1.15,
+     "cambi": 2.87865,
+     "block": 1.54922,
+     "blur": 9.5222,
+     "grain": 0.94893
+    },
+    {
+     "level": 1,
+     "cambi": 3.05508,
+     "block": 1.56746,
+     "blur": 9.57851,
+     "grain": 0.94721
+    },
+    {
+     "level": 0.85,
+     "cambi": 3.22073,
+     "block": 1.61194,
+     "blur": 9.60219,
+     "grain": 0.94351
+    },
+    {
+     "level": 0.7,
+     "cambi": 3.41643,
+     "block": 1.62109,
+     "blur": 9.70645,
+     "grain": 0.93955
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.72486,
+     "block": 1.69472,
+     "blur": 9.76849,
+     "grain": 0.92656
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.69553,
+     "block": 1.80486,
+     "blur": 9.98733,
+     "grain": 0.89729
+    }
+   ]
+  },
+  {
+   "key": "mv:53",
+   "title": "The Godfather Part II (1974)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.01861,
+   "grainLossless": 1.03169,
+   "levelAt1": 0.05507,
+   "blockAt1": 1.15882,
+   "blurAt1": 7.58589,
+   "grainAt1": 0.99461,
+   "S": -1.677635743206131,
+   "r2": 0.9026141022293417,
+   "n": 8,
+   "sBlock": -0.04555365949521786,
+   "sBlur": -0.014958582521995995,
+   "sGrain": 0.053776755272477696,
+   "r2Grain": 0.9413709543846286,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.02487,
+     "block": 1.13365,
+     "blur": 7.50945,
+     "grain": 1.0248
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.03625,
+     "block": 1.13889,
+     "blur": 7.55064,
+     "grain": 1.01198
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.04751,
+     "block": 1.15164,
+     "blur": 7.57191,
+     "grain": 1.0013
+    },
+    {
+     "level": 1,
+     "cambi": 0.05507,
+     "block": 1.15882,
+     "blur": 7.58589,
+     "grain": 0.99461
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.0664,
+     "block": 1.16654,
+     "blur": 7.60254,
+     "grain": 0.98665
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.09545,
+     "block": 1.16242,
+     "blur": 7.62713,
+     "grain": 0.97651
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.18786,
+     "block": 1.16696,
+     "blur": 7.67299,
+     "grain": 0.95597
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.95787,
+     "block": 1.26823,
+     "blur": 7.75155,
+     "grain": 0.91395
+    }
+   ]
+  },
+  {
+   "key": "mv:193",
+   "title": "War Dogs (2016)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.95103,
+   "grainLossless": 1.04676,
+   "levelAt1": 1.86015,
+   "blockAt1": 1.4545,
+   "blurAt1": 6.92198,
+   "grainAt1": 1.03176,
+   "S": -0.600563496500896,
+   "r2": 0.9907393253565575,
+   "n": 8,
+   "sBlock": -0.059775987612073894,
+   "sBlur": -0.05036742564270635,
+   "sGrain": 0.017517072702212397,
+   "r2Grain": 0.9853971642243297,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.11105,
+     "block": 1.47895,
+     "blur": 6.78564,
+     "grain": 1.04518
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.44931,
+     "block": 1.42757,
+     "blur": 6.83702,
+     "grain": 1.03923
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.68951,
+     "block": 1.42928,
+     "blur": 6.88543,
+     "grain": 1.03442
+    },
+    {
+     "level": 1,
+     "cambi": 1.86015,
+     "block": 1.4545,
+     "blur": 6.92198,
+     "grain": 1.03176
+    },
+    {
+     "level": 0.85,
+     "cambi": 2.0766,
+     "block": 1.4936,
+     "blur": 6.96694,
+     "grain": 1.02806
+    },
+    {
+     "level": 0.7,
+     "cambi": 2.39347,
+     "block": 1.53872,
+     "blur": 7.03646,
+     "grain": 1.02376
+    },
+    {
+     "level": 0.5,
+     "cambi": 3.08942,
+     "block": 1.58742,
+     "blur": 7.20835,
+     "grain": 1.01593
+    },
+    {
+     "level": 0.3,
+     "cambi": 3.722,
+     "block": 1.62042,
+     "blur": 7.55471,
+     "grain": 1.00944
+    }
+   ]
+  },
+  {
+   "key": "mv:75",
+   "title": "The Empire Strikes Back (1980)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.01235,
+   "grainLossless": 1.04175,
+   "levelAt1": 0.06605,
+   "blockAt1": 1.22252,
+   "blurAt1": 7.36212,
+   "grainAt1": 1.01744,
+   "S": -2.0280717479237125,
+   "r2": 0.9812265679316508,
+   "n": 8,
+   "sBlock": -0.09232735986843184,
+   "sBlur": -0.018422926631881786,
+   "sGrain": 0.052709244783861096,
+   "r2Grain": 0.9357439704276546,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.01559,
+     "block": 1.25169,
+     "blur": 7.29271,
+     "grain": 1.04552
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.0305,
+     "block": 1.24777,
+     "blur": 7.31277,
+     "grain": 1.03361
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.05027,
+     "block": 1.22289,
+     "blur": 7.33192,
+     "grain": 1.02363
+    },
+    {
+     "level": 1,
+     "cambi": 0.06605,
+     "block": 1.22252,
+     "blur": 7.36212,
+     "grain": 1.01744
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.08642,
+     "block": 1.23151,
+     "blur": 7.37054,
+     "grain": 1.00932
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.13923,
+     "block": 1.26173,
+     "blur": 7.40135,
+     "grain": 0.99833
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.28571,
+     "block": 1.3005,
+     "blur": 7.43949,
+     "grain": 0.9761
+    },
+    {
+     "level": 0.3,
+     "cambi": 1.11977,
+     "block": 1.56561,
+     "blur": 7.59256,
+     "grain": 0.93549
+    }
+   ]
+  },
+  {
+   "key": "mv:851",
+   "title": "Our Man in Havana (1960)",
+   "run": "artifact-ladder-grain.json",
+   "lossless": 0.42722,
+   "grainLossless": 0.94365,
+   "levelAt1": 0.50927,
+   "blockAt1": 1.20107,
+   "blurAt1": 6.68228,
+   "grainAt1": 0.9052,
+   "S": -0.2915156192809088,
+   "r2": 0.9372584104391277,
+   "n": 8,
+   "sBlock": -0.035163276358788485,
+   "sBlur": -0.03257518037060981,
+   "sGrain": 0.04672607525697374,
+   "r2Grain": 0.9474070701652306,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.4426,
+     "block": 1.18961,
+     "blur": 6.53443,
+     "grain": 0.93217
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.4698,
+     "block": 1.19291,
+     "blur": 6.61328,
+     "grain": 0.91794
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.50307,
+     "block": 1.19879,
+     "blur": 6.65805,
+     "grain": 0.90974
+    },
+    {
+     "level": 1,
+     "cambi": 0.50927,
+     "block": 1.20107,
+     "blur": 6.68228,
+     "grain": 0.9052
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.53533,
+     "block": 1.20333,
+     "blur": 6.71231,
+     "grain": 0.89929
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.59368,
+     "block": 1.20548,
+     "blur": 6.7528,
+     "grain": 0.89203
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.63924,
+     "block": 1.21659,
+     "blur": 6.83698,
+     "grain": 0.87739
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.81708,
+     "block": 1.29651,
+     "blur": 7.01127,
+     "grain": 0.84149
+    }
+   ]
+  },
+  {
+   "key": "mv:389",
+   "title": "The Shawshank Redemption (1994)",
+   "run": "artifact-ladder-flagged.json",
+   "lossless": 0.03229,
+   "grainLossless": 1.18247,
+   "levelAt1": 0.07411,
+   "blockAt1": 1.15018,
+   "blurAt1": 7.024,
+   "grainAt1": 1.16926,
+   "S": -1.3469641329811148,
+   "r2": 0.9449934421424372,
+   "n": 8,
+   "sBlock": -0.018886814406271147,
+   "sBlur": -0.017131550168916005,
+   "sGrain": 0.0183946813557625,
+   "r2Grain": 0.9514314072386699,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.03457,
+     "block": 1.15545,
+     "blur": 6.97497,
+     "grain": 1.18174
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.04533,
+     "block": 1.14442,
+     "blur": 6.99767,
+     "grain": 1.17606
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.05898,
+     "block": 1.14907,
+     "blur": 7.01363,
+     "grain": 1.17195
+    },
+    {
+     "level": 1,
+     "cambi": 0.07411,
+     "block": 1.15018,
+     "blur": 7.024,
+     "grain": 1.16926
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.09909,
+     "block": 1.14607,
+     "blur": 7.04534,
+     "grain": 1.16612
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.13,
+     "block": 1.13349,
+     "blur": 7.07054,
+     "grain": 1.16158
+    },
+    {
+     "level": 0.5,
+     "cambi": 0.18131,
+     "block": 1.15141,
+     "blur": 7.12161,
+     "grain": 1.15292
+    },
+    {
+     "level": 0.3,
+     "cambi": 0.59846,
+     "block": 1.21716,
+     "blur": 7.23467,
+     "grain": 1.13666
+    }
+   ]
+  },
+  {
+   "key": "mv:409",
+   "title": "I Swear (2025)",
+   "run": "artifact-ladder-flagged.json",
+   "lossless": 3.16329,
+   "grainLossless": 0.7769,
+   "levelAt1": 5.18423,
+   "blockAt1": 2.1185,
+   "blurAt1": 7.23125,
+   "grainAt1": 0.74324,
+   "S": -0.2919439948720374,
+   "r2": 0.8247302428397663,
+   "n": 8,
+   "sBlock": -0.1759248380718553,
+   "sBlur": -0.05414973911247544,
+   "sGrain": 0.06770746095062737,
+   "r2Grain": 0.9430489918470135,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 3.35081,
+     "block": 1.74527,
+     "blur": 7.03383,
+     "grain": 0.77085
+    },
+    {
+     "level": 1.5,
+     "cambi": 4.2805,
+     "block": 1.95004,
+     "blur": 7.11467,
+     "grain": 0.75757
+    },
+    {
+     "level": 1.15,
+     "cambi": 4.87026,
+     "block": 2.05738,
+     "blur": 7.18466,
+     "grain": 0.74846
+    },
+    {
+     "level": 1,
+     "cambi": 5.18423,
+     "block": 2.1185,
+     "blur": 7.23125,
+     "grain": 0.74324
+    },
+    {
+     "level": 0.85,
+     "cambi": 5.52072,
+     "block": 2.1698,
+     "blur": 7.28972,
+     "grain": 0.73644
+    },
+    {
+     "level": 0.7,
+     "cambi": 5.89684,
+     "block": 2.28259,
+     "blur": 7.36176,
+     "grain": 0.72538
+    },
+    {
+     "level": 0.5,
+     "cambi": 6.32502,
+     "block": 2.45765,
+     "blur": 7.54319,
+     "grain": 0.70293
+    },
+    {
+     "level": 0.3,
+     "cambi": 5.99584,
+     "block": 2.47994,
+     "blur": 7.8887,
+     "grain": 0.66854
+    }
+   ]
+  },
+  {
+   "key": "mv:475",
+   "title": "Gran Torino (2008)",
+   "run": "artifact-ladder-flagged.json",
+   "lossless": 0.36675,
+   "grainLossless": 0.80809,
+   "levelAt1": 0.6153,
+   "blockAt1": 5.37836,
+   "blurAt1": 6.99461,
+   "grainAt1": 0.79964,
+   "S": -0.889358669468972,
+   "r2": 0.9620742395419026,
+   "n": 8,
+   "sBlock": -0.1757762174818257,
+   "sBlur": -0.018791454135268625,
+   "sGrain": 0.02264684282953487,
+   "r2Grain": 0.9582714615914621,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.37316,
+     "block": 4.96895,
+     "blur": 6.95995,
+     "grain": 0.80971
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.45415,
+     "block": 5.23212,
+     "blur": 6.97006,
+     "grain": 0.80519
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.54508,
+     "block": 5.15911,
+     "blur": 6.97649,
+     "grain": 0.80163
+    },
+    {
+     "level": 1,
+     "cambi": 0.6153,
+     "block": 5.37836,
+     "blur": 6.99461,
+     "grain": 0.79964
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.72619,
+     "block": 5.56521,
+     "blur": 7.00489,
+     "grain": 0.79619
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.92953,
+     "block": 6.28307,
+     "blur": 7.02929,
+     "grain": 0.79235
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.40007,
+     "block": 6.52018,
+     "blur": 7.07806,
+     "grain": 0.78414
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.18904,
+     "block": 6.89889,
+     "blur": 7.26101,
+     "grain": 0.77285
+    }
+   ]
+  },
+  {
+   "key": "mv:515",
+   "title": "Get Out (2017)",
+   "run": "artifact-ladder-flagged.json",
+   "lossless": 6.2043,
+   "grainLossless": 0.71893,
+   "levelAt1": 6.4422,
+   "blockAt1": 2.56465,
+   "blurAt1": 6.13685,
+   "grainAt1": 0.71162,
+   "S": -0.10349587529521322,
+   "r2": 0.9208811037868885,
+   "n": 8,
+   "sBlock": -0.04571363550971479,
+   "sBlur": -0.02545772707525539,
+   "sGrain": 0.03174231041566888,
+   "r2Grain": 0.909949824120346,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 6.14529,
+     "block": 2.48109,
+     "blur": 6.11426,
+     "grain": 0.72089
+    },
+    {
+     "level": 1.5,
+     "cambi": 6.24943,
+     "block": 2.56396,
+     "blur": 6.1178,
+     "grain": 0.71839
+    },
+    {
+     "level": 1.15,
+     "cambi": 6.37126,
+     "block": 2.57535,
+     "blur": 6.12599,
+     "grain": 0.71462
+    },
+    {
+     "level": 1,
+     "cambi": 6.4422,
+     "block": 2.56465,
+     "blur": 6.13685,
+     "grain": 0.71162
+    },
+    {
+     "level": 0.85,
+     "cambi": 6.55374,
+     "block": 2.54191,
+     "blur": 6.14756,
+     "grain": 0.70809
+    },
+    {
+     "level": 0.7,
+     "cambi": 6.70776,
+     "block": 2.5251,
+     "blur": 6.1779,
+     "grain": 0.70268
+    },
+    {
+     "level": 0.5,
+     "cambi": 6.99187,
+     "block": 2.58391,
+     "blur": 6.25709,
+     "grain": 0.6926
+    },
+    {
+     "level": 0.3,
+     "cambi": 7.63886,
+     "block": 2.82077,
+     "blur": 6.47096,
+     "grain": 0.67532
+    }
+   ]
+  },
+  {
+   "key": "mv:702",
+   "title": "Beginners (2011)",
+   "run": "artifact-ladder-flagged.json",
+   "lossless": 4.06397,
+   "grainLossless": 0.88737,
+   "levelAt1": 4.95103,
+   "blockAt1": 2.08713,
+   "blurAt1": 10.07575,
+   "grainAt1": 0.88187,
+   "S": -0.11572209592225331,
+   "r2": 0.8085841464691508,
+   "n": 8,
+   "sBlock": -0.19157601143350708,
+   "sBlur": -0.04201569531676258,
+   "sGrain": 0.015833769819762505,
+   "r2Grain": 0.9382775817786194,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 4.2341,
+     "block": 1.93501,
+     "blur": 9.88415,
+     "grain": 0.88887
+    },
+    {
+     "level": 1.5,
+     "cambi": 4.59967,
+     "block": 1.98036,
+     "blur": 9.94167,
+     "grain": 0.88564
+    },
+    {
+     "level": 1.15,
+     "cambi": 4.81684,
+     "block": 2.03547,
+     "blur": 10.04034,
+     "grain": 0.88366
+    },
+    {
+     "level": 1,
+     "cambi": 4.95103,
+     "block": 2.08713,
+     "blur": 10.07575,
+     "grain": 0.88187
+    },
+    {
+     "level": 0.85,
+     "cambi": 5.12365,
+     "block": 2.19852,
+     "blur": 10.15515,
+     "grain": 0.87946
+    },
+    {
+     "level": 0.7,
+     "cambi": 5.31829,
+     "block": 2.2968,
+     "blur": 10.22027,
+     "grain": 0.876
+    },
+    {
+     "level": 0.5,
+     "cambi": 5.44219,
+     "block": 2.5413,
+     "blur": 10.4475,
+     "grain": 0.87057
+    },
+    {
+     "level": 0.3,
+     "cambi": 5.26114,
+     "block": 2.8113,
+     "blur": 10.78148,
+     "grain": 0.85992
+    }
+   ]
+  },
+  {
+   "key": "mv:839",
+   "title": "Disclosure Day (2026)",
+   "run": "artifact-ladder-flagged.json",
+   "lossless": 4.27777,
+   "grainLossless": 1.033,
+   "levelAt1": 5.26586,
+   "blockAt1": 1.6106,
+   "blurAt1": 9.3668,
+   "grainAt1": 1.02636,
+   "S": -0.2065698982557941,
+   "r2": 0.9729423530495915,
+   "n": 8,
+   "sBlock": -0.13263518231023305,
+   "sBlur": -0.05616596285655023,
+   "sGrain": 0.014670037567497312,
+   "r2Grain": 0.7732943171918908,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 4.33584,
+     "block": 1.46248,
+     "blur": 9.09894,
+     "grain": 1.02921
+    },
+    {
+     "level": 1.5,
+     "cambi": 4.72659,
+     "block": 1.50751,
+     "blur": 9.1959,
+     "grain": 1.02821
+    },
+    {
+     "level": 1.15,
+     "cambi": 5.04685,
+     "block": 1.57187,
+     "blur": 9.30643,
+     "grain": 1.02745
+    },
+    {
+     "level": 1,
+     "cambi": 5.26586,
+     "block": 1.6106,
+     "blur": 9.3668,
+     "grain": 1.02636
+    },
+    {
+     "level": 0.85,
+     "cambi": 5.50906,
+     "block": 1.65224,
+     "blur": 9.44113,
+     "grain": 1.02488
+    },
+    {
+     "level": 0.7,
+     "cambi": 5.81257,
+     "block": 1.71192,
+     "blur": 9.53596,
+     "grain": 1.02172
+    },
+    {
+     "level": 0.5,
+     "cambi": 6.22307,
+     "block": 1.81086,
+     "blur": 9.77189,
+     "grain": 1.01504
+    },
+    {
+     "level": 0.3,
+     "cambi": 6.49844,
+     "block": 1.88954,
+     "blur": 10.25109,
+     "grain": 0.99623
+    }
+   ]
+  },
+  {
+   "key": "tv:13:1",
+   "title": "Mr Inbetween S01",
+   "run": "artifact-ladder-flagged.json",
+   "lossless": 1.12004,
+   "grainLossless": 0.89956,
+   "levelAt1": 1.35531,
+   "blockAt1": 10.31771,
+   "blurAt1": 6.42687,
+   "grainAt1": 0.8758,
+   "S": -0.351190370924596,
+   "r2": 0.9372250977995975,
+   "n": 8,
+   "sBlock": -0.10042270671646118,
+   "sBlur": -0.010963754230296252,
+   "sGrain": 0.04948899445338959,
+   "r2Grain": 0.9453186820414274,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 1.11127,
+     "block": 9.8309,
+     "blur": 6.40071,
+     "grain": 0.90024
+    },
+    {
+     "level": 1.5,
+     "cambi": 1.22557,
+     "block": 9.97991,
+     "blur": 6.41256,
+     "grain": 0.89028
+    },
+    {
+     "level": 1.15,
+     "cambi": 1.29805,
+     "block": 10.15768,
+     "blur": 6.42674,
+     "grain": 0.88059
+    },
+    {
+     "level": 1,
+     "cambi": 1.35531,
+     "block": 10.31771,
+     "blur": 6.42687,
+     "grain": 0.8758
+    },
+    {
+     "level": 0.85,
+     "cambi": 1.41717,
+     "block": 10.38214,
+     "blur": 6.44408,
+     "grain": 0.87067
+    },
+    {
+     "level": 0.7,
+     "cambi": 1.51826,
+     "block": 10.71291,
+     "blur": 6.4562,
+     "grain": 0.86113
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.75347,
+     "block": 11.03935,
+     "blur": 6.48438,
+     "grain": 0.84192
+    },
+    {
+     "level": 0.3,
+     "cambi": 2.36732,
+     "block": 12.19186,
+     "blur": 6.55318,
+     "grain": 0.8115
+    }
+   ]
+  },
+  {
+   "key": "tv:13:3",
+   "title": "Mr Inbetween S03",
+   "run": "artifact-ladder-flagged.json",
+   "lossless": 0.21633,
+   "grainLossless": 0.90788,
+   "levelAt1": 0.40431,
+   "blockAt1": 9.81312,
+   "blurAt1": 8.74031,
+   "grainAt1": 0.85326,
+   "S": -1.3927336184687706,
+   "r2": 0.8789919943662516,
+   "n": 8,
+   "sBlock": -0.3321297241728012,
+   "sBlur": -0.014179386182824496,
+   "sGrain": 0.11509824850819822,
+   "r2Grain": 0.9475883398382419,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 0.24872,
+     "block": 8.05897,
+     "blur": 8.71593,
+     "grain": 0.90624
+    },
+    {
+     "level": 1.5,
+     "cambi": 0.30362,
+     "block": 8.73604,
+     "blur": 8.72172,
+     "grain": 0.88385
+    },
+    {
+     "level": 1.15,
+     "cambi": 0.36332,
+     "block": 9.25732,
+     "blur": 8.73718,
+     "grain": 0.86603
+    },
+    {
+     "level": 1,
+     "cambi": 0.40431,
+     "block": 9.81312,
+     "blur": 8.74031,
+     "grain": 0.85326
+    },
+    {
+     "level": 0.85,
+     "cambi": 0.48916,
+     "block": 9.99052,
+     "blur": 8.73844,
+     "grain": 0.83689
+    },
+    {
+     "level": 0.7,
+     "cambi": 0.65263,
+     "block": 10.45276,
+     "blur": 8.75073,
+     "grain": 0.81487
+    },
+    {
+     "level": 0.5,
+     "cambi": 1.40911,
+     "block": 12.32594,
+     "blur": 8.85411,
+     "grain": 0.77341
+    },
+    {
+     "level": 0.3,
+     "cambi": 4.65069,
+     "block": 16.55887,
+     "blur": 8.99076,
+     "grain": 0.71506
+    }
+   ]
+  },
+  {
+   "key": "tv:133:2",
+   "title": "Severance S02",
+   "run": "artifact-ladder-flagged.json",
+   "lossless": 8.26161,
+   "grainLossless": 0.87644,
+   "levelAt1": 8.38709,
+   "blockAt1": 2.15945,
+   "blurAt1": 9.5613,
+   "grainAt1": 0.86819,
+   "S": -0.03408168141323484,
+   "r2": 0.7019561170032502,
+   "n": 8,
+   "sBlock": -0.13918805879156443,
+   "sBlur": -0.033868302474878584,
+   "sGrain": 0.011078889583586568,
+   "r2Grain": 0.8476227586799211,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 8.02405,
+     "block": 2.06386,
+     "blur": 9.39885,
+     "grain": 0.87172
+    },
+    {
+     "level": 1.5,
+     "cambi": 8.22048,
+     "block": 2.0713,
+     "blur": 9.45746,
+     "grain": 0.87126
+    },
+    {
+     "level": 1.15,
+     "cambi": 8.34855,
+     "block": 2.11383,
+     "blur": 9.50669,
+     "grain": 0.87177
+    },
+    {
+     "level": 1,
+     "cambi": 8.38709,
+     "block": 2.15945,
+     "blur": 9.5613,
+     "grain": 0.86819
+    },
+    {
+     "level": 0.85,
+     "cambi": 8.47484,
+     "block": 2.24182,
+     "blur": 9.60249,
+     "grain": 0.86803
+    },
+    {
+     "level": 0.7,
+     "cambi": 8.5736,
+     "block": 2.35882,
+     "blur": 9.65518,
+     "grain": 0.86377
+    },
+    {
+     "level": 0.5,
+     "cambi": 8.75661,
+     "block": 2.52247,
+     "blur": 9.81672,
+     "grain": 0.86138
+    },
+    {
+     "level": 0.3,
+     "cambi": 8.49647,
+     "block": 2.671,
+     "blur": 10.09377,
+     "grain": 0.85209
+    }
+   ]
+  },
+  {
+   "key": "tv:33:3",
+   "title": "Bloodline S03",
+   "run": "artifact-ladder-flagged.json",
+   "lossless": 10.24689,
+   "grainLossless": 0.73589,
+   "levelAt1": 12.98343,
+   "blockAt1": 2.12664,
+   "blurAt1": 7.48251,
+   "grainAt1": 0.73292,
+   "S": -0.09555282989185133,
+   "r2": 0.6987126785629247,
+   "n": 8,
+   "sBlock": -0.19883518195616695,
+   "sBlur": -0.03630530013276867,
+   "sGrain": 0.002750035659272679,
+   "r2Grain": 0.3862944769179505,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 10.88218,
+     "block": 1.79568,
+     "blur": 7.42943,
+     "grain": 0.73542
+    },
+    {
+     "level": 1.5,
+     "cambi": 12.08272,
+     "block": 1.9469,
+     "blur": 7.44415,
+     "grain": 0.73433
+    },
+    {
+     "level": 1.15,
+     "cambi": 12.66638,
+     "block": 2.04064,
+     "blur": 7.4641,
+     "grain": 0.7332
+    },
+    {
+     "level": 1,
+     "cambi": 12.98343,
+     "block": 2.12664,
+     "blur": 7.48251,
+     "grain": 0.73292
+    },
+    {
+     "level": 0.85,
+     "cambi": 13.20834,
+     "block": 2.23719,
+     "blur": 7.52661,
+     "grain": 0.72991
+    },
+    {
+     "level": 0.7,
+     "cambi": 13.45622,
+     "block": 2.32325,
+     "blur": 7.567,
+     "grain": 0.73057
+    },
+    {
+     "level": 0.5,
+     "cambi": 13.72186,
+     "block": 2.61914,
+     "blur": 7.72405,
+     "grain": 0.72959
+    },
+    {
+     "level": 0.3,
+     "cambi": 13.20143,
+     "block": 2.60541,
+     "blur": 8.03163,
+     "grain": 0.73289
+    }
+   ]
+  },
+  {
+   "key": "tv:87:1",
+   "title": "Mr. Robot S01",
+   "run": "artifact-ladder-flagged.json",
+   "lossless": 7.35402,
+   "grainLossless": 0.45027,
+   "levelAt1": 8.72872,
+   "blockAt1": 3.14919,
+   "blurAt1": 10.09612,
+   "grainAt1": 0.43877,
+   "S": 0.01802868002905968,
+   "r2": 0.07072048800183162,
+   "n": 8,
+   "sBlock": -0.18445569004915913,
+   "sBlur": -0.025719769071452587,
+   "sGrain": 0.06647140412127907,
+   "r2Grain": 0.8008660460445218,
+   "points": [
+    {
+     "level": 2.5,
+     "cambi": 8.01536,
+     "block": 2.47187,
+     "blur": 9.90264,
+     "grain": 0.44506
+    },
+    {
+     "level": 1.5,
+     "cambi": 8.52375,
+     "block": 2.82334,
+     "blur": 9.96111,
+     "grain": 0.44189
+    },
+    {
+     "level": 1.15,
+     "cambi": 8.6713,
+     "block": 3.06336,
+     "blur": 10.02395,
+     "grain": 0.43807
+    },
+    {
+     "level": 1,
+     "cambi": 8.72872,
+     "block": 3.14919,
+     "blur": 10.09612,
+     "grain": 0.43877
+    },
+    {
+     "level": 0.85,
+     "cambi": 8.70351,
+     "block": 3.24093,
+     "blur": 10.14265,
+     "grain": 0.43547
+    },
+    {
+     "level": 0.7,
+     "cambi": 8.62313,
+     "block": 3.37263,
+     "blur": 10.23399,
+     "grain": 0.42941
+    },
+    {
+     "level": 0.5,
+     "cambi": 8.40972,
+     "block": 3.60128,
+     "blur": 10.37395,
+     "grain": 0.41498
+    },
+    {
+     "level": 0.3,
+     "cambi": 7.72805,
+     "block": 3.59085,
+     "blur": 10.36996,
+     "grain": 0.3844
+    }
+   ]
+  }
+ ]
+}

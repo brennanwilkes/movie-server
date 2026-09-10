@@ -1,0 +1,7357 @@
+{
+ "generated": 1787870335018,
+ "n": 1048,
+ "splitHalfR": [
+  0.14875002157271824,
+  0.28946598145801566,
+  0.2719661831798437
+ ],
+ "medianR": 0.2719661831798437,
+ "reliability": 0.42763115368357296,
+ "pc1": {
+  "cambi": 0.5098630750598722,
+  "block": 0.6151999742558425,
+  "blur": 0.18248245883149244,
+  "grain": -0.5729474570891423
+ },
+ "eigenvalue": 1.4457494633581789,
+ "signsMatch": 4,
+ "units": [
+  {
+   "key": "tv:100:1",
+   "title": "Ted Lasso S01",
+   "source": "WEBRip-720p",
+   "bppPlus": 60,
+   "P": 0.43465895392424864
+  },
+  {
+   "key": "tv:101:1",
+   "title": "Battlestar Galactica (2003) S01",
+   "source": "HDTV-1080p",
+   "bppPlus": 65,
+   "P": 1.7564205153768329
+  },
+  {
+   "key": "tv:107:1",
+   "title": "The West Wing S01",
+   "source": "WEBDL-720p",
+   "bppPlus": 84,
+   "P": 0.6415321052314419
+  },
+  {
+   "key": "tv:119:1",
+   "title": "Planet Earth S01",
+   "source": "HDTV-1080p",
+   "bppPlus": 61,
+   "P": -1.7965055235035852
+  },
+  {
+   "key": "tv:120:1",
+   "title": "Cosmos (2014) S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 122,
+   "P": -0.8269067845857536
+  },
+  {
+   "key": "tv:120:2",
+   "title": "Cosmos (2014) S02",
+   "source": "WEBDL-1080p",
+   "bppPlus": 118,
+   "P": -0.6536544224461269
+  },
+  {
+   "key": "tv:121:1",
+   "title": "Cosmos S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 139,
+   "P": -1.1706828375854028
+  },
+  {
+   "key": "tv:122:1",
+   "title": "Suits S01",
+   "source": "WEBDL-720p",
+   "bppPlus": 53,
+   "P": 0.40444259576706726
+  },
+  {
+   "key": "tv:123:1",
+   "title": "Suits LA S01",
+   "source": "HDTV-1080p",
+   "bppPlus": 85,
+   "P": -2.7601537754773764
+  },
+  {
+   "key": "tv:125:1",
+   "title": "The Pacific S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": 1.3940504276914134
+  },
+  {
+   "key": "mv:272",
+   "title": "Metropolis (1927)",
+   "source": "Bluray-1080p",
+   "bppPlus": 119,
+   "P": -0.1294952403022397
+  },
+  {
+   "key": "mv:273",
+   "title": "Megalopolis (2024)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 92,
+   "P": 0.5417458015037292
+  },
+  {
+   "key": "mv:275",
+   "title": "L.A. Confidential (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 92,
+   "P": -0.19954672423237896
+  },
+  {
+   "key": "mv:276",
+   "title": "Green Book (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": -0.2828477026417467
+  },
+  {
+   "key": "mv:277",
+   "title": "Bicycle Thieves (1948)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": 1.1501461162674629
+  },
+  {
+   "key": "mv:278",
+   "title": "There Will Be Blood (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": 1.326247892220037
+  },
+  {
+   "key": "mv:279",
+   "title": "The Finest Hours (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 70,
+   "P": 0.571272367885691
+  },
+  {
+   "key": "mv:280",
+   "title": "CODA (2021)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 0.10420946024577034
+  },
+  {
+   "key": "mv:281",
+   "title": "All About Eve (1950)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": -0.30169579464647944
+  },
+  {
+   "key": "mv:283",
+   "title": "Pirates of the Caribbean: Dead Men Tell No Tales (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 115,
+   "P": -0.7011505702462194
+  },
+  {
+   "key": "mv:284",
+   "title": "Pirates of the Caribbean: The Curse of the Black Pearl (2003)",
+   "source": "Bluray-1080p",
+   "bppPlus": 123,
+   "P": 0.22227596651226944
+  },
+  {
+   "key": "mv:285",
+   "title": "Pirates of the Caribbean: On Stranger Tides (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 122,
+   "P": 0.12266031578128164
+  },
+  {
+   "key": "mv:286",
+   "title": "Pirates of the Caribbean: At World's End (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": 0.6877814911352569
+  },
+  {
+   "key": "mv:287",
+   "title": "Pirates of the Caribbean: Dead Man's Chest (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": 1.6215332606863395
+  },
+  {
+   "key": "mv:288",
+   "title": "Treasure Planet (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 108,
+   "P": 0.810515425086541
+  },
+  {
+   "key": "mv:289",
+   "title": "The Treasure of the Sierra Madre (1948)",
+   "source": "Bluray-1080p",
+   "bppPlus": 87,
+   "P": -0.18077244672664575
+  },
+  {
+   "key": "mv:290",
+   "title": "Monty Python and the Holy Grail (1975)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": -0.16985654852788942
+  },
+  {
+   "key": "mv:291",
+   "title": "Monty Python's The Meaning of Life (1983)",
+   "source": "Bluray-1080p",
+   "bppPlus": 38,
+   "P": -0.6490882535514356
+  },
+  {
+   "key": "mv:292",
+   "title": "Life of Brian (1979)",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": -0.16571923052037957
+  },
+  {
+   "key": "mv:293",
+   "title": "Gone with the Wind (1939)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": 0.6414465727351296
+  },
+  {
+   "key": "mv:294",
+   "title": "Ben-Hur (1959)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 87,
+   "P": -0.2965187927614238
+  },
+  {
+   "key": "mv:296",
+   "title": "Mad Max (1979)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": -0.4809188073586554
+  },
+  {
+   "key": "mv:297",
+   "title": "Isle of Dogs (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": -0.6343813929687165
+  },
+  {
+   "key": "mv:298",
+   "title": "Harry Potter and the Goblet of Fire (2005)",
+   "source": "WEBDL-720p",
+   "bppPlus": 41,
+   "P": 0.3067817880345726
+  },
+  {
+   "key": "mv:299",
+   "title": "Harry Potter and the Deathly Hallows: Part 2 (2011)",
+   "source": "WEBDL-720p",
+   "bppPlus": 71,
+   "P": 0.6006334560071607
+  },
+  {
+   "key": "mv:301",
+   "title": "Harry Potter and the Deathly Hallows: Part 1 (2010)",
+   "source": "WEBDL-720p",
+   "bppPlus": 96,
+   "P": -1.1105572430080672
+  },
+  {
+   "key": "mv:302",
+   "title": "In Bruges (2008)",
+   "source": "Bluray-720p",
+   "bppPlus": 55,
+   "P": 0.5334717706336254
+  },
+  {
+   "key": "mv:303",
+   "title": "The Menu (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 91,
+   "P": 0.3026964564154142
+  },
+  {
+   "key": "mv:305",
+   "title": "Kingsman: The Secret Service (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": 0.13079626557124702
+  },
+  {
+   "key": "mv:306",
+   "title": "Kingsman: The Golden Circle (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": 0.5243598982545453
+  },
+  {
+   "key": "mv:307",
+   "title": "Harry Potter and the Half-Blood Prince (2009)",
+   "source": "WEBDL-720p",
+   "bppPlus": 69,
+   "P": -1.3840521077170553
+  },
+  {
+   "key": "mv:308",
+   "title": "Harry Potter and the Chamber of Secrets (2002)",
+   "source": "WEBDL-720p",
+   "bppPlus": 92,
+   "P": -0.3207868145720014
+  },
+  {
+   "key": "mv:309",
+   "title": "Harry Potter and the Prisoner of Azkaban (2004)",
+   "source": "WEBDL-720p",
+   "bppPlus": 68,
+   "P": -0.6779707505033408
+  },
+  {
+   "key": "mv:310",
+   "title": "Monsters, Inc. (2001)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": -0.3245760838195608
+  },
+  {
+   "key": "mv:311",
+   "title": "Ford v Ferrari (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": -0.5960348163724497
+  },
+  {
+   "key": "mv:312",
+   "title": "Rush (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": 1.3558893860983565
+  },
+  {
+   "key": "mv:313",
+   "title": "The General (1926)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": -2.6822879710259757
+  },
+  {
+   "key": "mv:314",
+   "title": "Rocky (1976)",
+   "source": "Bluray-1080p",
+   "bppPlus": 65,
+   "P": 1.0654151140413222
+  },
+  {
+   "key": "mv:315",
+   "title": "Hotel Rwanda (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 70,
+   "P": -0.383357652730191
+  },
+  {
+   "key": "mv:316",
+   "title": "The Iron Giant (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 76,
+   "P": 0.1167796699890957
+  },
+  {
+   "key": "mv:317",
+   "title": "American Psycho (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 170,
+   "P": 0.4590305821859688
+  },
+  {
+   "key": "mv:318",
+   "title": "Love Actually (2003)",
+   "source": "Bluray-720p",
+   "bppPlus": 51,
+   "P": -0.6592636696306515
+  },
+  {
+   "key": "mv:319",
+   "title": "The Proposal (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": -0.0483179787064118
+  },
+  {
+   "key": "mv:320",
+   "title": "How to Lose a Guy in 10 Days (2003)",
+   "source": "Bluray-720p",
+   "bppPlus": 48,
+   "P": -0.25930850253272447
+  },
+  {
+   "key": "mv:321",
+   "title": "Sleepless in Seattle (1993)",
+   "source": "Bluray-720p",
+   "bppPlus": 98,
+   "P": -0.33396432259094344
+  },
+  {
+   "key": "mv:322",
+   "title": "Notting Hill (1999)",
+   "source": "Bluray-720p",
+   "bppPlus": 57,
+   "P": -0.4055955272432781
+  },
+  {
+   "key": "mv:323",
+   "title": "Friends with Benefits (2011)",
+   "source": "Bluray-720p",
+   "bppPlus": 53,
+   "P": 0.5707057634194687
+  },
+  {
+   "key": "mv:324",
+   "title": "Pretty Woman (1990)",
+   "source": "Bluray-720p",
+   "bppPlus": 53,
+   "P": -0.03285129955365151
+  },
+  {
+   "key": "mv:325",
+   "title": "He's Just Not That Into You (2009)",
+   "source": "Bluray-720p",
+   "bppPlus": 54,
+   "P": 0.14693821936813253
+  },
+  {
+   "key": "mv:326",
+   "title": "When in Rome (2010)",
+   "source": "Bluray-720p",
+   "bppPlus": 52,
+   "P": 0.4707294878851127
+  },
+  {
+   "key": "mv:327",
+   "title": "When Harry Met Sally... (1989)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": -0.5687266369948402
+  },
+  {
+   "key": "mv:329",
+   "title": "10 Things I Hate About You (1999)",
+   "source": "Bluray-720p",
+   "bppPlus": 44,
+   "P": -0.5708028918432901
+  },
+  {
+   "key": "mv:330",
+   "title": "The Holiday (2006)",
+   "source": "Bluray-720p",
+   "bppPlus": 47,
+   "P": -0.5738771628695829
+  },
+  {
+   "key": "mv:331",
+   "title": "(500) Days of Summer (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 83,
+   "P": 0.861421767744821
+  },
+  {
+   "key": "mv:332",
+   "title": "Definitely, Maybe (2008)",
+   "source": "Bluray-720p",
+   "bppPlus": 70,
+   "P": -0.10912125633703186
+  },
+  {
+   "key": "mv:333",
+   "title": "No Strings Attached (2011)",
+   "source": "Bluray-720p",
+   "bppPlus": 65,
+   "P": -0.45458063584209446
+  },
+  {
+   "key": "mv:334",
+   "title": "Wedding Crashers (2005)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.20187431494080318
+  },
+  {
+   "key": "mv:335",
+   "title": "Cars (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": -0.49001139801125687
+  },
+  {
+   "key": "mv:336",
+   "title": "Midnight in Paris (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": -1.26235028737911
+  },
+  {
+   "key": "mv:337",
+   "title": "Zoolander (2001)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": -0.35792927972859157
+  },
+  {
+   "key": "mv:338",
+   "title": "The Internship (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 80,
+   "P": -0.25880757222486583
+  },
+  {
+   "key": "mv:339",
+   "title": "Hall Pass (2011)",
+   "source": "Bluray-720p",
+   "bppPlus": 55,
+   "P": 0.3757971023894799
+  },
+  {
+   "key": "mv:340",
+   "title": "Hacksaw Ridge (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": -0.54750558027948
+  },
+  {
+   "key": "mv:341",
+   "title": "The Lost World: Jurassic Park (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 0.12044308318897667
+  },
+  {
+   "key": "mv:342",
+   "title": "Couples Retreat (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": 0.10573973173658308
+  },
+  {
+   "key": "mv:344",
+   "title": "Four Christmases (2008)",
+   "source": "Bluray-720p",
+   "bppPlus": 46,
+   "P": -0.4969814309561341
+  },
+  {
+   "key": "mv:345",
+   "title": "Solo: A Star Wars Story (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 82,
+   "P": 1.043817128564615
+  },
+  {
+   "key": "mv:346",
+   "title": "Rogue One: A Star Wars Story (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 95,
+   "P": -0.23616407717791113
+  },
+  {
+   "key": "mv:347",
+   "title": "Tropic Thunder (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": 0.05712399124756931
+  },
+  {
+   "key": "mv:348",
+   "title": "Horrible Bosses (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": -0.3524488440485933
+  },
+  {
+   "key": "mv:350",
+   "title": "Horrible Bosses 2 (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": 0.7611214746848538
+  },
+  {
+   "key": "mv:351",
+   "title": "Game Night (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": -0.6005672909754722
+  },
+  {
+   "key": "mv:352",
+   "title": "Central Intelligence (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": 0.28792150246006487
+  },
+  {
+   "key": "mv:353",
+   "title": "Identity Thief (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": -1.0525840330128915
+  },
+  {
+   "key": "mv:354",
+   "title": "The Change-Up (2011)",
+   "source": "Bluray-720p",
+   "bppPlus": 57,
+   "P": -0.07891497039591325
+  },
+  {
+   "key": "mv:356",
+   "title": "We're the Millers (2013)",
+   "source": "Bluray-720p",
+   "bppPlus": 50,
+   "P": -0.39454491413628884
+  },
+  {
+   "key": "mv:357",
+   "title": "Murder Mystery (2019)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 107,
+   "P": 0.2785305048163714
+  },
+  {
+   "key": "mv:358",
+   "title": "Marley & Me (2008)",
+   "source": "WEBDL-480p",
+   "bppPlus": 69,
+   "P": 0.8394448324692267
+  },
+  {
+   "key": "mv:359",
+   "title": "Office Space (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 95,
+   "P": -0.2385954458967752
+  },
+  {
+   "key": "mv:360",
+   "title": "Rumor Has It... (2005)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": -0.008654045060276925
+  },
+  {
+   "key": "mv:361",
+   "title": "Black Bag (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": -0.39460245646171416
+  },
+  {
+   "key": "mv:362",
+   "title": "About Time (2013)",
+   "source": "Bluray-720p",
+   "bppPlus": 86,
+   "P": 0.17693644588998597
+  },
+  {
+   "key": "mv:363",
+   "title": "The Girl Next Door (2004)",
+   "source": "Bluray-720p",
+   "bppPlus": 56,
+   "P": 0.35198615923687954
+  },
+  {
+   "key": "mv:364",
+   "title": "13 Going on 30 (2004)",
+   "source": "Bluray-720p",
+   "bppPlus": 55,
+   "P": -0.5040990196269887
+  },
+  {
+   "key": "mv:365",
+   "title": "Amélie (2001)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": -0.515420238370552
+  },
+  {
+   "key": "mv:366",
+   "title": "There's Something About Mary (1998)",
+   "source": "Bluray-720p",
+   "bppPlus": 49,
+   "P": 0.7524197352893058
+  },
+  {
+   "key": "mv:367",
+   "title": "The Bounty Hunter (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": -0.22551774229779953
+  },
+  {
+   "key": "mv:368",
+   "title": "Easy A (2010)",
+   "source": "Bluray-720p",
+   "bppPlus": 55,
+   "P": 0.299710849068942
+  },
+  {
+   "key": "mv:369",
+   "title": "The Princess Bride (1987)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": -0.4746235694140561
+  },
+  {
+   "key": "mv:370",
+   "title": "Mamma Mia! (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": 0.08223585193592625
+  },
+  {
+   "key": "mv:372",
+   "title": "Charlie Wilson's War (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": 0.20415732911322837
+  },
+  {
+   "key": "mv:374",
+   "title": "Sinners (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 163,
+   "P": 0.8008432350542097
+  },
+  {
+   "key": "mv:376",
+   "title": "The Green Mile (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": 0.9094680766968049
+  },
+  {
+   "key": "mv:377",
+   "title": "The Wolf of Wall Street (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 89,
+   "P": 1.6716199937051617
+  },
+  {
+   "key": "mv:379",
+   "title": "Project Hail Mary (2026)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 105,
+   "P": 0.19159803281748036
+  },
+  {
+   "key": "mv:380",
+   "title": "Fight Club (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 125,
+   "P": 0.9827462651580788
+  },
+  {
+   "key": "mv:381",
+   "title": "GoodFellas (1990)",
+   "source": "Bluray-1080p",
+   "bppPlus": 157,
+   "P": -0.10852910857429184
+  },
+  {
+   "key": "mv:386",
+   "title": "Ready Player One (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": 0.34095471648965464
+  },
+  {
+   "key": "mv:387",
+   "title": "The 40 Year Old Virgin (2005)",
+   "source": "WEBRip-720p",
+   "bppPlus": 49,
+   "P": -0.7180643742165945
+  },
+  {
+   "key": "mv:389",
+   "title": "The Shawshank Redemption (1994)",
+   "source": "Bluray-1080p",
+   "bppPlus": 104,
+   "P": 2.0614654733367423
+  },
+  {
+   "key": "mv:390",
+   "title": "The Martian (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 94,
+   "P": 1.524968131576903
+  },
+  {
+   "key": "mv:391",
+   "title": "Elysium (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": 0.06167026851817642
+  },
+  {
+   "key": "mv:394",
+   "title": "Field of Dreams (1989)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": 1.7059174604502398
+  },
+  {
+   "key": "mv:395",
+   "title": "The Rainmaker (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 70,
+   "P": -0.6064942293228494
+  },
+  {
+   "key": "mv:396",
+   "title": "One Flew Over the Cuckoo's Nest (1975)",
+   "source": "Bluray-1080p",
+   "bppPlus": 74,
+   "P": 1.116007645860897
+  },
+  {
+   "key": "mv:397",
+   "title": "A Few Good Men (1992)",
+   "source": "Bluray-1080p",
+   "bppPlus": 94,
+   "P": -0.5857216580260654
+  },
+  {
+   "key": "mv:398",
+   "title": "The Bucket List (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": -0.38523008587277635
+  },
+  {
+   "key": "mv:399",
+   "title": "Crouching Tiger, Hidden Dragon (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": -0.2394288200447647
+  },
+  {
+   "key": "mv:400",
+   "title": "The Revenant (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 82,
+   "P": 1.5745125587972797
+  },
+  {
+   "key": "mv:401",
+   "title": "The Great Gatsby (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": 0.6161155507673062
+  },
+  {
+   "key": "mv:402",
+   "title": "Gangs of New York (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": -0.1618218875010564
+  },
+  {
+   "key": "mv:403",
+   "title": "Blood Diamond (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": 0.23781945755891637
+  },
+  {
+   "key": "mv:404",
+   "title": "Nomadland (2021)",
+   "source": "Bluray-1080p",
+   "bppPlus": 159,
+   "P": -1.0595298544222103
+  },
+  {
+   "key": "mv:405",
+   "title": "Apocalypse Now (1979)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 102,
+   "P": 1.18493847791775
+  },
+  {
+   "key": "mv:407",
+   "title": "The Boy and the Heron (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 76,
+   "P": 2.0221624108324416
+  },
+  {
+   "key": "mv:408",
+   "title": "Last Tango in Paris (1972)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": 0.5552749605096396
+  },
+  {
+   "key": "mv:409",
+   "title": "I Swear (2025)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 107,
+   "P": 0.9983681233442586
+  },
+  {
+   "key": "mv:410",
+   "title": "Flow (2024)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 0.32292368742248917
+  },
+  {
+   "key": "mv:411",
+   "title": "Soul (2020)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": 0.3363644862195915
+  },
+  {
+   "key": "mv:412",
+   "title": "It Was Just an Accident (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": -1.1922208476878384
+  },
+  {
+   "key": "mv:413",
+   "title": "Good Time (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": 0.37599506717331393
+  },
+  {
+   "key": "mv:414",
+   "title": "Ex Machina (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 80,
+   "P": -0.4823829663430038
+  },
+  {
+   "key": "mv:415",
+   "title": "Unthinkable (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 0.7614173598762157
+  },
+  {
+   "key": "mv:416",
+   "title": "Raising Arizona (1987)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": -0.24429294246395233
+  },
+  {
+   "key": "mv:417",
+   "title": "Star Wars: Episode I - The Phantom Menace (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": 1.1457199403950602
+  },
+  {
+   "key": "mv:418",
+   "title": "Star Wars: Episode II - Attack of the Clones (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": 0.6254589331439794
+  },
+  {
+   "key": "mv:419",
+   "title": "Star Wars: Episode III - Revenge of the Sith (2005)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": 0.9686211041237309
+  },
+  {
+   "key": "mv:420",
+   "title": "Star Wars: The Last Jedi (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 70,
+   "P": -0.27681400489383967
+  },
+  {
+   "key": "mv:422",
+   "title": "Mission: Impossible - The Final Reckoning (2025)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 85,
+   "P": 1.2462122972599732
+  },
+  {
+   "key": "mv:423",
+   "title": "Mission: Impossible - Dead Reckoning Part One (2023)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 80,
+   "P": 1.186016842518607
+  },
+  {
+   "key": "mv:424",
+   "title": "Shrek (2001)",
+   "source": "WEBDL-720p",
+   "bppPlus": 80,
+   "P": -0.1655943947829568
+  },
+  {
+   "key": "mv:425",
+   "title": "Shrek 2 (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 48,
+   "P": -0.24668206019069336
+  },
+  {
+   "key": "mv:426",
+   "title": "Shrek the Third (2007)",
+   "source": "WEBDL-720p",
+   "bppPlus": 63,
+   "P": -1.4845619595735675
+  },
+  {
+   "key": "mv:427",
+   "title": "Shrek Forever After (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": 0.8940684851823375
+  },
+  {
+   "key": "mv:428",
+   "title": "John Wick (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 74,
+   "P": 0.4475723638827371
+  },
+  {
+   "key": "mv:430",
+   "title": "Jurassic Park III (2001)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.56731279035793
+  },
+  {
+   "key": "mv:431",
+   "title": "The Terminator (1984)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": 1.0264995370830479
+  },
+  {
+   "key": "mv:432",
+   "title": "Terminator 2: Judgment Day (1991)",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": -0.5871240688243831
+  },
+  {
+   "key": "mv:434",
+   "title": "Avatar (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 43,
+   "P": 0.6177221581911191
+  },
+  {
+   "key": "mv:435",
+   "title": "Point Break (1991)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": 1.1712498310384811
+  },
+  {
+   "key": "mv:436",
+   "title": "Ran (1985)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": 0.16282046098426114
+  },
+  {
+   "key": "mv:437",
+   "title": "District 9 (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 41,
+   "P": -0.33533375351503336
+  },
+  {
+   "key": "mv:438",
+   "title": "Chappie (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": -0.38794404493945
+  },
+  {
+   "key": "mv:439",
+   "title": "The Gentlemen (2020)",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": -0.23169816054517112
+  },
+  {
+   "key": "mv:440",
+   "title": "Hot Fuzz (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 74,
+   "P": 0.9360784479398014
+  },
+  {
+   "key": "mv:441",
+   "title": "Shaun of the Dead (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.15397212343369218
+  },
+  {
+   "key": "mv:442",
+   "title": "Letters from Iwo Jima (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 86,
+   "P": 0.26597061286707147
+  },
+  {
+   "key": "mv:443",
+   "title": "Everything Everywhere All at Once (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": 1.4951963261151675
+  },
+  {
+   "key": "mv:444",
+   "title": "The Maltese Falcon (1941)",
+   "source": "Bluray-1080p",
+   "bppPlus": 124,
+   "P": 0.5655652530558581
+  },
+  {
+   "key": "mv:446",
+   "title": "The African Queen (1952)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": -0.041215317041880375
+  },
+  {
+   "key": "mv:447",
+   "title": "Key Largo (1948)",
+   "source": "Bluray-1080p",
+   "bppPlus": 87,
+   "P": -0.6090445870383133
+  },
+  {
+   "key": "mv:448",
+   "title": "To Have and Have Not (1945)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": -1.1011544783827862
+  },
+  {
+   "key": "mv:449",
+   "title": "The Caine Mutiny (1954)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 1.0152710163401641
+  },
+  {
+   "key": "mv:450",
+   "title": "High Sierra (1941)",
+   "source": "Bluray-1080p",
+   "bppPlus": 43,
+   "P": 0.16837332644565636
+  },
+  {
+   "key": "mv:451",
+   "title": "Angels with Dirty Faces (1938)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 0.4913969666518063
+  },
+  {
+   "key": "mv:452",
+   "title": "300 (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 0.6835943796227446
+  },
+  {
+   "key": "mv:453",
+   "title": "Planet of the Apes (1968)",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": 1.4489138235302754
+  },
+  {
+   "key": "mv:454",
+   "title": "Battle Royale (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 76,
+   "P": -1.1988926674938725
+  },
+  {
+   "key": "mv:455",
+   "title": "Hercules (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": 0.10331291981748635
+  },
+  {
+   "key": "mv:456",
+   "title": "Thunderball (1965)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": 0.6210019191639627
+  },
+  {
+   "key": "mv:457",
+   "title": "You Only Live Twice (1967)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": -1.2195512264156763
+  },
+  {
+   "key": "mv:458",
+   "title": "Diamonds Are Forever (1971)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": 0.10174495332851362
+  },
+  {
+   "key": "mv:459",
+   "title": "The Man with the Golden Gun (1974)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": -0.4211217424306512
+  },
+  {
+   "key": "mv:460",
+   "title": "Live and Let Die (1973)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": 0.04674853770144952
+  },
+  {
+   "key": "mv:461",
+   "title": "On Her Majesty's Secret Service (1969)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": 0.6694044671243611
+  },
+  {
+   "key": "mv:462",
+   "title": "The Spy Who Loved Me (1977)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": -1.27980766676227
+  },
+  {
+   "key": "mv:463",
+   "title": "Moonraker (1979)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": -1.536926319734084
+  },
+  {
+   "key": "mv:464",
+   "title": "A View to a Kill (1985)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 0.5440763666632851
+  },
+  {
+   "key": "mv:465",
+   "title": "Octopussy (1983)",
+   "source": "Bluray-1080p",
+   "bppPlus": 41,
+   "P": 0.12141304438701087
+  },
+  {
+   "key": "mv:466",
+   "title": "Never Say Never Again (1983)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": -0.797899213155606
+  },
+  {
+   "key": "mv:467",
+   "title": "For Your Eyes Only (1981)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": -0.810990417180508
+  },
+  {
+   "key": "mv:468",
+   "title": "GoldenEye (1995)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": 1.0289837189416347
+  },
+  {
+   "key": "mv:469",
+   "title": "Die Another Day (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": 0.9490566242213637
+  },
+  {
+   "key": "mv:471",
+   "title": "Tomorrow Never Dies (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": -0.21102708122691757
+  },
+  {
+   "key": "mv:472",
+   "title": "Licence to Kill (1989)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": -0.5083669466550632
+  },
+  {
+   "key": "mv:473",
+   "title": "The World Is Not Enough (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": 0.1912241245061844
+  },
+  {
+   "key": "mv:474",
+   "title": "The Good, the Bad and the Ugly (1966)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": -0.6824393045073104
+  },
+  {
+   "key": "mv:475",
+   "title": "Gran Torino (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 117,
+   "P": 0.9463877830016476
+  },
+  {
+   "key": "mv:477",
+   "title": "All Quiet on the Western Front (1930)",
+   "source": "Bluray-1080p",
+   "bppPlus": 74,
+   "P": 0.11197318892753144
+  },
+  {
+   "key": "mv:478",
+   "title": "All Quiet on the Western Front (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 80,
+   "P": -0.1966489663598857
+  },
+  {
+   "key": "mv:479",
+   "title": "It Happened One Night (1934)",
+   "source": "Bluray-1080p",
+   "bppPlus": 48,
+   "P": 1.5737403365656437
+  },
+  {
+   "key": "mv:480",
+   "title": "Mutiny on the Bounty (1935)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": 0.7888600453518577
+  },
+  {
+   "key": "mv:481",
+   "title": "Stagecoach (1939)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": 0.12081082309136498
+  },
+  {
+   "key": "mv:482",
+   "title": "The Searchers (1956)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": -0.7692545587444538
+  },
+  {
+   "key": "mv:483",
+   "title": "The Man Who Shot Liberty Valance (1962)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 59,
+   "P": -1.8379320503192116
+  },
+  {
+   "key": "mv:484",
+   "title": "Anatomy of a Murder (1959)",
+   "source": "Bluray-1080p",
+   "bppPlus": 42,
+   "P": -0.3688261161744006
+  },
+  {
+   "key": "mv:485",
+   "title": "The Philadelphia Story (1940)",
+   "source": "Bluray-1080p",
+   "bppPlus": 106,
+   "P": -1.3999691363033162
+  },
+  {
+   "key": "mv:486",
+   "title": "The Final Countdown (1980)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": -1.6546760584093498
+  },
+  {
+   "key": "mv:488",
+   "title": "Miracle on 34th Street (1947)",
+   "source": "Bluray-1080p",
+   "bppPlus": 116,
+   "P": -0.2622267046553485
+  },
+  {
+   "key": "mv:489",
+   "title": "An American in Paris (1951)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": 0.19225468613483865
+  },
+  {
+   "key": "mv:490",
+   "title": "12 Angry Men (1957)",
+   "source": "Remux-1080p",
+   "bppPlus": 72,
+   "P": -0.22056472096422255
+  },
+  {
+   "key": "mv:491",
+   "title": "Guess Who's Coming to Dinner (1967)",
+   "source": "Bluray-1080p",
+   "bppPlus": 83,
+   "P": -2.081058473225945
+  },
+  {
+   "key": "mv:492",
+   "title": "Hello, Dolly! (1969)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": 0.7451203905432361
+  },
+  {
+   "key": "mv:493",
+   "title": "The Score (2001)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": 0.2270938822123819
+  },
+  {
+   "key": "mv:494",
+   "title": "Airplane! (1980)",
+   "source": "Bluray-1080p",
+   "bppPlus": 41,
+   "P": 0.37333559522610754
+  },
+  {
+   "key": "mv:495",
+   "title": "Top Secret! (1984)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": 0.49208478907811676
+  },
+  {
+   "key": "mv:496",
+   "title": "The French Connection (1971)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": 0.7454018835114166
+  },
+  {
+   "key": "mv:498",
+   "title": "All That Jazz (1979)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": -0.3853513274431566
+  },
+  {
+   "key": "mv:499",
+   "title": "Terms of Endearment (1983)",
+   "source": "Bluray-1080p",
+   "bppPlus": 85,
+   "P": -0.3796940838180308
+  },
+  {
+   "key": "mv:500",
+   "title": "The Color Purple (1985)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": -1.2119024108227654
+  },
+  {
+   "key": "mv:501",
+   "title": "The English Patient (1996)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": -0.14284695462352356
+  },
+  {
+   "key": "mv:502",
+   "title": "Chicago (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": 1.7976344351048554
+  },
+  {
+   "key": "mv:503",
+   "title": "Lost in Translation (2003)",
+   "source": "Bluray-1080p",
+   "bppPlus": 113,
+   "P": 1.575943858404713
+  },
+  {
+   "key": "mv:504",
+   "title": "Million Dollar Baby (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": -0.253323896868915
+  },
+  {
+   "key": "mv:505",
+   "title": "Ray (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": 0.5242354735817731
+  },
+  {
+   "key": "mv:507",
+   "title": "Slumdog Millionaire (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 1.1688199922874896
+  },
+  {
+   "key": "mv:508",
+   "title": "The King's Speech (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 93,
+   "P": -0.5617808768545437
+  },
+  {
+   "key": "mv:509",
+   "title": "Argo (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": 0.9582833527879911
+  },
+  {
+   "key": "mv:510",
+   "title": "Hugo (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 0.017273841811437447
+  },
+  {
+   "key": "mv:511",
+   "title": "Dallas Buyers Club (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": -0.3562678042000834
+  },
+  {
+   "key": "mv:512",
+   "title": "The Imitation Game (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": -0.6057200779326816
+  },
+  {
+   "key": "mv:513",
+   "title": "Hell or High Water (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 65,
+   "P": -0.16036063268646356
+  },
+  {
+   "key": "mv:514",
+   "title": "Hidden Figures (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": -1.2881905001002334
+  },
+  {
+   "key": "mv:515",
+   "title": "Get Out (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 116,
+   "P": 1.0902676222766885
+  },
+  {
+   "key": "mv:516",
+   "title": "BlacKkKlansman (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 79,
+   "P": 1.1451803575005635
+  },
+  {
+   "key": "mv:517",
+   "title": "Bohemian Rhapsody (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 70,
+   "P": -0.8278252306764953
+  },
+  {
+   "key": "mv:518",
+   "title": "Roma (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 106,
+   "P": 0.5095740396528432
+  },
+  {
+   "key": "mv:519",
+   "title": "Jojo Rabbit (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": 0.021928745829880494
+  },
+  {
+   "key": "mv:521",
+   "title": "Drive My Car (2021)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": 0.5044271452911162
+  },
+  {
+   "key": "mv:522",
+   "title": "Train Dreams (2025)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 182,
+   "P": 0.4045619014254801
+  },
+  {
+   "key": "mv:523",
+   "title": "Sentimental Value (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": 0.14801754112313456
+  },
+  {
+   "key": "mv:524",
+   "title": "Lust, Caution (2007)",
+   "source": "Bluray-720p",
+   "bppPlus": 66,
+   "P": -0.2686793500655888
+  },
+  {
+   "key": "mv:525",
+   "title": "Black Coal, Thin Ice (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 76,
+   "P": -1.131228355632863
+  },
+  {
+   "key": "mv:526",
+   "title": "Trainwreck (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": 1.4459583372964748
+  },
+  {
+   "key": "mv:527",
+   "title": "The Lincoln Lawyer (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": -0.4393061577930262
+  },
+  {
+   "key": "mv:528",
+   "title": "Prometheus (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 88,
+   "P": 0.11904901094875746
+  },
+  {
+   "key": "mv:531",
+   "title": "Independence Day (1996)",
+   "source": "Bluray-1080p",
+   "bppPlus": 84,
+   "P": -0.7638159116451148
+  },
+  {
+   "key": "mv:533",
+   "title": "Flight (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 89,
+   "P": 0.02256637757956718
+  },
+  {
+   "key": "mv:535",
+   "title": "The Intouchables (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": -0.18444630160647302
+  },
+  {
+   "key": "mv:536",
+   "title": "Senna (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": 1.2945459060651103
+  },
+  {
+   "key": "mv:537",
+   "title": "Shutter Island (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": 0.7102683140756546
+  },
+  {
+   "key": "mv:538",
+   "title": "The Pianist (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": -1.6900097159611547
+  },
+  {
+   "key": "mv:540",
+   "title": "Zodiac (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": -1.273226373752296
+  },
+  {
+   "key": "mv:541",
+   "title": "Palm Springs (2020)",
+   "source": "Bluray-1080p",
+   "bppPlus": 91,
+   "P": 0.9579832885379101
+  },
+  {
+   "key": "mv:543",
+   "title": "Spy Kids (2001)",
+   "source": "Bluray-720p",
+   "bppPlus": 60,
+   "P": -0.635114313287464
+  },
+  {
+   "key": "mv:544",
+   "title": "Spy Kids 3-D: Game Over (2003)",
+   "source": "Bluray-1080p",
+   "bppPlus": 41,
+   "P": 0.03138199703901347
+  },
+  {
+   "key": "mv:545",
+   "title": "Spy Kids 2: The Island of Lost Dreams (2002)",
+   "source": "Bluray-720p",
+   "bppPlus": 46,
+   "P": -0.2420126689152885
+  },
+  {
+   "key": "mv:546",
+   "title": "A Score to Settle (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 80,
+   "P": 0.31872923997432107
+  },
+  {
+   "key": "mv:547",
+   "title": "A Million Miles Away (2023)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 43,
+   "P": 1.5695280246800973
+  },
+  {
+   "key": "mv:548",
+   "title": "Blow (2001)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": -0.12669711282586582
+  },
+  {
+   "key": "mv:549",
+   "title": "Chinatown (1974)",
+   "source": "Bluray-1080p",
+   "bppPlus": 137,
+   "P": -0.30276863361252127
+  },
+  {
+   "key": "mv:550",
+   "title": "Eyes Wide Shut (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 65,
+   "P": -0.0680699949476029
+  },
+  {
+   "key": "mv:552",
+   "title": "The Naked Gun: From the Files of Police Squad! (1988)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": -1.3214658502658354
+  },
+  {
+   "key": "mv:554",
+   "title": "Borat: Cultural Learnings of America for Make Benefit Glorious Nation of Kazakhstan (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": -0.2849827257219704
+  },
+  {
+   "key": "mv:555",
+   "title": "Borat Subsequent Moviefilm: Delivery of Prodigious Bribe to American Regime for Make Benefit Once Glorious Nation of Kazakhstan (2020)",
+   "source": "WEBRip-720p",
+   "bppPlus": 55,
+   "P": -1.080420235111618
+  },
+  {
+   "key": "mv:556",
+   "title": "Madagascar (2005)",
+   "source": "Bluray-720p",
+   "bppPlus": 43,
+   "P": -1.0899598550793244
+  },
+  {
+   "key": "mv:557",
+   "title": "The Dictator (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": -0.44099889972703643
+  },
+  {
+   "key": "mv:558",
+   "title": "Talladega Nights: The Ballad of Ricky Bobby (2006)",
+   "source": "Bluray-720p",
+   "bppPlus": 58,
+   "P": 0.1583238799060052
+  },
+  {
+   "key": "mv:559",
+   "title": "Ali G Indahouse (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": -1.1917419854800977
+  },
+  {
+   "key": "mv:560",
+   "title": "They Live (1988)",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": -0.17384251744461926
+  },
+  {
+   "key": "mv:561",
+   "title": "Ikiru (1952)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": -0.21115314953349212
+  },
+  {
+   "key": "mv:562",
+   "title": "Le Samouraï (1967)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": 1.5329357462463566
+  },
+  {
+   "key": "mv:563",
+   "title": "Boogie Nights (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": -0.06588238532169524
+  },
+  {
+   "key": "mv:564",
+   "title": "The Warriors (1979)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": -0.15457611069225116
+  },
+  {
+   "key": "mv:565",
+   "title": "La Haine (1995)",
+   "source": "Bluray-1080p",
+   "bppPlus": 96,
+   "P": 1.8966251638113194
+  },
+  {
+   "key": "mv:566",
+   "title": "Being There (1979)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": -0.1297437046279235
+  },
+  {
+   "key": "mv:567",
+   "title": "The 'Burbs (1989)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": -0.5085079367738587
+  },
+  {
+   "key": "mv:568",
+   "title": "¡Three Amigos! (1986)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.215073989263585
+  },
+  {
+   "key": "mv:570",
+   "title": "The Exorcist (1973)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": 0.3927186055886669
+  },
+  {
+   "key": "mv:572",
+   "title": "The Third Man (1949)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": 0.18447072937245537
+  },
+  {
+   "key": "mv:573",
+   "title": "RoboCop (1987)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": 0.5039466396788892
+  },
+  {
+   "key": "mv:574",
+   "title": "Magnolia (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 82,
+   "P": 0.6235008131617842
+  },
+  {
+   "key": "mv:576",
+   "title": "Gravity (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 91,
+   "P": 1.2075214289492262
+  },
+  {
+   "key": "mv:577",
+   "title": "Arrival (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 121,
+   "P": -0.1883845974098444
+  },
+  {
+   "key": "mv:578",
+   "title": "Prisoners (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 74,
+   "P": 0.41665519453094335
+  },
+  {
+   "key": "mv:579",
+   "title": "Men in Black (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": -0.42251977405585683
+  },
+  {
+   "key": "mv:580",
+   "title": "Back to the Future Part III (1990)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": -0.5060960608243364
+  },
+  {
+   "key": "mv:582",
+   "title": "The Goonies (1985)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": 1.496196485188719
+  },
+  {
+   "key": "mv:583",
+   "title": "The Mask of Zorro (1998)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": 1.0944037010204397
+  },
+  {
+   "key": "mv:584",
+   "title": "The Age of Adaline (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": -0.06208768982565284
+  },
+  {
+   "key": "mv:585",
+   "title": "Ender's Game (2013)",
+   "source": "Bluray-720p",
+   "bppPlus": 55,
+   "P": -0.1692970080052029
+  },
+  {
+   "key": "mv:586",
+   "title": "The Star Wars Holiday Special (1978)",
+   "source": "DVD",
+   "bppPlus": 88,
+   "P": 1.5558081485788264
+  },
+  {
+   "key": "mv:588",
+   "title": "Paths of Glory (1957)",
+   "source": "Bluray-1080p",
+   "bppPlus": 42,
+   "P": -2.1381148074704273
+  },
+  {
+   "key": "mv:589",
+   "title": "Spartacus (1960)",
+   "source": "Bluray-1080p",
+   "bppPlus": 42,
+   "P": -0.4668412086908526
+  },
+  {
+   "key": "mv:590",
+   "title": "Lolita (1962)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": 0.48838522197455375
+  },
+  {
+   "key": "mv:591",
+   "title": "The Father (2020)",
+   "source": "Bluray-1080p",
+   "bppPlus": 183,
+   "P": 0.0105661603979703
+  },
+  {
+   "key": "mv:592",
+   "title": "Detachment (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 44,
+   "P": 0.23639494211465106
+  },
+  {
+   "key": "mv:593",
+   "title": "The Life of Chuck (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 116,
+   "P": -0.18933837715903035
+  },
+  {
+   "key": "mv:594",
+   "title": "Dancer in the Dark (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": 1.4219926087930241
+  },
+  {
+   "key": "mv:595",
+   "title": "Greyhound (2020)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 84,
+   "P": 1.640199953509505
+  },
+  {
+   "key": "mv:596",
+   "title": "Top Gun: Maverick (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": 1.906134713877996
+  },
+  {
+   "key": "mv:597",
+   "title": "Lord of War (2005)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": 1.4998442319200744
+  },
+  {
+   "key": "mv:598",
+   "title": "Beauty and the Beast (1991)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 0.0746000285050715
+  },
+  {
+   "key": "mv:599",
+   "title": "Paris, Texas (1984)",
+   "source": "Bluray-1080p",
+   "bppPlus": 120,
+   "P": 0.29411049587180577
+  },
+  {
+   "key": "mv:600",
+   "title": "Blazing Saddles (1974)",
+   "source": "Bluray-1080p",
+   "bppPlus": 95,
+   "P": -1.2827872135300684
+  },
+  {
+   "key": "mv:601",
+   "title": "Caddyshack (1980)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": -0.11742027122210139
+  },
+  {
+   "key": "mv:602",
+   "title": "Annie Hall (1977)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": 0.48047631998784185
+  },
+  {
+   "key": "mv:603",
+   "title": "The Blues Brothers (1980)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 89,
+   "P": -0.5566442752745425
+  },
+  {
+   "key": "mv:604",
+   "title": "National Lampoon's Vacation (1983)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": -0.01430037574681838
+  },
+  {
+   "key": "mv:605",
+   "title": "Spaceballs (1987)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": 0.25090946976944056
+  },
+  {
+   "key": "mv:606",
+   "title": "Space Jam (1996)",
+   "source": "Bluray-720p",
+   "bppPlus": 40,
+   "P": 0.2787675315892902
+  },
+  {
+   "key": "mv:607",
+   "title": "Super Troopers (2001)",
+   "source": "Bluray-720p",
+   "bppPlus": 34,
+   "P": -0.798195682424161
+  },
+  {
+   "key": "mv:608",
+   "title": "Planes, Trains and Automobiles (1987)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": -0.8670896966747342
+  },
+  {
+   "key": "mv:609",
+   "title": "Happy Gilmore 2 (2025)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 36,
+   "P": -0.0008653400475987221
+  },
+  {
+   "key": "mv:610",
+   "title": "A Fish Called Wanda (1988)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": -0.3033660880221394
+  },
+  {
+   "key": "mv:611",
+   "title": "Napoleon Dynamite (2004)",
+   "source": "Bluray-720p",
+   "bppPlus": 54,
+   "P": -2.060957543199481
+  },
+  {
+   "key": "mv:612",
+   "title": "Ghostbusters (1984)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": 0.5593035258625788
+  },
+  {
+   "key": "mv:613",
+   "title": "The Hangover (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": -0.3674710045521134
+  },
+  {
+   "key": "mv:614",
+   "title": "The Hangover Part II (2011)",
+   "source": "Bluray-720p",
+   "bppPlus": 49,
+   "P": -0.09682313641507523
+  },
+  {
+   "key": "mv:616",
+   "title": "American Pie (1999)",
+   "source": "Bluray-720p",
+   "bppPlus": 54,
+   "P": -0.9523576321217903
+  },
+  {
+   "key": "mv:617",
+   "title": "M*A*S*H (1970)",
+   "source": "Bluray-1080p",
+   "bppPlus": 89,
+   "P": -0.6250823202285613
+  },
+  {
+   "key": "mv:618",
+   "title": "Mrs. Doubtfire (1993)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": -0.5974258475818484
+  },
+  {
+   "key": "mv:619",
+   "title": "The Odd Couple (1968)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": 0.21249578020165086
+  },
+  {
+   "key": "mv:620",
+   "title": "Scary Movie (2000)",
+   "source": "Bluray-720p",
+   "bppPlus": 45,
+   "P": -0.5946601416887904
+  },
+  {
+   "key": "mv:621",
+   "title": "Home Alone (1990)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": -0.41090024837479167
+  },
+  {
+   "key": "mv:622",
+   "title": "Home Alone 2: Lost in New York (1992)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": -0.5193907678706067
+  },
+  {
+   "key": "mv:623",
+   "title": "American History X (1998)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": 0.3714422054139323
+  },
+  {
+   "key": "mv:624",
+   "title": "Crash (2005)",
+   "source": "Bluray-1080p",
+   "bppPlus": 114,
+   "P": 0.5069474020954361
+  },
+  {
+   "key": "mv:625",
+   "title": "Trainspotting (1996)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": 0.060483183936447055
+  },
+  {
+   "key": "mv:626",
+   "title": "The Curious Case of Benjamin Button (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": 0.5710847822563876
+  },
+  {
+   "key": "mv:627",
+   "title": "A Beautiful Mind (2001)",
+   "source": "Bluray-1080p",
+   "bppPlus": 76,
+   "P": 0.9725421834520631
+  },
+  {
+   "key": "mv:628",
+   "title": "Into the Wild (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": 0.5029621147788463
+  },
+  {
+   "key": "mv:629",
+   "title": "American Gangster (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 40,
+   "P": 0.9082071037164481
+  },
+  {
+   "key": "mv:630",
+   "title": "Unforgiven (1992)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": -0.600243811473888
+  },
+  {
+   "key": "mv:631",
+   "title": "3:10 to Yuma (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": 0.012817232580047234
+  },
+  {
+   "key": "mv:632",
+   "title": "Dog Day Afternoon (1975)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": -0.6472846211374198
+  },
+  {
+   "key": "mv:633",
+   "title": "Dead Poets Society (1989)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": 0.1705289142223896
+  },
+  {
+   "key": "mv:634",
+   "title": "Up in the Air (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": 0.06634592518527584
+  },
+  {
+   "key": "mv:635",
+   "title": "A Christmas Story (1983)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.6140551285144809
+  },
+  {
+   "key": "mv:636",
+   "title": "The World's Fastest Indian (2005)",
+   "source": "Bluray-1080p",
+   "bppPlus": 44,
+   "P": -0.3469722230840107
+  },
+  {
+   "key": "mv:637",
+   "title": "Looper (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 83,
+   "P": 0.403253846700826
+  },
+  {
+   "key": "mv:639",
+   "title": "Children of Men (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": 0.5821575655026803
+  },
+  {
+   "key": "mv:640",
+   "title": "The X-Files (1998)",
+   "source": "Bluray-720p",
+   "bppPlus": 54,
+   "P": -0.6246646559224691
+  },
+  {
+   "key": "mv:641",
+   "title": "Star Trek (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": -0.30784435962411727
+  },
+  {
+   "key": "mv:642",
+   "title": "Total Recall (1990)",
+   "source": "Bluray-1080p",
+   "bppPlus": 65,
+   "P": 0.3167287834465834
+  },
+  {
+   "key": "mv:643",
+   "title": "Star Trek IV: The Voyage Home (1986)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": -1.040936782567398
+  },
+  {
+   "key": "mv:644",
+   "title": "Star Trek: The Motion Picture (1979)",
+   "source": "Bluray-720p",
+   "bppPlus": 91,
+   "P": -0.006701419875787646
+  },
+  {
+   "key": "mv:645",
+   "title": "Star Trek III: The Search for Spock (1984)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": -0.6333056606413308
+  },
+  {
+   "key": "mv:646",
+   "title": "Star Trek II: The Wrath of Khan (1982)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": -0.2143995658927822
+  },
+  {
+   "key": "mv:647",
+   "title": "Star Trek V: The Final Frontier (1989)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": -0.9561080887402099
+  },
+  {
+   "key": "mv:648",
+   "title": "Star Trek VI: The Undiscovered Country (1991)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": -0.8313501152234145
+  },
+  {
+   "key": "mv:649",
+   "title": "I Am Legend (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": 0.8998103120849306
+  },
+  {
+   "key": "mv:651",
+   "title": "The Thing (1982)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": 0.3015293392887069
+  },
+  {
+   "key": "mv:652",
+   "title": "Night of the Living Dead (1968)",
+   "source": "Bluray-1080p",
+   "bppPlus": 80,
+   "P": 0.059873039308443676
+  },
+  {
+   "key": "mv:653",
+   "title": "Life Is Beautiful (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": -0.16050265792811194
+  },
+  {
+   "key": "mv:654",
+   "title": "Cinema Paradiso (1988)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": -1.1277616810050153
+  },
+  {
+   "key": "mv:655",
+   "title": "The Lives of Others (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": -1.3654365385092233
+  },
+  {
+   "key": "mv:656",
+   "title": "The Great Dictator (1940)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": -1.2210726837524386
+  },
+  {
+   "key": "mv:658",
+   "title": "High and Low (1963)",
+   "source": "Bluray-1080p",
+   "bppPlus": 42,
+   "P": -1.0532018922036632
+  },
+  {
+   "key": "mv:659",
+   "title": "Amadeus (1984)",
+   "source": "Bluray-1080p",
+   "bppPlus": 111,
+   "P": 0.21345757757624526
+  },
+  {
+   "key": "mv:660",
+   "title": "Das Boot (1981)",
+   "source": "Bluray-1080p",
+   "bppPlus": 76,
+   "P": -0.7228985850966707
+  },
+  {
+   "key": "mv:661",
+   "title": "Oldboy (2003)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": -0.5972434773601186
+  },
+  {
+   "key": "mv:662",
+   "title": "3 Idiots (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": 0.6012150889261403
+  },
+  {
+   "key": "mv:663",
+   "title": "Capernaum (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": -0.16264135303589422
+  },
+  {
+   "key": "mv:664",
+   "title": "Come and See (1985)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": -0.589410578752699
+  },
+  {
+   "key": "mv:665",
+   "title": "Incendies (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -1.145866230194565
+  },
+  {
+   "key": "mv:666",
+   "title": "A Separation (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": 0.11529013317141538
+  },
+  {
+   "key": "mv:667",
+   "title": "Downfall (2004)",
+   "source": "Remux-1080p",
+   "bppPlus": 79,
+   "P": -0.2734914184929445
+  },
+  {
+   "key": "mv:668",
+   "title": "Judgment at Nuremberg (1961)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.6531748114170802
+  },
+  {
+   "key": "mv:669",
+   "title": "For a Few Dollars More (1965)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": 0.12115072164644498
+  },
+  {
+   "key": "mv:670",
+   "title": "The Sixth Sense (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 68,
+   "P": -0.8928836453130203
+  },
+  {
+   "key": "mv:671",
+   "title": "Yojimbo (1961)",
+   "source": "Bluray-1080p",
+   "bppPlus": 42,
+   "P": -0.7244816910478229
+  },
+  {
+   "key": "mv:672",
+   "title": "The Magnificent Seven (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 0.6594642914161858
+  },
+  {
+   "key": "mv:673",
+   "title": "The Magnificent Seven (1960)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": -0.16671194350457036
+  },
+  {
+   "key": "mv:674",
+   "title": "Rashomon (1950)",
+   "source": "Bluray-1080p",
+   "bppPlus": 80,
+   "P": -1.5082433606288097
+  },
+  {
+   "key": "mv:675",
+   "title": "A Fistful of Dollars (1964)",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": -0.6741766283439943
+  },
+  {
+   "key": "mv:676",
+   "title": "Sanjuro (1962)",
+   "source": "Bluray-1080p",
+   "bppPlus": 116,
+   "P": -1.4198826044669237
+  },
+  {
+   "key": "mv:677",
+   "title": "Kagemusha (1980)",
+   "source": "Bluray-1080p",
+   "bppPlus": 43,
+   "P": -0.5284464807704369
+  },
+  {
+   "key": "mv:678",
+   "title": "The Elephant Man (1980)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": 0.045910348720967005
+  },
+  {
+   "key": "mv:679",
+   "title": "Dune (1984)",
+   "source": "Bluray-1080p",
+   "bppPlus": 110,
+   "P": -0.012645843857539446
+  },
+  {
+   "key": "mv:680",
+   "title": "The Secret in Their Eyes (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 74,
+   "P": -0.013450035181976091
+  },
+  {
+   "key": "mv:681",
+   "title": "Lock, Stock and Two Smoking Barrels (1998)",
+   "source": "Bluray-1080p",
+   "bppPlus": 41,
+   "P": -0.11835348191241106
+  },
+  {
+   "key": "mv:682",
+   "title": "Three Billboards Outside Ebbing, Missouri (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.69599072078448
+  },
+  {
+   "key": "mv:683",
+   "title": "Gone Girl (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 94,
+   "P": 0.016375584529198708
+  },
+  {
+   "key": "mv:684",
+   "title": "In the Name of the Father (1993)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": 0.6712804043744198
+  },
+  {
+   "key": "mv:685",
+   "title": "Maharaja (2024)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 71,
+   "P": -0.44442478009732334
+  },
+  {
+   "key": "mv:686",
+   "title": "Rebel Ridge (2024)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 68,
+   "P": 1.2834735412635576
+  },
+  {
+   "key": "mv:687",
+   "title": "Thelma (2024)",
+   "source": "Bluray-1080p",
+   "bppPlus": 86,
+   "P": 0.08590365133482507
+  },
+  {
+   "key": "mv:688",
+   "title": "Love Lies Bleeding (2024)",
+   "source": "Bluray-1080p",
+   "bppPlus": 77,
+   "P": -0.07926225297219512
+  },
+  {
+   "key": "mv:689",
+   "title": "The Substance (2024)",
+   "source": "Bluray-1080p",
+   "bppPlus": 76,
+   "P": 1.2121103622542106
+  },
+  {
+   "key": "mv:690",
+   "title": "Challengers (2024)",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": -0.6837712884656214
+  },
+  {
+   "key": "mv:691",
+   "title": "Evil Does Not Exist (2023)",
+   "source": "Remux-1080p",
+   "bppPlus": 62,
+   "P": 0.26257027639871816
+  },
+  {
+   "key": "mv:693",
+   "title": "The Tree of Life (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 0.01580034846232097
+  },
+  {
+   "key": "mv:694",
+   "title": "Mirror (1975)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.7434484621539614
+  },
+  {
+   "key": "mv:695",
+   "title": "Samsara (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 86,
+   "P": -1.708240548624905
+  },
+  {
+   "key": "mv:697",
+   "title": "Mishima: A Life in Four Chapters (1985)",
+   "source": "Bluray-1080p",
+   "bppPlus": 48,
+   "P": 0.21686962786272534
+  },
+  {
+   "key": "mv:698",
+   "title": "Do the Right Thing (1989)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": -1.035512101771455
+  },
+  {
+   "key": "mv:699",
+   "title": "Akira (1988)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": 0.6669089842989435
+  },
+  {
+   "key": "mv:700",
+   "title": "Rififi (1955)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": 0.895867316452881
+  },
+  {
+   "key": "mv:701",
+   "title": "Persona (1966)",
+   "source": "Bluray-1080p",
+   "bppPlus": 38,
+   "P": 0.5213982985096446
+  },
+  {
+   "key": "mv:702",
+   "title": "Beginners (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 106,
+   "P": 1.3757826941697324
+  },
+  {
+   "key": "mv:704",
+   "title": "Synecdoche, New York (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 92,
+   "P": 1.230795808918261
+  },
+  {
+   "key": "mv:705",
+   "title": "Before Midnight (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": -1.4336055556051386
+  },
+  {
+   "key": "mv:706",
+   "title": "Adaptation. (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 78,
+   "P": 0.9607123981251775
+  },
+  {
+   "key": "mv:707",
+   "title": "The Legend of Drunken Master (1994)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": 0.661712887446337
+  },
+  {
+   "key": "mv:708",
+   "title": "Boyhood (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": 0.10220678682366499
+  },
+  {
+   "key": "mv:709",
+   "title": "The Fall Guy (2024)",
+   "source": "WEBRip-720p",
+   "bppPlus": 47,
+   "P": 0.5730389091622266
+  },
+  {
+   "key": "mv:710",
+   "title": "The Fall (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": -0.0940538517524639
+  },
+  {
+   "key": "mv:711",
+   "title": "Flowers of Shanghai (1998)",
+   "source": "Bluray-1080p",
+   "bppPlus": 70,
+   "P": 0.4578995281838509
+  },
+  {
+   "key": "mv:712",
+   "title": "Hero (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 36,
+   "P": -0.2383243314425356
+  },
+  {
+   "key": "mv:713",
+   "title": "Nuremberg (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": -1.5914453448448695
+  },
+  {
+   "key": "mv:714",
+   "title": "The Secret Agent (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 97,
+   "P": 0.09896452751644626
+  },
+  {
+   "key": "mv:715",
+   "title": "Elite Squad (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": 1.195336738695223
+  },
+  {
+   "key": "mv:717",
+   "title": "Godzilla (1954)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": 0.28905264377263873
+  },
+  {
+   "key": "mv:718",
+   "title": "Godzilla Minus One (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 103,
+   "P": -1.5685577148891785
+  },
+  {
+   "key": "mv:719",
+   "title": "20 Days in Mariupol (2023)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 73,
+   "P": -1.9513540741871074
+  },
+  {
+   "key": "mv:720",
+   "title": "Beyond Utopia (2023)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 74,
+   "P": 0.3505028538369264
+  },
+  {
+   "key": "mv:721",
+   "title": "The Drama (2026)",
+   "source": "Bluray-1080p",
+   "bppPlus": 114,
+   "P": -1.1388970344482223
+  },
+  {
+   "key": "mv:723",
+   "title": "Creed (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": -0.9559618622165649
+  },
+  {
+   "key": "mv:724",
+   "title": "The Creator (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 95,
+   "P": 2.7510944623041076
+  },
+  {
+   "key": "mv:725",
+   "title": "BlackBerry (2023)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 74,
+   "P": 1.534961928143713
+  },
+  {
+   "key": "mv:726",
+   "title": "The Killer (2023)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 70,
+   "P": 1.5262396301936565
+  },
+  {
+   "key": "mv:727",
+   "title": "They Cloned Tyrone (2023)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 87,
+   "P": 1.0883309501940812
+  },
+  {
+   "key": "mv:728",
+   "title": "Baby Driver (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": 1.1320511577772756
+  },
+  {
+   "key": "mv:729",
+   "title": "Collateral (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 78,
+   "P": 0.455954859466397
+  },
+  {
+   "key": "mv:730",
+   "title": "Due Date (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": 0.05960251924292261
+  },
+  {
+   "key": "mv:731",
+   "title": "No Hard Feelings (2023)",
+   "source": "WEBRip-720p",
+   "bppPlus": 59,
+   "P": 0.5854487132950659
+  },
+  {
+   "key": "mv:733",
+   "title": "Anatomy of a Fall (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": -0.6260378513279118
+  },
+  {
+   "key": "mv:734",
+   "title": "Past Lives (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.6434569600438151
+  },
+  {
+   "key": "mv:735",
+   "title": "The Taste of Things (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": -1.1625450694396124
+  },
+  {
+   "key": "mv:736",
+   "title": "The Zone of Interest (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": -1.2574568646513609
+  },
+  {
+   "key": "mv:737",
+   "title": "Cha Cha Real Smooth (2022)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 73,
+   "P": -0.6805890499557833
+  },
+  {
+   "key": "mv:738",
+   "title": "The Unbearable Weight of Massive Talent (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": 0.25902098274105523
+  },
+  {
+   "key": "mv:740",
+   "title": "Navalny (2022)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 52,
+   "P": 1.3393019416163527
+  },
+  {
+   "key": "mv:741",
+   "title": "RRR (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": -0.5482228183208587
+  },
+  {
+   "key": "mv:742",
+   "title": "In Time (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 79,
+   "P": 0.27188475938824247
+  },
+  {
+   "key": "mv:743",
+   "title": "The Whale (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 96,
+   "P": -1.3207129528893893
+  },
+  {
+   "key": "mv:744",
+   "title": "True Romance (1993)",
+   "source": "Bluray-1080p",
+   "bppPlus": 74,
+   "P": 0.42601272635354837
+  },
+  {
+   "key": "mv:745",
+   "title": "Blue Velvet (1986)",
+   "source": "Bluray-1080p",
+   "bppPlus": 147,
+   "P": 0.5791972804940251
+  },
+  {
+   "key": "mv:746",
+   "title": "Giant (1956)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": -0.03547371894405417
+  },
+  {
+   "key": "mv:747",
+   "title": "Rebel Without a Cause (1955)",
+   "source": "Bluray-1080p",
+   "bppPlus": 80,
+   "P": 0.3281515417785421
+  },
+  {
+   "key": "mv:748",
+   "title": "Hoosiers (1986)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 0.2555124448560192
+  },
+  {
+   "key": "mv:749",
+   "title": "Rumble Fish (1983)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": 0.11829751407149376
+  },
+  {
+   "key": "mv:750",
+   "title": "True Grit (1969)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": -0.3013294351297363
+  },
+  {
+   "key": "mv:751",
+   "title": "The Descendants (2011)",
+   "source": "Bluray-720p",
+   "bppPlus": 49,
+   "P": -1.4507187487690936
+  },
+  {
+   "key": "mv:753",
+   "title": "The Death of Stalin (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": 1.0932083731121205
+  },
+  {
+   "key": "mv:754",
+   "title": "Waterworld (1995)",
+   "source": "Bluray-1080p",
+   "bppPlus": 44,
+   "P": 0.3251545639160207
+  },
+  {
+   "key": "mv:755",
+   "title": "The Last Movie (1971)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": -0.6280117598940448
+  },
+  {
+   "key": "mv:756",
+   "title": "DodgeBall: A True Underdog Story (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": 0.17128569603763538
+  },
+  {
+   "key": "mv:757",
+   "title": "Bound by Honor (1993)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 117,
+   "P": -1.7807668577339042
+  },
+  {
+   "key": "mv:760",
+   "title": "The Room (2003)",
+   "source": "WEBDL-720p",
+   "bppPlus": 85,
+   "P": -0.5483914408799764
+  },
+  {
+   "key": "mv:761",
+   "title": "The Disaster Artist (2017)",
+   "source": "WEBRip-720p",
+   "bppPlus": 69,
+   "P": -1.1875656667564394
+  },
+  {
+   "key": "mv:762",
+   "title": "Richard Jewell (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": -0.34581466649019843
+  },
+  {
+   "key": "mv:768",
+   "title": "Nobody (2021)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": 0.9683743302441665
+  },
+  {
+   "key": "mv:769",
+   "title": "THX 1138 (1971)",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": -0.6145808506774064
+  },
+  {
+   "key": "mv:771",
+   "title": "Moonstruck (1987)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": 0.3408725113780752
+  },
+  {
+   "key": "mv:772",
+   "title": "Elvis (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": 0.6387705643532465
+  },
+  {
+   "key": "mv:773",
+   "title": "Sling Blade (1996)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": -0.7385688394140419
+  },
+  {
+   "key": "mv:774",
+   "title": "Lady Bird (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": 0.47259517983977817
+  },
+  {
+   "key": "mv:775",
+   "title": "Radio Days (1987)",
+   "source": "Bluray-1080p",
+   "bppPlus": 48,
+   "P": -1.7481906658103383
+  },
+  {
+   "key": "mv:777",
+   "title": "Blade Runner: Black Out 2022 (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 92,
+   "P": 1.5352485451738076
+  },
+  {
+   "key": "mv:778",
+   "title": "2036: Nexus Dawn (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 231,
+   "P": 0.5711456057900599
+  },
+  {
+   "key": "mv:779",
+   "title": "2048: Nowhere to Run (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 206,
+   "P": 1.5233681190371373
+  },
+  {
+   "key": "mv:780",
+   "title": "Chaplin (1992)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": -1.086646246313882
+  },
+  {
+   "key": "mv:781",
+   "title": "Following (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 48,
+   "P": 0.17686549627885848
+  },
+  {
+   "key": "mv:782",
+   "title": "Crime 101 (2026)",
+   "source": "Bluray-1080p",
+   "bppPlus": 113,
+   "P": 0.4387697972746306
+  },
+  {
+   "key": "mv:783",
+   "title": "Victoria & Abdul (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 93,
+   "P": -0.4278839737322838
+  },
+  {
+   "key": "mv:785",
+   "title": "Interstate 60 (2002)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 52,
+   "P": 0.4091524412859862
+  },
+  {
+   "key": "mv:786",
+   "title": "Thelma & Louise (1991)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": 1.2389981370809522
+  },
+  {
+   "key": "mv:787",
+   "title": "St. Vincent (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": -0.05156936228427501
+  },
+  {
+   "key": "mv:788",
+   "title": "John Wick: Chapter 4 (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 42,
+   "P": 0.9870693127454798
+  },
+  {
+   "key": "mv:789",
+   "title": "John Wick: Chapter 2 (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": -0.6305481457836611
+  },
+  {
+   "key": "mv:790",
+   "title": "John Wick: Chapter 3 - Parabellum (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": -0.2606375280694872
+  },
+  {
+   "key": "mv:791",
+   "title": "Superman (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": -0.19526404347876342
+  },
+  {
+   "key": "mv:792",
+   "title": "Superman (1978)",
+   "source": "Bluray-1080p",
+   "bppPlus": 65,
+   "P": 0.7727915232853501
+  },
+  {
+   "key": "mv:793",
+   "title": "Ballerina (2025)",
+   "source": "WEBRip-720p",
+   "bppPlus": 52,
+   "P": 0.2539388805273856
+  },
+  {
+   "key": "mv:794",
+   "title": "Avatar: The Way of Water (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 42,
+   "P": 0.4160471125082656
+  },
+  {
+   "key": "mv:795",
+   "title": "Avatar: Fire and Ash (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": 0.610224017455256
+  },
+  {
+   "key": "mv:796",
+   "title": "Salt (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": -0.2075623485479765
+  },
+  {
+   "key": "mv:797",
+   "title": "Mickey 17 (2025)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 92,
+   "P": 0.7716117480862026
+  },
+  {
+   "key": "mv:798",
+   "title": "Snowpiercer (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": 0.16356769591294915
+  },
+  {
+   "key": "mv:799",
+   "title": "Bugonia (2025)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 53,
+   "P": 0.7059600157482198
+  },
+  {
+   "key": "mv:800",
+   "title": "Highest 2 Lowest (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 80,
+   "P": -0.8606960406150864
+  },
+  {
+   "key": "mv:801",
+   "title": "The Roses (2025)",
+   "source": "WEBRip-720p",
+   "bppPlus": 60,
+   "P": -0.14711931751993376
+  },
+  {
+   "key": "mv:802",
+   "title": "Predator: Killer of Killers (2025)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 124,
+   "P": 0.9170615114449318
+  },
+  {
+   "key": "mv:803",
+   "title": "Burnt (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 93,
+   "P": 0.7561206335182352
+  },
+  {
+   "key": "mv:804",
+   "title": "The Ballad of Wallis Island (2025)",
+   "source": "WEBRip-720p",
+   "bppPlus": 70,
+   "P": -1.274381966130101
+  },
+  {
+   "key": "mv:805",
+   "title": "Hedda (2025)",
+   "source": "WEBRip-720p",
+   "bppPlus": 81,
+   "P": 0.21792219510841823
+  },
+  {
+   "key": "mv:806",
+   "title": "No Other Choice (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 43,
+   "P": 0.5369587225665152
+  },
+  {
+   "key": "mv:807",
+   "title": "Wolfs (2024)",
+   "source": "WEBRip-720p",
+   "bppPlus": 93,
+   "P": 0.8960341467594491
+  },
+  {
+   "key": "mv:808",
+   "title": "Monkey Man (2024)",
+   "source": "WEBRip-720p",
+   "bppPlus": 62,
+   "P": 2.15486233162169
+  },
+  {
+   "key": "mv:809",
+   "title": "Hit Man (2024)",
+   "source": "WEBRip-720p",
+   "bppPlus": 70,
+   "P": 1.1082966341644465
+  },
+  {
+   "key": "mv:810",
+   "title": "The Beast (2024)",
+   "source": "Bluray-1080p",
+   "bppPlus": 98,
+   "P": -1.3455660650042482
+  },
+  {
+   "key": "mv:812",
+   "title": "Apollo 10½: A Space Age Childhood (2022)",
+   "source": "WEBRip-720p",
+   "bppPlus": 57,
+   "P": -0.06137749808779841
+  },
+  {
+   "key": "mv:813",
+   "title": "The Northman (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": 0.0711998504754851
+  },
+  {
+   "key": "mv:814",
+   "title": "The Banshees of Inisherin (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 82,
+   "P": 0.4696902883879779
+  },
+  {
+   "key": "mv:815",
+   "title": "The Fabelmans (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": 0.20518307387822746
+  },
+  {
+   "key": "mv:816",
+   "title": "Joyland (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": 1.0915382561741769
+  },
+  {
+   "key": "mv:817",
+   "title": "Aftersun (2022)",
+   "source": "WEBRip-720p",
+   "bppPlus": 67,
+   "P": 1.8709142301841086
+  },
+  {
+   "key": "mv:818",
+   "title": "The Vast of Night (2019)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 80,
+   "P": -1.6026450433707946
+  },
+  {
+   "key": "mv:819",
+   "title": "Blow the Man Down (2019)",
+   "source": "WEBRip-720p",
+   "bppPlus": 65,
+   "P": -0.33705541389190524
+  },
+  {
+   "key": "mv:820",
+   "title": "The Devil All the Time (2020)",
+   "source": "WEBRip-720p",
+   "bppPlus": 58,
+   "P": 0.3659341675198616
+  },
+  {
+   "key": "mv:822",
+   "title": "The Parallax View (1974)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": -0.6150938473739398
+  },
+  {
+   "key": "mv:823",
+   "title": "Collective (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 127,
+   "P": -2.196227367896959
+  },
+  {
+   "key": "mv:824",
+   "title": "Ma Rainey's Black Bottom (2020)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 81,
+   "P": 1.8298312537492354
+  },
+  {
+   "key": "mv:826",
+   "title": "Minari (2021)",
+   "source": "Bluray-1080p",
+   "bppPlus": 65,
+   "P": 0.15842916644542854
+  },
+  {
+   "key": "mv:827",
+   "title": "The Man Who Knew Infinity (2016)",
+   "source": "Bluray-720p",
+   "bppPlus": 60,
+   "P": -1.2196917872039346
+  },
+  {
+   "key": "mv:828",
+   "title": "Scent of a Woman (1992)",
+   "source": "Bluray-1080p",
+   "bppPlus": 43,
+   "P": 0.0046100753914486495
+  },
+  {
+   "key": "mv:837",
+   "title": "Kiss Kiss Bang Bang (2005)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 1.0666483783977132
+  },
+  {
+   "key": "mv:838",
+   "title": "White Chicks (2004)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 84,
+   "P": -0.5425949601165805
+  },
+  {
+   "key": "mv:839",
+   "title": "Disclosure Day (2026)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 122,
+   "P": 1.0980419170644915
+  },
+  {
+   "key": "mv:842",
+   "title": "Austin Powers in Goldmember (2002)",
+   "source": "Bluray-720p",
+   "bppPlus": 38,
+   "P": -0.36092642951620346
+  },
+  {
+   "key": "mv:843",
+   "title": "Our Man Flint (1966)",
+   "source": "Bluray-1080p",
+   "bppPlus": 76,
+   "P": 0.8876579685728805
+  },
+  {
+   "key": "mv:844",
+   "title": "Burn After Reading (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": 0.9320193832173101
+  },
+  {
+   "key": "mv:845",
+   "title": "OSS 117: Cairo, Nest of Spies (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": 0.032340689174083226
+  },
+  {
+   "key": "mv:846",
+   "title": "OSS 117: Lost in Rio (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": -0.7171184222894265
+  },
+  {
+   "key": "mv:847",
+   "title": "OSS 117: From Africa with Love (2021)",
+   "source": "Bluray-1080p",
+   "bppPlus": 68,
+   "P": 0.2266518061608017
+  },
+  {
+   "key": "mv:849",
+   "title": "Charade (1963)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": 1.7002970005921327
+  },
+  {
+   "key": "mv:850",
+   "title": "Arabesque (1966)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": 2.3543651426416696
+  },
+  {
+   "key": "mv:853",
+   "title": "The 39 Steps (1935)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": 0.8822435099191562
+  },
+  {
+   "key": "mv:854",
+   "title": "Notorious (1946)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": 0.5722677290918892
+  },
+  {
+   "key": "mv:855",
+   "title": "An Affair to Remember (1957)",
+   "source": "Bluray-1080p",
+   "bppPlus": 77,
+   "P": -0.4965201619914691
+  },
+  {
+   "key": "mv:856",
+   "title": "Hanna (2011)",
+   "source": "Bluray-720p",
+   "bppPlus": 56,
+   "P": 1.5980009948315193
+  },
+  {
+   "key": "mv:857",
+   "title": "True Lies (1994)",
+   "source": "WEBDL-720p",
+   "bppPlus": 40,
+   "P": 1.545930595000546
+  },
+  {
+   "key": "mv:858",
+   "title": "Ronin (1998)",
+   "source": "Remux-1080p",
+   "bppPlus": 63,
+   "P": -0.8495025867837321
+  },
+  {
+   "key": "mv:859",
+   "title": "Sneakers (1992)",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": -1.29956178605756
+  },
+  {
+   "key": "mv:860",
+   "title": "The Ipcress File (1965)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": 1.2748775781700248
+  },
+  {
+   "key": "mv:861",
+   "title": "The Quiller Memorandum (1966)",
+   "source": "Bluray-1080p",
+   "bppPlus": 94,
+   "P": 1.0291237808893747
+  },
+  {
+   "key": "mv:863",
+   "title": "Mata Hari (1931)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 43,
+   "P": -0.2769271180272051
+  },
+  {
+   "key": "mv:864",
+   "title": "Ninotchka (1939)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": 0.20323263470105704
+  },
+  {
+   "key": "mv:865",
+   "title": "Black Book (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": -0.5117532830684972
+  },
+  {
+   "key": "mv:866",
+   "title": "The Man Who Never Was (1956)",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": 1.0005024804361315
+  },
+  {
+   "key": "mv:867",
+   "title": "A Most Wanted Man (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": -0.6380074548791429
+  },
+  {
+   "key": "mv:868",
+   "title": "Zero Dark Thirty (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": 1.1370406137744902
+  },
+  {
+   "key": "mv:869",
+   "title": "Body of Lies (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": -0.4426184437986346
+  },
+  {
+   "key": "mv:870",
+   "title": "Spies (1928)",
+   "source": "Bluray-1080p",
+   "bppPlus": 37,
+   "P": -0.37958922961261227
+  },
+  {
+   "key": "mv:871",
+   "title": "Marathon Man (1976)",
+   "source": "Bluray-1080p",
+   "bppPlus": 85,
+   "P": 0.9030560374278988
+  },
+  {
+   "key": "mv:872",
+   "title": "Patriot Games (1992)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": 0.26862608755969986
+  },
+  {
+   "key": "mv:873",
+   "title": "Ministry of Fear (1944)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": 0.18326849932197958
+  },
+  {
+   "key": "mv:874",
+   "title": "Three Days of the Condor (1975)",
+   "source": "Bluray-1080p",
+   "bppPlus": 85,
+   "P": 0.1462901621339431
+  },
+  {
+   "key": "mv:875",
+   "title": "Enemy of the State (1998)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 0.7558420455475096
+  },
+  {
+   "key": "mv:876",
+   "title": "Europa (1991)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": -0.24445874336972842
+  },
+  {
+   "key": "mv:877",
+   "title": "Ivan's Childhood (1962)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": -0.1273982122541095
+  },
+  {
+   "key": "mv:878",
+   "title": "The Passenger (1975)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": -0.2760869098358816
+  },
+  {
+   "key": "mv:879",
+   "title": "Amores Perros (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": 1.4396778151409164
+  },
+  {
+   "key": "mv:880",
+   "title": "The Deadly Affair (1967)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": -0.6969190845669032
+  },
+  {
+   "key": "mv:881",
+   "title": "The Odessa File (1974)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": 0.42898657771924115
+  },
+  {
+   "key": "mv:882",
+   "title": "The Manchurian Candidate (1962)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": 0.4889303797416719
+  },
+  {
+   "key": "mv:885",
+   "title": "Tinker Tailor Soldier Spy (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 0.2975599944620433
+  },
+  {
+   "key": "mv:886",
+   "title": "The Spy Who Came In from the Cold (1965)",
+   "source": "Bluray-1080p",
+   "bppPlus": 70,
+   "P": -0.5288209241022421
+  },
+  {
+   "key": "mv:887",
+   "title": "Ghostbusters II (1989)",
+   "source": "Bluray-720p",
+   "bppPlus": 53,
+   "P": -0.25697287172269373
+  },
+  {
+   "key": "mv:888",
+   "title": "20th Century Women (2016)",
+   "source": "Bluray-720p",
+   "bppPlus": 68,
+   "P": -0.9413368130772183
+  },
+  {
+   "key": "mv:889",
+   "title": "Waves (2019)",
+   "source": "WEBRip-720p",
+   "bppPlus": 74,
+   "P": 0.11134552520583126
+  },
+  {
+   "key": "mv:890",
+   "title": "Funny People (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": -0.3200339350564782
+  },
+  {
+   "key": "mv:892",
+   "title": "Night on Earth (1991)",
+   "source": "WEBDL-720p",
+   "bppPlus": 94,
+   "P": 0.18897035748773738
+  },
+  {
+   "key": "mv:893",
+   "title": "The Big Sick (2017)",
+   "source": "Bluray-720p",
+   "bppPlus": 62,
+   "P": -0.32417838501458557
+  },
+  {
+   "key": "mv:894",
+   "title": "Rushmore (1998)",
+   "source": "Bluray-720p",
+   "bppPlus": 61,
+   "P": -0.9742685969241337
+  },
+  {
+   "key": "mv:895",
+   "title": "Rebecca (1940)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": 0.27262104434648077
+  },
+  {
+   "key": "mv:896",
+   "title": "Little Miss Sunshine (2006)",
+   "source": "Bluray-720p",
+   "bppPlus": 41,
+   "P": -1.2407822874115697
+  },
+  {
+   "key": "mv:897",
+   "title": "Juno (2007)",
+   "source": "Bluray-720p",
+   "bppPlus": 50,
+   "P": 1.0389389128656545
+  },
+  {
+   "key": "mv:899",
+   "title": "Hoop Dreams (1994)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": 0.07960555814377386
+  },
+  {
+   "key": "mv:900",
+   "title": "My Big Fat Greek Wedding (2002)",
+   "source": "Bluray-720p",
+   "bppPlus": 67,
+   "P": -0.28081288494179996
+  },
+  {
+   "key": "mv:901",
+   "title": "Primer (2004)",
+   "source": "WEBDL-720p",
+   "bppPlus": 49,
+   "P": -0.19937572106335053
+  },
+  {
+   "key": "mv:902",
+   "title": "The Blair Witch Project (1999)",
+   "source": "Bluray-720p",
+   "bppPlus": 30,
+   "P": -0.33180090680424307
+  },
+  {
+   "key": "mv:903",
+   "title": "Tangerine (2015)",
+   "source": "Bluray-720p",
+   "bppPlus": 41,
+   "P": -0.566730393143758
+  },
+  {
+   "key": "mv:905",
+   "title": "Slacker (1990)",
+   "source": "Bluray-720p",
+   "bppPlus": 43,
+   "P": -1.835269463343676
+  },
+  {
+   "key": "mv:906",
+   "title": "Blue Valentine (2010)",
+   "source": "Bluray-720p",
+   "bppPlus": 49,
+   "P": 0.8951652801451547
+  },
+  {
+   "key": "mv:907",
+   "title": "Heathers (1989)",
+   "source": "Bluray-720p",
+   "bppPlus": 65,
+   "P": 0.3645800370016836
+  },
+  {
+   "key": "mv:908",
+   "title": "Brick (2006)",
+   "source": "Bluray-720p",
+   "bppPlus": 66,
+   "P": -0.2624498315446304
+  },
+  {
+   "key": "mv:909",
+   "title": "Moon (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 151,
+   "P": 2.1590211689950887
+  },
+  {
+   "key": "mv:910",
+   "title": "Calvary (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 83,
+   "P": 0.7931961272101662
+  },
+  {
+   "key": "mv:911",
+   "title": "Donnie Darko (2001)",
+   "source": "Bluray-720p",
+   "bppPlus": 100,
+   "P": -1.1914536849514148
+  },
+  {
+   "key": "mv:912",
+   "title": "Fruitvale Station (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 40,
+   "P": 1.3542294831441875
+  },
+  {
+   "key": "mv:913",
+   "title": "The Witch (2016)",
+   "source": "Bluray-720p",
+   "bppPlus": 65,
+   "P": 1.1706386756343412
+  },
+  {
+   "key": "mv:914",
+   "title": "Manchester by the Sea (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": 1.0808859556797903
+  },
+  {
+   "key": "mv:915",
+   "title": "sex, lies, and videotape (1989)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": 0.36343409659201664
+  },
+  {
+   "key": "mv:916",
+   "title": "Insomnia (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": -0.08622960675909606
+  },
+  {
+   "key": "mv:917",
+   "title": "Out of Sight (1998)",
+   "source": "Bluray-720p",
+   "bppPlus": 50,
+   "P": 0.4257950604942861
+  },
+  {
+   "key": "mv:919",
+   "title": "It Follows (2015)",
+   "source": "Bluray-720p",
+   "bppPlus": 52,
+   "P": -0.586541518402597
+  },
+  {
+   "key": "mv:920",
+   "title": "Blackboard Jungle (1955)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 47,
+   "P": -1.5695011685535234
+  },
+  {
+   "key": "mv:922",
+   "title": "Desert Hearts (1985)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": 1.4781362556109676
+  },
+  {
+   "key": "mv:923",
+   "title": "Paris Is Burning (1991)",
+   "source": "Bluray-1080p",
+   "bppPlus": 43,
+   "P": -0.6138711893091433
+  },
+  {
+   "key": "mv:924",
+   "title": "Killer of Sheep (1978)",
+   "source": "Bluray-1080p",
+   "bppPlus": 34,
+   "P": -0.6601387536338496
+  },
+  {
+   "key": "mv:926",
+   "title": "Spring Breakers (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": 0.04189520100065575
+  },
+  {
+   "key": "mv:927",
+   "title": "Twin Peaks: Fire Walk with Me (1992)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": -0.4698406807057249
+  },
+  {
+   "key": "mv:928",
+   "title": "Mulholland Drive (2001)",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": 1.2400017795979885
+  },
+  {
+   "key": "mv:929",
+   "title": "Lost Highway (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": 1.5890250685065646
+  },
+  {
+   "key": "mv:930",
+   "title": "Wild at Heart (1990)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": -1.14439265977205
+  },
+  {
+   "key": "mv:931",
+   "title": "The Straight Story (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": -0.6761115044370953
+  },
+  {
+   "key": "mv:933",
+   "title": "Matewan (1987)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": -0.22588764656443908
+  },
+  {
+   "key": "mv:934",
+   "title": "Blood Simple (1985)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": -0.14220696066638755
+  },
+  {
+   "key": "mv:935",
+   "title": "McCabe & Mrs. Miller (1971)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": -2.1520257977568247
+  },
+  {
+   "key": "mv:936",
+   "title": "The Florida Project (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": -1.367123780990252
+  },
+  {
+   "key": "mv:937",
+   "title": "Shadows (1960)",
+   "source": "Bluray-1080p",
+   "bppPlus": 43,
+   "P": -0.6478291293397135
+  },
+  {
+   "key": "mv:938",
+   "title": "A Woman Under the Influence (1974)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": 1.1639462241374554
+  },
+  {
+   "key": "mv:939",
+   "title": "Opening Night (1977)",
+   "source": "Bluray-1080p",
+   "bppPlus": 77,
+   "P": -0.4362313533324057
+  },
+  {
+   "key": "mv:940",
+   "title": "The Human Condition I: No Greater Love (1959)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": 0.058077389033508474
+  },
+  {
+   "key": "mv:942",
+   "title": "The Human Condition II: Road to Eternity (1959)",
+   "source": "Bluray-1080p",
+   "bppPlus": 43,
+   "P": -0.9014872884411479
+  },
+  {
+   "key": "mv:943",
+   "title": "Yi Yi (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": -0.45487310120064534
+  },
+  {
+   "key": "mv:944",
+   "title": "Le Trou (1960)",
+   "source": "Bluray-1080p",
+   "bppPlus": 39,
+   "P": -1.5887132544386378
+  },
+  {
+   "key": "mv:945",
+   "title": "Autumn Sonata (1978)",
+   "source": "Bluray-1080p",
+   "bppPlus": 42,
+   "P": 3.003979331014753
+  },
+  {
+   "key": "mv:946",
+   "title": "A Brighter Summer Day (1991)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": 0.5638357108851888
+  },
+  {
+   "key": "mv:947",
+   "title": "The Battle of Algiers (1966)",
+   "source": "Bluray-1080p",
+   "bppPlus": 40,
+   "P": -0.33007348457627234
+  },
+  {
+   "key": "mv:948",
+   "title": "I Am Cuba (1964)",
+   "source": "Bluray-1080p",
+   "bppPlus": 48,
+   "P": -0.7277265588637155
+  },
+  {
+   "key": "mv:949",
+   "title": "The Dirty Dozen (1967)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": 0.139172699814303
+  },
+  {
+   "key": "mv:951",
+   "title": "Shadow of a Doubt (1943)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": -0.002962159836751447
+  },
+  {
+   "key": "tv:126:1",
+   "title": "1883 S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": -0.11025321333426125
+  },
+  {
+   "key": "tv:127:1",
+   "title": "1923 S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 48,
+   "P": -0.3001343892979362
+  },
+  {
+   "key": "tv:127:2",
+   "title": "1923 S02",
+   "source": "Bluray-1080p",
+   "bppPlus": 83,
+   "P": -2.107079385531085
+  },
+  {
+   "key": "tv:128:1",
+   "title": "Cheers S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 99,
+   "P": -0.46021778057793217
+  },
+  {
+   "key": "tv:129:1",
+   "title": "Landman S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 68,
+   "P": 0.2338527184051068
+  },
+  {
+   "key": "tv:129:2",
+   "title": "Landman S02",
+   "source": "HDTV-1080p",
+   "bppPlus": 88,
+   "P": 0.15664106064635397
+  },
+  {
+   "key": "tv:13:1",
+   "title": "Mr Inbetween S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 142,
+   "P": 2.5250462183588644
+  },
+  {
+   "key": "tv:13:2",
+   "title": "Mr Inbetween S02",
+   "source": "WEBDL-1080p",
+   "bppPlus": 166,
+   "P": 1.163689963410626
+  },
+  {
+   "key": "tv:13:3",
+   "title": "Mr Inbetween S03",
+   "source": "WEBDL-1080p",
+   "bppPlus": 121,
+   "P": 2.1512395259413597
+  },
+  {
+   "key": "tv:130:1",
+   "title": "Sons of Anarchy S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 156,
+   "P": -0.29960603219967363
+  },
+  {
+   "key": "tv:132:1",
+   "title": "The White Lotus S01",
+   "source": "WEBRip-1080p",
+   "bppPlus": 69,
+   "P": -1.685096448063605
+  },
+  {
+   "key": "tv:133:1",
+   "title": "Severance S01",
+   "source": "HDTV-1080p",
+   "bppPlus": 104,
+   "P": -0.22498569508341107
+  },
+  {
+   "key": "tv:133:2",
+   "title": "Severance S02",
+   "source": "WEBDL-1080p",
+   "bppPlus": 148,
+   "P": 1.9679313316421698
+  },
+  {
+   "key": "tv:134:1",
+   "title": "The Rookie S01",
+   "source": "WEBRip-720p",
+   "bppPlus": 61,
+   "P": 0.36236309613639395
+  },
+  {
+   "key": "tv:135:1",
+   "title": "The Good Doctor S01",
+   "source": "WEBDL-720p",
+   "bppPlus": 65,
+   "P": 0.502795343050016
+  },
+  {
+   "key": "tv:136:1",
+   "title": "House S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 93,
+   "P": 1.2966038644203666
+  },
+  {
+   "key": "tv:137:1",
+   "title": "Modern Family S01",
+   "source": "WEBDL-720p",
+   "bppPlus": 97,
+   "P": 0.6199678184797862
+  },
+  {
+   "key": "tv:138:1",
+   "title": "King of the Hill S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 90,
+   "P": -0.731022325211411
+  },
+  {
+   "key": "tv:139:1",
+   "title": "The Office (US) S01",
+   "source": "WEBRip-720p",
+   "bppPlus": 65,
+   "P": 0.4211059356101399
+  },
+  {
+   "key": "tv:140:1",
+   "title": "Prison Break S01",
+   "source": "WEBDL-720p",
+   "bppPlus": 87,
+   "P": -0.3517553172774214
+  },
+  {
+   "key": "tv:141:1",
+   "title": "Young Sheldon S01",
+   "source": "WEBDL-720p",
+   "bppPlus": 59,
+   "P": 0.5180316234277357
+  },
+  {
+   "key": "tv:142:1",
+   "title": "Two and a Half Men S01",
+   "source": "WEBDL-720p",
+   "bppPlus": 50,
+   "P": -0.20350443790253264
+  },
+  {
+   "key": "tv:143:1",
+   "title": "Brooklyn Nine-Nine S01",
+   "source": "WEBRip-720p",
+   "bppPlus": 59,
+   "P": 0.7570415729000562
+  },
+  {
+   "key": "tv:144:1",
+   "title": "Twin Peaks S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 82,
+   "P": -2.5026410787378435
+  },
+  {
+   "key": "tv:145:1",
+   "title": "The Inbetweeners S01",
+   "source": "WEBDL-720p",
+   "bppPlus": 94,
+   "P": 0.3851279760725232
+  },
+  {
+   "key": "tv:146:1",
+   "title": "Blue Mountain State S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": 0.07167471753249262
+  },
+  {
+   "key": "tv:147:1",
+   "title": "Squid Game S01",
+   "source": "WEBRip-1080p",
+   "bppPlus": 63,
+   "P": 3.5315085607589496
+  },
+  {
+   "key": "tv:147:2",
+   "title": "Squid Game S02",
+   "source": "WEBDL-1080p",
+   "bppPlus": 62,
+   "P": 2.028598977576455
+  },
+  {
+   "key": "tv:147:3",
+   "title": "Squid Game S03",
+   "source": "HDTV-1080p",
+   "bppPlus": 67,
+   "P": -2.5203561129272885
+  },
+  {
+   "key": "tv:148:1",
+   "title": "Small Axe S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 162,
+   "P": 1.521454806602956
+  },
+  {
+   "key": "tv:16:1",
+   "title": "Dexter: New Blood S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 124,
+   "P": -2.931832813812571
+  },
+  {
+   "key": "tv:18:1",
+   "title": "A Knight of the Seven Kingdoms S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 103,
+   "P": -0.5167309218965607
+  },
+  {
+   "key": "tv:20:1",
+   "title": "The Bear S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 111,
+   "P": 0.8946834050883821
+  },
+  {
+   "key": "tv:21:1",
+   "title": "Curb Your Enthusiasm S01",
+   "source": "WEBRip-1080p",
+   "bppPlus": 59,
+   "P": -3.0160543671266167
+  },
+  {
+   "key": "tv:22:1",
+   "title": "Peaky Blinders S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": -2.4238470610882996
+  },
+  {
+   "key": "tv:22:2",
+   "title": "Peaky Blinders S02",
+   "source": "Bluray-1080p",
+   "bppPlus": 164,
+   "P": -0.7297769412086355
+  },
+  {
+   "key": "tv:22:3",
+   "title": "Peaky Blinders S03",
+   "source": "Bluray-1080p",
+   "bppPlus": 160,
+   "P": 0.4932617718157763
+  },
+  {
+   "key": "tv:22:4",
+   "title": "Peaky Blinders S04",
+   "source": "Bluray-1080p",
+   "bppPlus": 194,
+   "P": 0.061295944054633504
+  },
+  {
+   "key": "tv:22:5",
+   "title": "Peaky Blinders S05",
+   "source": "Bluray-1080p",
+   "bppPlus": 180,
+   "P": 0.9005859041251396
+  },
+  {
+   "key": "tv:22:6",
+   "title": "Peaky Blinders S06",
+   "source": "WEBDL-1080p",
+   "bppPlus": 82,
+   "P": -0.3230400699698246
+  },
+  {
+   "key": "tv:23:1",
+   "title": "The Lord of the Rings: The Rings of Power S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 123,
+   "P": -2.6254196609255054
+  },
+  {
+   "key": "tv:26:1",
+   "title": "Game of Thrones S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": -2.195524200442432
+  },
+  {
+   "key": "tv:27:1",
+   "title": "Dexter S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": -2.0265564111797607
+  },
+  {
+   "key": "tv:28:1",
+   "title": "Person of Interest S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 83,
+   "P": -2.158933369814881
+  },
+  {
+   "key": "tv:29:1",
+   "title": "White Collar S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 129,
+   "P": 1.1535624043804797
+  },
+  {
+   "key": "tv:31:1",
+   "title": "The 100 S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": -2.8918959466042233
+  },
+  {
+   "key": "tv:32:1",
+   "title": "Ozark S01",
+   "source": "WEBRip-1080p",
+   "bppPlus": 113,
+   "P": -1.8367126347286133
+  },
+  {
+   "key": "tv:33:1",
+   "title": "Bloodline S01",
+   "source": "WEBRip-720p",
+   "bppPlus": 63,
+   "P": -0.9270107050344659
+  },
+  {
+   "key": "tv:33:2",
+   "title": "Bloodline S02",
+   "source": "WEBRip-720p",
+   "bppPlus": 94,
+   "P": 0.047868438447511166
+  },
+  {
+   "key": "tv:33:3",
+   "title": "Bloodline S03",
+   "source": "WEBRip-720p",
+   "bppPlus": 100,
+   "P": 0.6313841371715535
+  },
+  {
+   "key": "tv:35:1",
+   "title": "Rick and Morty S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 78,
+   "P": -1.0385289183063373
+  },
+  {
+   "key": "tv:36:1",
+   "title": "Bob's Burgers S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 60,
+   "P": -0.3523774409231875
+  },
+  {
+   "key": "tv:37:1",
+   "title": "Archer (2009) S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 83,
+   "P": -2.6271077647657206
+  },
+  {
+   "key": "tv:37:10",
+   "title": "Archer (2009) S10",
+   "source": "WEBDL-1080p",
+   "bppPlus": 95,
+   "P": -2.12408925504879
+  },
+  {
+   "key": "tv:37:11",
+   "title": "Archer (2009) S11",
+   "source": "WEBDL-1080p",
+   "bppPlus": 67,
+   "P": -1.6904115021497923
+  },
+  {
+   "key": "tv:37:12",
+   "title": "Archer (2009) S12",
+   "source": "WEBDL-1080p",
+   "bppPlus": 112,
+   "P": -2.327358870061498
+  },
+  {
+   "key": "tv:37:13",
+   "title": "Archer (2009) S13",
+   "source": "WEBDL-1080p",
+   "bppPlus": 105,
+   "P": -2.3570647334112764
+  },
+  {
+   "key": "tv:37:14",
+   "title": "Archer (2009) S14",
+   "source": "WEBDL-1080p",
+   "bppPlus": 112,
+   "P": 0.3609144142296048
+  },
+  {
+   "key": "tv:38:1",
+   "title": "Fargo S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 89,
+   "P": -2.0465174900354075
+  },
+  {
+   "key": "tv:39:1",
+   "title": "Charmed S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 97,
+   "P": -2.160254621458249
+  },
+  {
+   "key": "tv:40:1",
+   "title": "The Mentalist S01",
+   "source": "WEBRip-720p",
+   "bppPlus": 65,
+   "P": 0.5213379972089948
+  },
+  {
+   "key": "tv:41:1",
+   "title": "The Blacklist S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 91,
+   "P": -1.335169734457505
+  },
+  {
+   "key": "tv:44:1",
+   "title": "Seinfeld S01",
+   "source": "WEBRip-1080p",
+   "bppPlus": 60,
+   "P": -2.5588932814961542
+  },
+  {
+   "key": "tv:45:7",
+   "title": "Supernatural S07",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": 0.5121764071309939
+  },
+  {
+   "key": "tv:45:8",
+   "title": "Supernatural S08",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": 0.32309055332176756
+  },
+  {
+   "key": "tv:45:9",
+   "title": "Supernatural S09",
+   "source": "Bluray-1080p",
+   "bppPlus": 101,
+   "P": -1.7275213984920232
+  },
+  {
+   "key": "tv:48:1",
+   "title": "Better Call Saul S01",
+   "source": "Bluray-1080p Remux",
+   "bppPlus": 92,
+   "P": 0.5726222684211187
+  },
+  {
+   "key": "tv:49:1",
+   "title": "House of Cards (US) S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 178,
+   "P": -0.6761337138974302
+  },
+  {
+   "key": "tv:50:1",
+   "title": "Andor S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 114,
+   "P": -1.7018837306834265
+  },
+  {
+   "key": "tv:50:2",
+   "title": "Andor S02",
+   "source": "WEBDL-1080p",
+   "bppPlus": 93,
+   "P": 0.10247048021044043
+  },
+  {
+   "key": "tv:51:1",
+   "title": "Billions S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": 0.09586430804672721
+  },
+  {
+   "key": "tv:52:1",
+   "title": "Friends S01",
+   "source": "Bluray-720p",
+   "bppPlus": 79,
+   "P": -0.3071552436282648
+  },
+  {
+   "key": "tv:54:1",
+   "title": "The Sopranos S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": -1.9403243699967982
+  },
+  {
+   "key": "tv:54:2",
+   "title": "The Sopranos S02",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": -2.6681039935444213
+  },
+  {
+   "key": "tv:54:3",
+   "title": "The Sopranos S03",
+   "source": "Bluray-1080p",
+   "bppPlus": 65,
+   "P": -2.8140438682792515
+  },
+  {
+   "key": "tv:54:4",
+   "title": "The Sopranos S04",
+   "source": "HDTV-1080p",
+   "bppPlus": 67,
+   "P": 0.3960608973105397
+  },
+  {
+   "key": "tv:54:5",
+   "title": "The Sopranos S05",
+   "source": "HDTV-1080p",
+   "bppPlus": 65,
+   "P": 0.38112210582061623
+  },
+  {
+   "key": "tv:54:6",
+   "title": "The Sopranos S06",
+   "source": "HDTV-1080p",
+   "bppPlus": 69,
+   "P": 0.5085769038692619
+  },
+  {
+   "key": "tv:55:1",
+   "title": "House of the Dragon S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 119,
+   "P": -3.4605154176384847
+  },
+  {
+   "key": "tv:55:2",
+   "title": "House of the Dragon S02",
+   "source": "Bluray-1080p",
+   "bppPlus": 109,
+   "P": -0.5472789697631537
+  },
+  {
+   "key": "tv:55:3",
+   "title": "House of the Dragon S03",
+   "source": "WEBDL-1080p",
+   "bppPlus": 159,
+   "P": -0.5665608338021831
+  },
+  {
+   "key": "tv:56:1",
+   "title": "Dexter: Resurrection S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 75,
+   "P": 0.8768388327835676
+  },
+  {
+   "key": "tv:57:1",
+   "title": "Dexter: Original Sin S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 56,
+   "P": -1.0695515838417584
+  },
+  {
+   "key": "tv:58:1",
+   "title": "Lost S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": -2.044890647390202
+  },
+  {
+   "key": "tv:58:2",
+   "title": "Lost S02",
+   "source": "Bluray-1080p",
+   "bppPlus": 119,
+   "P": -2.2078237298662566
+  },
+  {
+   "key": "tv:58:3",
+   "title": "Lost S03",
+   "source": "Bluray-1080p",
+   "bppPlus": 103,
+   "P": 0.2933055691401978
+  },
+  {
+   "key": "tv:58:4",
+   "title": "Lost S04",
+   "source": "Bluray-1080p",
+   "bppPlus": 112,
+   "P": -2.079276292205357
+  },
+  {
+   "key": "tv:58:5",
+   "title": "Lost S05",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": -2.5075632746117766
+  },
+  {
+   "key": "tv:58:6",
+   "title": "Lost S06",
+   "source": "Bluray-1080p",
+   "bppPlus": 79,
+   "P": 0.3513700495276115
+  },
+  {
+   "key": "tv:59:1",
+   "title": "Chernobyl S01",
+   "source": "HDTV-1080p",
+   "bppPlus": 86,
+   "P": 0.3213653320936135
+  },
+  {
+   "key": "tv:60:1",
+   "title": "The Wire S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": -2.133726323968069
+  },
+  {
+   "key": "tv:60:2",
+   "title": "The Wire S02",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": -2.23145650231393
+  },
+  {
+   "key": "tv:60:3",
+   "title": "The Wire S03",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": -2.458676767341685
+  },
+  {
+   "key": "tv:60:4",
+   "title": "The Wire S04",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": -2.0430786349447794
+  },
+  {
+   "key": "tv:60:5",
+   "title": "The Wire S05",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": -2.5601397720326724
+  },
+  {
+   "key": "tv:61:1",
+   "title": "Fringe S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 94,
+   "P": 0.13762336942560233
+  },
+  {
+   "key": "tv:62:1",
+   "title": "Jericho (2006) S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 139,
+   "P": 0.33771914519715746
+  },
+  {
+   "key": "tv:62:2",
+   "title": "Jericho (2006) S02",
+   "source": "Bluray-1080p",
+   "bppPlus": 117,
+   "P": 0.7384538447955808
+  },
+  {
+   "key": "tv:63:1",
+   "title": "The Secret Lives of Mormon Wives S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 94,
+   "P": -0.7999325373549709
+  },
+  {
+   "key": "tv:63:2",
+   "title": "The Secret Lives of Mormon Wives S02",
+   "source": "WEBDL-1080p",
+   "bppPlus": 113,
+   "P": 0.45501210731976144
+  },
+  {
+   "key": "tv:63:3",
+   "title": "The Secret Lives of Mormon Wives S03",
+   "source": "WEBDL-1080p",
+   "bppPlus": 116,
+   "P": -0.5560854783475125
+  },
+  {
+   "key": "tv:63:4",
+   "title": "The Secret Lives of Mormon Wives S04",
+   "source": "WEBDL-1080p",
+   "bppPlus": 121,
+   "P": 0.5198062513564263
+  },
+  {
+   "key": "tv:64:1",
+   "title": "FROM S01",
+   "source": "WEBRip-1080p",
+   "bppPlus": 86,
+   "P": -2.0489406511238832
+  },
+  {
+   "key": "tv:65:1",
+   "title": "Breaking Bad S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 99,
+   "P": -2.153065507186187
+  },
+  {
+   "key": "tv:67:1",
+   "title": "Band of Brothers S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 42,
+   "P": 0.48434724723486056
+  },
+  {
+   "key": "tv:68:1",
+   "title": "True Detective S01",
+   "source": "WEBRip-1080p",
+   "bppPlus": 64,
+   "P": 1.1159040956071402
+  },
+  {
+   "key": "tv:69:1",
+   "title": "Planet Earth III S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": -0.2490634873583692
+  },
+  {
+   "key": "tv:70:13",
+   "title": "Last Week Tonight with John Oliver S13",
+   "source": "WEBDL-1080p",
+   "bppPlus": 134,
+   "P": -0.8039821556243419
+  },
+  {
+   "key": "tv:71:1",
+   "title": "Shōgun S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 76,
+   "P": 0.44358855906019795
+  },
+  {
+   "key": "tv:74:1",
+   "title": "Mad Men S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 92,
+   "P": 0.15302191547016597
+  },
+  {
+   "key": "tv:75:1",
+   "title": "Planet Earth II S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": 0.8394214777151162
+  },
+  {
+   "key": "tv:77:1",
+   "title": "Blue Planet II S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 68,
+   "P": 1.032147718953842
+  },
+  {
+   "key": "mv:953",
+   "title": "Train to Busan (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": 2.214530475060481
+  },
+  {
+   "key": "mv:954",
+   "title": "I Saw the Devil (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": -0.38699928288908636
+  },
+  {
+   "key": "mv:955",
+   "title": "The Host (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": 0.03969953174493723
+  },
+  {
+   "key": "tv:78:1",
+   "title": "The Blue Planet S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 84,
+   "P": 0.03440933243112945
+  },
+  {
+   "key": "tv:79:1",
+   "title": "Frozen Planet S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": -1.5499749853397446
+  },
+  {
+   "key": "tv:80:1",
+   "title": "Frozen Planet II S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": -2.8112477225548496
+  },
+  {
+   "key": "tv:81:1",
+   "title": "The Mandalorian S01",
+   "source": "HDTV-1080p",
+   "bppPlus": 78,
+   "P": 0.3832154566255479
+  },
+  {
+   "key": "mv:952",
+   "title": "The Wailing (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 84,
+   "P": -0.12168794840705334
+  },
+  {
+   "key": "tv:82:1",
+   "title": "Succession S01",
+   "source": "HDTV-1080p",
+   "bppPlus": 82,
+   "P": 1.680210180744015
+  },
+  {
+   "key": "tv:83:1",
+   "title": "Narcos S01",
+   "source": "Bluray-1080p Remux",
+   "bppPlus": 117,
+   "P": -2.11815548482266
+  },
+  {
+   "key": "tv:84:1",
+   "title": "Human Planet S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 119,
+   "P": 1.5158143943324922
+  },
+  {
+   "key": "tv:87:1",
+   "title": "Mr. Robot S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 103,
+   "P": 2.53150090146798
+  },
+  {
+   "key": "tv:88:1",
+   "title": "Silicon Valley S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 76,
+   "P": -3.3684216677822225
+  },
+  {
+   "key": "tv:88:2",
+   "title": "Silicon Valley S02",
+   "source": "Bluray-1080p",
+   "bppPlus": 132,
+   "P": -1.120090485231787
+  },
+  {
+   "key": "tv:88:3",
+   "title": "Silicon Valley S03",
+   "source": "WEBDL-1080p",
+   "bppPlus": 152,
+   "P": 0.9349986045594434
+  },
+  {
+   "key": "tv:88:4",
+   "title": "Silicon Valley S04",
+   "source": "HDTV-1080p",
+   "bppPlus": 101,
+   "P": -0.14867387192892434
+  },
+  {
+   "key": "tv:88:5",
+   "title": "Silicon Valley S05",
+   "source": "WEBDL-1080p",
+   "bppPlus": 88,
+   "P": 0.3240375808330914
+  },
+  {
+   "key": "tv:88:6",
+   "title": "Silicon Valley S06",
+   "source": "WEBDL-1080p",
+   "bppPlus": 113,
+   "P": 0.28527394333619877
+  },
+  {
+   "key": "tv:89:1",
+   "title": "The Queen's Gambit S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 116,
+   "P": -0.5944925368733079
+  },
+  {
+   "key": "tv:90:1",
+   "title": "Yellowstone (2018) S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 141,
+   "P": 0.8470820904149381
+  },
+  {
+   "key": "tv:91:1",
+   "title": "American Gods S01",
+   "source": "HDTV-1080p",
+   "bppPlus": 73,
+   "P": 0.6117314669062102
+  },
+  {
+   "key": "tv:92:1",
+   "title": "Westworld S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 119,
+   "P": 0.27643520428583407
+  },
+  {
+   "key": "tv:94:1",
+   "title": "The Witcher S01",
+   "source": "HDTV-1080p",
+   "bppPlus": 70,
+   "P": 0.2371476000704736
+  },
+  {
+   "key": "mv:956",
+   "title": "Fast Five (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 76,
+   "P": -0.8610112946810168
+  },
+  {
+   "key": "tv:96:1",
+   "title": "Black Mirror S01",
+   "source": "WEBRip-1080p",
+   "bppPlus": 96,
+   "P": 1.0232891072687798
+  },
+  {
+   "key": "tv:97:1",
+   "title": "Arrested Development S01",
+   "source": "Bluray-1080p",
+   "bppPlus": 100,
+   "P": -1.9775878371663957
+  },
+  {
+   "key": "tv:99:1",
+   "title": "It's Always Sunny in Philadelphia S01",
+   "source": "WEBDL-480p",
+   "bppPlus": 83,
+   "P": 0.40598330594776727
+  },
+  {
+   "key": "mv:921",
+   "title": "Beach Party (1963)",
+   "source": "SDTV",
+   "bppPlus": 80,
+   "P": 0.7530363944716331
+  },
+  {
+   "key": "mv:957",
+   "title": "La Vie en Rose (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 1.7405157224643657
+  },
+  {
+   "key": "mv:958",
+   "title": "Two Days, One Night (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": -0.32231230435713765
+  },
+  {
+   "key": "mv:959",
+   "title": "Public Enemies (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": 1.4703025754793275
+  },
+  {
+   "key": "mv:960",
+   "title": "42 (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": 0.4273688976227988
+  },
+  {
+   "key": "mv:962",
+   "title": "Casino Royale (1954)",
+   "source": "SDTV",
+   "bppPlus": 89,
+   "P": 0.09607124745528416
+  },
+  {
+   "key": "tv:149:1",
+   "title": "Lessons in Chemistry S01",
+   "source": "WEBDL-1080p",
+   "bppPlus": 188,
+   "P": -1.773882035673226
+  },
+  {
+   "key": "mv:963",
+   "title": "Sympathy for Mr. Vengeance (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 36,
+   "P": 0.18162226393540784
+  },
+  {
+   "key": "mv:964",
+   "title": "The Handmaiden (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 98,
+   "P": -0.7445085684049907
+  },
+  {
+   "key": "tv:99:18",
+   "title": "It's Always Sunny in Philadelphia S18",
+   "source": "HDTV-720p",
+   "bppPlus": 76,
+   "P": -2.185817423741987
+  },
+  {
+   "key": "mv:966",
+   "title": "Phantom Thread (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 0.024507204043095424
+  },
+  {
+   "key": "mv:967",
+   "title": "The Assassination of Jesse James by the Coward Robert Ford (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": -0.12168175546862922
+  },
+  {
+   "key": "mv:968",
+   "title": "Portrait of a Lady on Fire (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 92,
+   "P": 0.9442755054283117
+  },
+  {
+   "key": "mv:969",
+   "title": "Memories of Murder (2003)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": -0.05472576852181669
+  },
+  {
+   "key": "mv:970",
+   "title": "The Interview (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": 1.1359337199720907
+  },
+  {
+   "key": "mv:971",
+   "title": "Lady Vengeance (2005)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 0.42663130854812326
+  },
+  {
+   "key": "mv:972",
+   "title": "The Act of Killing (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 44,
+   "P": -0.2805583834731922
+  },
+  {
+   "key": "mv:973",
+   "title": "Perfect Days (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": -1.1739842451775082
+  },
+  {
+   "key": "mv:974",
+   "title": "Cold War (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": 0.3805343615495722
+  },
+  {
+   "key": "mv:975",
+   "title": "The Great Beauty (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": 0.6918321662794324
+  },
+  {
+   "key": "mv:976",
+   "title": "La Dolce Vita (1960)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": -0.39509531063688574
+  },
+  {
+   "key": "mv:977",
+   "title": "Red Desert (1964)",
+   "source": "Bluray-1080p",
+   "bppPlus": 85,
+   "P": -0.6989357694605572
+  },
+  {
+   "key": "mv:978",
+   "title": "Black Narcissus (1947)",
+   "source": "Bluray-1080p",
+   "bppPlus": 115,
+   "P": 1.292625770859409
+  },
+  {
+   "key": "mv:980",
+   "title": "Apollo 11 (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": 0.9757305213278562
+  },
+  {
+   "key": "mv:981",
+   "title": "Booksmart (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 82,
+   "P": 0.06053706824952651
+  },
+  {
+   "key": "mv:982",
+   "title": "The Lighthouse (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": 0.3502452696208159
+  },
+  {
+   "key": "mv:983",
+   "title": "Monos (2019)",
+   "source": "Bluray-720p",
+   "bppPlus": 142,
+   "P": -0.8077081245397919
+  },
+  {
+   "key": "mv:388",
+   "title": "Casablanca (1943)",
+   "source": "Bluray-1080p",
+   "bppPlus": 123,
+   "P": -0.5571508944249309
+  },
+  {
+   "key": "mv:66",
+   "title": "Blade Runner 2049 (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 191,
+   "P": -0.28818843806697614
+  },
+  {
+   "key": "mv:100",
+   "title": "Mr. & Mrs. Smith (2005)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": 1.3143349181562998
+  },
+  {
+   "key": "mv:101",
+   "title": "Ocean's Eleven (2001)",
+   "source": "Bluray-1080p",
+   "bppPlus": 129,
+   "P": -0.08676651697296583
+  },
+  {
+   "key": "mv:102",
+   "title": "12 Years a Slave (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": 0.38209597665366
+  },
+  {
+   "key": "mv:103",
+   "title": "Ocean's Thirteen (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": 1.4198194325541804
+  },
+  {
+   "key": "mv:104",
+   "title": "Bullet Train (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 78,
+   "P": 0.14611819540189336
+  },
+  {
+   "key": "mv:105",
+   "title": "Ocean's Twelve (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": 0.40446239423626046
+  },
+  {
+   "key": "mv:106",
+   "title": "Moneyball (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 74,
+   "P": 2.152728242509652
+  },
+  {
+   "key": "mv:107",
+   "title": "F1 (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 79,
+   "P": 0.1882318857102213
+  },
+  {
+   "key": "mv:108",
+   "title": "Being John Malkovich (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": 0.33724969840746727
+  },
+  {
+   "key": "mv:109",
+   "title": "Forrest Gump (1994)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": -0.8505137997029746
+  },
+  {
+   "key": "mv:110",
+   "title": "Toy Story (1995)",
+   "source": "Bluray-1080p",
+   "bppPlus": 103,
+   "P": 0.45416227155170524
+  },
+  {
+   "key": "mv:112",
+   "title": "Saving Private Ryan (1998)",
+   "source": "Bluray-1080p",
+   "bppPlus": 38,
+   "P": -1.1771035786084771
+  },
+  {
+   "key": "mv:113",
+   "title": "Sully (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": 1.3607692947525774
+  },
+  {
+   "key": "mv:114",
+   "title": "The Terminal (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": -0.15692535268018076
+  },
+  {
+   "key": "mv:115",
+   "title": "Cast Away (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": -0.12037841362747248
+  },
+  {
+   "key": "mv:116",
+   "title": "Captain Phillips (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": 0.785327307998415
+  },
+  {
+   "key": "mv:117",
+   "title": "Bridge of Spies (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": 0.1088707487820783
+  },
+  {
+   "key": "mv:118",
+   "title": "The Polar Express (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": 0.8852017290091814
+  },
+  {
+   "key": "mv:119",
+   "title": "Apollo 13 (1995)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": 0.0820053176266401
+  },
+  {
+   "key": "mv:120",
+   "title": "Big (1988)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": 0.25392195612879187
+  },
+  {
+   "key": "mv:121",
+   "title": "You've Got Mail (1998)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": 1.264581211502488
+  },
+  {
+   "key": "mv:122",
+   "title": "A Man Called Otto (2022)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 67,
+   "P": 0.32505405091379597
+  },
+  {
+   "key": "mv:123",
+   "title": "Asteroid City (2023)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 117,
+   "P": -0.5761595446171719
+  },
+  {
+   "key": "mv:124",
+   "title": "News of the World (2020)",
+   "source": "Bluray-1080p",
+   "bppPlus": 87,
+   "P": 1.586233541066743
+  },
+  {
+   "key": "mv:125",
+   "title": "Back to the Future (1985)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": 0.3352298038545284
+  },
+  {
+   "key": "mv:126",
+   "title": "Jurassic Park (1993)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": -1.1642204290850107
+  },
+  {
+   "key": "mv:127",
+   "title": "Schindler's List (1993)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": 1.6749479689488407
+  },
+  {
+   "key": "mv:129",
+   "title": "Jaws (1975)",
+   "source": "Bluray-1080p",
+   "bppPlus": 89,
+   "P": -0.8294130602757801
+  },
+  {
+   "key": "mv:130",
+   "title": "E.T. the Extra-Terrestrial (1982)",
+   "source": "Bluray-720p",
+   "bppPlus": 123,
+   "P": 1.2178404964917173
+  },
+  {
+   "key": "mv:131",
+   "title": "Back to the Future Part II (1989)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": -0.22817369979242458
+  },
+  {
+   "key": "mv:132",
+   "title": "War of the Worlds (2005)",
+   "source": "Bluray-1080p",
+   "bppPlus": 42,
+   "P": 1.0511837021692745
+  },
+  {
+   "key": "mv:133",
+   "title": "True Grit (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": 1.4848777111173326
+  },
+  {
+   "key": "mv:134",
+   "title": "Close Encounters of the Third Kind (1977)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": -0.20746504941960744
+  },
+  {
+   "key": "mv:135",
+   "title": "Mission: Impossible - Ghost Protocol (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 1.756860746210196
+  },
+  {
+   "key": "mv:136",
+   "title": "Mission: Impossible (1996)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": 0.12375528323553293
+  },
+  {
+   "key": "mv:137",
+   "title": "Mission: Impossible - Rogue Nation (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 74,
+   "P": 1.8890626523794745
+  },
+  {
+   "key": "mv:138",
+   "title": "Top Gun (1986)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": 1.7710324994417486
+  },
+  {
+   "key": "mv:139",
+   "title": "Rain Man (1988)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": 0.06481879441340498
+  },
+  {
+   "key": "mv:140",
+   "title": "Mission: Impossible III (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": 1.203528408780483
+  },
+  {
+   "key": "mv:141",
+   "title": "Mission: Impossible II (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": 0.7741460063126363
+  },
+  {
+   "key": "mv:142",
+   "title": "Mission: Impossible - Fallout (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 129,
+   "P": 0.24635733202164628
+  },
+  {
+   "key": "mv:143",
+   "title": "The Hunt for Red October (1990)",
+   "source": "Bluray-1080p",
+   "bppPlus": 83,
+   "P": 0.6850002919245823
+  },
+  {
+   "key": "mv:144",
+   "title": "The Last Emperor (1987)",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": -0.6760785684564309
+  },
+  {
+   "key": "mv:145",
+   "title": "Once Upon a Time in the West (1968)",
+   "source": "Bluray-1080p",
+   "bppPlus": 48,
+   "P": -0.7852815265371438
+  },
+  {
+   "key": "mv:146",
+   "title": "The Conformist (1971)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": 0.015458688310364465
+  },
+  {
+   "key": "mv:147",
+   "title": "The Man from U.N.C.L.E. (2015)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 76,
+   "P": 2.0015072204991102
+  },
+  {
+   "key": "mv:148",
+   "title": "The Social Network (2010)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 118,
+   "P": 1.989631234103859
+  },
+  {
+   "key": "mv:149",
+   "title": "The Ministry of Ungentlemanly Warfare (2024)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 0.5549477122079314
+  },
+  {
+   "key": "mv:150",
+   "title": "Dune (2021)",
+   "source": "Bluray-1080p",
+   "bppPlus": 110,
+   "P": 0.6592374653738201
+  },
+  {
+   "key": "mv:151",
+   "title": "Dune: Part Two (2024)",
+   "source": "Bluray-1080p",
+   "bppPlus": 80,
+   "P": 0.8872813860250868
+  },
+  {
+   "key": "mv:152",
+   "title": "Obsession (2026)",
+   "source": "Bluray-1080p",
+   "bppPlus": 103,
+   "P": -0.3781894237974403
+  },
+  {
+   "key": "mv:153",
+   "title": "Backrooms (2026)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 76,
+   "P": 1.3361038471796531
+  },
+  {
+   "key": "mv:154",
+   "title": "Michael (2026)",
+   "source": "Bluray-1080p",
+   "bppPlus": 105,
+   "P": 0.3768761802519035
+  },
+  {
+   "key": "mv:155",
+   "title": "The Sting (1973)",
+   "source": "Bluray-1080p",
+   "bppPlus": 115,
+   "P": 0.3303287884827009
+  },
+  {
+   "key": "mv:156",
+   "title": "Butch Cassidy and the Sundance Kid (1969)",
+   "source": "Bluray-1080p",
+   "bppPlus": 123,
+   "P": -0.8903451948632071
+  },
+  {
+   "key": "mv:157",
+   "title": "All the President's Men (1976)",
+   "source": "Bluray-1080p",
+   "bppPlus": 87,
+   "P": 0.4208474914745779
+  },
+  {
+   "key": "mv:158",
+   "title": "Out of Africa (1985)",
+   "source": "Bluray-1080p",
+   "bppPlus": 86,
+   "P": 0.794024262658627
+  },
+  {
+   "key": "mv:159",
+   "title": "The Graduate (1967)",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": 0.6733690461677235
+  },
+  {
+   "key": "mv:160",
+   "title": "The Apartment (1960)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": -1.1603736400152578
+  },
+  {
+   "key": "mv:161",
+   "title": "Some Like It Hot (1959)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": -1.012536726877142
+  },
+  {
+   "key": "mv:162",
+   "title": "Sunset Boulevard (1950)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": -2.04961483501493
+  },
+  {
+   "key": "mv:163",
+   "title": "Double Indemnity (1944)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": -0.6052757119985335
+  },
+  {
+   "key": "mv:164",
+   "title": "Witness for the Prosecution (1957)",
+   "source": "Bluray-1080p",
+   "bppPlus": 99,
+   "P": -0.9986678263031212
+  },
+  {
+   "key": "mv:165",
+   "title": "Sabrina (1954)",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": -1.0640821417247242
+  },
+  {
+   "key": "mv:166",
+   "title": "Stalag 17 (1953)",
+   "source": "Bluray-1080p",
+   "bppPlus": 85,
+   "P": -0.7127105488372836
+  },
+  {
+   "key": "mv:167",
+   "title": "Lawrence of Arabia (1962)",
+   "source": "Bluray-1080p",
+   "bppPlus": 123,
+   "P": -0.5869455997031677
+  },
+  {
+   "key": "mv:168",
+   "title": "The Bridge on the River Kwai (1957)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": -0.45692040187210586
+  },
+  {
+   "key": "mv:169",
+   "title": "Doctor Zhivago (1965)",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": 0.5976363749166508
+  },
+  {
+   "key": "mv:170",
+   "title": "Great Expectations (1946)",
+   "source": "Bluray-1080p",
+   "bppPlus": 37,
+   "P": 0.5789156101165139
+  },
+  {
+   "key": "mv:171",
+   "title": "How to Steal a Million (1966)",
+   "source": "Bluray-1080p",
+   "bppPlus": 89,
+   "P": 0.8608073283649306
+  },
+  {
+   "key": "mv:172",
+   "title": "Dr. No (1962)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": -0.47641563416865973
+  },
+  {
+   "key": "mv:173",
+   "title": "Goldfinger (1964)",
+   "source": "Bluray-1080p",
+   "bppPlus": 96,
+   "P": -0.10340912523926342
+  },
+  {
+   "key": "mv:174",
+   "title": "From Russia with Love (1963)",
+   "source": "Bluray-1080p",
+   "bppPlus": 70,
+   "P": -0.1738960258282283
+  },
+  {
+   "key": "mv:175",
+   "title": "Skyfall (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 142,
+   "P": -0.6222744602473483
+  },
+  {
+   "key": "mv:176",
+   "title": "Casino Royale (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 119,
+   "P": -0.47074650112047495
+  },
+  {
+   "key": "mv:177",
+   "title": "Spectre (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": -0.568534440072018
+  },
+  {
+   "key": "mv:178",
+   "title": "Quantum of Solace (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 108,
+   "P": 0.7674663836414829
+  },
+  {
+   "key": "mv:179",
+   "title": "No Time to Die (2021)",
+   "source": "Bluray-1080p",
+   "bppPlus": 82,
+   "P": 0.45856366854349223
+  },
+  {
+   "key": "mv:181",
+   "title": "Marty Supreme (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 102,
+   "P": -0.4266260630893462
+  },
+  {
+   "key": "mv:182",
+   "title": "One Battle After Another (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 68,
+   "P": 0.04039648841692302
+  },
+  {
+   "key": "mv:183",
+   "title": "Grown Ups (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 0.9267729696972201
+  },
+  {
+   "key": "mv:184",
+   "title": "Just Go with It (2011)",
+   "source": "Bluray-720p",
+   "bppPlus": 45,
+   "P": 0.19433370727124338
+  },
+  {
+   "key": "mv:185",
+   "title": "Uncut Gems (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 48,
+   "P": 0.1920033365424105
+  },
+  {
+   "key": "mv:186",
+   "title": "Grown Ups 2 (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": 0.3142040853057626
+  },
+  {
+   "key": "mv:187",
+   "title": "Blended (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": 1.3984310274030487
+  },
+  {
+   "key": "mv:188",
+   "title": "Happy Gilmore (1996)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": 1.1195701368796558
+  },
+  {
+   "key": "mv:189",
+   "title": "Jay Kelly (2025)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 72,
+   "P": 0.2470076081126437
+  },
+  {
+   "key": "mv:190",
+   "title": "Anora (2024)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 124,
+   "P": 0.36034724559217385
+  },
+  {
+   "key": "mv:191",
+   "title": "The Brutalist (2024)",
+   "source": "Bluray-1080p",
+   "bppPlus": 107,
+   "P": -0.4207138865069448
+  },
+  {
+   "key": "mv:192",
+   "title": "The Grand Budapest Hotel (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": -0.10668445842034724
+  },
+  {
+   "key": "mv:193",
+   "title": "War Dogs (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": 0.5971816822897816
+  },
+  {
+   "key": "mv:194",
+   "title": "Whiplash (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 87,
+   "P": -0.1517307145576309
+  },
+  {
+   "key": "mv:195",
+   "title": "Superbad (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 77,
+   "P": 0.4200855305136137
+  },
+  {
+   "key": "mv:197",
+   "title": "Knocked Up (2007)",
+   "source": "Bluray-720p",
+   "bppPlus": 45,
+   "P": 0.6183011878370259
+  },
+  {
+   "key": "mv:198",
+   "title": "Forgetting Sarah Marshall (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": -0.8615775453410771
+  },
+  {
+   "key": "mv:199",
+   "title": "American Made (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": -0.024343483607057133
+  },
+  {
+   "key": "mv:200",
+   "title": "Donnie Brasco (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": -0.4501355908987431
+  },
+  {
+   "key": "mv:201",
+   "title": "The Mule (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": 0.2174556574430486
+  },
+  {
+   "key": "mv:202",
+   "title": "The Highwaymen (2019)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 61,
+   "P": 1.0220625541564399
+  },
+  {
+   "key": "mv:204",
+   "title": "1917 (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 103,
+   "P": 1.0778099580591636
+  },
+  {
+   "key": "mv:205",
+   "title": "No Country for Old Men (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 79,
+   "P": 2.572282953265442
+  },
+  {
+   "key": "mv:206",
+   "title": "The Big Lebowski (1998)",
+   "source": "Bluray-1080p",
+   "bppPlus": 150,
+   "P": -0.3281974965492988
+  },
+  {
+   "key": "mv:208",
+   "title": "The Lord of the Rings: The Return of the King (2003)",
+   "source": "Bluray-1080p",
+   "bppPlus": 74,
+   "P": -2.943475665208764
+  },
+  {
+   "key": "mv:209",
+   "title": "The Lord of the Rings: The Fellowship of the Ring (2001)",
+   "source": "Bluray-1080p",
+   "bppPlus": 100,
+   "P": -2.2523766624921526
+  },
+  {
+   "key": "mv:210",
+   "title": "The Lord of the Rings: The Two Towers (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 103,
+   "P": 0.6256059886594052
+  },
+  {
+   "key": "mv:211",
+   "title": "The Hobbit: An Unexpected Journey (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 62,
+   "P": 0.7326583569519052
+  },
+  {
+   "key": "mv:212",
+   "title": "The Hobbit: The Battle of the Five Armies (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": 0.20122433360372557
+  },
+  {
+   "key": "mv:213",
+   "title": "The Hobbit: The Desolation of Smaug (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 43,
+   "P": 0.33239723771930096
+  },
+  {
+   "key": "mv:214",
+   "title": "Interstellar (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 128,
+   "P": -0.17487031384734508
+  },
+  {
+   "key": "mv:215",
+   "title": "Inception (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 106,
+   "P": 2.5322443306156255
+  },
+  {
+   "key": "mv:216",
+   "title": "The Dark Knight (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 95,
+   "P": 1.1739991858664343
+  },
+  {
+   "key": "mv:217",
+   "title": "The Prestige (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": -0.4716637990789857
+  },
+  {
+   "key": "mv:218",
+   "title": "Dunkirk (2017)",
+   "source": "Bluray-1080p",
+   "bppPlus": 91,
+   "P": 0.9890770797928993
+  },
+  {
+   "key": "mv:219",
+   "title": "Oppenheimer (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 73,
+   "P": 0.4684831019223466
+  },
+  {
+   "key": "mv:220",
+   "title": "Tenet (2020)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": 0.8519031113131383
+  },
+  {
+   "key": "mv:221",
+   "title": "It's a Wonderful Life (1946)",
+   "source": "Bluray-1080p",
+   "bppPlus": 104,
+   "P": -1.5233295631575747
+  },
+  {
+   "key": "mv:222",
+   "title": "Spirited Away (2001)",
+   "source": "Bluray-1080p",
+   "bppPlus": 98,
+   "P": 1.5808689715375392
+  },
+  {
+   "key": "mv:223",
+   "title": "Howl's Moving Castle (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 51,
+   "P": -1.1602625230535932
+  },
+  {
+   "key": "mv:224",
+   "title": "Princess Mononoke (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": -0.9338579720905935
+  },
+  {
+   "key": "mv:225",
+   "title": "My Neighbor Totoro (1988)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": -0.5576873237746287
+  },
+  {
+   "key": "mv:227",
+   "title": "Seven Samurai (1954)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": -1.2463160059821394
+  },
+  {
+   "key": "mv:228",
+   "title": "Parasite (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 218,
+   "P": -2.7194294390836133
+  },
+  {
+   "key": "mv:229",
+   "title": "City of God (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 79,
+   "P": 1.2790166420891336
+  },
+  {
+   "key": "mv:231",
+   "title": "Harakiri (1962)",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": -0.9289220435898854
+  },
+  {
+   "key": "mv:232",
+   "title": "The Lion King (1994)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": -0.40440387603635064
+  },
+  {
+   "key": "mv:233",
+   "title": "Léon: The Professional (1994)",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": 0.3845325953509259
+  },
+  {
+   "key": "mv:234",
+   "title": "The Usual Suspects (1995)",
+   "source": "Bluray-1080p",
+   "bppPlus": 138,
+   "P": 0.22555398364425447
+  },
+  {
+   "key": "mv:235",
+   "title": "Alien (1979)",
+   "source": "Bluray-1080p",
+   "bppPlus": 139,
+   "P": 0.47956125677627215
+  },
+  {
+   "key": "mv:236",
+   "title": "Modern Times (1936)",
+   "source": "WEBDL-720p",
+   "bppPlus": 78,
+   "P": -0.7830345191167309
+  },
+  {
+   "key": "mv:237",
+   "title": "City Lights (1931)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": 0.5234783227998471
+  },
+  {
+   "key": "mv:238",
+   "title": "Up (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 99,
+   "P": 1.2836802888634047
+  },
+  {
+   "key": "mv:239",
+   "title": "Finding Nemo (2003)",
+   "source": "Bluray-1080p",
+   "bppPlus": 45,
+   "P": 0.20848479638225628
+  },
+  {
+   "key": "mv:240",
+   "title": "WALL·E (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 74,
+   "P": -0.04681710066707673
+  },
+  {
+   "key": "mv:241",
+   "title": "Ratatouille (2007)",
+   "source": "Bluray-1080p",
+   "bppPlus": 82,
+   "P": 0.7721408315362469
+  },
+  {
+   "key": "mv:242",
+   "title": "Finding Dory (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 78,
+   "P": 0.27898915998665413
+  },
+  {
+   "key": "mv:243",
+   "title": "Psycho (1960)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 0.2159971581570152
+  },
+  {
+   "key": "mv:244",
+   "title": "Rear Window (1954)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": 0.22644462230775353
+  },
+  {
+   "key": "mv:245",
+   "title": "Vertigo (1958)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": -0.7875696749517164
+  },
+  {
+   "key": "mv:246",
+   "title": "North by Northwest (1959)",
+   "source": "Bluray-1080p",
+   "bppPlus": 123,
+   "P": 0.008290760151702596
+  },
+  {
+   "key": "mv:247",
+   "title": "The Birds (1963)",
+   "source": "Bluray-1080p",
+   "bppPlus": 87,
+   "P": -1.0194405133156708
+  },
+  {
+   "key": "mv:248",
+   "title": "Dial M for Murder (1954)",
+   "source": "Bluray-1080p",
+   "bppPlus": 87,
+   "P": 1.2464312203820687
+  },
+  {
+   "key": "mv:249",
+   "title": "Strangers on a Train (1951)",
+   "source": "Bluray-1080p",
+   "bppPlus": 50,
+   "P": 0.18705641056986994
+  },
+  {
+   "key": "mv:250",
+   "title": "To Catch a Thief (1955)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": -0.6013825384957837
+  },
+  {
+   "key": "mv:251",
+   "title": "The Shining (1980)",
+   "source": "Bluray-1080p",
+   "bppPlus": 110,
+   "P": -0.8548815355854611
+  },
+  {
+   "key": "mv:252",
+   "title": "Good Will Hunting (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": -0.5342842589883708
+  },
+  {
+   "key": "mv:253",
+   "title": "Braveheart (1995)",
+   "source": "Bluray-1080p",
+   "bppPlus": 44,
+   "P": 0.21796597750060095
+  },
+  {
+   "key": "mv:254",
+   "title": "Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb (1964)",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": -0.032487349263423435
+  },
+  {
+   "key": "mv:255",
+   "title": "A Clockwork Orange (1971)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": -0.64332850474555
+  },
+  {
+   "key": "mv:256",
+   "title": "2001: A Space Odyssey (1968)",
+   "source": "Bluray-1080p",
+   "bppPlus": 141,
+   "P": -0.5833444764467685
+  },
+  {
+   "key": "mv:257",
+   "title": "Full Metal Jacket (1987)",
+   "source": "Bluray-1080p",
+   "bppPlus": 76,
+   "P": -1.586180466735535
+  },
+  {
+   "key": "mv:258",
+   "title": "Barry Lyndon (1975)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": 1.5698963587659203
+  },
+  {
+   "key": "mv:259",
+   "title": "Platoon (1986)",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": 1.405571947916672
+  },
+  {
+   "key": "mv:260",
+   "title": "Easy Rider (1969)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": 1.8123568950834437
+  },
+  {
+   "key": "mv:261",
+   "title": "American Beauty (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": -0.3870767912659596
+  },
+  {
+   "key": "mv:262",
+   "title": "Singin' in the Rain (1952)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.32249685853652477
+  },
+  {
+   "key": "mv:263",
+   "title": "Moonlight (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 76,
+   "P": 0.3061591735756551
+  },
+  {
+   "key": "mv:264",
+   "title": "Requiem for a Dream (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 127,
+   "P": 1.1237470142775157
+  },
+  {
+   "key": "mv:265",
+   "title": "Eternal Sunshine of the Spotless Mind (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": 0.9448232935901475
+  },
+  {
+   "key": "mv:266",
+   "title": "The Hunt (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": -0.32439294702785654
+  },
+  {
+   "key": "mv:267",
+   "title": "Scarface (1983)",
+   "source": "Bluray-1080p",
+   "bppPlus": 42,
+   "P": 0.7999083317465638
+  },
+  {
+   "key": "mv:268",
+   "title": "Life of Pi (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": 1.0504505061389042
+  },
+  {
+   "key": "mv:269",
+   "title": "Citizen Kane (1941)",
+   "source": "Bluray-1080p",
+   "bppPlus": 99,
+   "P": -1.6702314700829999
+  },
+  {
+   "key": "mv:270",
+   "title": "Die Hard (1988)",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": -0.8709304917628895
+  },
+  {
+   "key": "mv:271",
+   "title": "To Kill a Mockingbird (1962)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": -1.0363581541122506
+  },
+  {
+   "key": "mv:274",
+   "title": "The Truman Show (1998)",
+   "source": "Bluray-1080p",
+   "bppPlus": 84,
+   "P": 0.5304806820956549
+  },
+  {
+   "key": "mv:282",
+   "title": "Fargo (1996)",
+   "source": "Bluray-1080p",
+   "bppPlus": 109,
+   "P": 0.8967725982878048
+  },
+  {
+   "key": "mv:295",
+   "title": "Mad Max: Fury Road (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 78,
+   "P": 0.715785401679041
+  },
+  {
+   "key": "mv:300",
+   "title": "Harry Potter and the Order of the Phoenix (2007)",
+   "source": "WEBDL-720p",
+   "bppPlus": 81,
+   "P": -0.5367209830514946
+  },
+  {
+   "key": "mv:304",
+   "title": "Conclave (2024)",
+   "source": "Bluray-1080p",
+   "bppPlus": 80,
+   "P": 0.0491072023542835
+  },
+  {
+   "key": "mv:31",
+   "title": "Sicario (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 87,
+   "P": 0.029728313199989108
+  },
+  {
+   "key": "mv:32",
+   "title": "Layer Cake (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 54,
+   "P": -0.3214321144236295
+  },
+  {
+   "key": "mv:328",
+   "title": "Groundhog Day (1993)",
+   "source": "Bluray-1080p",
+   "bppPlus": 86,
+   "P": -0.29900809095815806
+  },
+  {
+   "key": "mv:33",
+   "title": "The Magician (2005)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 56,
+   "P": 1.5936808942401377
+  },
+  {
+   "key": "mv:349",
+   "title": "Paul (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 84,
+   "P": -1.4012727168844294
+  },
+  {
+   "key": "mv:37",
+   "title": "Pulp Fiction (1994)",
+   "source": "Bluray-1080p",
+   "bppPlus": 169,
+   "P": 0.32968224408613017
+  },
+  {
+   "key": "mv:371",
+   "title": "Legally Blonde (2001)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.47045337731654246
+  },
+  {
+   "key": "mv:373",
+   "title": "Gladiator (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 113,
+   "P": -0.8471143785050155
+  },
+  {
+   "key": "mv:375",
+   "title": "The Godfather (1972)",
+   "source": "Bluray-1080p",
+   "bppPlus": 110,
+   "P": 0.7495370238861205
+  },
+  {
+   "key": "mv:378",
+   "title": "Heat (1995)",
+   "source": "Bluray-1080p",
+   "bppPlus": 97,
+   "P": 0.7275440103880413
+  },
+  {
+   "key": "mv:38",
+   "title": "Django Unchained (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 108,
+   "P": -0.004300600102784616
+  },
+  {
+   "key": "mv:39",
+   "title": "Inglourious Basterds (2009)",
+   "source": "Bluray-1080p",
+   "bppPlus": 190,
+   "P": -0.05455348970619276
+  },
+  {
+   "key": "mv:393",
+   "title": "Rounders (1998)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": -0.2401683815366839
+  },
+  {
+   "key": "mv:40",
+   "title": "Kill Bill: Vol. 1 (2003)",
+   "source": "Bluray-1080p",
+   "bppPlus": 92,
+   "P": 0.2802008067269866
+  },
+  {
+   "key": "mv:406",
+   "title": "Grave of the Fireflies (1988)",
+   "source": "Bluray-1080p",
+   "bppPlus": 113,
+   "P": -0.3801435494827682
+  },
+  {
+   "key": "mv:41",
+   "title": "Reservoir Dogs (1992)",
+   "source": "Bluray-1080p",
+   "bppPlus": 117,
+   "P": -1.3398571723795685
+  },
+  {
+   "key": "mv:42",
+   "title": "The Hateful Eight (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 77,
+   "P": -0.03895787717467792
+  },
+  {
+   "key": "mv:421",
+   "title": "El Camino: A Breaking Bad Movie (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 89,
+   "P": -0.6471384502953562
+  },
+  {
+   "key": "mv:43",
+   "title": "Kill Bill: Vol. 2 (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": 1.6979817636815813
+  },
+  {
+   "key": "mv:433",
+   "title": "Aliens (1986)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": 1.4008777654034361
+  },
+  {
+   "key": "mv:44",
+   "title": "Once Upon a Time... in Hollywood (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": -1.4342190421620518
+  },
+  {
+   "key": "mv:445",
+   "title": "The Big Sleep (1946)",
+   "source": "Bluray-1080p",
+   "bppPlus": 117,
+   "P": -1.620348831641213
+  },
+  {
+   "key": "mv:45",
+   "title": "Jackie Brown (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 139,
+   "P": 2.1315408521551116
+  },
+  {
+   "key": "mv:46",
+   "title": "The Departed (2006)",
+   "source": "Bluray-1080p",
+   "bppPlus": 115,
+   "P": -0.2401803194222174
+  },
+  {
+   "key": "mv:47",
+   "title": "Taxi Driver (1976)",
+   "source": "Bluray-1080p",
+   "bppPlus": 68,
+   "P": -0.4638513185173127
+  },
+  {
+   "key": "mv:470",
+   "title": "The Living Daylights (1987)",
+   "source": "Bluray-1080p",
+   "bppPlus": 61,
+   "P": 0.28420786689031347
+  },
+  {
+   "key": "mv:476",
+   "title": "Crazy Rich Asians (2018)",
+   "source": "Bluray-1080p",
+   "bppPlus": 77,
+   "P": -0.23314987159977235
+  },
+  {
+   "key": "mv:48",
+   "title": "Raging Bull (1980)",
+   "source": "Bluray-1080p",
+   "bppPlus": 60,
+   "P": 0.8019031452030404
+  },
+  {
+   "key": "mv:487",
+   "title": "The Bishop's Wife (1947)",
+   "source": "Bluray-1080p",
+   "bppPlus": 124,
+   "P": -0.14863407394568634
+  },
+  {
+   "key": "mv:49",
+   "title": "Casino (1995)",
+   "source": "Bluray-1080p",
+   "bppPlus": 150,
+   "P": -0.1191971874347167
+  },
+  {
+   "key": "mv:497",
+   "title": "Kramer vs. Kramer (1979)",
+   "source": "Bluray-1080p",
+   "bppPlus": 84,
+   "P": 0.4624316230550404
+  },
+  {
+   "key": "mv:50",
+   "title": "The Irishman (2019)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 95,
+   "P": 0.4853060905006803
+  },
+  {
+   "key": "mv:506",
+   "title": "Brokeback Mountain (2005)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 95,
+   "P": -0.3931359311065896
+  },
+  {
+   "key": "mv:51",
+   "title": "Mean Streets (1973)",
+   "source": "Bluray-1080p",
+   "bppPlus": 84,
+   "P": -0.0355617980961056
+  },
+  {
+   "key": "mv:520",
+   "title": "The Trial of the Chicago 7 (2020)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 125,
+   "P": 0.44849889859577735
+  },
+  {
+   "key": "mv:529",
+   "title": "Contact (1997)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": 0.7456702866397248
+  },
+  {
+   "key": "mv:53",
+   "title": "The Godfather Part II (1974)",
+   "source": "Bluray-1080p",
+   "bppPlus": 99,
+   "P": -1.1105565180531625
+  },
+  {
+   "key": "mv:530",
+   "title": "The Killing (1956)",
+   "source": "Bluray-1080p",
+   "bppPlus": 40,
+   "P": -0.15430327328160567
+  },
+  {
+   "key": "mv:532",
+   "title": "Her (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 78,
+   "P": -0.3443283980577113
+  },
+  {
+   "key": "mv:539",
+   "title": "Memento (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 100,
+   "P": 0.47563921023501254
+  },
+  {
+   "key": "mv:55",
+   "title": "The Intern (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 42,
+   "P": -0.1357933420676653
+  },
+  {
+   "key": "mv:551",
+   "title": "The Naked Gun (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 80,
+   "P": -0.6625420867226062
+  },
+  {
+   "key": "mv:553",
+   "title": "Anchorman: The Legend of Ron Burgundy (2004)",
+   "source": "Bluray-1080p",
+   "bppPlus": 68,
+   "P": -0.6226859701420705
+  },
+  {
+   "key": "mv:56",
+   "title": "Meet the Parents (2000)",
+   "source": "Bluray-720p",
+   "bppPlus": 57,
+   "P": -0.24035655911944268
+  },
+  {
+   "key": "mv:569",
+   "title": "The Babadook (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 94,
+   "P": 0.6887575058904467
+  },
+  {
+   "key": "mv:57",
+   "title": "Once Upon a Time in America (1984)",
+   "source": "Bluray-1080p",
+   "bppPlus": 107,
+   "P": -0.40308277172390483
+  },
+  {
+   "key": "mv:575",
+   "title": "Punch-Drunk Love (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 105,
+   "P": -0.13883278913812358
+  },
+  {
+   "key": "mv:58",
+   "title": "The Deer Hunter (1978)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.30952690526929144
+  },
+  {
+   "key": "mv:581",
+   "title": "Super 8 (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": 0.2592019216532607
+  },
+  {
+   "key": "mv:59",
+   "title": "Killers of the Flower Moon (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 143,
+   "P": 0.4469450322537478
+  },
+  {
+   "key": "mv:60",
+   "title": "Meet the Fockers (2004)",
+   "source": "Bluray-720p",
+   "bppPlus": 41,
+   "P": -0.7034328737952023
+  },
+  {
+   "key": "mv:61",
+   "title": "Little Fockers (2010)",
+   "source": "Bluray-720p",
+   "bppPlus": 48,
+   "P": -0.13859650988151126
+  },
+  {
+   "key": "mv:615",
+   "title": "The Hangover Part III (2013)",
+   "source": "Bluray-720p",
+   "bppPlus": 49,
+   "P": -0.23107826131602832
+  },
+  {
+   "key": "mv:62",
+   "title": "A Bronx Tale (1993)",
+   "source": "Bluray-1080p",
+   "bppPlus": 46,
+   "P": -0.3436796894451423
+  },
+  {
+   "key": "mv:638",
+   "title": "Star Trek: First Contact (1996)",
+   "source": "Bluray-1080p",
+   "bppPlus": 77,
+   "P": -0.3684098168591158
+  },
+  {
+   "key": "mv:64",
+   "title": "The Godfather Part III (1990)",
+   "source": "Bluray-1080p",
+   "bppPlus": 57,
+   "P": -1.1314208871037488
+  },
+  {
+   "key": "mv:650",
+   "title": "The Texas Chain Saw Massacre (1974)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": -0.3601060405109133
+  },
+  {
+   "key": "mv:657",
+   "title": "12th Fail (2023)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 72,
+   "P": -1.6584346718253207
+  },
+  {
+   "key": "mv:67",
+   "title": "La La Land (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 151,
+   "P": 0.45328565434043383
+  },
+  {
+   "key": "mv:68",
+   "title": "Drive (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 113,
+   "P": 0.9214308925987751
+  },
+  {
+   "key": "mv:69",
+   "title": "The Big Short (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 53,
+   "P": -0.2960697499140496
+  },
+  {
+   "key": "mv:692",
+   "title": "Eephus (2025)",
+   "source": "Bluray-1080p",
+   "bppPlus": 104,
+   "P": -0.4725372309892598
+  },
+  {
+   "key": "mv:696",
+   "title": "The Master (2012)",
+   "source": "Bluray-1080p",
+   "bppPlus": 71,
+   "P": 0.9569740871191463
+  },
+  {
+   "key": "mv:70",
+   "title": "Crazy, Stupid, Love. (2011)",
+   "source": "Bluray-1080p",
+   "bppPlus": 64,
+   "P": -0.42059392657971556
+  },
+  {
+   "key": "mv:703",
+   "title": "In the Mood for Love (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 88,
+   "P": -0.9427906977682701
+  },
+  {
+   "key": "mv:71",
+   "title": "The Nice Guys (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 79,
+   "P": 0.3814451591580775
+  },
+  {
+   "key": "mv:716",
+   "title": "City of Men (2007)",
+   "source": "Bluray-720p",
+   "bppPlus": 48,
+   "P": 1.100656585177734
+  },
+  {
+   "key": "mv:73",
+   "title": "Star Wars (1977)",
+   "source": "Bluray-1080p",
+   "bppPlus": 144,
+   "P": -1.0715649457321488
+  },
+  {
+   "key": "mv:732",
+   "title": "Poor Things (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 65,
+   "P": 0.676247381030112
+  },
+  {
+   "key": "mv:739",
+   "title": "Decision to Leave (2022)",
+   "source": "Bluray-1080p",
+   "bppPlus": 75,
+   "P": -0.05347866454724479
+  },
+  {
+   "key": "mv:74",
+   "title": "Star Wars: The Force Awakens (2015)",
+   "source": "Bluray-1080p",
+   "bppPlus": 92,
+   "P": 1.2836118361599869
+  },
+  {
+   "key": "mv:75",
+   "title": "The Empire Strikes Back (1980)",
+   "source": "Bluray-1080p",
+   "bppPlus": 140,
+   "P": -1.4810344818341898
+  },
+  {
+   "key": "mv:752",
+   "title": "Only God Forgives (2013)",
+   "source": "Bluray-1080p",
+   "bppPlus": 126,
+   "P": 0.9572618126459432
+  },
+  {
+   "key": "mv:76",
+   "title": "Return of the Jedi (1983)",
+   "source": "Bluray-1080p",
+   "bppPlus": 119,
+   "P": -1.7919814733790196
+  },
+  {
+   "key": "mv:77",
+   "title": "Blade Runner (1982)",
+   "source": "Bluray-1080p",
+   "bppPlus": 133,
+   "P": 1.3877389405911649
+  },
+  {
+   "key": "mv:776",
+   "title": "Almost Famous (2000)",
+   "source": "Bluray-1080p",
+   "bppPlus": 56,
+   "P": 0.6671957554325479
+  },
+  {
+   "key": "mv:78",
+   "title": "Raiders of the Lost Ark (1981)",
+   "source": "Bluray-1080p",
+   "bppPlus": 116,
+   "P": -0.42333721002498376
+  },
+  {
+   "key": "mv:784",
+   "title": "Menace II Society (1993)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": 1.0349759117252362
+  },
+  {
+   "key": "mv:79",
+   "title": "Indiana Jones and the Last Crusade (1989)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": 0.09976938439104786
+  },
+  {
+   "key": "mv:80",
+   "title": "Star Wars: The Rise of Skywalker (2019)",
+   "source": "Bluray-1080p",
+   "bppPlus": 59,
+   "P": 0.7342567725979795
+  },
+  {
+   "key": "mv:81",
+   "title": "Indiana Jones and the Temple of Doom (1984)",
+   "source": "Bluray-1080p",
+   "bppPlus": 47,
+   "P": 1.030450149798415
+  },
+  {
+   "key": "mv:811",
+   "title": "See How They Run (2022)",
+   "source": "WEBRip-1080p",
+   "bppPlus": 57,
+   "P": 0.4347161165156742
+  },
+  {
+   "key": "mv:82",
+   "title": "Indiana Jones and the Kingdom of the Crystal Skull (2008)",
+   "source": "Bluray-1080p",
+   "bppPlus": 68,
+   "P": 2.073922733153726
+  },
+  {
+   "key": "mv:821",
+   "title": "The Man Standing Next (2020)",
+   "source": "Bluray-1080p",
+   "bppPlus": 93,
+   "P": -1.1742368443431084
+  },
+  {
+   "key": "mv:825",
+   "title": "Kajillionaire (2020)",
+   "source": "WEBRip-720p",
+   "bppPlus": 83,
+   "P": 0.9134195475070999
+  },
+  {
+   "key": "mv:84",
+   "title": "Indiana Jones and the Dial of Destiny (2023)",
+   "source": "Bluray-1080p",
+   "bppPlus": 69,
+   "P": 0.30412631490365694
+  },
+  {
+   "key": "mv:840",
+   "title": "Austin Powers: The Spy Who Shagged Me (1999)",
+   "source": "Bluray-720p",
+   "bppPlus": 45,
+   "P": 0.29726401164700533
+  },
+  {
+   "key": "mv:841",
+   "title": "Austin Powers: International Man of Mystery (1997)",
+   "source": "Bluray-720p",
+   "bppPlus": 52,
+   "P": -0.8549280356689599
+  },
+  {
+   "key": "mv:848",
+   "title": "The Man Who Knew Too Much (1956)",
+   "source": "Bluray-1080p",
+   "bppPlus": 55,
+   "P": 0.2567547729658514
+  },
+  {
+   "key": "mv:85",
+   "title": "The Fugitive (1993)",
+   "source": "Bluray-1080p",
+   "bppPlus": 63,
+   "P": -0.230693067499872
+  },
+  {
+   "key": "mv:851",
+   "title": "Our Man in Havana (1960)",
+   "source": "Bluray-1080p",
+   "bppPlus": 84,
+   "P": 0.1457035742916125
+  },
+  {
+   "key": "mv:852",
+   "title": "Confessions of a Dangerous Mind (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 138,
+   "P": 2.5924006921340648
+  },
+  {
+   "key": "mv:86",
+   "title": "The Conversation (1974)",
+   "source": "Bluray-1080p",
+   "bppPlus": 82,
+   "P": -0.1641551554525837
+  },
+  {
+   "key": "mv:862",
+   "title": "Allied (2016)",
+   "source": "Bluray-1080p",
+   "bppPlus": 82,
+   "P": 0.3781094213683054
+  },
+  {
+   "key": "mv:87",
+   "title": "American Graffiti (1973)",
+   "source": "Bluray-1080p",
+   "bppPlus": 122,
+   "P": 0.01978551047709496
+  },
+  {
+   "key": "mv:88",
+   "title": "On the Waterfront (1954)",
+   "source": "Bluray-1080p",
+   "bppPlus": 72,
+   "P": 0.9142462266251269
+  },
+  {
+   "key": "mv:883",
+   "title": "Army of Shadows (1969)",
+   "source": "Bluray-1080p",
+   "bppPlus": 81,
+   "P": 3.7753098288623663
+  },
+  {
+   "key": "mv:884",
+   "title": "13 Rue Madeleine (1947)",
+   "source": "WEBDL-720p",
+   "bppPlus": 89,
+   "P": 0.21463445909922468
+  },
+  {
+   "key": "mv:89",
+   "title": "A Streetcar Named Desire (1951)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": 0.08997973794199778
+  },
+  {
+   "key": "mv:891",
+   "title": "My Own Private Idaho (1991)",
+   "source": "WEBDL-720p",
+   "bppPlus": 47,
+   "P": 1.1299937521572032
+  },
+  {
+   "key": "mv:898",
+   "title": "Blue Ruin (2014)",
+   "source": "Bluray-1080p",
+   "bppPlus": 115,
+   "P": -0.29301374324415697
+  },
+  {
+   "key": "mv:904",
+   "title": "El Mariachi (1993)",
+   "source": "Bluray-720p",
+   "bppPlus": 47,
+   "P": 0.21667360971572253
+  },
+  {
+   "key": "mv:91",
+   "title": "Mutiny on the Bounty (1962)",
+   "source": "Bluray-1080p",
+   "bppPlus": 93,
+   "P": 0.1424296706449171
+  },
+  {
+   "key": "mv:918",
+   "title": "Swingers (1996)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": 1.0613181988135412
+  },
+  {
+   "key": "mv:92",
+   "title": "Hearts of Darkness: A Filmmaker's Apocalypse (1991)",
+   "source": "Bluray-1080p",
+   "bppPlus": 94,
+   "P": -0.8707892541476748
+  },
+  {
+   "key": "mv:925",
+   "title": "Enter the Void (2010)",
+   "source": "Bluray-1080p",
+   "bppPlus": 92,
+   "P": 1.7624596149187008
+  },
+  {
+   "key": "mv:93",
+   "title": "Guys and Dolls (1955)",
+   "source": "Bluray-1080p",
+   "bppPlus": 52,
+   "P": -0.43517084635555026
+  },
+  {
+   "key": "mv:94",
+   "title": "The Matrix (1999)",
+   "source": "Bluray-1080p",
+   "bppPlus": 124,
+   "P": 1.359920253857466
+  },
+  {
+   "key": "mv:941",
+   "title": "The Human Condition III: A Soldier's Prayer (1961)",
+   "source": "Bluray-1080p",
+   "bppPlus": 122,
+   "P": -0.6019089669519044
+  },
+  {
+   "key": "mv:95",
+   "title": "The Matrix Reloaded (2003)",
+   "source": "Bluray-1080p",
+   "bppPlus": 66,
+   "P": 0.8463677731931957
+  },
+  {
+   "key": "mv:96",
+   "title": "The Matrix Revolutions (2003)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": 0.39840982760573834
+  },
+  {
+   "key": "mv:97",
+   "title": "Catch Me If You Can (2002)",
+   "source": "Bluray-1080p",
+   "bppPlus": 49,
+   "P": 0.6534853701787235
+  },
+  {
+   "key": "mv:99",
+   "title": "Se7en (1995)",
+   "source": "Bluray-1080p",
+   "bppPlus": 67,
+   "P": 0.6890173684631825
+  },
+  {
+   "key": "mv:587",
+   "title": "The Invite (2026)",
+   "source": "WEBDL-1080p",
+   "bppPlus": 91,
+   "P": -0.9739642401581803
+  },
+  {
+   "key": "mv:961",
+   "title": "Casino Royale (1967)",
+   "source": "Bluray-1080p",
+   "bppPlus": 58,
+   "P": -1.485720824206948
+  }
+ ]
+}

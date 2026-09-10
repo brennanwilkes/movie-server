@@ -65,7 +65,11 @@ require('./lib/jobs');
 const movieMode = require('./lib/movie-mode');
 const downloads = require('./lib/downloads');
 require('./lib/routes-elo');
-const { registerHssShelf, startShelfTimer } = require('./lib/hss-shelf');
+// Receives the Fire Stick client's buffered fault log (/api/tv-telemetry). Route-only, no timers.
+require('./lib/tv-telemetry');
+// Crew (director/writer/DP/editor/composer) for the detail page (/api/crew). Route-only.
+require('./lib/crew');
+const { registerHssShelf, startShelfTimer, warmShelfCatalog } = require('./lib/hss-shelf');
 const metricsRecorders = require('./lib/metrics-recorders');
 require('./lib/routes-actions');
 
@@ -77,6 +81,11 @@ const cpuCensus = require('./lib/cpu-census');
 const audit = require('./lib/audit');
 const { collectionsSweep, startCollectionsTimer } = require('./lib/collections');
 const { oscarTagsSweep, startOscarTagsTimer } = require('./lib/oscar-tags');
+// Nightly: writes each film's crew (director/writer/DP/editor/composer) into its Jellyfin People
+// list so those people get real person pages. Must load AFTER oscar-tags and crew, which it uses.
+const { startCrewPeopleTimer } = require('./lib/crew-people');
+// Purges zero-byte thumbnails from Jellyfin's image cache — the black-poster bug.
+const { startJfImageCacheTimer } = require('./lib/jf-image-cache');
 const { nationTagsSweep, startNationTagsTimer } = require('./lib/nation-tags');
 const { startTop100ExportTimer } = require('./lib/top100-export');
 const { startTop100GuardTimer } = require('./lib/top100-guard');
@@ -85,6 +94,7 @@ const searchEngine = require('./lib/search-engine');
 const jfScan = require('./lib/jf-scan');
 const probe = require('./lib/probe');
 const banding = require('./lib/banding');
+const artifacts = require('./lib/artifacts');
 
 // Cold-boot ordering: build collections, THEN register the shelves that read them, so the home
 // page is populated on first load instead of after the old 3-min gap. Polls Jellyfin (up to ~5
@@ -97,6 +107,10 @@ async function bootSequence() {
     catch (_) { await new Promise((r) => setTimeout(r, 10000)); }
   }
   console.log('bootSequence: Jellyfin reachable — building collections then registering shelves');
+  // FIRST, before the multi-minute sweep: fill the shelf-catalog cache. A Fire Stick launched in
+  // that window used to pay the full ~11s BoxSet query and give up at 8s, which is most of the
+  // `controller_rows_failed` events in the TV telemetry. See warmShelfCatalog.
+  await warmShelfCatalog();
   await collectionsSweep();
   await registerHssShelf();
   await oscarTagsSweep();   // decorate posters with Oscar badges (metadata Tags only; safe post-boot)
@@ -126,6 +140,8 @@ audit.startAuditVerifier();   // Audit tab: paced indexer verification, one row 
 cpuCensus.startCpuCensus();   // report-only: counts files that can't hardware-decode (gpuVerify only fixes fresh MOVIE imports)
 startCollectionsTimer();
 startOscarTagsTimer();
+startCrewPeopleTimer();
+startJfImageCacheTimer();
 startNationTagsTimer();
 startTop100ExportTimer();   // weekly TXT snapshot of the hand-ranked Top 100 (no other copy exists)
 startTop100GuardTimer();    // hourly: re-add titles a file swap orphaned (Jellyfin ids are path-derived)
@@ -145,5 +161,12 @@ banding.startBanding();     // the SECOND quality axis: CAMBI banding, the one a
                             // budget, so total nightly encode time is unchanged. Never touches
                             // BPP+ - reported beside it. AFTER startProbe because it calls into
                             // probe.js for gating. See docs/REPORT-cambi-2026-08-20.md.
+artifacts.startArtifacts(); // the PROVENANCE axis: all four artifacts on the SAME clips, which is
+                            // what banding-cache + the probe's blockMean/blurMean cannot give (they
+                            // sample different positions, and task 97 measured that swap FAILING its
+                            // arbiter). Unlike banding this one DOES touch BPP+ — it multiplies the
+                            // scoring denominator, so the sqrt halves any misread. AFTER startProbe
+                            // for gating, and after banding so the heavy lease is contended in a
+                            // stable order. See docs/BPP-PLUS-FORMULA.md section 3.
 
 app.listen(PORT, () => console.log(`controller listening on :${PORT} (NUC_IP=${NUC_IP}, keys ${cfg.RADARR_KEY ? 'loaded' : 'NOT provisioned'})`));

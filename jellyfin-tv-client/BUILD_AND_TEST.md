@@ -21,9 +21,12 @@ fields=[CHILD_COUNT])`), keeping our curated collections **plus** TMDb franchise
 Recently Added / Next Up sections are intentionally omitted.
 
 **Row factories** (`HomeFragmentHelper.kt`):
-- `loadCollectionRow(collection)` — `GetItemsRequest(parentId=<boxSetId>)` through the stock
-  fetch→card→backdrop pipeline. Sort mirrors `controller/server.js` `/api/hss/shelf`:
-  `Oscar:*` → `PremiereDate DESC` (newest first); everything else → `Random` (reshuffles per retrieve).
+- `loadCollectionRow(name, id)` — `GetItemsRequest(parentId=<boxSetId>)` through the stock
+  fetch→card→backdrop pipeline. **No `sortBy` at all**, for every collection — the sweep stores
+  membership pre-shuffled with `DisplayOrder=Default`, so stored order *is* random order. Award
+  categories (`Oscar:`/`Cannes:`/`Sundance:`) were the one exception, sorted `PremiereDate DESC`,
+  until 2026-08-25; they're shuffled with everything else now (`controller/lib/hss-shelf.js`
+  `/api/hss/shelf` matches). Don't add a sort back — see the comment on the function.
 - `loadTvShowsRow()` — `GetItemsRequest(includeItemTypes=[SERIES], recursive, sortBy=Random)`.
 - **Lag fix:** rows load `ROW_CHUNK_SIZE=15` items at a time and lazily page more as scrolled
   horizontally (was an eager 50 per row — the original lag source). Small chunk = light home load,
@@ -68,7 +71,9 @@ plugin provisioned in `scripts/provision/jellyfin.sh`, producing INTRO/OUTRO seg
 data (Intro Skipper emits intro/outro only).
 
 Reusable diff: **`collection-rows.patch`** (applies cleanly on the pristine `v0.19.9` tag; note it
-includes the new file `HomeSpotlight.kt` as an add).
+includes the new file `HomeSpotlight.kt` as an add). **Historical snapshot only** — the fork has
+since diverged well past it (198 files vs the patch's 5), so the working clone is the source of
+truth and this file is not kept in sync.
 
 ## Environment (set up 2026-07-04, `haleiwa`)
 
@@ -133,10 +138,16 @@ Fire Stick adds is confirming performance on 1 GB RAM / API 22 (the emulator is 
 
 ```bash
 cd ~/movie-server/jellyfin-tv-client
-./deploy.sh                 # adb connect 192.168.1.77:5555 → install -r → launch
+./deploy.sh                 # finds the stick → adb connect → install -r → launch
 ```
+The stick's address is **discovered, not hardcoded** — its DHCP lease has already moved once
+(.77 → .72). `deploy.sh` checks, in order: a device already connected on :5555, the ARP cache by
+Ethernet MAC (`8c:2a:85:cd:7b:a6`), then the addresses it has previously had. Override with
+`FIRE=<ip>:5555 ./deploy.sh` if you know better; if it finds nothing it says so instead of
+deploying into the void.
+
 First launch: add server `http://192.168.1.74:8096`, sign in `brennan`/`brennan`. Rollback:
-`adb -s 192.168.1.77:5555 uninstall org.jellyfin.androidtv.debug`. Kodi and anything else untouched.
+`adb -s "$FIRE" uninstall org.jellyfin.androidtv.debug`. Kodi and anything else untouched.
 
 ## Maintenance
 Pinned to v0.19.9 → zero maintenance. To take an upstream update: `git rebase <newer-tag>` (only a

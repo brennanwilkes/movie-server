@@ -36,7 +36,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 
 const args = process.argv.slice(2);
 const val = (f, d) => { const i = args.indexOf(f); return i >= 0 && args[i + 1] ? args[i + 1] : d; };
@@ -99,7 +99,10 @@ const sh = (bin, a) => execFileSync(bin, a, { encoding: 'utf8', timeout: 20 * 60
 // Everything else the live probe measures — CAMBI, flat-area, luma — is read off the pixels and is
 // unaffected. Caveat to carry: the HEVC pass could itself smooth a little banding, which would bias
 // the test TOWARD "no signal"; a positive result is therefore conservative, a null one is not proof.
-function measure(file) {
+// `have` is the previous record for this clip, if any. Flat-area and luma are read off the pixels
+// and cannot change between runs, so a re-measure that exists only to add blocking and blur reuses
+// them and skips two of the three decodes — the difference between one overnight and two.
+function measure(file, have = null) {
   const w = Number(sh(FP, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width',
     '-of', 'default=nw=1:nk=1', file]).trim()) || 0;
   const h = Number(sh(FP, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=height',
@@ -111,33 +114,65 @@ function measure(file) {
   const renderKbps = Number(sh(FP, ['-v', 'error', '-show_entries', 'format=bit_rate',
     '-of', 'default=nw=1:nk=1', file]).trim()) / 1000 || 0;
 
-  // CAMBI, same-file reference — identical to probe-banding.sh.
+  // CAMBI, same-file reference — identical to probe-banding.sh. blockdetect and blurdetect ride the
+  // SAME decode, exactly as banding-ladder.js chains them: they are pure analysis filters, so the
+  // third and fourth artifacts cost no extra pass. They report as a summary line on stderr at
+  // loglevel info rather than through the metadata sink, hence spawnSync instead of sh().
   const log = path.join('/tmp', `cq-${process.pid}.csv`);
   try { fs.unlinkSync(log); } catch { /* */ }
-  sh(FF, ['-hide_banner', '-loglevel', 'error', '-i', file, '-i', file,
-    '-lavfi', `[0:v][1:v]libvmaf=feature=name=cambi:n_threads=3:log_path=${log}:log_fmt=csv`,
-    '-f', 'null', '-']);
+  const cp = spawnSync(FF, ['-hide_banner', '-loglevel', 'info', '-i', file, '-i', file,
+    '-lavfi', `[0:v]blockdetect,blurdetect[d];[d][1:v]libvmaf=feature=name=cambi:n_threads=3:log_path=${log}:log_fmt=csv`,
+    '-f', 'null', '-'], { encoding: 'utf8', timeout: 20 * 60000 });
+  if (cp.status !== 0) throw new Error(`ffmpeg exit ${cp.status}: ${String(cp.stderr).slice(-200)}`);
+  const grab = (re) => { const m = re.exec(String(cp.stderr)); return m ? +Number(m[1]).toFixed(5) : null; };
+  const block = grab(/block mean: ([0-9.]+)/);
+  const blur = grab(/blur mean: ([0-9.]+)/);
   const lines = fs.readFileSync(log, 'utf8').trim().split('\n');
   const col = lines[0].split(',').indexOf('cambi');
   const cvals = lines.slice(1).map((l) => Number(l.split(',')[col])).filter(Number.isFinite);
   try { fs.unlinkSync(log); } catch { /* */ }
 
   // Flat-area fraction and luma, same recipe as scripts/flat-area.js.
-  const flatOut = sh(FF, ['-hide_banner', '-loglevel', 'error', '-i', file, '-an', '-sn',
-    '-vf', "scale=960:-2,sobel,lutyuv=y='if(lt(val,12),255,0)',signalstats,"
-      + 'metadata=print:key=lavfi.signalstats.YAVG:file=-', '-f', 'null', '-']);
-  const fvals = String(flatOut).split('\n').map((l) => /YAVG=([\d.]+)/.exec(l)).filter(Boolean)
-    .map((m) => Number(m[1]) / 255);
-  const lumaOut = sh(FF, ['-hide_banner', '-loglevel', 'error', '-i', file, '-an', '-sn',
-    '-vf', 'signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-', '-f', 'null', '-']);
-  const lvals = String(lumaOut).split('\n').map((l) => /YAVG=([\d.]+)/.exec(l)).filter(Boolean)
-    .map((m) => Number(m[1]));
+  let flat = have && have.flat != null ? have.flat : null;
+  let luma = have && have.luma != null ? have.luma : null;
+  if (flat == null) {
+    const flatOut = sh(FF, ['-hide_banner', '-loglevel', 'error', '-i', file, '-an', '-sn',
+      '-vf', "scale=960:-2,sobel,lutyuv=y='if(lt(val,12),255,0)',signalstats,"
+        + 'metadata=print:key=lavfi.signalstats.YAVG:file=-', '-f', 'null', '-']);
+    const fvals = String(flatOut).split('\n').map((l) => /YAVG=([\d.]+)/.exec(l)).filter(Boolean)
+      .map((m) => Number(m[1]) / 255);
+    flat = fvals.length ? +mean(fvals).toFixed(5) : null;
+  }
+  if (luma == null) {
+    const lumaOut = sh(FF, ['-hide_banner', '-loglevel', 'error', '-i', file, '-an', '-sn',
+      '-vf', 'signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-', '-f', 'null', '-']);
+    const lvals = String(lumaOut).split('\n').map((l) => /YAVG=([\d.]+)/.exec(l)).filter(Boolean)
+      .map((m) => Number(m[1]));
+    luma = lvals.length ? +mean(lvals).toFixed(2) : null;
+  }
+
+  /* GRAIN RETENTION on the labelled corpus. Same recipe as banding-ladder.js grainOf(). It is here
+   * because the grain THRESHOLD is now the largest unknown in the model — sweeping it from 0.85 to
+   * 0.97 moves the median library multiplier from x2.26 to x0.88 — and this corpus is the only
+   * external source of subjective labels we have. Cheap to add: one more decode on clips we are
+   * already opening.
+   *
+   * EXPECT IT TO BE WEAK, and say so before looking. CVQAD is 1080p UGC and broadcast, not
+   * photochemical film scans, so its grain dynamic range is probably too narrow to place a threshold
+   * that has to serve The Big Sleep. A null here does not clear grain; it just means this corpus
+   * cannot answer, which is what the research round already concluded about the grainy half. */
+  const gp = spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-i', file, '-an', '-sn', '-vf',
+    'split[a][b];[a]hqdn3d=4:3:6:4[d];[b][d]blend=all_mode=difference,'
+      + 'signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-',
+    '-f', 'null', '-'], { encoding: 'utf8', timeout: 20 * 60000 });
+  const gv = String(gp.stdout || '').split('\n')
+    .map((l) => /YAVG=([\d.]+)/.exec(l)).filter(Boolean).map((m) => Number(m[1]));
+  const guse = gv.length > 2 ? gv.slice(1) : gv;      // hqdn3d's temporal term has no history on frame 1
+  const grain = guse.length ? +mean(guse).toFixed(5) : null;
 
   return {
-    w, h, renderFps: fps, renderKbps,
+    w, h, renderFps: fps, renderKbps, block, blur, flat, luma, grain,
     cambi: cvals.length ? +mean(cvals).toFixed(5) : null,
-    flat: fvals.length ? +mean(fvals).toFixed(5) : null,
-    luma: lvals.length ? +mean(lvals).toFixed(2) : null,
   };
 }
 
@@ -153,7 +188,10 @@ function measure(file) {
 
   let n = 0;
   for (const f of present) {
-    if (done[f]) continue;
+    // Resume on CONTENT, not on presence. Clips measured before blockdetect/blurdetect joined the
+    // chain carry no `block`, and skipping them would silently leave the two thresholds we actually
+    // need unmeasured on two thirds of the corpus.
+    if (done[f] && done[f].block !== undefined && done[f].grain !== undefined) continue;
     const meta = byFile.get(f);
     if (!meta) continue;
     const full = path.join(clipDir, f);
@@ -163,7 +201,7 @@ function measure(file) {
     try { st = fs.statSync(full); } catch { continue; }
     if (st.size < 100000) continue;                        // still downloading
     try {
-      const m = measure(full);
+      const m = measure(full, done[f] || null);
       // Bits and frame rate come from the CSV, geometry from the file. See the trap note above.
       const fps = Number(meta.fps) || m.renderFps;
       const px = m.w * m.h * fps;
@@ -172,13 +210,18 @@ function measure(file) {
       fs.writeFileSync(CACHE, JSON.stringify(done, null, 1));
       n += 1;
       console.log(`  [${n}] ${meta.seq}/${meta.preset} ${meta.crf}  ${meta.kbps} kbps  bpp ${bpp}  `
-        + `cambi ${m.cambi}  flat ${m.flat}  MOS ${meta.mos.toFixed(2)}`);
+        + `cambi ${m.cambi}  block ${m.block}  blur ${m.blur}  MOS ${meta.mos.toFixed(2)}`);
     } catch (e) { console.log(`  FAILED ${f}: ${String(e.message).slice(0, 80)}`); }
   }
 
-  const rows = Object.values(done).filter((r) => r.cambi != null && r.bpp > 0 && r.mos != null && r.flat != null);
+  const rows = Object.values(done).filter((r) => r.cambi != null && r.bpp > 0 && r.mos != null
+    && r.bt != null && r.flat != null);
   console.log(`\n${rows.length} measured clips with labels`);
   if (rows.length < MIN) { console.log(`need at least ${MIN} — re-run as more download`); return; }
+
+  const seqs = [...new Set(rows.map((r) => r.seq))];
+  console.log(`${seqs.length} distinct sequences, `
+    + `${(rows.length / seqs.length).toFixed(1)} bitrate points each on average`);
 
   const y = rows.map((r) => L(r.cambi));
   const design = (r) => [1, L(r.bpp), r.flat, r.luma / 100];
@@ -189,33 +232,74 @@ function measure(file) {
     + `${(1 - y.reduce((s, v, i) => s + (v - fit[i]) ** 2, 0) / y.reduce((s, v) => s + (v - my) ** 2, 0)).toFixed(3)}`);
   const resid = rows.map((r, i) => y[i] - fit[i]);
 
+  // Demean any vector within sequence. This is the fixed-effects trick, and it is what turns a
+  // pooled correlation into a WITHIN-SEQUENCE one: after demeaning, all between-sequence level
+  // differences are gone and only "how this clip compares to other encodes OF THE SAME SOURCE"
+  // remains. That is the exact question the correction asks, and the pooled version cannot answer it
+  // — it is the between-vs-within confound that has bitten this project twice already.
+  const demean = (v) => {
+    const acc = new Map();
+    rows.forEach((r, i) => {
+      const a = acc.get(r.seq) || { s: 0, n: 0 };
+      a.s += v[i]; a.n += 1; acc.set(r.seq, a);
+    });
+    return v.map((x, i) => x - acc.get(rows[i].seq).s / acc.get(rows[i].seq).n);
+  };
+
   // ---- THE DECISIVE TEST ----------------------------------------------------------------------
-  console.log('\nTHE DECISIVE TEST — does the residual predict SUBJECTIVE quality beyond bits?');
-  const q = rows.map((r) => r.mos);
-  console.log(`  bits alone vs MOS          pearson ${pearson(rows.map((r) => L(r.bpp)), q).toFixed(3)}  `
-    + `spearman ${spearman(rows.map((r) => L(r.bpp)), q).toFixed(3)}`);
-  console.log(`  raw banding vs MOS         pearson ${pearson(y, q).toFixed(3)}  spearman ${spearman(y, q).toFixed(3)}`);
-  console.log(`  RESIDUAL vs MOS            pearson ${pearson(resid, q).toFixed(3)}  spearman ${spearman(resid, q).toFixed(3)}`);
+  // Run for both labels. Bradley-Terry is PRIMARY: it comes from forced-choice pairs, so it measures
+  // a difference, which is what a correction needs. Unpaired MOS is the design that invalidated the
+  // 2026-08-13 in-house test, so it is reported only as a cross-check.
+  const LABELS = [['Bradley-Terry (primary)', (r) => r.bt], ['MOS (cross-check)', (r) => r.mos]];
+  let calib = null;
 
-  // The strict version: regress MOS on bits, then ask if the residual explains what is LEFT. This is
-  // the only form that answers "does banding add information bits do not already carry".
-  const qb = ols(rows.map((r) => [1, L(r.bpp)]), q);
-  const qResid = rows.map((r, i) => q[i] - (qb[0] + qb[1] * L(r.bpp)));
-  const rr = pearson(resid, qResid); const rs = spearman(resid, qResid);
-  console.log(`\n  MOS-after-bits vs banding-residual   pearson ${rr.toFixed(3)}  spearman ${rs.toFixed(3)}`);
-  console.log(`  ${Math.abs(rr) > 0.3 ? 'THE FRAMEWORK IS REAL — banding carries quality information bits do not.'
-    : Math.abs(rr) > 0.15 ? 'WEAK but present — real, small, and the coefficient would be poorly determined.'
-      : 'NO SIGNAL — the residual was model misspecification. Do NOT ship the correction.'}`);
+  for (const [labelName, get] of LABELS) {
+    const q = rows.map(get);
+    console.log(`\n=== ${labelName} ===`);
+    console.log(`  bits alone vs label        pearson ${pearson(rows.map((r) => L(r.bpp)), q).toFixed(3)}  `
+      + `spearman ${spearman(rows.map((r) => L(r.bpp)), q).toFixed(3)}`);
+    console.log(`  raw banding vs label       pearson ${pearson(y, q).toFixed(3)}  spearman ${spearman(y, q).toFixed(3)}`);
 
-  if (Math.abs(rr) > 0.15) {
-    // The regression slope IS the calibration constant: how much MOS a unit of log-residual is worth.
-    const cb = ols(rows.map((r, i) => [1, resid[i]]), qResid);
-    console.log(`\n  CALIBRATION: d(MOS) / d(log banding residual) = ${cb[1].toFixed(4)}`);
-    console.log('  Combined with d(MOS)/d(log bpp) below, that converts a residual into a bpp-equivalent');
-    console.log(`  and therefore into BPP+ points, with no invented constant.`);
-    console.log(`  d(MOS)/d(log bpp) = ${qb[1].toFixed(4)}`);
-    const bppEquiv = cb[1] / qb[1];
+    // (a) POOLED — regress label on bits, ask whether the banding residual explains what is LEFT.
+    const qb = ols(rows.map((r) => [1, L(r.bpp)]), q);
+    const qResid = rows.map((r, i) => q[i] - (qb[0] + qb[1] * L(r.bpp)));
+    console.log(`  POOLED  label-after-bits vs banding-residual   pearson ${pearson(resid, qResid).toFixed(3)}  `
+      + `spearman ${spearman(resid, qResid).toFixed(3)}`);
+
+    // (b) WITHIN-SEQUENCE — the honest form. Demean bits, banding and label within each sequence
+    // first, so every comparison is between encodes of the SAME source.
+    const wBits = demean(rows.map((r) => L(r.bpp)));
+    const wBand = demean(y);
+    const wQ = demean(q);
+    const wb = ols(wBits.map((b) => [1, b]), wQ);
+    const wQResid = wQ.map((v, i) => v - (wb[0] + wb[1] * wBits[i]));
+    const bb = ols(wBits.map((b) => [1, b]), wBand);
+    const wBandResid = wBand.map((v, i) => v - (bb[0] + bb[1] * wBits[i]));
+    const rr = pearson(wBandResid, wQResid);
+    console.log(`  WITHIN  label-after-bits vs banding-residual   pearson ${rr.toFixed(3)}  `
+      + `spearman ${spearman(wBandResid, wQResid).toFixed(3)}   <- THE TEST`);
+    console.log(`  ${Math.abs(rr) > 0.3 ? 'THE FRAMEWORK IS REAL — banding carries quality information bits do not.'
+      : Math.abs(rr) > 0.15 ? 'WEAK but present — real, small, and the coefficient would be poorly determined.'
+        : 'NO SIGNAL — the residual was model misspecification. Do NOT ship the correction.'}`);
+
+    // The sign matters as much as the size. MORE banding than bits predict must cost quality, so the
+    // correlation has to be NEGATIVE. A positive one falsifies the mechanism even if it is strong.
+    if (rr > 0.15) console.log('  WARNING: sign is POSITIVE — more banding reading as BETTER quality falsifies the mechanism.');
+
+    if (labelName.startsWith('Bradley') && rr < -0.15) {
+      calib = { rr, cb: ols(wBandResid.map((v) => [1, v]), wQResid), bitSlope: wb[1] };
+    }
+  }
+
+  if (calib) {
+    // The regression slope IS the calibration constant: how much subjective score a unit of
+    // log-residual is worth, both measured WITHIN sequence so the units are commensurable.
+    console.log(`\nCALIBRATION (within-sequence, Bradley-Terry)`);
+    console.log(`  d(score) / d(log banding residual) = ${calib.cb[1].toFixed(4)}`);
+    console.log(`  d(score) / d(log bpp)             = ${calib.bitSlope.toFixed(4)}`);
+    const bppEquiv = calib.cb[1] / calib.bitSlope;
     console.log(`  => 1.0 of log-residual is worth ${bppEquiv.toFixed(4)} of log-bpp`);
     console.log(`  => BPP+ shift = BPP+ * (exp(${(bppEquiv / 2).toFixed(4)} * REL * residual) - 1)`);
+    console.log('  (the /2 is the sqrt in BPP+; REL is the reliability shrink, Kelley\'s correction)');
   }
 })();

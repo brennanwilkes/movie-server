@@ -42,7 +42,19 @@ async function recordServiceMetrics() {
     try { const r = await tfetch(s.url, { headers: s.headers ? s.headers() : {} }, 4000); up = true; } catch { /* down */ }
     curStates[s.id] = up;
   }
-  try { await tfetch(`${HOST.jellyfin}/System/Info`, {}, 4000); curStates.jellyfin = true; } catch { curStates.jellyfin = false; }
+  // /System/Info/Public, not /System/Info: the latter REQUIRES a token, and this probe sends
+  // none, so every single poll was a 401. It still reported "up" (a 401 is a response, not a
+  // throw), so the probe worked by accident while writing an
+  // `AuthenticationScheme "CustomAuthentication" was challenged` line into Jellyfin's log every
+  // 30 seconds — 2,865 of them on 2026-09-08 alone, which is most of that log. The poll interval
+  // had already been raised from 10s to 30s to make the noise less bad; this removes the cause.
+  // The public endpoint answers 200 exactly when the Jellyfin app is up, which is the question
+  // being asked, so `r.ok` can be checked properly rather than inferring liveness from "it
+  // replied something".
+  try {
+    const r = await tfetch(`${HOST.jellyfin}/System/Info/Public`, {}, 4000);
+    curStates.jellyfin = r.ok;
+  } catch { curStates.jellyfin = false; }
   try { await tfetch(`${HOST.jellyseerr}/api/v1/status`, {}, 4000); curStates.jellyseerr = true; } catch { curStates.jellyseerr = false; }
   metrics.recordServices(curStates);
   for (const [id, up] of Object.entries(curStates)) {
@@ -81,7 +93,7 @@ function startRecorders() {
 // callback and all subsequent repeats keep a consistent offset.
 setTimeout(() => { tSystem(); setInterval(tSystem, 10000); }, 2000);
 // Fire at 7s (5s after system first fire), then every 10s.
-setTimeout(() => { tServices(); setInterval(tServices, 30000); }, 7000);   // 30s (was 10s): service up/down is meaningful at 30s; cuts Jellyfin auth-challenge frequency ~67%
+setTimeout(() => { tServices(); setInterval(tServices, 30000); }, 7000);   // 30s: service up/down is meaningful at 30s (the Jellyfin auth-challenge spam this also used to mitigate is fixed at the source above)
 }
 
 module.exports = { startRecorders };

@@ -14,6 +14,12 @@ for f in controller/*.js controller/lib/*.js controller/web/js/*.js; do
 done
 echo "deploy: JS syntax OK"
 
+# The per-file check above cannot see the hazard that actually took out the Audit tab's cousin:
+# controller/web/js/* are CLASSIC scripts sharing ONE global lexical scope, so two files each
+# declaring `const esc` are individually valid and collectively a SyntaxError — and a duplicate
+# top-level `function` does not even throw, it silently replaces the earlier one.
+node scripts/check-web-globals.js || { echo "deploy: refusing to deploy" >&2; exit 1; }
+
 docker compose config -q                  # fail fast on bad compose/env
 docker compose pull "$@"                   # latest images
 docker compose up -d --remove-orphans --build "$@"   # --build re-bakes the controller image on code changes

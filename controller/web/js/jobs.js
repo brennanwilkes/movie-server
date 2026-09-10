@@ -229,6 +229,7 @@ function isArmed(id, act) {
 // actually does is throw away cached verdicts so the sweep asks again — which is a recheck.
 const JOB_ACTION_LABEL = {
   'start-session': 'Run', 'stop-session': 'Stop',
+  'start-artifacts': 'Run', 'stop-artifacts': 'Stop',
   'start-sweep': 'Run', 'stop-sweep': 'Stop',
   'recheck-sources': 'Recheck', 'rescan-upgrades': 'Recheck',
   start: 'Run', stop: 'Stop',
@@ -238,7 +239,11 @@ function jobAction(j) {
   if (!j.actions || !j.actions.length) return '';
   const busy = jobsBusy.has(j.id);
   return j.actions.map((a) => {
-    const stop = a === 'stop' || a === 'stop-session' || a === 'stop-sweep';
+    // Prefix test, not a list. The list was `stop`/`stop-session`/`stop-sweep` and silently missed
+    // `stop-artifacts` when that job shipped — its Stop rendered in the ordinary button colour, so
+    // the one destructive-looking control on the card did not look destructive. Every action verb
+    // in this app is `<verb>` or `<verb>-<thing>`, so the prefix IS the verb.
+    const stop = a === 'stop' || a.startsWith('stop-');
     const armed = isArmed(j.id, a);
     const label = armed ? JOB_CONFIRM[a] : (JOB_ACTION_LABEL[a] || a);
     return `<button class="job-btn${stop ? ' stop' : ''}${armed ? ' armed' : ''}"`
@@ -377,9 +382,20 @@ function jobsPollStop() {
 // listeners would be lost with them.
 // Each route is called with the JOB ID, so one action name can serve several jobs — `start-sweep`
 // is shared by both nightly audit sweeps and resolves against the id the button was rendered on.
+// THESE ARE ID-AWARE, AND THAT FIXES A LIVE BUG. `start-session`/`stop-session` were hardcoded to
+// the PROBE's URL and ignored the job id — so the banding card, which declares the same action and
+// has its own /api/banding/session/* endpoints, posted to /api/probe/session/start and started the
+// wrong job. Every job whose session endpoints follow /api/<id>/session/<verb> now resolves
+// correctly from the id, and the two that do not (probe, whose route predates the convention) are
+// mapped explicitly.
+const SESSION_PATH = { probe: 'probe', banding: 'banding', artifacts: 'artifacts' };
+const sessionRoute = (id, verb) => `/api/${SESSION_PATH[id] || id}/session/${verb}`;
+
 const JOB_ACTION_ROUTE = {
-  'start-session': () => ['/api/probe/session/start', 'Probing until you stop it'],
-  'stop-session': () => ['/api/probe/session/stop', 'Probe stopped'],
+  'start-session': (id) => [sessionRoute(id, 'start'), 'Running until you stop it'],
+  'stop-session': (id) => [sessionRoute(id, 'stop'), 'Stopped'],
+  'start-artifacts': (id) => [sessionRoute(id, 'start'), 'Measuring artifacts until you stop it'],
+  'stop-artifacts': (id) => [sessionRoute(id, 'stop'), 'Artifact probe stopped'],
   'recheck-sources': () => ['/api/audit/rescan', 'Re-checking every source'],
   'rescan-upgrades': () => ['/api/audit/upgrade-rescan', 'Re-checking every upgrade candidate'],
   'start-sweep': (id) => [`/api/audit/session/${id}/start`, 'Running now — until you stop it'],

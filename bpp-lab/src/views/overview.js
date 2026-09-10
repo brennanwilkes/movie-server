@@ -1,7 +1,8 @@
 import { state, fmt, BANDS, bandColor } from '../data.js';
 import { summary, quantile, asc } from '../stats.js';
 import { el, plot, linear, log, attachTip, kv, path, errBar } from '../chart.js';
-import { panel, stats, legend, h } from '../ui.js';
+import { panel, stats, legend, h, select } from '../ui.js';
+import { WHY_ARTIFACT } from '../artifact-copy.js';
 
 // Orientation: what the library looks like today, as four one-quarter squares. Descriptive only —
 // no fitting, no clustering. Layout is the 2026-08-18 redesign: (1) where the library sits + the
@@ -13,8 +14,80 @@ export default function overview(host) {
 
   const g = h('div', 'grid2 overview');
   g.append(wherePanel(rows, plus), histPanel(plus));
-  g.append(scatterPanel(rows), sourcePanel(rows));
+  g.append(scatterPanel(rows), piePanel(host, rows));
   host.appendChild(g);
+}
+
+// ONE TILE, TWO BREAKDOWNS. Source tier and dominant artifact answer the same shape of question
+// ("how does the library split") and neither needs to be visible while you are reading the other, so
+// they share a tile and a toggle rather than each taking a quarter of the page.
+//
+// The toggle is module-level state, not a rerender of the whole view: switching it must not reset
+// the film selection or scroll position of anything else on the page.
+const pieUi = { mode: 'source' };
+
+const PIE_MODES = {
+  source: {
+    label: 'source tier',
+    title: 'By source tier',
+    why: 'The only class shipped adequately supplied is web-DL — the lone median R \u2265 1; '
+      + "Bluray-1080p, most of the library, sits starved; and Remux still doesn't sort on top."
+      + '<br><br>A perfectly-encoded HDTV capture can score BPP+ 120 and still be a worse master than a '
+      + 'starved Bluray, so tier is a <b>ceiling bits cannot raise</b> and is kept as a separate gate, '
+      + 'never folded into the score. That Remux does not sort to the top of this chart is the whole '
+      + 'argument for keeping them apart.',
+    keyOf: (r) => r.source || 'unknown',
+  },
+  drives: {
+    label: 'dominant artifact',
+    title: 'By dominant artifact',
+    why: 'Each film is labelled by its largest standardised residual. That label is for reading the '
+      + 'mix only — it is <b>never</b> an input to the score, which always uses all four detectors.'
+      + '<br><br>This is the <b>provenance</b> blend, where all four detectors load. Do not read it as the '
+      + '<b>adequacy</b> blend — "does this film need more bits" — whose measured weights are banding '
+      + '90.9%, grain 4.9%, blur 0.3%, blocking \u22124.0%, i.e. banding alone. A detector can carry '
+      + 'provenance while carrying no adequacy signal, which is exactly what blur does.<br><br>'
+      + 'If one detector owned the whole library, P would be that detector wearing a coat and the '
+      + 'other three would be dead weight. A spread across all four is the reassuring picture.',
+    keyOf: (r) => r.drives || null,
+  },
+};
+
+function piePanel(host, rows) {
+  const m = PIE_MODES[pieUi.mode];
+  const by = new Map();
+  let n = 0;
+  for (const r of rows) {
+    const k = m.keyOf(r);
+    if (k == null) continue;              // unmeasured units are ABSENT, never a bogus category
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push(r);
+    n += 1;
+  }
+  const data = [...by].sort((a, b) => b[1].length - a[1].length);
+  const p = panel(m.title, { why: m.why });
+  // The mode switch lives in the TITLE ROW. As a toolbar it cost a full line of vertical space in a
+  // tile whose whole job is to be one quarter of a screen.
+  const ctl = h('span', 'head-ctl');
+  ctl.appendChild(select(
+    Object.entries(PIE_MODES).map(([k, v]) => [k, v.label]),
+    pieUi.mode,
+    (v) => { pieUi.mode = v; host.replaceChildren(); overview(host); },
+  ));
+  p.head.appendChild(ctl);
+
+  if (!data.length) {
+    p.body.appendChild(h('p', 'empty', 'Nothing measured in this filter.'));
+    return p;
+  }
+  const box = h('div', 'pie');
+  box.appendChild(donut(data, n));
+  box.appendChild(legend(data.map(([k, v], i) => [
+    PIE_COLORS[i % PIE_COLORS.length],
+    `${k} ${v.length} (${((100 * v.length) / n).toFixed(0)}%)`,
+  ])));
+  p.body.appendChild(box);
+  return p;
 }
 
 const bandCounts = (vals) => BANDS.map((b, i) => {
@@ -171,34 +244,6 @@ function scatterPanel(rows) {
 
 const PIE_COLORS = ['#6ea8fe', '#4ec98a', '#e8a33d', '#e0575b', '#b18cf0', '#57c7d6',
   '#d49a3d', '#dd6b7f', '#7aa75f', '#9a8cf0'];
-
-function sourcePanel(rows) {
-  const by = new Map();
-  for (const r of rows) {
-    const k = r.source || 'unknown';
-    if (!by.has(k)) by.set(k, []);
-    by.get(k).push(r);
-  }
-  const data = [...by].sort((a, b) => b[1].length - a[1].length);
-  const total = rows.length;
-
-  const p = panel('By source tier', {
-    caption: 'the only class shipped adequately supplied is web-DL — the lone median R ≥ 1; '
-      + 'Bluray-1080p, most of the library, sits starved; Remux still doesn\'t sort on top',
-    why: 'A perfectly-encoded HDTV capture can score BPP+ 120 and still be a worse master than a '
-      + 'starved Bluray, so tier is a <b>ceiling bits cannot raise</b> and is kept as a separate gate, '
-      + 'never folded into the score. That Remux does not sort to the top of this chart is the whole '
-      + 'argument for keeping them apart.',
-  });
-  const box = h('div', 'pie');
-  box.appendChild(donut(data, total));
-  box.appendChild(legend(data.map(([k, v], i) => [
-    PIE_COLORS[i % PIE_COLORS.length],
-    `${k} ${v.length} (${((100 * v.length) / total).toFixed(0)}%)`,
-  ])));
-  p.body.appendChild(box);
-  return p;
-}
 
 function donut(data, total) {
   const R = 92; const r = 58; const cx = 120; const cy = 120;

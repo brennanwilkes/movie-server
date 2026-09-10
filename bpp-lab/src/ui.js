@@ -30,6 +30,9 @@ export function panel(title, { why = '', caption = '' } = {}) {
   const body = h('div', 'pbody');
   p.appendChild(body);
   p.body = body;
+  // Exposed so a view can put a control INTO the title row instead of spending a whole line of
+  // vertical space on a toolbar. Use `.head-ctl` on anything appended here — it right-aligns.
+  p.head = head;
   return p;
 }
 

@@ -21,5 +21,7 @@ function poll(fn, ms) { const tick = () => { if (!document.hidden) fn(); }; tick
 poll(pollHome, 10000);
 poll(pollDownloads, 4000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { pollHome(); pollDownloads(); } });
+qInit();                                   // wire the Quality tab before showTab can open it
 let startTab; try { startTab = localStorage.getItem('tab'); } catch { /* ignore */ }
 showTab(['home', 'downloads', 'library', 'audit', 'jobs'].includes(startTab) ? startTab : 'home');
+qHistInit();                               // after showTab: it may restore a film and switch tabs

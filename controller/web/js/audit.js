@@ -303,7 +303,7 @@ function auditRowHtml(r) {
   // bitrate too, a bare swap to Mbps would have cost that tab the codec — the one thing it exists
   // to fix. Codec first (it is why the row is listed), bitrate second.
   const rate = [esc(r.label || ''), r.bpp != null && b.bpp != null
-    ? `${bppSpan(r.bppPlus, r.bppBand, r.cxBasis, r.bppRSE)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand, b.cxBasis, b.bppRSE)}` : '']
+    ? `${bppSpan(r.bppPlus, r.bppBand, r.cxBasis, r.bppRSE, r.bppArt)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand, b.cxBasis, b.bppRSE, b.bppArt)}` : '']
     .filter(Boolean).join('<i>·</i>');
   // A swap already in flight: the row is NOT actionable, so it does not pretend to be. No
   // data-key, no role=button — tapping it does nothing rather than opening a sheet whose Replace
@@ -644,7 +644,7 @@ function renderAudSheet() {
         <span class="aud-age">checked ${auditAge(v.ts)} ago</span>
       </div>
       <div class="aud-line">
-        <span class="aud-delta">${fmtBytes(r.bytes)}${r.bppPlus != null ? `<i>·</i>${bppSpan(r.bppPlus, r.bppBand, r.cxBasis, r.bppRSE)}` : ''}</span>
+        <span class="aud-delta">${fmtBytes(r.bytes)}${r.bppPlus != null ? `<i>·</i>${bppSpan(r.bppPlus, r.bppBand, r.cxBasis, r.bppRSE, r.bppArt)}` : ''}</span>
         <span class="aud-rate">${esc(r.label || '')}</span>
         <span class="aud-inline">${srcPill(r.source, 0)}</span>
       </div>
@@ -663,7 +663,7 @@ function renderAudSheet() {
         ${refusedPill(c)}${deadPill(c)}${savePill(r.bytes, c.bytes, 'sm')}
       </div>
       <div class="aud-line">
-        <span class="aud-delta">${fmtBytes(c.bytes)}${c.bppPlus != null ? `<i>·</i>${bppSpan(c.bppPlus, c.bppBand, c.cxBasis, c.bppRSE)}` : ''}</span>
+        <span class="aud-delta">${fmtBytes(c.bytes)}${c.bppPlus != null ? `<i>·</i>${bppSpan(c.bppPlus, c.bppBand, c.cxBasis, c.bppRSE, c.bppArt)}` : ''}</span>
         <span class="aud-rate">${esc(c.codec === 'H.264' ? c.codec : `${c.codec} ${c.depth}`)}</span>
         <span class="aud-inline">${srcPill(c.source, c.srcDrop || 0)}${audioPill(c, 'wide-only')}</span>
       </div>
@@ -1096,8 +1096,8 @@ function auditUpgradeRowHtml(r) {
   // read as though the number described the candidate, which is the one thing it does not.
   const facts = [size, r.bppPlus != null
     ? (b && b.bppPlus != null
-      ? `${bppSpan(r.bppPlus, r.bppBand, r.cxBasis, r.bppRSE)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand, b.cxBasis, b.bppRSE)}`
-      : bppSpan(r.bppPlus, r.bppBand, r.cxBasis, r.bppRSE))
+      ? `${bppSpan(r.bppPlus, r.bppBand, r.cxBasis, r.bppRSE, r.bppArt)}<i>→</i>${bppSpan(b.bppPlus, b.bppBand, b.cxBasis, b.bppRSE, b.bppArt)}`
+      : bppSpan(r.bppPlus, r.bppBand, r.cxBasis, r.bppRSE, r.bppArt))
     : ''].filter(Boolean).join('<i>·</i>');
   const none = !b && v.state ? '<span class="aud-none">nothing better found</span>' : '';
   // NOT THE WHOLE FILM — the one pill on this tab that means "damage", not "preference", so it leads

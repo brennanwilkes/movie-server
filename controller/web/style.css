@@ -1,3 +1,27 @@
+/* Without this every <select>, number spinner, popup and scrollbar the Quality tab introduces
+   renders in LIGHT platform chrome on a #0b0d12 page. The stylesheet had no `select` rule at all
+   before that tab, which is why it never came up. */
+:root { color-scheme: dark; }
+
+/* One focus ring for everything. There was exactly ONE :focus-visible rule in this file, and the
+   Quality tab adds 1054 focusable rows, five selects, four inputs, chips and a keyboard-navigable
+   chart. */
+:where(a, button, input, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: inherit;
+}
+
+/* Three @keyframes shipped here with no guard. A frozen spinner reads as broken, so it keeps
+   animating — slower, and as opacity rather than motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important;
+  }
+  .spinner, .spinner.sm {
+    animation: pulse 1.6s ease-in-out infinite !important; animation-iteration-count: infinite !important;
+  }
+}
+
 :root {
   --bg: #0b0d12;
   --card: #161a23;
@@ -26,7 +50,8 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-button, input { font: inherit; }
+button, input, select, textarea, optgroup, option { font: inherit; }
+svg text { font-family: inherit; }
 [hidden] { display: none !important; } /* beats the display:flex rules below */
 html, body { margin: 0; }
 body {
@@ -500,12 +525,14 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .aud-right .aud-save { align-self: flex-end; }
 .aud-right .apill.seeds { margin-left: 0; }
 .apill {
-  padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+  /* 11.5px, and the tints above are 10% not 17/18%: measured, .wow 4.15 / .bad 4.19 fail AA at
+     this size, and 10% lifts them to 4.61 / 4.64. Raising a tint LOWERS contrast on a dark ground. */
+  padding: 2px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600;
   background: var(--card-2); color: var(--muted); white-space: nowrap;
 }
-.apill.ok   { background: color-mix(in srgb, var(--ok) 17%, transparent); color: var(--ok); }
-.apill.wow  { background: color-mix(in srgb, var(--wow) 17%, transparent); color: var(--wow); }
-.apill.warn { background: color-mix(in srgb, var(--warn) 17%, transparent); color: var(--warn); }
+.apill.ok   { background: color-mix(in srgb, var(--ok) 10%, transparent); color: var(--ok); }
+.apill.wow  { background: color-mix(in srgb, var(--wow) 10%, transparent); color: var(--wow); }
+.apill.warn { background: color-mix(in srgb, var(--warn) 10%, transparent); color: var(--warn); }
 /* below-the-content-floor marker inside the bitrate pill. Costs 6px, not a whole pill, so it
    cannot push the candidate card to a fourth line — and unlike a tooltip it exists on touch. */
 .apill > b { margin-left: 3px; font-weight: 900; }
@@ -529,7 +556,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .aud-cand-title { font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; min-width: 0; }
 /* Reclaim button sits above the Stale list — full width, it is the section's one action. */
 #aud-reclaim { margin-bottom: 10px; min-height: 46px; font-size: 15px; }
-.apill.bad { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+.apill.bad { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); }
 .apill.strong { color: var(--text); font-variant-numeric: tabular-nums; }
 /* Device badges read as a row of client names; the colour is the whole message, so they are
    deliberately narrow and uniform-width rather than carrying explanatory text. */
@@ -867,6 +894,11 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
    See bppSpan() in js/util.js. */
 .mbps.meas { font-weight: 750; }
 .mbps.est  { font-style: italic; }
+/* NO ARTIFACT READING — same italic channel as an estimated complexity. Both mean "this number is
+   built on less than the full picture", which is the one thing a reader needs; the tooltip says
+   which gap it is. Deliberately NOT a new colour: colour means "how good" and is already spoken
+   for, and a fourth visual channel is one more than anyone can hold in their head. */
+.mbps.noart { font-style: italic; }
 
 /* PROVISIONAL BPP+ — the trailing "*" on a loosely-measured score (Brennan, 2026-08-17: "if
    uncertainty is above a certain threshold we do bpp+* instead of bpp+... on hover show a tooltip
@@ -882,4 +914,488 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   opacity: 0.65;
   margin-left: 0.5px;
   font-weight: 700;
+}
+
+/* ==================== QUALITY (LIBRARY) TAB ==================================================
+   Card rows below 700px, a one-line grid at and above it. ONE breakpoint, not two tiers: a
+   two-line card stretched to 820px leaves ~350px of dead space with the numbers marooned at the
+   right edge, so tablet gets the real table.
+
+   BAND COLOUR IS IDENTITY, NOT ORDER. The four hues are provably not a scale — L* runs
+   57.9/77.5/71.1/58.6 worst→best and the hue spread is 83°, so --wow and --danger are 0.7 L*
+   apart and identical in greyscale. The order is carried by the adjacent number, which is why the
+   list needs no second colour channel and the film page prints the band as a word.       */
+:root {
+  /* .sheet's padding already treats --tabbar-h as the shared source of truth for the bottom; two
+     sticky layers need the same for the top. Measured: 64.7px. */
+  --topbar-h: calc(env(safe-area-inset-top) + 65px);
+  --qcw: 56px;              /* numeric column width, cards */
+}
+body.tab-wide main { max-width: 900px; }
+
+.q-wow { --qc: var(--wow); } .q-ok { --qc: var(--ok); }
+.q-warn { --qc: var(--warn); } .q-bad { --qc: var(--danger); } .q-off { --qc: var(--muted); }
+
+/* ---- controls: one container, two rows, 104px ---- */
+.qctl {
+  position: sticky; top: var(--topbar-h); z-index: 4;
+  display: flex; flex-direction: column; gap: 8px; padding: 8px 0;
+  background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(12px);
+}
+.qctl-a { display: flex; gap: 8px; }
+.qctl-a .segmented { flex: 0 0 168px; padding: 4px; }
+.qctl-a .segmented button { min-height: 36px; font-size: 14px; }
+.qctl-a .search { flex: 1; min-width: 0; min-height: 44px; }
+.qctl-b-wrap { min-width: 0; }
+/* One row, filling the width. It used to be a horizontal scroller carrying six filter chips; with
+   only Top 100 left there is nothing to scroll, and a half-visible control reads as broken. */
+.qctl-b { display: flex; gap: 6px; align-items: center; }
+.qctl-b .qsel { flex: 1 1 0; max-width: none; }
+.qctl-b .chip { flex: 1 1 0; min-width: 62px; justify-content: center; }
+.qctl-b .qdir, .qctl-b .qgear { flex: 0 0 44px; width: 44px; }
+.qsel {
+  flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 0 28px 0 11px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text);
+  font-size: 13.5px; font-weight: 600; appearance: none; max-width: 46vw;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b93a7' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+}
+.qdir, .qgear {
+  flex: none; width: 40px; height: 36px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--card); color: var(--text); font-size: 14px; cursor: pointer; position: relative;
+}
+.qgear b {
+  position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; border-radius: 99px;
+  background: var(--accent); color: #fff; font-size: 10px; font-weight: 800; line-height: 16px;
+}
+.chip {
+  flex: 0 1 auto; min-width: 0; height: 36px; padding: 0 11px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card); color: var(--muted); font-size: 12.5px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 2px;
+}
+/* SELECTING MUST NOT CHANGE THE BOX. This used to switch display and padding on .on, so every
+   toggle reflowed the whole row and the chips visibly jumped. Only colour changes now. */
+.chip.on {
+  background: color-mix(in srgb, var(--accent) 16%, var(--card)); color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+/* A removable chip carries the x in its own slot, and pays for it with less right padding — a
+   10px glyph in a 30px chip would otherwise be a 10px target. */
+.chip.rm { padding-right: 1px; }
+.chip.rm em { width: 30px; height: 30px; flex: none; display: grid; place-items: center;
+  font-style: normal; color: var(--muted); font-size: 14px; }
+
+/* ---- the table: ONE renderer at every width ----
+   Title pinned left, numbers scrolling sideways under it. CSS-grid DIVS rather than a <table>:
+   size containment never applies to internal table boxes, so content-visibility on a <tr> is a
+   silent no-op (bpp-lab/style.css:330 is dead code proving nothing). Block row boxes make it work,
+   and declared column widths beat measuring 1054 rows. */
+.qgrid-wrap { position: relative; background: var(--card); border-radius: var(--radius); }
+.qgrid { --tw: 168px; border-radius: 0 0 var(--radius) var(--radius);
+  overflow-x: auto; overscroll-behavior-x: contain;
+  scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+/* Sticky against the PAGE, not the scroller — see qSyncGridScroll(). */
+.qhead-strip { --tw: 168px; position: sticky; top: var(--topbar-h); z-index: 3; overflow: hidden;
+  background: var(--card); border-bottom: 1px solid var(--line);
+  border-radius: var(--radius) var(--radius) 0 0; }
+/* min-width:max-content is what makes the scroller scroll: without it each row is sized to the
+   container and its fixed tracks simply SPILL, so scrollWidth never grows. */
+/* The row carries the background and the sticky title cell inherits it — a hardcoded colour on
+   the cell would not follow :hover, and NO background at all lets the scrolling numbers slide
+   visibly under the title. */
+.qg-row { display: grid; grid-template-columns: var(--qgc); min-width: max-content;
+  align-items: center; height: 52px; border-top: 1px solid var(--line); position: relative;
+  background: var(--card); cursor: pointer;
+  content-visibility: auto; contain-intrinsic-size: auto 52px; }
+
+.qg-row:not(.qg-head):active { background: var(--card-2); }
+.qg-head { height: 34px; border-top: 0; cursor: default; background: var(--card);
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; color: var(--muted); }
+.qg-head .qg-c, .qg-head .qg-t { cursor: pointer; position: relative; }
+.qg-head .qg-c { padding-right: 15px; }
+/* Reserved slot: appending the arrow to the label re-measures the column on every toggle and
+   shifts the whole table sideways. aria-sort drives the glyph and the screen reader alike. */
+.qg-head .qg-c::after { content: '\25BE'; position: absolute; right: 3px; top: 50%;
+  margin-top: -5px; font-size: 9px; opacity: 0; }
+.qg-head .qg-c[aria-sort]::after { opacity: .9; }
+.qg-head .qg-c[aria-sort="ascending"]::after { content: '\25B4'; }
+.qg-head .on { color: var(--text); }
+.qg-head .qg-t.on b { color: var(--text); }
+
+/* The title cell: name grows and ellipsises, then the flags, then the year/season pinned right so
+   it forms a column of its own whatever the title's length. */
+/* align-self:stretch is required twice over: the row is align-items:center, so without it this
+   cell is only as tall as its text — which collapsed the band rail below to a stub and left the
+   sticky background too short to cover the numbers scrolling past above and below it. */
+.qg-t { position: sticky; left: 0; z-index: 1; background: inherit; align-self: stretch;
+  padding: 0 10px 0 14px; font-size: 14px; display: flex; align-items: center; gap: 7px; min-width: 0; }
+/* The band rail belongs to the STICKY cell, not the row: on the row it shared an x with this cell
+   and disappeared under its background. Here it is pinned with the title and always visible. */
+.qg-row:not(.qg-head) .qg-t::before { content: ''; position: absolute; left: 0; top: 10px;
+  bottom: 10px; width: 3px; border-radius: 0 2px 2px 0; background: var(--qc); }
+.qg-t b.nm { flex: 1 1 auto; min-width: 4.5ch; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+/* The flags shrink and clip before the TITLE does — two of them plus a year used to squeeze the
+   name out of the cell entirely. Below 520px the column is too narrow for both, and the title
+   wins: the flags are all repeated on the film page. */
+.qg-flags { display: none; flex: 0 1 auto; min-width: 0; overflow: hidden; gap: 4px; align-items: center; }
+@media (min-width: 520px) { .qg-flags { display: flex; } }
+.qg-yr { flex: none; font-style: normal; font-weight: 500; color: var(--muted); font-size: 12px;
+  font-variant-numeric: tabular-nums; }
+/* 13px, not 12.5: fractional sizes round inconsistently across DPRs and shift the sticky offsets
+   between machines. Cells one step below --text so the pinned title reads as the anchor. */
+.qg-c { text-align: right; padding-right: 10px; font-size: 13px; font-weight: 500; color: #dbe1ea;
+  font-variant-numeric: tabular-nums slashed-zero; overflow: hidden; white-space: nowrap; }
+.qg-c b { font-weight: 700; color: var(--qc); }
+.qg-c i { font-style: italic; color: var(--muted); }
+.src-ok { color: var(--ok); } .src-warn { color: var(--warn); }
+.src-bad { color: var(--danger); } .src-mid { color: var(--muted); }
+.qgrid-wrap::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 30px;
+  pointer-events: none; opacity: 0; transition: opacity .15s;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bg) 86%, transparent)); }
+.qgrid-wrap.can-r::after { opacity: 1; }
+.qgrid-wrap.scrolled .qg-t { box-shadow: 8px 0 10px -8px rgba(0, 0, 0, .75); }
+@media (min-width: 700px) {
+  .qg-row:not(.qg-head) .qg-t::before { top: 7px; bottom: 7px; }
+}
+
+/* NEVER --off for a null marker: it is 2.84:1 on --card and fails even AA-Large, and "this was
+   not measured" is a correctness signal. --muted is 5.66:1. */
+.nul { color: var(--muted); font-weight: 500; }
+/* Over a measured threshold: hue AND weight AND a glyph, so it never depends on colour alone. */
+.qg-c .over { color: var(--warn); font-weight: 750; }
+.qg-c .over::before { content: '\25B2'; font-size: 7.5px; margin-right: 2px; vertical-align: 1.5px; }
+
+/* Exception-only flags. Tints at 10% — 17/18% fails AA at this size. */
+.flg { flex: none; padding: 2px 5px; border-radius: 6px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.flg.hv { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); }
+.flg.bd { background: color-mix(in srgb, var(--warn) 10%, transparent); color: var(--warn); }
+.flg.gd { background: color-mix(in srgb, var(--ok) 10%, transparent); color: var(--ok); }
+.flg.t1 { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); }
+
+.qfoot { font-size: 12.5px; color: var(--muted); }
+.qbanner { display: flex; gap: 10px; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-radius: 12px; font-size: 14px;
+  background: color-mix(in srgb, var(--warn) 14%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+#q-empty .audit-btn { margin-left: 8px; }
+
+/* Filling the row is a PHONE requirement — stretched across a desktop the sort control reads as a
+   900px-wide dropdown for one short word. */
+/* Filling the row is a PHONE requirement — stretched across a desktop the sort control reads as a
+   900px-wide dropdown for one short word. */
+@media (min-width: 700px) {
+  .qctl-b .qsel { flex: 0 0 240px; }
+  .qctl-b .chip { flex: 0 0 auto; }
+  .qctl-b { justify-content: flex-start; }
+}
+@media (min-width: 700px) {
+  .qgrid, .qhead-strip { --tw: 240px; }
+  .qg-row { height: 34px; contain-intrinsic-size: auto 34px; }
+  .qg-row:not(.qg-head)::before { top: 7px; bottom: 7px; }
+  .qg-row:not(.qg-head):hover { background: var(--card-2); }
+  .qg-t { font-size: 13px; }
+  body.tab-wide main { max-width: 900px; }
+}
+@media (min-width: 1024px) {
+  body.tab-wide main { max-width: 1440px; padding: 16px 20px; }
+  .qgrid, .qhead-strip { --tw: 300px; }
+}
+@media (max-width: 360px) { .qctl-a { flex-wrap: wrap; }
+  .qctl-a .segmented, .qctl-a .search { flex: 1 1 100%; } }
+
+/* ---- film page ---- */
+.ftop { display: block; }
+.fhead { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+@media (min-width: 700px) {
+  .ftop { display: flex; align-items: center; gap: 20px; margin-bottom: 18px; }
+  .ftop .fhead { flex: 1; min-width: 0; margin-bottom: 0; }
+  .ftop .fhero { flex: none; margin-bottom: 0; }
+  /* Scoped to .ftop so these outrank the base rules, which are declared later in this file. */
+  .ftop .ftitle { font-size: 27px; }
+  .ftop .fplus { font-size: 40px; }
+  .ftop .fband { font-size: 14px; }
+  /* The band and its qualifiers stack beside the number rather than running off the row. */
+  .ftop .fband-row { flex-wrap: wrap; row-gap: 2px; }
+}
+.fhead-t { min-width: 0; flex: 1; }
+.fback { width: 34px; height: 34px; flex: none; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--card-2); color: var(--text); cursor: pointer; display: grid; place-items: center; padding: 0; }
+.fback svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round; }
+.ftitle { font-size: 19px; font-weight: 700; line-height: 1.25; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The badges sit beside the band word, not under the title — the title gets the whole top row.
+   They scroll rather than wrap so the hero is always two lines. */
+.fband-row { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+/* No scroll fade here. It was a scroll affordance for a row that does not scroll — the band label
+   is one word now and two or three short pills always fit — so all the mask did was clip the last
+   badge for no reason. */
+.fband-row .flg { flex: none; }
+.fband-row .fconf { margin-top: 0; }
+.fbadges .flg { font-size: 9.5px; padding: 1px 4px; }
+.fhero { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 16px; }
+/* Proportional figures, not tabular: tabular-nums gives every digit a zero's width and a large
+   standalone number reads loose. The 12% white admixture kills OLED halation at this size. */
+.fplus { font-size: 46px; font-weight: 700; line-height: .95; letter-spacing: -.02em;
+  color: color-mix(in srgb, var(--qc) 88%, var(--text)); }
+.fhero-r { padding-bottom: 4px; min-width: 0; }
+.fband { font-size: 13px; font-weight: 600; color: var(--qc); flex: none; }
+.fconf { font-size: 11px; color: var(--muted); margin-top: 3px; }
+/* .stat's own background is --card, so nested in a .card the tiles vanish; and .stat-strip has no
+   flex-wrap, so eight tiles would be one row of 34px each. Hence an explicit grid. */
+.qstats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 620px) { .qstats { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.qstats .stat { background: var(--card-2); border-radius: 12px; padding: 8px 11px; }
+.qstats .stat-label { font-size: 10.5px; }
+.qstats .stat-val { font-size: 17px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qstats .stat-val.src-ok { color: var(--ok); }
+.qstats .stat-val.src-warn { color: var(--warn); }
+.qstats .stat-val.src-bad { color: var(--danger); }
+.qstats .stat-val.rank { color: var(--accent); }
+/* The adjustment terms: raised the score, lowered it, or did nothing. */
+.qstats .stat-val.term.up { color: var(--ok); }
+.qstats .stat-val.term.down { color: var(--danger); }
+.qstats .stat-val.term.mute { color: var(--muted); }
+.qstats .stat-val small { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-left: 3px; }
+.qf-act { margin-top: 14px; }
+.qf-act h3 { margin: 0 0 12px; font-size: 15px; }
+.qf-act-row { display: flex; gap: 10px; }
+.qf-act-row button { flex: 1; width: auto; }
+.qf-gone h3 { margin: 12px 0 6px; font-size: 17px; }
+/* width:100% is load-bearing: auto margins on a COLUMN flex item absorb the free space and
+   shrink-to-fit, which sized this at 486px on a 1440 screen instead of 900. */
+#q-film { display: flex; flex-direction: column; width: 100%; max-width: 900px; margin-inline: auto; }
+
+/* ---- film page panels ---- */
+.panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+/* NEVER let the heading wrap: "Control points" broke to two lines against the series select and
+   read as a double render. It keeps its line; the controls take a row of their own when tight. */
+.panel-head h3 { margin: 0; font-size: 15px; font-weight: 700; white-space: nowrap; flex: 0 1 auto; }
+.panel-head .head-ctl { flex-wrap: wrap; }
+@media (max-width: 520px) {
+  .panel-head .head-ctl { order: 3; flex: 1 1 100%; margin-left: 0; }
+  .panel-head .head-ctl .qsel { flex: 1 1 auto; }
+}
+.panel-head .head-ctl { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+.qhelp { width: 28px; height: 28px; flex: none; margin-left: auto; border-radius: 99px;
+  border: 1px solid var(--line); background: none; color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; }
+.panel-head .head-ctl + .qhelp { margin-left: 0; }
+.qf-help-text { font-size: 14px; line-height: 1.5; color: var(--text); margin: 8px 0 18px; }
+.tog { height: 30px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--line);
+  background: var(--card-2); color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; min-width: 78px; }
+#q-film > .card { margin-bottom: 14px; }
+#q-film > .card:last-child { margin-bottom: 0; }
+#qf-deep > .card { margin-bottom: 14px; }
+
+/* percentile rows: two positions and the peer distribution — never rank-as-length */
+.pr { margin-top: 16px; }
+.pr:first-child { margin-top: 0; }
+.pr-top { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.pr-l { flex: 1; min-width: 0; color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+.pr-v { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.pr-v.q-wow { color: var(--wow); } .pr-v.q-ok { color: var(--ok); }
+.pr-v.q-warn { color: var(--warn); } .pr-v.q-bad { color: var(--danger); }
+.pr-dot.q-wow { box-shadow: 0 0 0 2.5px var(--wow), 0 0 0 4.5px var(--card); }
+.pr-dot.q-ok { box-shadow: 0 0 0 2.5px var(--ok), 0 0 0 4.5px var(--card); }
+.pr-dot.q-warn { box-shadow: 0 0 0 2.5px var(--warn), 0 0 0 4.5px var(--card); }
+.pr-dot.q-bad { box-shadow: 0 0 0 2.5px var(--danger), 0 0 0 4.5px var(--card); }
+.pr-p { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; min-width: 38px; text-align: right; }
+.pr-p sup { font-size: 8.5px; }
+.pr-track { position: relative; height: 26px; margin-top: 5px; }
+.pr-hist { position: absolute; inset: 0; overflow: hidden; border-radius: 6px; background: var(--card-2); }
+.pr-hist span { position: absolute; bottom: 0; background: color-mix(in srgb, var(--accent) 30%, transparent); }
+/* The BPP+ rows colour each bin by the band it falls in, so the 75/100/125 boundaries are visible
+   in the distribution itself rather than only as a tick. */
+.pr-hist span.b-wow { background: color-mix(in srgb, var(--wow) 42%, transparent); }
+.pr-hist span.b-ok { background: color-mix(in srgb, var(--ok) 42%, transparent); }
+.pr-hist span.b-warn { background: color-mix(in srgb, var(--warn) 42%, transparent); }
+.pr-hist span.b-bad { background: color-mix(in srgb, var(--danger) 42%, transparent); }
+/* Past the 98th-percentile cap the dot is pinned at the end and says so. */
+.pr-join { position: absolute; top: 50%; height: 2px; margin-top: -1px;
+  background: color-mix(in srgb, var(--text) 30%, transparent); }
+.pr-ghost { position: absolute; top: 50%; left: calc(7px + (var(--x) / 100) * (100% - 14px));
+  width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 99px;
+  background: var(--card); box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 45%, transparent); }
+.pr-dot.pinned::after { content: '›'; position: absolute; left: 11px; top: -4px; font-size: 13px;
+  font-weight: 700; color: var(--muted); }
+.pr-ref { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed color-mix(in srgb, var(--text) 45%, transparent); }
+.pr-ref.med { border-left-style: dotted; border-left-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+/* --x is UNITLESS: a percentage times a length is invalid CSS math and pins every dot left. */
+.pr-dot { position: absolute; top: 50%; left: calc(7px + (var(--x) / 100) * (100% - 14px));
+  width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 99px; background: var(--text);
+  box-shadow: 0 0 0 2.5px var(--qc, var(--muted)), 0 0 0 4.5px var(--card); }
+.pr-ends { position: relative; display: flex; justify-content: space-between; margin-top: 3px;
+  font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pr-reflbl { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+/* Taller where there is room: a 20px track across 900px is a thin smear, and the histogram is the
+   part carrying the shape. */
+@media (min-width: 700px) {
+  .pr { margin-top: 20px; }
+  .pr .pr-track { height: 46px; }
+  .pr-top { font-size: 14px; }
+  .pr-l { font-size: 12px; }
+}
+
+/* the dumbbell, on the published score axis */
+.wf { position: relative; height: 46px; margin: 6px 0 10px; }
+.wf-ax { position: absolute; left: 0; right: 0; top: 26px; height: 1px; background: var(--line); }
+.wf-t { position: absolute; top: 26px; width: 1px; height: 5px; background: var(--line); }
+.wf-t b { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.wf-t.key { background: color-mix(in srgb, var(--text) 40%, transparent); height: 8px; }
+.wf-t.key b { color: var(--text); }
+.wf-span { position: absolute; top: 20px; height: 7px; border-radius: 4px; min-width: 14px; }
+.wf-span.add { background: color-mix(in srgb, var(--text) 34%, transparent); }
+.wf-span.sub { background: repeating-linear-gradient(45deg,
+    color-mix(in srgb, var(--muted) 22%, transparent) 0 4px,
+    color-mix(in srgb, var(--muted) 75%, transparent) 4px 8px); }
+.wf-end { position: absolute; top: 17px; width: 13px; height: 13px; margin-left: -6.5px; border-radius: 99px; }
+.wf-end.from { background: var(--card); box-shadow: 0 0 0 2.5px var(--muted); }
+.wf-end.to { background: var(--qc); box-shadow: 0 0 0 2.5px var(--card); }
+.wf-cap { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; font-size: 11.5px; color: var(--muted); }
+.wf-cap b { color: var(--text); font-variant-numeric: tabular-nums; }
+.wf-cap em { font-style: normal; display: block; font-size: 10.5px; opacity: .8; }
+.wf-cap .wf-mid { flex: 1; text-align: center; color: var(--text); font-weight: 600; }
+.wf-cap .wf-to { text-align: right; }
+.wf-key { display: inline-block; width: 9px; height: 9px; border-radius: 99px; margin-right: 5px; }
+.wf-key.from { background: var(--card); box-shadow: 0 0 0 2px var(--muted); }
+.wf-key.to { background: var(--qc, var(--text)); box-shadow: 0 0 0 2px var(--card); }
+
+/* artifact meters: threshold at the MIDPOINT, neutral fill, hatch past the tick */
+.abhint { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); margin-bottom: 8px; }
+.abhint.mt { margin-top: 18px; }
+.abs { display: flex; flex-direction: column; gap: 12px; }
+.ab { display: grid; grid-template-columns: 1fr auto; row-gap: 4px; }
+.ab-l { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.ab-r { font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--text); text-align: right; }
+.ab-r i { color: var(--muted); font-style: normal; }
+.ab-r b { display: inline-block; min-width: 40px; text-align: right; font-weight: 700; }
+.ab-r b.pc-lo { color: var(--ok); }
+.ab-r b.pc-mid { color: var(--warn); }
+.ab-r b.pc-over { color: var(--danger); font-weight: 800; }
+.ab-track { grid-column: 1 / -1; position: relative; height: 10px; border-radius: 5px; background: var(--card-2); overflow: hidden; }
+.ab-fill { height: 100%; border-radius: 5px 0 0 5px; }
+/* The FILL says where this reading sits without reading the number: green under half the
+   threshold, amber approaching it, red past it. The tick stays at the midpoint, so half full is
+   half way to visible. */
+.ab-track.lo .ab-fill { background: color-mix(in srgb, var(--ok) 78%, transparent); }
+.ab-track.mid .ab-fill { background: color-mix(in srgb, var(--warn) 82%, transparent); }
+.ab-track.rtl { transform: scaleX(-1); }
+/* SOLID, not hatched. The two-layer shorthand (gradient + colour) computed correctly — the fill
+   measured 185 of 326px with a red background — and painted nothing. The hatch was only ever
+   there as a colourblind-safe second channel, and the red percentage beside the bar already is
+   one, so the fragile construct goes. */
+.ab-track.ab-over .ab-fill { background: var(--danger); }
+.ab-tick { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--text); opacity: .75; }
+
+/* chart */
+.qc-card .panel-head h3 { font-weight: 700; font-size: 15px; }
+.qc { margin-top: 4px; }
+/* RESET THE GLOBAL ICON RULE. `svg { fill: none; stroke: currentColor; stroke-width: 1.8 }` is
+   unscoped in this file and inherits into every mark here — it is what made the labels look
+   double-struck and put a white ring around each invisible hit target. Everything in this chart
+   states its own paint. */
+.qc svg { width: 100%; height: auto; display: block; touch-action: pan-y; border-radius: 8px;
+  stroke: none; fill: none; }
+.qc svg text { stroke: none; }
+.qc svg circle, .qc svg rect { stroke: none; }
+.qc svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cp-g { stroke: var(--line); stroke-width: 1; fill: none; }
+.cp-ax { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.cp-se { fill: color-mix(in srgb, var(--accent) 14%, transparent); stroke: none; }
+.cp-mean { stroke: var(--accent); stroke-width: 2; fill: none; }
+.cp-thr { stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; }
+.cp-thr-t { fill: var(--warn); font-size: 10px; }
+.cp-dot { fill: var(--text); stroke: var(--card); stroke-width: 1.5; }
+.cp-dot.sel { fill: var(--warn); stroke: var(--text); stroke-width: 2; }
+.cp-hit { fill: transparent; stroke: none; cursor: pointer; }
+.cp-read { display: flex; gap: 8px; align-items: baseline; margin-top: 8px; padding: 8px 10px;
+  background: var(--card-2); border-radius: 10px; font-size: 12.5px; }
+.cp-read b { font-variant-numeric: tabular-nums; font-size: 14px; }
+.cp-read span { color: var(--muted); }
+.qc-vals { margin-top: 10px; }
+.qc-vals summary { font-size: 12px; color: var(--muted); cursor: pointer; }
+.qc-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 4px 12px; }
+.qc-list li { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.qc-list b { color: var(--text); font-weight: 600; }
+
+/* seasons strip: navigation, so it sits above the hero */
+.qf-seasons-card { padding: 12px 14px; }
+.seasons { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 20px), transparent 100%); }
+.seasons::-webkit-scrollbar { display: none; }
+.seasons button { flex: none; width: 56px; height: 46px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--card-2); cursor: pointer; display: grid; place-items: center; gap: 1px; padding: 0; }
+.seasons button.on { background: var(--card); border-bottom: 3px solid var(--qc); }
+.seasons em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--muted); }
+.seasons b { font-size: 15px; font-weight: 700; color: var(--qc); font-variant-numeric: tabular-nums; }
+
+.qf-tbl { display: flex; flex-direction: column; }
+.qf-tr { display: grid; grid-template-columns: 74px 1fr 54px 50px; gap: 8px; align-items: center;
+  padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.qf-tr.qf-th { border-top: 0; padding-top: 0; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.qf-tr .n { text-align: right; font-variant-numeric: tabular-nums; }
+.qf-src { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+
+/* ==== COLUMNS + FILTERS SHEET ==================================================================
+   RESTORED. This block was collateral damage when the card CSS above was replaced wholesale: the
+   replacement used the film-page comment as its end marker and swallowed everything in between,
+   which left the sheet's number inputs and reorder buttons completely unstyled.
+   It lives at the END of the file deliberately, so `.qsel.wide` outranks the base `.qsel`. */
+#q-sheet-tabs { margin-bottom: 6px; }
+.q-sheet-note { margin: 12px 0; font-size: 12.5px; color: var(--muted); }
+
+/* The chosen columns, in order. Reorder is two buttons rather than drag: a drag handle on a
+   touch list fights the sheet's own scroll. */
+.q-chosen { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.q-chosen li { display: flex; align-items: center; gap: 8px;
+  background: var(--card-2); border-radius: 12px; padding: 6px 6px 6px 12px; }
+.q-ch-l { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-ch-mv { display: flex; flex: none; gap: 2px; }
+.q-ch-b { flex: none; width: 34px; height: 34px; padding: 0; border-radius: 9px;
+  border: 1px solid var(--line); background: var(--card); color: var(--muted);
+  cursor: pointer; display: grid; place-items: center; }
+.q-ch-b svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2;
+  stroke-linecap: round; stroke-linejoin: round; }
+.q-ch-b:disabled { opacity: .3; cursor: default; }
+.q-ch-b:active:not(:disabled) { background: var(--card-2); color: var(--text); }
+.q-ch-b.rm { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
+
+.q-grp { margin: 18px 0 8px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted); }
+.q-cat { display: flex; flex-wrap: wrap; gap: 6px; }
+.q-cat .chip { flex: 0 0 auto; height: 34px; }
+
+/* Filters. Paired number inputs, not a dual-range slider: a two-thumb rail has to juggle z-index
+   on pointerdown to stay selectable and cannot be typed into. */
+.q-fl { display: block; margin-bottom: 16px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.q-pair { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+.q-pair i { color: var(--muted); font-style: normal; flex: none; }
+.q-in { flex: 1 1 0; min-width: 0; height: 44px; padding: 0 12px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text);
+  font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.q-in::placeholder { color: var(--muted); font-weight: 500; }
+.q-in:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+/* Spinners are useless at these ranges and steal a third of the field's width. */
+.q-in::-webkit-outer-spin-button, .q-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.q-in[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.qsel.wide { display: block; width: 100%; max-width: none; height: 44px; margin-top: 7px;
+  font-size: 15px; text-transform: none; letter-spacing: 0; }
+
+/* A bottom-anchored 640px slab with a hole under it is wrong on a desktop window. */
+@media (min-width: 700px) {
+  .sheet-backdrop { align-items: center; }
+  .sheet { max-width: 560px; border-radius: 22px; padding-bottom: 22px; }
+}
+/* Landscape phone: 844x390 crosses the 700px breakpoint into grid layout with 390px of height. */
+@media (max-height: 480px) {
+  .fplus { font-size: 34px; }
+  .qstats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .qctl { position: static; }
+  .qhead-strip { position: static; }
 }

@@ -1,0 +1,63 @@
+{
+ "crf": 20,
+ "preset": "medium",
+ "width": 1920,
+ "units": {
+  "cockatoo-2021": {
+   "seq": "cockatoo-2021",
+   "cx": 0.03285,
+   "vmaf": 95.11416,
+   "vmafNeg": 93.9298,
+   "encBits": 1064206
+  },
+  "social-advertisment-2023": {
+   "seq": "social-advertisment-2023",
+   "cx": 0.11011,
+   "vmaf": 99.684606,
+   "vmafNeg": 99.335456,
+   "encBits": 3567702
+  },
+  "fantastic-movie-2023": {
+   "seq": "fantastic-movie-2023",
+   "cx": 0.15566,
+   "vmaf": 98.720397,
+   "vmafNeg": 97.781674,
+   "encBits": 4836943
+  },
+  "bike-show-2023": {
+   "seq": "bike-show-2023",
+   "cx": 0.21256,
+   "vmaf": 99.135795,
+   "vmafNeg": 98.346881,
+   "encBits": 4958667
+  },
+  "in-to-tree-2023": {
+   "seq": "in-to-tree-2023",
+   "cx": 0.4153,
+   "vmaf": 92.822744,
+   "vmafNeg": 90.979041,
+   "encBits": 26911487
+  },
+  "mountain-dog-ugc": {
+   "seq": "mountain-dog-ugc",
+   "cx": 0.62814,
+   "vmaf": 94.498333,
+   "vmafNeg": 92.99542,
+   "encBits": 24422111
+  },
+  "crowd-run-2023": {
+   "seq": "crowd-run-2023",
+   "cx": 0.68857,
+   "vmaf": 98.785808,
+   "vmafNeg": 97.796935,
+   "encBits": 44619303
+  },
+  "christmas-cats-2021": {
+   "seq": "christmas-cats-2021",
+   "cx": 2.17075,
+   "vmaf": 96.902848,
+   "vmafNeg": 95.404426,
+   "encBits": 70332367
+  }
+ }
+}

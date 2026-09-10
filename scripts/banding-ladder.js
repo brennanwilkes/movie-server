@@ -33,7 +33,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 
 const args = process.argv.slice(2);
 const val = (f, d) => { const i = args.indexOf(f); return i >= 0 && args[i + 1] ? args[i + 1] : d; };
@@ -56,27 +56,97 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'bladder-'));
 process.on('exit', () => { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch { /* */ } });
 const sh = (bin, a) => execFileSync(bin, a, { encoding: 'utf8', timeout: 30 * 60000, stdio: ['ignore', 'pipe', 'pipe'] });
 
-function cambiOf(clip) {
+/* THREE ARTIFACTS OFF ONE DECODE (added 2026-08-25).
+ *
+ * Banding alone can say something actionable about ~5% of the library: of 247 films measured, 16%
+ * band above the visibility threshold and the ladder suggests only about a third of those are
+ * bitrate-responsive. It is a specialist instrument, not a quality axis, and the half of the library
+ * it is blind to is the grainy half — which is exactly the half that broke the cross-film model.
+ *
+ * So the ladder now measures BLOCKING and BLUR at every rung as well. They come almost free:
+ * `blockdetect` and `blurdetect` are pass-through analysis filters, so chaining them ahead of
+ * libvmaf shares the single decode instead of doubling it — the same trick probe-film.sh uses to get
+ * them alongside the complexity encode. The expensive part of a ladder is the starvation encode, and
+ * that is already paid.
+ *
+ * WHY MEASURE THEM ON A LADDER AT ALL, when blockMean has been graded already: reliability says a
+ * detector agrees with itself, not that it is measuring an ARTIFACT. blockMean grades at 0.922, but a
+ * detector of frame structure would score just as well — films differ consistently in edge content.
+ * The discriminating test is whether the reading MOVES when bits are taken away. An artifact detector
+ * must rise under starvation; a content statistic will sit flat. That test needs a ladder and nothing
+ * else provides it.
+ */
+function measureOf(clip) {
   const log = path.join(TMP, 'c.csv');
   try { fs.unlinkSync(log); } catch { /* */ }
-  sh(FF, ['-hide_banner', '-loglevel', 'error', '-i', clip, '-i', clip,
-    '-lavfi', `[0:v][1:v]libvmaf=feature=name=cambi:n_threads=${THREADS}:log_path=${log}:log_fmt=csv`,
-    '-f', 'null', '-']);
+  // loglevel `info` because blockdetect/blurdetect report their means on stderr at that level, and
+  // spawnSync rather than the execFileSync helper because stderr is where the answer is.
+  const p = spawnSync(FF, ['-hide_banner', '-loglevel', 'info', '-i', clip, '-i', clip,
+    '-lavfi', `[0:v]blockdetect,blurdetect[d];[d][1:v]libvmaf=feature=name=cambi:n_threads=${THREADS}:log_path=${log}:log_fmt=csv`,
+    '-f', 'null', '-'], { encoding: 'utf8', timeout: 30 * 60000 });
+  if (p.status !== 0) throw new Error(`ffmpeg failed: ${String(p.stderr).slice(-200)}`);
+  const err = String(p.stderr || '');
+  const grab = (re) => { const m = err.match(re); return m ? Number(m[1]) : null; };
   const lines = fs.readFileSync(log, 'utf8').trim().split('\n');
   const col = lines[0].split(',').indexOf('cambi');
-  if (col < 0) return null;
-  const vals = lines.slice(1).map((l) => Number(l.split(',')[col])).filter(Number.isFinite);
-  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  const vals = col < 0 ? []
+    : lines.slice(1).map((l) => Number(l.split(',')[col])).filter(Number.isFinite);
+  return {
+    cambi: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null,
+    block: grab(/block mean: ([0-9.]+)/),
+    blur: grab(/blur mean: ([0-9.]+)/),
+    grain: grainOf(clip),
+  };
+}
+
+/* GRAIN RETENTION — the fourth artifact, and the one the panel was missing.
+ *
+ * WHY IT HAD TO BE ADDED (measured 2026-08-25). Under max-over-artifacts the binding constraint is
+ * whichever artifact appears first as bits come off. That works on smooth films — Dune's blocking
+ * binds and lands it at x0.49 with no guard of any kind. It fails completely on grainy ones, because
+ * BOTH detectors we had go quiet there:
+ *
+ *     corr(|S_block|, complexity) = -0.459      blocking stops responding as grain rises
+ *
+ * The Godfather's blocking slope is -0.03, Ocean's Eleven -0.03, The Big Sleep -0.06 — inert. So the
+ * max was taken over a set that had nothing to say, and banding's leftover headroom won by default:
+ * 110 -> 782. That is not a numerical defect to be capped, it is a hole in the covering set, exactly
+ * where Brennan predicted it would be.
+ *
+ * WHAT IS MEASURED. Mean |frame - denoised(frame)|: the texture energy an encoder has to pay for and
+ * is tempted to throw away. As bits come off, the encoder smooths grain, so this FALLS — the opposite
+ * direction to banding and blocking, which is why it catches what they miss.
+ *
+ * WHY THE OLD OBJECTION DOES NOT APPLY. probe-grain.sh records that an atadenoise-residual detector
+ * was tried and rejected: it read MOTION, r=+0.988 across three similarly-paced films and collapsing
+ * to -0.050 when Raiders was added. That was fatal for a CROSS-FILM absolute. Here every rung is the
+ * same scenes of the same film at a different bitrate, so motion is identical in all of them and
+ * cancels in the ratio — the same argument that makes probe-grain.sh's own two-pass ratio valid.
+ *
+ * It is a second decode rather than another branch of the libvmaf graph: ~40% more time per rung,
+ * against the risk of a six-input filtergraph failing silently overnight. */
+function grainOf(clip) {
+  const p = spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-i', clip, '-an', '-sn',
+    '-vf', 'split[a][b];[a]hqdn3d=4:3:6:4[d];[b][d]blend=all_mode=difference,'
+      + 'signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-',
+    '-f', 'null', '-'], { encoding: 'utf8', timeout: 30 * 60000 });
+  if (p.status !== 0) return null;
+  const v = String(p.stdout || '').split('\n')
+    .map((l) => /YAVG=([\d.]+)/.exec(l)).filter(Boolean).map((m) => Number(m[1]));
+  // The first frame has no denoiser history, so hqdn3d's temporal term has not converged and the
+  // residual reads near zero. Dropping it matters: at 4 clips of 2s that is 1 frame in ~48.
+  const use = v.length > 2 ? v.slice(1) : v;
+  return use.length ? +(use.reduce((a, b) => a + b, 0) / use.length).toFixed(5) : null;
 }
 
 // log-log least squares: log(cambi) = a + S*log(level). Because the starved bitrate is level*src,
 // log(level) IS log(bpp) up to a constant, so the fitted slope is exactly d log(cambi)/d log(bpp).
 const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
 
-function slope(pts) {
-  const p = pts.filter((x) => x.cambi > 0 && x.level > 0);
+function slope(pts, field = 'cambi') {
+  const p = pts.filter((x) => x[field] > 0 && x.level > 0);
   if (p.length < 3) return null;
-  const xs = p.map((x) => Math.log(x.level)); const ys = p.map((x) => Math.log(x.cambi));
+  const xs = p.map((x) => Math.log(x.level)); const ys = p.map((x) => Math.log(x[field]));
   const mx = xs.reduce((a, b) => a + b, 0) / xs.length; const my = ys.reduce((a, b) => a + b, 0) / ys.length;
   const num = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0);
   const den = xs.reduce((s, x) => s + (x - mx) ** 2, 0);
@@ -145,10 +215,16 @@ function slope(pts) {
     // This point is the curve's asymptote: the extract is lossless, so it carries the file's own
     // banding and nothing added. It anchors the curve on the same scenes as every other point.
     try {
-      const anchor = mean(base.map((b) => cambiOf(b)).filter((v) => v != null));
+      const ms = base.map((b) => measureOf(b)).filter(Boolean);
+      const pick = (f) => mean(ms.map((m) => m[f]).filter((v) => v != null));
+      const anchor = pick('cambi');
       if (Number.isFinite(anchor)) {
-        pts.push({ level: null, lossless: true, cambi: +anchor.toFixed(5), n: base.length });
-        process.stdout.write(`  ${r.title.slice(0, 26).padEnd(28)} LOSSLESS  cambi ${anchor.toFixed(4)}\n`);
+        pts.push({ level: null, lossless: true, cambi: +anchor.toFixed(5),
+          block: +pick('block').toFixed(5), blur: +pick('blur').toFixed(5),
+          grain: +pick('grain').toFixed(5), n: ms.length });
+        process.stdout.write(`  ${r.title.slice(0, 26).padEnd(28)} LOSSLESS  cambi ${anchor.toFixed(4)}  `
+          + `block ${pick('block').toFixed(4)}  blur ${pick('blur').toFixed(4)}  `
+          + `grain ${pick('grain').toFixed(4)}\n`);
       }
     } catch { /* anchor is optional; the slope does not depend on it */ }
 
@@ -184,38 +260,69 @@ function slope(pts) {
               '-an', '-sn', '-y', clip]);
           } catch { continue; }
         }
-        try { const c = cambiOf(clip); if (c != null) vals.push(c); } catch { /* */ }
+        try { const m = measureOf(clip); if (m.cambi != null) vals.push(m); } catch { /* */ }
       }
       if (!vals.length) continue;
-      const m = vals.reduce((a, b2) => a + b2, 0) / vals.length;
-      pts.push({ level: lv, cambi: +m.toFixed(5), n: vals.length });
-      process.stdout.write(`  ${r.title.slice(0, 26).padEnd(28)} lv ${String(lv).padEnd(5)} cambi ${m.toFixed(4)}\n`);
+      const pick = (f) => mean(vals.map((v) => v[f]).filter((x) => x != null));
+      const m = pick('cambi');
+      pts.push({ level: lv, cambi: +m.toFixed(5), block: +pick('block').toFixed(5),
+        blur: +pick('blur').toFixed(5), grain: +pick('grain').toFixed(5), n: vals.length });
+      process.stdout.write(`  ${r.title.slice(0, 26).padEnd(28)} lv ${String(lv).padEnd(5)} `
+        + `cambi ${m.toFixed(4)}  block ${pick('block').toFixed(4)}  blur ${pick('blur').toFixed(4)}  `
+        + `grain ${pick('grain').toFixed(4)}\n`);
     }
     const s = slope(pts);
     out.films.push({ key: r.key, title: r.title, year: r.year, cxEff: r.cxEff, bpp: r.bpp,
-      bppPlus: r.bppPlus, liveCambi: r.cambi, srcBitrate: src, points: pts, fit: s });
+      bppPlus: r.bppPlus, liveCambi: r.cambi, srcBitrate: src, points: pts, fit: s,
+      fitBlock: slope(pts, 'block'), fitBlur: slope(pts, 'blur'),
+      fitGrain: slope(pts, 'grain') });
     fs.writeFileSync(OUT, JSON.stringify(out, null, 1));
     if (s) console.log(`  ${' '.repeat(28)} => S ${s.S.toFixed(3)}  R^2 ${s.r2.toFixed(3)}\n`);
   }
 
-  console.log('\n================ PER-FILM SLOPES ================');
-  console.log(`  ${'film'.padEnd(30)} ${'S'.padStart(7)} ${'R^2'.padStart(6)} ${'cxEff'.padStart(7)}  implied shift multiplier`);
-  const XS = -1.7792;   // the cross-film slope the correction currently uses
+  console.log('\n================ PER-FILM SLOPES, THREE ARTIFACTS ================');
+  console.log('  S = d log(artifact) / d log(bitrate). It must be NEGATIVE: fewer bits, more artifact.');
+  console.log(`  ${'film'.padEnd(30)} ${'S band'.padStart(8)} ${'S block'.padStart(8)} ${'S blur'.padStart(8)}  ${'cxEff'.padStart(7)}`);
   for (const f of out.films) {
-    if (!f.fit) continue;
-    const mult = Math.abs(XS) / Math.abs(f.fit.S);
-    console.log(`  ${f.title.slice(0, 28).padEnd(30)} ${f.fit.S.toFixed(3).padStart(7)} `
-      + `${f.fit.r2.toFixed(3).padStart(6)} ${f.cxEff.toFixed(3).padStart(7)}  `
-      + `x${mult.toFixed(2)} vs the cross-film slope`);
+    const g = (x) => (x ? x.S.toFixed(2).padStart(8) : '     n/a');
+    console.log(`  ${f.title.slice(0, 28).padEnd(30)} ${g(f.fit)} ${g(f.fitBlock)} ${g(f.fitBlur)}  ${f.cxEff.toFixed(3).padStart(7)}`);
   }
-  const ss = out.films.filter((f) => f.fit).map((f) => f.fit.S);
-  if (ss.length >= 2) {
-    console.log(`\n  cross-film slope in use: ${XS}`);
-    console.log(`  per-film slopes measured: ${ss.map((v) => v.toFixed(2)).join(', ')}`);
-    console.log(`  spread ${(Math.max(...ss.map(Math.abs)) / Math.min(...ss.map(Math.abs))).toFixed(2)}x`);
-    console.log('\n  If that spread is large, one cross-film slope is the wrong exchange rate for most');
-    console.log('  films and the correction magnitude is mis-scaled per film — which is exactly what');
-    console.log('  a per-film ladder fixes. If it is small, the cross-film slope is good enough.');
+
+  // THE DISCRIMINATING TEST. A detector that does not move when bits are removed is measuring the
+  // content, not an artifact — no matter how reliable it is. blockMean grades 0.922 on split-half,
+  // which proves only that it agrees with itself.
+  console.log('\n  DOES EACH DETECTOR ACTUALLY RESPOND TO BITS?');
+  for (const [name, key] of [['banding', 'fit'], ['blocking', 'fitBlock'], ['blur', 'fitBlur'],
+    ['grain', 'fitGrain']]) {
+    const ss = out.films.map((f) => f[key]).filter(Boolean);
+    if (!ss.length) { console.log(`    ${name.padEnd(9)} no fits`); continue; }
+    const neg = ss.filter((x) => x.S < 0).length;
+    const med = ss.map((x) => x.S).sort((a, b) => a - b)[Math.floor(ss.length / 2)];
+    const r2 = mean(ss.map((x) => x.r2));
+    const verdict = neg === ss.length && Math.abs(med) > 0.15
+      ? 'RESPONDS — behaves like an artifact'
+      : neg <= ss.length / 2 ? 'NO / WRONG SIGN — looks like a content statistic, not an artifact'
+        : 'MIXED — some films respond, some do not';
+    console.log(`    ${name.padEnd(9)} median S ${med.toFixed(3).padStart(7)}  mean R^2 ${r2.toFixed(3)}  `
+      + `${neg}/${ss.length} negative   ${verdict}`);
   }
+
+  // BITS-EQUIVALENT — the blending proposal. Each artifact is converted into the one currency that
+  // is commensurable across detectors AND with BPP+: how much bitrate would bring it to threshold.
+  // Combining by MAX rather than by sum is what makes correlated detectors safe — if blocking and
+  // banding both demand 1.4x, the answer is 1.4x, not 1.96x.
+  const T = { cambi: 2.817, block: null, blur: null };   // only banding has a calibrated threshold
+  console.log('\n  BITS-EQUIVALENT for banding, m = (T/L)^(1/S) at the operating point:');
+  for (const f of out.films) {
+    const at1 = f.points.find((p) => p.level === 1);
+    if (!at1 || !f.fit) continue;
+    const m = (T.cambi / at1.cambi) ** (1 / f.fit.S);
+    const read = Math.abs(f.fit.S) < 0.25 ? 'slope too flat to extrapolate — treat as baked in'
+      : m > 1.05 ? `needs ${m.toFixed(2)}x more bits`
+        : m < 0.95 ? `could run at ${m.toFixed(2)}x — banding not binding` : 'at threshold';
+    console.log(`    ${f.title.slice(0, 28).padEnd(30)} L ${at1.cambi.toFixed(3).padStart(7)}  S ${f.fit.S.toFixed(2).padStart(6)}  ${read}`);
+  }
+  console.log('\n  Thresholds for blocking and blur are NOT calibrated, so their bits-equivalents are');
+  console.log('  not computed here. That calibration is what the external dataset is for.');
   console.log(`\nwrote ${OUT}`);
 })();

@@ -665,8 +665,127 @@ A never-measured banding number is worth more than a tighter error bar on an alr
 complexity — but a genuinely fresh complexity measurement still wins, because a missing complexity
 degrades every score for that title and a missing banding number degrades nothing.
 
+**THE YIELD IS RECIPROCAL, and until 2026-08-30 only one half of it existed.** banding and artifacts
+stood down for the probe; nothing made the probe stand down for them. Its tick is registered FIRST
+(`server.js` starts probe → banding → artifacts, all on the same 60s interval), so whenever more than
+one wanted the heavy lease the probe took it — and its refinement pool never empties, because
+re-probing a unit produces a new error bar that can qualify it again. An unbounded pool with first
+claim on a bounded window is a starvation loop, not a priority.
+
+Measured on the first night after the lease made the jobs take turns (2026-08-30): **probe 23 units /
+238 of the night's 241 minutes, 165 of them refinement — Apocalypse Now revisited 4× for 64 minutes.
+banding 1 unit. artifacts 0, having never measured a single unit in production.** Both of those are
+FINITE backfills; what they were losing to has no end state.
+
+So `probeTick` now calls **`backfillPending()`** before it refines, and skips the tick if banding or
+artifacts hold any unit with no valid reading for the file on disk. Fresh probe work still outranks
+everything and `manual` waives it. It cannot deadlock against `probeHasFreshWork()`: that yield fires
+only when the probe HAS fresh work, this one only when it does not — all 12 states of the pair were
+enumerated and none leaves a free lease with nobody running.
+
+### The artifact job (`controller/lib/artifacts.js`) — the PROVENANCE factor, and it DOES touch BPP+
+
+Shipped 2026-08-29. Nightly, in the Jobs tab as **Audit · artifact probe**. Unlike banding, **this
+one changes the score.**
+
+```
+GET  /api/artifacts                 status, constants, model readiness, what is blocking it
+GET  /api/artifacts/dataset         per-unit P, factor, raw detector levels
+POST /api/artifacts/import          one-shot seed from data/artifact-backfill.json (1048 units)
+POST /api/artifacts/session/start   MANUAL catch-up — waives the schedule, keeps every safety gate
+POST /api/artifacts/session/stop
+```
+
+**Why it exists when the controller already stores banding, blockMean and blurMean.** Because P is
+only valid when all four detectors read **the same clips** — the residualisation cannot separate a
+detector difference from a scene difference. Sourcing block/blur from the nightly probe instead was
+tested as task 97 and **FAILED its pre-registered arbiter at 355/20000 against a bar of 100.** Grain
+the controller had never measured at all. Hence one job measuring all four together, 4 clips × 2s,
+matching `data/artifact-backfill.json` exactly. **The clip count is not a tunable**: every measured
+constant downstream was computed on a 4-clip P, and a different clip count is a different quantity.
+
+**Where the factor is applied, and the one place it must never go.** In `installScoring()`'s resolver
+in `probe.js` — `target *= artifactFactor(key)` — **not** in `complexityForKey()`. Putting it there
+would be **circular**: the provenance surface regresses each detector on `log(cxEff)`, so P would
+appear inside its own regressor. `complexityForKey` answers "what does this CONTENT cost" (a property
+of the film); the factor answers "how damaged is this COPY" (a property of the encode).
+
+**No `PROBE_VERSION` bump.** It is a read-time factor over stored fields.
+
+**BPP+ vs BPP+₀.** `bppPlus` on every endpoint is the FULL score and includes provenance. `bppPlus0`
+is the same score at P = 0. **Never re-derive one from the other in a client** — the lab did exactly
+that for one build and double-counted the term.
+
+**The backstop must never bind.** `FACTOR_MAX = 3.0` needs |P| = 6.6 sd. It shipped at 1.35 for one
+deploy on a comment whose arithmetic was wrong by 2×, and was silently clamping 71 of 1048 units —
+a cut-off, not a backstop. If it ever binds, something upstream is broken; do not raise it.
+
+### The adequacy term — the ONLY term that can move the library median
+
+Shipped 2026-08-29. `controller/lib/artifacts.js` computes it, `bppIndex()` in `arr-inspect.js`
+applies it via `setAdequacyResolver` (same injection pattern as the complexity resolver).
+
+**Three terms now, doing different jobs:**
+
+| term | can it move the median? |
+|---|---|
+| BPP+₀ — bits vs this film's own transparent cost | it *is* the baseline |
+| Π — provenance, `exp(−k·s·φ·λ·P)` | **No.** P is centred on the library, so it is zero-sum |
+| Δ_adq — the elbow pool | **Yes.** Anchored absolutely, not centred |
+
+**BPP+ is the full score. BPP+₀ carries NEITHER adjustment.** Compute BPP+₀ *forwards* from `bpp`
+and `cxEff` — never by undoing factors off the live score. It used to be `live·√Π`, which undid
+provenance only, and the day adequacy shipped that leaked in (12 Angry Men read 84 instead of 72).
+Undoing one of two adjustments is wrong in a way that still looks plausible.
+
+**It reads PER-CLIP banding, not the mean.** `bandingClipsFor(key)`, deliberately separate from
+`bandingFor()` — a mean hides the one banded scene (Empire Strikes Back: mean 0.459 from a clip at
+3.47). Units the nightly banding job has not reached get Δ_adq = 0, which is honest, not zero-credit.
+
+**Constants:** T 2.817, σ_L 0.242 (measured), n₀ 4, **w 0.7496** (measured split-half, corroborated
+by banding.js's independent 0.73), κ = ln 2 (decided). Full derivation and the three dead
+formulations: `docs/BPP-PLUS-FORMULA.md` §4.
+
+### The heavy lease — ONE heavy job at a time, enforced
+
+`probe.acquireHeavy(owner)` / `releaseHeavy(owner)` / `heavyHolder()`, and `probeGate(manual, owner)`
+refuses when someone else holds it.
+
+**This fixed a live bug.** The probe and banding shared a window, a budget and a thermal gate but
+nothing stopped them running *simultaneously*; once the probe had no fresh work — which is the normal
+state at 1044/1045 measured — banding would start a CAMBI pass and the probe's next tick would spawn
+an x265 beside it. Two 3-thread encodes on four cores. The 95 °C gate does not catch it because two
+concurrent jobs measure 93 °C. **Any new heavy job must take the lease**, and it is a SAFETY gate:
+`manual: true` does not waive it. Leases expire after 30 minutes so a crashed holder cannot deadlock
+the night, and `releaseHeavy` ignores calls from non-holders so a stray `finally` cannot steal it.
+
 **`cambi` on `/api/probe/dataset` is null when UNMEASURED, which is not "clean".** Most of the
 library has no reading yet. Anything that renders or correlates it must distinguish the two.
+
+### Self-healing after a file is replaced — the contract
+
+**Brennan's requirement, 2026-08-30: it may take as long as it takes, but every measurement MUST
+eventually catch up with the file on disk.** Three things have to hold, and each was broken:
+
+1. **DETECT.** All three jobs key on `path|size|mtime`. A season is TWO sampled episodes and every
+   staleness test compared only `files[0]`, so replacing the second one was invisible everywhere —
+   the unit kept a complexity, a banding reading and an artifact vector taken from a deleted file.
+   `probe.unitFingerprint(u)` covers every sampled file and is stored as `unitFrom`; entries written
+   before this have no `unitFrom` and keep the single-file test until their next visit writes one.
+2. **REFUSE TO SCORE WITH IT.** `artifactFor()` guarded on `staleAgainst`, which is frozen at IMPORT
+   time and asks only whether the imported row's bpp matched the unit *as it stood then*. Nothing
+   recomputed it, so any replacement after the import left the guard reading false forever. Measured:
+   Apocalypse Now docked 14 BPP+ by a 17.6 GB WEBDL swapped for a 50.7 GB remux that morning, with
+   `bpp: 0.3327` stored beside it so P predicted expected artifacts from less than half the real
+   bits. `bandingClipsFor()` had no identity check at all — and adequacy is the term that can RAISE a
+   score, so a replaced copy's clean clips would have handed the new file unearned credit. Both now
+   ask `fileChanged()` and degrade to neutral (`factor 1`, no adequacy shift).
+3. **RE-MEASURE.** Stale sorts to the FRONT of both queues, so a replacement jumps the backlog — live
+   proof, 2026-08-30: Moneyball imported 01:39, complexity 02:45, banding 03:04. What was missing was
+   throughput, which is the reciprocal yield above.
+
+Neutral-until-remeasured is the correct intermediate state, not a fallback: the honest answer for a
+file we have not measured is "no adjustment", never "the last file's adjustment".
 
 **Two traps in this code, both already paid for.** libvmaf's JSON log is one long line, so a
 line-oriented shell parse grabs `integer_adm2`'s mean (1.000001 on a same-file compare) — the script
