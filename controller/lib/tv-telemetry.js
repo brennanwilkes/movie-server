@@ -160,6 +160,39 @@ app.get('/api/tv-telemetry/summary', (req, res) => {
     },
     crashes: events.filter((e) => e.event === 'crash')
       .map((e) => ({ ts: e.received || e.ts, type: e.data && e.data.type, message: e.data && e.data.message })),
+
+    // SILENT DEATHS. A native abort and a kernel low-memory kill both run no Java code, so neither
+    // can ever produce a `crash` event — and until the client started leaving a live-state file
+    // behind, they were indistinguishable from the user pressing Home.
+    //
+    // `died_in_foreground` means the app was on screen and then simply ceased to exist. `crumbs`
+    // is the last dozen things it did, so this says which row, which film, and how much memory.
+    // If a `crash` event exists for the same `prevSession` it was an ordinary Java exception and
+    // this line is just its epilogue; otherwise it is the native abort or the LMK kill, and the
+    // pssKb in the last breadcrumb tells you which (high + low sysAvail = the kill).
+    deaths: events.filter((e) => e.event === 'died_in_foreground').map((e) => ({
+      ts: e.received || e.ts,
+      prevSession: e.data && e.data.prevSession,
+      lastSeen: e.data && e.data.lastSeen,
+      lastCrumb: e.data && e.data.lastCrumb,
+      javaUsedKb: e.data && e.data.javaUsedKb,
+      nativeAllocKb: e.data && e.data.nativeAllocKb,
+      // A Java crash recorded for that same session means this was NOT a silent death.
+      hadJavaCrash: !!(e.data && events.some((c) => c.event === 'crash' && c.session === e.data.prevSession)),
+      crumbs: e.data && e.data.crumbs,
+    })),
+
+    // PLACEHOLDER SAFETY. A vector placeholder that reaches Coil gets rasterised on a fetcher
+    // thread against a VectorDrawable state shared with the main thread, which is the proven cause
+    // of the 0xdeadbaad aborts. Both of these should stay empty; anything here names a call site
+    // that still needs migrating to PlaceholderRaster.get(id).
+    placeholderFaults: events
+      .filter((e) => e.event === 'placeholder_not_migrated' || e.event === 'placeholder_raster_skipped')
+      .map((e) => ({
+        ts: e.received || e.ts, event: e.event,
+        what: e.data && e.data.what, why: e.data && e.data.why,
+        thread: e.data && e.data.thread, at: e.data && e.data.at,
+      })),
   });
 });
 

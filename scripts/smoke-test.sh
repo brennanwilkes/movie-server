@@ -61,11 +61,11 @@ chk "Movie Mode session poll is healthy" jqt "http://localhost:8088/api/movie-mo
 # down the file, so using it above would silently skip every check in this block.
 JFKEY="${JFKEY:-$(grep -oP '^JELLYFIN_KEY=\K.*' /opt/appdata/controller/keys.env 2>/dev/null || true)}"
 if [[ -n "${JFKEY:-}" ]]; then
-  chk "jellyfin: Webhook plugin active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://localhost:8096/Plugins | jq -e 'any(.[]; .Name==\"Webhook\" and .Status==\"Active\")'"
-  chk "jellyfin: exactly one webhook destination, pointed at the controller" sh -c "ID=\$(curl -sf -H 'X-Emby-Token: $JFKEY' http://localhost:8096/Plugins | jq -r '.[]|select(.Name==\"Webhook\").Id'); curl -sf -H \"X-Emby-Token: $JFKEY\" \"http://localhost:8096/Plugins/\$ID/Configuration\" | jq -e '(.GenericOptions|length)==1 and (.GenericOptions[0].WebhookUri|test(\"/api/jellyfin-webhook\")) and .GenericOptions[0].EnableWebhook'"
+  chk "jellyfin: Webhook plugin active" sh -c "curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' http://localhost:8096/Plugins | jq -e 'any(.[]; .Name==\"Webhook\" and .Status==\"Active\")'"
+  chk "jellyfin: exactly one webhook destination, pointed at the controller" sh -c "ID=\$(curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' http://localhost:8096/Plugins | jq -r '.[]|select(.Name==\"Webhook\").Id'); curl -sf -H \"Authorization: MediaBrowser Token=$JFKEY\" \"http://localhost:8096/Plugins/\$ID/Configuration\" | jq -e '(.GenericOptions|length)==1 and (.GenericOptions[0].WebhookUri|test(\"/api/jellyfin-webhook\")) and .GenericOptions[0].EnableWebhook'"
   # PlaybackProgress is the safety net, not a nicety: without it a dropped PlaybackStop pins Movie
   # Mode on forever and every background job on this box stops with no error anywhere.
-  chk "jellyfin: webhook sends Start, Stop AND Progress" sh -c "ID=\$(curl -sf -H 'X-Emby-Token: $JFKEY' http://localhost:8096/Plugins | jq -r '.[]|select(.Name==\"Webhook\").Id'); curl -sf -H \"X-Emby-Token: $JFKEY\" \"http://localhost:8096/Plugins/\$ID/Configuration\" | jq -e '.GenericOptions[0].NotificationTypes | (index(\"PlaybackStart\") and index(\"PlaybackStop\") and index(\"PlaybackProgress\"))'"
+  chk "jellyfin: webhook sends Start, Stop AND Progress" sh -c "ID=\$(curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' http://localhost:8096/Plugins | jq -r '.[]|select(.Name==\"Webhook\").Id'); curl -sf -H \"Authorization: MediaBrowser Token=$JFKEY\" \"http://localhost:8096/Plugins/\$ID/Configuration\" | jq -e '.GenericOptions[0].NotificationTypes | (index(\"PlaybackStart\") and index(\"PlaybackStop\") and index(\"PlaybackProgress\"))'"
 fi
 
 echo "=== *arr config (the grab algorithm) ==="
@@ -99,26 +99,26 @@ echo "=== jellyfin ==="
 chk "answers on ${NUC_IP}:8096 (host-net; localhost will NOT answer)" curl -sf --max-time 8 "http://${NUC_IP}:8096/System/Info/Public"
 JFKEY=$(grep -oP '^JELLYFIN_KEY=\K.*' /opt/appdata/controller/keys.env 2>/dev/null || true)
 if [[ -n "$JFKEY" ]]; then
-  chk "QSV hardware transcoding on" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/System/Configuration/encoding | jq -e '.HardwareAccelerationType==\"qsv\"'"
-  chk "DLNA plugin active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -e 'any(.[]; .Name==\"DLNA\" and .Status==\"Active\")'"
+  chk "QSV hardware transcoding on" sh -c "curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' http://${NUC_IP}:8096/System/Configuration/encoding | jq -e '.HardwareAccelerationType==\"qsv\"'"
+  chk "DLNA plugin active" sh -c "curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' http://${NUC_IP}:8096/Plugins | jq -e 'any(.[]; .Name==\"DLNA\" and .Status==\"Active\")'"
 fi
 chk "PS4 DLNA profile installed" test -f "${CONFIG:-/opt/appdata}/jellyfin/data/plugins/configurations/dlna/user/Sony PlayStation 4.xml"
 if [[ -n "$JFKEY" ]]; then
-  chk "Playback Reporting plugin active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -e 'any(.[]; .Name==\"Playback Reporting\" and .Status==\"Active\")'"
-  chk "Home Screen Sections + File Transformation active" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -e '[.[]|select(.Name==\"Home Screen Sections\" or .Name==\"File Transformation\")|select(.Status==\"Active\")]|length == 2'"
-  chk "HSS home layout configured (13+ rows declared)" sh -c "PID=\$(curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins | jq -r '.[]|select(.Name==\"Home Screen Sections\").Id'); curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Plugins/\$PID/Configuration | jq -e '.SectionSettings|length >= 13'"
-  chk "Watchlist playlist stays retired (not recreated by provision)" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' 'http://${NUC_IP}:8096/Items?IncludeItemTypes=Playlist&Recursive=true' | jq -e '[.Items[]|select(.Name==\"Watchlist\")]|length == 0'"
+  chk "Playback Reporting plugin active" sh -c "curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' http://${NUC_IP}:8096/Plugins | jq -e 'any(.[]; .Name==\"Playback Reporting\" and .Status==\"Active\")'"
+  chk "Home Screen Sections + File Transformation active" sh -c "curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' http://${NUC_IP}:8096/Plugins | jq -e '[.[]|select(.Name==\"Home Screen Sections\" or .Name==\"File Transformation\")|select(.Status==\"Active\")]|length == 2'"
+  chk "HSS home layout configured (13+ rows declared)" sh -c "PID=\$(curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' http://${NUC_IP}:8096/Plugins | jq -r '.[]|select(.Name==\"Home Screen Sections\").Id'); curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' http://${NUC_IP}:8096/Plugins/\$PID/Configuration | jq -e '.SectionSettings|length >= 13'"
+  chk "Watchlist playlist stays retired (not recreated by provision)" sh -c "curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' 'http://${NUC_IP}:8096/Items?IncludeItemTypes=Playlist&Recursive=true' | jq -e '[.Items[]|select(.Name==\"Watchlist\")]|length == 0'"
 fi
 
 # Second household account. Skipped when JELLYFIN_USER_2 is unset.
 if [[ -n "${JELLYFIN_USER_2:-}" && -n "$JFKEY" ]]; then
   echo "=== jellyfin: $JELLYFIN_USER_2 ==="
-  chk "'$JELLYFIN_USER_2' can authenticate" sh -c "curl -sf --max-time 8 -X POST 'http://${NUC_IP}:8096/Users/AuthenticateByName' -H 'Content-Type: application/json' -H 'X-Emby-Authorization: MediaBrowser Client=\"smoke\", Device=\"smoke\", DeviceId=\"smoke\", Version=\"1\"' -d '{\"Username\":\"${JELLYFIN_USER_2}\",\"Pw\":\"${JELLYFIN_PASS_2:-}\"}' | jq -e '.AccessToken'"
+  chk "'$JELLYFIN_USER_2' can authenticate" sh -c "curl -sf --max-time 8 -X POST 'http://${NUC_IP}:8096/Users/AuthenticateByName' -H 'Content-Type: application/json' -H 'Authorization: MediaBrowser Client=\"smoke\", Device=\"smoke\", DeviceId=\"smoke\", Version=\"1\"' -d '{\"Username\":\"${JELLYFIN_USER_2}\",\"Pw\":\"${JELLYFIN_PASS_2:-}\"}' | jq -e '.AccessToken'"
   # Policy: non-admin, cannot delete media or edit collections, and hides the tiny franchise
   # collections exactly like brennan's steady state.
-  chk "'$JELLYFIN_USER_2' policy locked down (no admin/delete/collections, hidden-collection blocked)" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Users | jq -e --arg n '$JELLYFIN_USER_2' '.[]|select(.Name==\$n).Policy | (.IsAdministrator|not) and (.EnableContentDeletion|not) and (.EnableCollectionManagement|not) and (.BlockedTags|index(\"hidden-collection\") != null)'"
-  chk "'$JELLYFIN_USER_2' can play media" sh -c "curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Users | jq -e --arg n '$JELLYFIN_USER_2' '.[]|select(.Name==\$n).Policy | .EnableMediaPlayback and .EnableAllFolders'"
-  chk "Top 100 shared read-only with '$JELLYFIN_USER_2'" sh -c "TID=\$(curl -sf -H 'X-Emby-Token: $JFKEY' 'http://${NUC_IP}:8096/Items?IncludeItemTypes=Playlist&Recursive=true' | jq -r '.Items[]|select(.Name==\"Top 100\").Id'); UID=\$(curl -sf -H 'X-Emby-Token: $JFKEY' http://${NUC_IP}:8096/Users | jq -r --arg n '$JELLYFIN_USER_2' '.[]|select(.Name==\$n).Id'); curl -sf -H 'X-Emby-Token: $JFKEY' \"http://${NUC_IP}:8096/Playlists/\$TID/Users\" | jq -e --arg u \"\$UID\" 'any(.[]; .UserId==\$u and (.CanEdit|not))'"
+  chk "'$JELLYFIN_USER_2' policy locked down (no admin/delete/collections, hidden-collection blocked)" sh -c "curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' http://${NUC_IP}:8096/Users | jq -e --arg n '$JELLYFIN_USER_2' '.[]|select(.Name==\$n).Policy | (.IsAdministrator|not) and (.EnableContentDeletion|not) and (.EnableCollectionManagement|not) and (.BlockedTags|index(\"hidden-collection\") != null)'"
+  chk "'$JELLYFIN_USER_2' can play media" sh -c "curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' http://${NUC_IP}:8096/Users | jq -e --arg n '$JELLYFIN_USER_2' '.[]|select(.Name==\$n).Policy | .EnableMediaPlayback and .EnableAllFolders'"
+  chk "Top 100 shared read-only with '$JELLYFIN_USER_2'" sh -c "TID=\$(curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' 'http://${NUC_IP}:8096/Items?IncludeItemTypes=Playlist&Recursive=true' | jq -r '.Items[]|select(.Name==\"Top 100\").Id'); UID=\$(curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' http://${NUC_IP}:8096/Users | jq -r --arg n '$JELLYFIN_USER_2' '.[]|select(.Name==\$n).Id'); curl -sf -H 'Authorization: MediaBrowser Token=$JFKEY' \"http://${NUC_IP}:8096/Playlists/\$TID/Users\" | jq -e --arg u \"\$UID\" 'any(.[]; .UserId==\$u and (.CanEdit|not))'"
 fi
 
 echo "=== jellyseerr ==="

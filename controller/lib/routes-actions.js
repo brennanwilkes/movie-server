@@ -453,7 +453,7 @@ app.post('/api/redownload', async (req, res) => {
       } catch { /* qbit down — file+profile already changed; search still proceeds */ }
     }
     // 4) Remove the stale Jellyfin entry so it doesn't point at a deleted file (re-added on import).
-    try { const jfId = await jellyfinIdByTmdb('Movie', movie.tmdbId); if (jfId) { await tfetch(`${HOST.jellyfin}/Items/${jfId}`, { method: 'DELETE', headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 10000); } } catch { /* auto-scan reconciles */ }
+    try { const jfId = await jellyfinIdByTmdb('Movie', movie.tmdbId); if (jfId) { await tfetch(`${HOST.jellyfin}/Items/${jfId}`, { method: 'DELETE', headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` } }, 10000); } } catch { /* auto-scan reconciles */ }
     // 5) Fresh search — clear the sweep cooldown/negative-cache so it grabs immediately at the new tier.
     searchKeyClear('radarr', mid); persistState();
     await arrPost('radarr', '/command', { name: 'MoviesSearch', movieIds: [mid] }, 8000);

@@ -58,7 +58,7 @@ async function exportTop100() {
   if (!cfg.JELLYFIN_KEY) return;
   try {
     const uid = await jellyfinUserId();
-    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+    const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
     const pq = new URLSearchParams({ IncludeItemTypes: 'Playlist', Recursive: 'true', Limit: '200' });
     const playlists = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${pq}`, { headers: h }, 20000)).Items) || [];
     const pl = playlists.find((p) => p.Name === 'Top 100');

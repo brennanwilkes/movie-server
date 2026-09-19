@@ -43,7 +43,7 @@ const SNAP_DIR = process.env.TOP100_SNAP_DIR || '/config/top100-snapshots';
 // so the hourly guard destroyed the evidence of a bad write within the hour. Keep a window instead.
 const BACKUP_KEEP = 30;
 
-const hdrs = () => ({ 'X-Emby-Token': cfg.JELLYFIN_KEY });
+const hdrs = () => ({ Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` });
 
 // A playlist read is the input to every decision here, so it gets an explicit Limit: Jellyfin's
 // default page size is smaller than the list, and a silently truncated read would look like

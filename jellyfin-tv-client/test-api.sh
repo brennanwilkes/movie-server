@@ -14,7 +14,7 @@ FAILED=0
 
 echo "== 1. Authenticate ($USER @ $JF) =="
 RESP=$(curl -s -m 10 -X POST "$JF/Users/AuthenticateByName" \
-  -H "X-Emby-Authorization: $AUTH" -H "Content-Type: application/json" \
+  -H "Authorization: $AUTH" -H "Content-Type: application/json" \
   -d "{\"Username\":\"$USER\",\"Pw\":\"$PASS\"}")
 TOKEN=$(echo "$RESP" | jq -r '.AccessToken')
 JUID=$(echo "$RESP" | jq -r '.User.Id')

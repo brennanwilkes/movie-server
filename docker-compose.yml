@@ -1,6 +1,27 @@
+# IMAGES ARE PINNED BY DIGEST. `make deploy` runs `docker compose pull`, which on a `:latest` tag
+# silently adopts whatever upstream published since the last run — so a deploy done to ship an
+# unrelated change can rewrite the whole stack. On 2026-09-11 that is exactly what happened:
+# a controller deploy pulled a three-day-old jellyfin `:latest` and took the server from 10.11 to
+# 12.0.0, which applied 18 irreversible schema migrations, broke every controller call (JF12 dropped
+# the X-Emby-Token header), broke the web home page (Home Screen Sections is not JF12-compatible)
+# and orphaned 161 KB of custom CSS written against the 10.11 DOM.
+#
+# A digest is the only truly immutable reference — linuxserver moves version tags too. The cost is
+# that updates are now deliberate, which is the point.
+#
+# TO UPDATE ONE SERVICE, ON PURPOSE:
+#   docker compose pull --policy always jellyfin   # or: docker pull lscr.io/linuxserver/jellyfin:latest
+#   docker image inspect lscr.io/linuxserver/jellyfin:latest --format '{{index .RepoDigests 0}}'
+#   # paste that digest below, then:
+#   docker compose up -d jellyfin
+# Read the release notes first for anything with plugins or an API we call — Jellyfin above all.
+#
+# Digests captured 2026-09-11 from the containers then running and verified working.
 services:
   jellyfin:
-    image: lscr.io/linuxserver/jellyfin:latest
+    # Jellyfin 12.0.0. PIN THIS ONE HARDEST: plugins (Home Screen Sections, File Transformation,
+    # JavaScript Injector), the controller's REST integration and the Fire Stick fork all track it.
+    image: lscr.io/linuxserver/jellyfin@sha256:0f42497a69fa0441bfd5f9d6bba8694f2a656ec984e571d0ac04c6dd91250039
     container_name: jellyfin
     environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}"]
     volumes:
@@ -42,7 +63,7 @@ services:
     restart: unless-stopped
 
   qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
+    image: lscr.io/linuxserver/qbittorrent@sha256:8d48fa8c619caadfb103f04efea8747e2a2762d6c7551690919cffb987e61cee
     container_name: qbittorrent
     environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}", "WEBUI_PORT=8080"]
     volumes:
@@ -53,7 +74,7 @@ services:
     restart: unless-stopped
 
   prowlarr:
-    image: lscr.io/linuxserver/prowlarr:latest
+    image: lscr.io/linuxserver/prowlarr@sha256:c7502a75b021d964481c129c84590b9cbc40f83aadd4e553f173871bc0deaa3c
     container_name: prowlarr
     environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}"]
     volumes: ["${CONFIG}/prowlarr:/config"]
@@ -62,7 +83,7 @@ services:
     restart: unless-stopped
 
   radarr:
-    image: lscr.io/linuxserver/radarr:latest
+    image: lscr.io/linuxserver/radarr@sha256:95ba0801df4d9d1d79d0d9a3849f656542497dab061d91b87ad4f53a71aff3ef
     container_name: radarr
     environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}"]
     volumes:
@@ -77,7 +98,7 @@ services:
     restart: unless-stopped
 
   sonarr:
-    image: lscr.io/linuxserver/sonarr:latest
+    image: lscr.io/linuxserver/sonarr@sha256:4d9df314875e1249ab7d6170c2b9b3dc1d8e6383f168ceb10dc9a5ad9b324739
     container_name: sonarr
     environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}"]
     volumes:
@@ -91,7 +112,7 @@ services:
     restart: unless-stopped
 
   bazarr:
-    image: lscr.io/linuxserver/bazarr:latest
+    image: lscr.io/linuxserver/bazarr@sha256:84b6f05a7a4194fafe5a0bec062d32f6ae9ea74db33d43d678cb9a3191f31c24
     container_name: bazarr
     environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}"]
     volumes:
@@ -104,7 +125,7 @@ services:
     restart: unless-stopped
 
   flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:latest
+    image: ghcr.io/flaresolverr/flaresolverr@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47
     container_name: flaresolverr
     environment: ["LOG_LEVEL=info", "TZ=${TZ}"]
     ports: ["0.0.0.0:8191:8191"]
@@ -115,7 +136,7 @@ services:
     restart: unless-stopped
 
   jellyseerr:
-    image: ghcr.io/seerr-team/seerr:latest
+    image: ghcr.io/seerr-team/seerr@sha256:f4768de5f616248d723e05891f3345a1402123775d03bf0890dbfedc0831bda1
     container_name: jellyseerr
     init: true
     environment: ["TZ=${TZ}", "LOG_LEVEL=info"]
@@ -131,7 +152,7 @@ services:
   # declines it — an inbox, not a downloader. One-time setup wizard at :5000 (needs a free
   # TMDb API key + Jellyfin/Jellyseerr URLs and keys); config persists in ${CONFIG}/suggestarr.
   suggestarr:
-    image: ciuse99/suggestarr:latest
+    image: ciuse99/suggestarr@sha256:d434f668a692b819fe5d2fbd4e1b3fe4e65a8dd43a1ba5c9ca7d3253f42f1240
     container_name: suggestarr
     environment: ["TZ=${TZ}", "LOG_LEVEL=info", "SUGGESTARR_PORT=5000"]
     volumes: ["${CONFIG}/suggestarr:/app/config/config_files"]
@@ -159,7 +180,7 @@ services:
   # Fail-safe: if TS_AUTHKEY is blank/expired the container just fails to authenticate
   # and retries — it never touches the other services or the host's normal LAN routing.
   tailscale:
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale@sha256:8c42c4574ab066384fcb72f69e086a2ff1dd3652eb6f56856cee34bcf0d2f680
     container_name: tailscale
     hostname: ${TS_HOSTNAME:-haleiwa-movies}
     network_mode: host
@@ -192,7 +213,7 @@ services:
   # serves it at /api/tailscale and the Home screen renders it as the "Mesh" tile. Purely cosmetic:
   # if this sidecar is down the mesh itself is unaffected — only the dashboard tile goes stale.
   tailscale-status:
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale@sha256:8c42c4574ab066384fcb72f69e086a2ff1dd3652eb6f56856cee34bcf0d2f680
     container_name: tailscale-status
     depends_on: [tailscale]
     volumes:

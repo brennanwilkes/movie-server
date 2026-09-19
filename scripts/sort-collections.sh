@@ -47,20 +47,20 @@ done
 # Authenticate as the admin user (same flow as provision/jellyfin.sh).
 AUTHHDR='MediaBrowser Client="sort-collections", Device="cli", DeviceId="sort-collections", Version="1.0"'
 token=$(curl -fsS --max-time 15 -X POST "$JF/Users/AuthenticateByName" \
-  -H "X-Emby-Authorization: $AUTHHDR" -H 'Content-Type: application/json' \
+  -H "Authorization: $AUTHHDR" -H 'Content-Type: application/json' \
   -d "$(jq -n --arg n "$JELLYFIN_ADMIN_USER" --arg p "$JELLYFIN_ADMIN_PASS" '{Username:$n,Pw:$p}')" \
   2>/dev/null | jq -r '.AccessToken')
 [[ -n "$token" && "$token" != "null" ]] || { echo "collections: Jellyfin auth failed" >&2; exit 0; }
-uid=$(curl -fsS --max-time 15 "$JF/Users/Me" -H "X-Emby-Token: $token" | jq -r '.Id')
+uid=$(curl -fsS --max-time 15 "$JF/Users/Me" -H "Authorization: MediaBrowser Token=$token" | jq -r '.Id')
 [[ -n "$uid" && "$uid" != "null" ]] || { echo "collections: could not resolve user id" >&2; exit 0; }
 
 # Ensure HIDE_TAG present/absent in the user's BlockedTags. POSTs the full policy object.
 set_block() {  # $1 = true|false
   local pol
-  pol=$(curl -fsS --max-time 15 "$JF/Users/$uid" -H "X-Emby-Token: $token" | jq '.Policy') || return 0
+  pol=$(curl -fsS --max-time 15 "$JF/Users/$uid" -H "Authorization: MediaBrowser Token=$token" | jq '.Policy') || return 0
   pol=$(jq --arg t "$HIDE_TAG" --argjson want "$1" \
     '.BlockedTags = ((.BlockedTags // []) | map(select(. != $t)) + (if $want then [$t] else [] end))' <<<"$pol")
-  curl -fsS --max-time 15 -X POST "$JF/Users/$uid/Policy" -H "X-Emby-Token: $token" \
+  curl -fsS --max-time 15 -X POST "$JF/Users/$uid/Policy" -H "Authorization: MediaBrowser Token=$token" \
     -H 'Content-Type: application/json' -d "$pol" >/dev/null 2>&1 || true
 }
 set_block false                    # unblock so tagged collections are visible to us
@@ -68,20 +68,20 @@ trap 'set_block true' EXIT         # always re-hide on exit, even on error
 
 boxsets=$(curl -fsS --max-time 30 \
   "$JF/Items?userId=$uid&IncludeItemTypes=BoxSet&Recursive=true&Fields=ProviderIds,ChildCount,DisplayOrder,Tags" \
-  -H "X-Emby-Token: $token")
+  -H "Authorization: MediaBrowser Token=$token")
 
 changed=0
 while IFS=$'\t' read -r bs_id cc bs_name; do
   [[ -n "$bs_id" ]] || continue
   # POST /Items/{id} replaces the item, so patch the full current DTO. <3: add hide tag.
   # >=3: remove hide tag (un-hide a grown franchise) and, if a "... Collection", order it.
-  desired=$(curl -fsS --max-time 30 "$JF/Users/$uid/Items/$bs_id" -H "X-Emby-Token: $token" \
+  desired=$(curl -fsS --max-time 30 "$JF/Users/$uid/Items/$bs_id" -H "Authorization: MediaBrowser Token=$token" \
     | jq --argjson cc "$cc" --argjson min "$MIN_MOVIES" --arg tag "$HIDE_TAG" '
         if $cc < $min then .Tags = ((.Tags // []) + [$tag] | unique)
         else .Tags = ((.Tags // []) | map(select(. != $tag)))
              | (if (.Name | endswith(" Collection")) then .DisplayOrder = "PremiereDate" else . end)
         end')
-  curl -fsS --max-time 30 -X POST "$JF/Items/$bs_id" -H "X-Emby-Token: $token" \
+  curl -fsS --max-time 30 -X POST "$JF/Items/$bs_id" -H "Authorization: MediaBrowser Token=$token" \
     -H 'Content-Type: application/json' -d "$desired" \
     && { echo "collections: reconciled '$bs_name' (${cc} films)"; changed=$((changed+1)); } \
     || echo "collections: failed to update '$bs_name'" >&2

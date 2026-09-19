@@ -515,18 +515,38 @@
 			'font:700 13px/1.45 "Noto Sans",sans-serif;white-space:nowrap;}' +
 			'.oscar-plaque .opl-w{color:#E6B94C;}' +
 			'.oscar-plaque .opl-n{color:#C9CDD3;}' +
-			'.oscar-plaque svg{width:9px;height:18px;vertical-align:-4px;margin-right:5px;}' +
+			// Rows are flex so the icon column can be a fixed width; align-items:center is what
+			// finally puts an 11px disc and an 18px-tall statuette on one optical line.
+			'.oscar-plaque > div{display:flex;align-items:center;gap:4px;}' +
+			'.oscar-plaque .opl-ic{flex:0 0 11px;display:inline-flex;align-items:center;justify-content:center;}' +
+			'.oscar-plaque svg{width:9px;height:18px;}' +
 			// compact variant for wide-but-not-huge artwork (list-row thumbnails)
 			'.oscar-plaque-sm{bottom:4px;right:4px;padding:2px 7px;font-size:10px;line-height:1.4;}' +
-			'.oscar-plaque-sm svg{width:7px;height:14px;vertical-align:-3px;margin-right:3px;}' +
+			'.oscar-plaque-sm > div{gap:3px;}' +
+			'.oscar-plaque-sm .opl-ic{flex-basis:9px;}' +
+			'.oscar-plaque-sm svg{width:7px;height:14px;}' +
 			'.oscar-plaque .opl-f{white-space:nowrap;}' +
 			'.oscar-plaque > div + div{margin-top:2px;}' +
+			// HOVER: slide up, don't fade out. Jellyfin's own overlay cluster (favourite / watched /
+			// menu) occupies the same bottom-right corner, and the plaque used to be faded to zero
+			// on hover to get out of its way — which reads as the award badges vanishing the moment
+			// you point at a film. Shifting it clear of the 40px button row keeps both readable.
+			'.card-hoverable:hover .oscar-plaque,.listItem:hover .oscar-plaque{' +
+			'transform:translateY(-44px);}' +
+			'.card-hoverable:hover .oscar-plaque-sm,.listItem:hover .oscar-plaque-sm{' +
+			'transform:translateY(-36px);}' +
+			'.oscar-plaque{transition:transform .2s ease;}' +
 			'.oscar-plaque .opl-f.f-cannes{color:#9fb87f;}' +
 			'.oscar-plaque .opl-f.f-sundance{color:#f26d3d;}' +
-			'.oscar-plaque .opl-f svg{vertical-align:-4px;}' +
-			'.oscar-plaque .opl-f svg.sun,.oscar-plaque .opl-f svg.reel{width:11px;height:11px;vertical-align:-2px;margin-right:4px;}' +
-			'.oscar-plaque-sm .opl-f svg{vertical-align:-3px;}' +
-			'.oscar-plaque-sm .opl-f svg.sun,.oscar-plaque-sm .opl-f svg.reel{width:9px;height:9px;vertical-align:-1px;margin-right:2px;}' +
+			// Venice azure and TIFF red (2026-09-13). Azure is the only cool hue in the set, so it
+			// can never be mistaken for Cannes sage; TIFF sits redder than Sundance's #f26d3d
+			// because those two are the warm pair and the glyph is the only other separator.
+			'.oscar-plaque .opl-f.f-venice{color:#6FA8DC;}' +
+			'.oscar-plaque .opl-f.f-tiff{color:#D64545;}' +
+			'.oscar-plaque .opl-f svg.sun,.oscar-plaque .opl-f svg.reel,.oscar-plaque .opl-f svg.leaf,.oscar-plaque .opl-f svg.paw{width:11px;height:11px;}' +
+			'.oscar-plaque svg.emmy{width:11px;height:11px;}' +
+			'.oscar-plaque-sm .opl-f svg.sun,.oscar-plaque-sm .opl-f svg.reel,.oscar-plaque-sm .opl-f svg.leaf,.oscar-plaque-sm .opl-f svg.paw{width:9px;height:9px;}' +
+			'.oscar-plaque-sm svg.emmy{width:9px;height:9px;}' +
 
 			// ---- Nation flags (retro "luggage sticker" — see nation-tags.js sweep) ----
 			// TOP-left corner (rank+oscars own the right side). Moved from bottom-left
@@ -572,8 +592,11 @@
 			'.mn-award-nom .mn-award-mark,.mn-award-nom .mn-award-title{color:#C9CDD3;}' +
 			'.mn-award-cannes .mn-award-mark,.mn-award-cannes .mn-award-title{color:#9fb87f;}' +
 			'.mn-award-sundance .mn-award-mark,.mn-award-sundance .mn-award-title{color:#f26d3d;}' +
+			'.mn-award-venice .mn-award-mark,.mn-award-venice .mn-award-title{color:#6FA8DC;}' +
+			'.mn-award-tiff .mn-award-mark,.mn-award-tiff .mn-award-title{color:#D64545;}' +
 			'.mn-award-win .mn-award-title,.mn-award-cannes .mn-award-title,' +
-			'.mn-award-sundance .mn-award-title{font-weight:600;}' +
+			'.mn-award-sundance .mn-award-title,.mn-award-venice .mn-award-title,' +
+			'.mn-award-tiff .mn-award-title{font-weight:600;}' +
 			// ── CREW ROW (a card row under Cast, see addCrewSection) ──
 			// Jellyfin's own card classes do the sizing and text treatment; these rules only cover
 			// what our cards do differently.
@@ -675,7 +698,10 @@
 			if (r.idByName) idByName = r.idByName;
 			if (r.playlistsViewId) playlistsViewId = r.playlistsViewId;
 		}
-		var o = lsGet(cacheKey('mn_oscars_v2'));
+		// v3 (2026-09-13): the parsed shape changed from flat c/s/cName/sName to an f{} map when
+		// Venice and TIFF were added. A v2 entry would deserialise with f === undefined and every
+		// festival row would silently vanish until the next refresh, so the key is bumped instead.
+		var o = lsGet(cacheKey('mn_oscars_v4'));
 		if (o) oscarById = new Map(o);
 		var n = lsGet(cacheKey('mn_nations'));
 		if (n) nationById = new Map(n);
@@ -934,30 +960,89 @@
 	// Award movie (noms here = LOSING nominations; wins are separate). We pull those items and
 	// parse the counts into oscarById, keyed by both GUID forms like rankById.
 	var OSCAR_TAG_RE = /^oscar-(wins|noms)-(\d+)$/;
-	var FESTIVAL_TAG_RE = /^festival-(cannes|sundance)(?:-(\d+)|-name-(.+))?$/;
+	// ONE table drives every festival: the tag regex, the plaque rows, the mobile pill and the
+	// detail-page award list. Adding a festival is a row here plus the controller's FESTIVALS
+	// list plus a CSS colour — never four parallel edits. `key` matches the controller's tag slug.
+	//
+	// GLYPHS, all square and all the same 11px slot. Cannes/Sundance are hand-drawn (reel, sun);
+	// TIFF's maple leaf is traced from the public-domain Flag of Canada SVG so the shape is right
+	// rather than approximated; Venice is a big-cat PAW for the Golden Lion.
+	//
+	// WHY A PAW AND NOT A LION. A lion is the obvious mark and it does not work at this size. A
+	// traced full-body silhouette (NIH BioArt, public domain) is 2.4:1, so it needs a box twice as
+	// wide as every other glyph — which left each plaque row's text starting at a different x and
+	// read as broken (Brennan, 2026-09-13: "it's just so wide that it looks super off"). Cropping
+	// it to the head gives a sliced-off animal; seven hand-constructed lion heads, face-on and in
+	// profile, all render as a featureless blob at 11px; and every lion head on Commons is
+	// CC BY-SA, which we already declined once for the share-alike obligation. A paw is square,
+	// unmistakably feline, and sits at the same visual weight as the reel, the sun and the leaf.
+	var FESTIVAL_PAW_PATH = 'M3.88 9.89A1.85 2.35 -22 0 1 7.32 8.51A1.85 2.35 -22 0 1 3.88 9.89Z M7.92 6.98A2.00 2.55 -8 0 1 11.88 6.42A2.00 2.55 -8 0 1 7.92 6.98Z M12.52 6.52A2.00 2.55 8 0 1 16.48 7.08A2.00 2.55 8 0 1 12.52 6.52Z M16.88 8.71A1.85 2.35 22 0 1 20.32 10.09A1.85 2.35 22 0 1 16.88 8.71Z M12 11.6 C15.4 11.6 18.6 13.6 19.4 16.3 C20.1 18.7 18.3 20.9 15.6 21.2 C14.3 21.35 13.1 21.0 12 21.0 C10.9 21.0 9.7 21.35 8.4 21.2 C5.7 20.9 3.9 18.7 4.6 16.3 C5.4 13.6 8.6 11.6 12 11.6 Z';
+	// Emmy statuette — a winged figure holding an atom aloft. At badge size the readable parts are
+	// the orb and the swept wings. Gold for a win, silver for a nomination: a film and a series
+	// never share a plaque, so reusing the Oscar colours cannot be ambiguous (Brennan, 2026-09-13).
+	// Emmy statuette — a winged figure holding an atom aloft. At badge size the readable parts are
+	// the orb and the swept wings; the figure itself is a vertical sliver. Gold for a win, silver
+	// for a nomination: a film and a series never share a plaque, so reusing the Oscar colours
+	// cannot be ambiguous (Brennan, 2026-09-13). Square 24x24, same 11px slot as the festivals.
+	function emmyGlyph(colour) {
+		return '<svg class="emmy" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+			+ '<circle cx="12" cy="4.2" r="2.9" fill="' + colour + '"/>'
+			+ '<path fill="' + colour + '" d="M12 7.4 C10.7 7.4 9.8 8.3 9.8 9.6 L9.8 20.0'
+				+ ' C9.8 21.0 10.7 21.6 12 21.6 C13.3 21.6 14.2 21.0 14.2 20.0 L14.2 9.6'
+				+ ' C14.2 8.3 13.3 7.4 12 7.4 Z"/>'
+			+ '<path fill="' + colour + '" d="M9.9 9.8 C6.6 10.0 2.9 12.4 0.9 17.4'
+				+ ' C4.3 14.6 7.3 13.4 9.9 13.3 Z"/>'
+			+ '<path fill="' + colour + '" d="M14.1 9.8 C17.4 10.0 21.1 12.4 23.1 17.4'
+				+ ' C19.7 14.6 16.7 13.4 14.1 13.3 Z"/></svg>';
+	}
+	var FESTIVAL_LEAF_PATH = 'M12.4913 23l-0.2457 -4.7112a0.5186 0.5186 0 0 1 0.606 -0.535l4.6893 0.8243 -0.6333 -1.7469a0.3548 0.3548 0 0 1 0.1092 -0.3985l5.137 -4.1598 -1.1573 -0.5404a0.3548 0.3548 0 0 1 -0.1856 -0.4313l1.0154 -3.1226 -2.9588 0.6278a0.3548 0.3548 0 0 1 -0.3985 -0.2074l-0.5732 -1.3484 -2.3092 2.4784a0.3548 0.3548 0 0 1 -0.606 -0.3112l1.1136 -5.7429 -1.7851 1.0318a0.3548 0.3548 0 0 1 -0.4968 -0.1474l-1.8124 -3.5593 -1.8124 3.5593a0.3548 0.3548 0 0 1 -0.4968 0.1474l-1.7851 -1.0318 1.1136 5.7429a0.3548 0.3548 0 0 1 -0.606 0.3112l-2.3092 -2.4784 -0.5732 1.3484a0.3548 0.3548 0 0 1 -0.3985 0.2074l-2.9588 -0.6278 1.0154 3.1226a0.3548 0.3548 0 0 1 -0.1856 0.4313l-1.1573 0.5404 5.137 4.1598a0.3548 0.3548 0 0 1 0.1092 0.3985l-0.6333 1.7469 4.6893 -0.8243a0.5186 0.5186 0 0 1 0.606 0.535l-0.2457 4.7112Z';
+	// `fill` is an EXPLICIT colour, never `currentColor`. Every other glyph in this file hardcodes
+	// its fill, and the two that did not (2026-09-13, first cut) inherited `color` from the row —
+	// so a theme's hover rule on the detail poster could recolour them to nothing while the Oscar
+	// statuettes, which carry explicit fills, stayed put. Brennan: "on poster hover on film detail
+	// page the venice glyph disappears (oscars dont have this bug)". Keep these in step with the
+	// `.opl-f.f-*` text colours below; the glyph and its label are meant to match.
+	var FESTIVALS = [
+		{ key: 'cannes', label: 'CANNES', cls: 'f-cannes', fill: '#9fb87f', pill: '\uD83C\uDF34', box: 24, boxW: 24 },
+		{ key: 'sundance', label: 'SUNDANCE', cls: 'f-sundance', fill: '#f26d3d', pill: '\u2600', box: 24, boxW: 24 },
+		{ key: 'venice', label: 'VENICE', cls: 'f-venice', fill: '#6FA8DC', pill: '\uD83E\uDD81', box: 24, boxW: 24 },
+		{ key: 'tiff', label: 'TIFF', cls: 'f-tiff', fill: '#D64545', pill: '\uD83C\uDF41', box: 24, boxW: 24 },
+	];
+	// The plaque needs SHORT labels (poster width); the detail list has room for the real name.
+	// "Toronto", not "TIFF" (Brennan, 2026-09-13) — the other three read as place names there.
+	var FESTIVAL_DETAIL_LABEL = { cannes: 'Cannes', sundance: 'Sundance', venice: 'Venice', tiff: 'Toronto' };
+	var FESTIVAL_TAG_RE = new RegExp('^festival-(' + FESTIVALS.map(function (f) { return f.key; }).join('|')
+		+ ')(?:-(\\d+)|-name-(.+))?$');
+	// Series carry Emmy tags instead of Oscar/festival ones — see controller/lib/emmy-tags.js.
+	var EMMY_TAG_RE = /^emmy-(?:wins-(\d+)|name-(.+)|(nominated))$/;
 	function parseOscarTags(tags) {
 		if (!tags || !tags.length) return null;
-		var w = 0, l = 0, c = 0, s = 0, cName = '', sName = '', hit = false;
+		var w = 0, l = 0, hit = false, fest = {}, emmy = null;
 		for (var i = 0; i < tags.length; i++) {
+			var em = EMMY_TAG_RE.exec(tags[i]);
+			if (em) {
+				hit = true;
+				emmy = emmy || { w: 0, name: '', nom: false };
+				if (em[1] !== undefined) emmy.w = parseInt(em[1], 10) || 0;
+				if (em[2] !== undefined) emmy.name = em[2];
+				if (em[3] !== undefined) emmy.nom = true;
+				continue;
+			}
 			var m = OSCAR_TAG_RE.exec(tags[i]);
 			if (m) { hit = true; if (m[1] === 'wins') w = parseInt(m[2], 10); else l = parseInt(m[2], 10); continue; }
 			var f = FESTIVAL_TAG_RE.exec(tags[i]);
 			if (f) {
 				hit = true;
-				if (f[1] === 'cannes') {
-					// BLOCKER-fix: the -name- tag matches with f[2] undefined — only assign from the
-					// capture group that actually matched, or the name tag clobbers the count to 0
-					// (parseInt(undefined) → NaN → 0) and the festival row vanishes for every
-					// single-win film. Count and name are INDEPENDENT tags.
-					if (f[2] !== undefined) c = parseInt(f[2], 10) || 0;
-					if (f[3] !== undefined) cName = f[3];
-				} else {
-					if (f[2] !== undefined) s = parseInt(f[2], 10) || 0;
-					if (f[3] !== undefined) sName = f[3];
-				}
+				var e = fest[f[1]] || (fest[f[1]] = { n: 0, name: '' });
+				// BLOCKER-fix: the -name- tag matches with f[2] undefined — only assign from the
+				// capture group that actually matched, or the name tag clobbers the count to 0
+				// (parseInt(undefined) → NaN → 0) and the festival row vanishes for every
+				// single-win film. Count and name are INDEPENDENT tags.
+				if (f[2] !== undefined) e.n = parseInt(f[2], 10) || 0;
+				if (f[3] !== undefined) e.name = f[3];
 			}
 		}
-		return hit ? { w: w, l: l, c: c, s: s, cName: cName, sName: sName } : null;
+		return hit ? { w: w, l: l, f: fest, e: emmy } : null;
 	}
 	function loadOscars() {
 		if (!ready()) return Promise.resolve();
@@ -971,7 +1056,7 @@
 			});
 			var changed = diffMapKeys(oscarById, next);
 			oscarById = next;
-			lsSet(cacheKey('mn_oscars_v2'), Array.from(next.entries()));
+			lsSet(cacheKey('mn_oscars_v4'), Array.from(next.entries()));
 			// Diffed re-decoration (mirrors loadLists()) — untouched cards keep their MARK.
 			if (redecorateChanged(changed)) scan();
 		}
@@ -988,6 +1073,8 @@
 		return Promise.allSettled([
 			a.getItems(userId, { IncludeItemTypes: 'Movie', Recursive: true, Tags: 'oscars', Fields: 'Tags', Limit: 2000 }),
 			a.getItems(userId, { IncludeItemTypes: 'Movie', Recursive: true, Tags: 'festival', Fields: 'Tags', Limit: 2000 }),
+			// Series carry `emmys` instead — same decoration path, different award family.
+			a.getItems(userId, { IncludeItemTypes: 'Series', Recursive: true, Tags: 'emmys', Fields: 'Tags', Limit: 2000 }),
 		]).then(function (rs) {
 			rs.forEach(function (r) { if (r && r.status === 'fulfilled') collect(r.value); });
 			if (merged.size) { ingest(Array.from(merged.values())); return; }
@@ -1038,21 +1125,83 @@
 		'<line x1="4.6" y1="4.6" x2="6.4" y2="6.4"/><line x1="17.6" y1="17.6" x2="19.4" y2="19.4"/>' +
 		'<line x1="4.6" y1="19.4" x2="6.4" y2="17.6"/><line x1="17.6" y1="6.4" x2="19.4" y2="4.6"/></g></svg>';
 
-	function oscarPlaqueHtml(wins, losses, cannes, sundance, cannesName, sundanceName, large) {
+	// Inline glyph for one festival row. Cannes/Sundance carry their own hand-built markup;
+	// Venice/TIFF are traced paths fitted into the glyph box by a transform (see FESTIVALS).
+	function festivalGlyph(f) {
+		if (f.key === 'cannes') return FESTIVAL_REEL_SVG;
+		if (f.key === 'sundance') return FESTIVAL_SUN_SVG;
+		// NO <g transform> — the coordinates are BAKED into the viewBox space, and they must stay
+		// that way. The first cut wrapped the traced art in `<g transform="translate(…) scale(…)">`
+		// to fit it into the box. On the DETAIL page that made both glyphs vanish on poster hover
+		// (Brennan, 2026-09-13), because jellyfin-custom.css §16 v2 carries:
+		//
+		//     .itemDetailPage .curated-host-detail:hover * { transform: none !important; }
+		//
+		// In Chrome `transform` is a CSS property for SVG elements, so a CSS `transform:none`
+		// OVERRIDES an SVG transform attribute. The wrapper was cancelled, the path was drawn in
+		// its raw source space (4030 units for the leaf) inside a 24-unit
+		// viewBox, and the glyph landed far outside the box — invisible. The Oscar statuette, reel
+		// and sun were untouched because none of them uses a transform, and grid pages were fine
+		// because `.curated-host-detail` only exists on the detail poster. Every other glyph here
+		// is authored directly in its viewBox space; these now are too. If the art is ever
+		// re-derived, bake the transform into the coordinates (see data/oscars notes) — do not
+		// reintroduce a wrapper.
+		var inner = '<path fill="' + f.fill + '" d="'
+			+ (f.key === 'venice' ? FESTIVAL_PAW_PATH : FESTIVAL_LEAF_PATH) + '"/>';
+
+		return '<svg class="' + (f.key === 'venice' ? 'paw' : 'leaf') + '" viewBox="0 0 24 24"'
+			+ ' xmlns="http://www.w3.org/2000/svg">' + inner + '</svg>';
+	}
+
+	// `fest` is parseOscarTags().f — { cannes: {n, name}, … } — or null (the crew plaque has none).
+	// `emmy` is parseOscarTags().e and is only ever set on a SERIES, so it never shares a plaque
+	// with Oscar or festival rows.
+	function oscarPlaqueHtml(wins, losses, fest, large, emmy) {
+		// Every glyph sits in a FIXED-WIDTH column, so "3 OSCAR WINS", "GOLDEN LION" and
+		// "PEOPLE'S CHOICE" all start at the same x. Inline glyphs of different widths left the
+		// text ragged, and a 9px statuette next to an 11px disc reads as broken
+		// (Brennan, 2026-09-13: "it's just so wide that it looks super off"). The Fire Stick fork
+		// has always done this — "Fixed-width icon column ... so both statuettes align" in
+		// OscarBadges.kt — the web side simply never did.
+		function ic(svg) { return '<span class="opl-ic">' + svg + '</span>'; }
 		function mini(color) {
-			return '<svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg">' +
-				'<path fill="' + color + '" d="' + STATUETTE_PATH + '"/></svg>';
+			return ic('<svg viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg">' +
+				'<path fill="' + color + '" d="' + STATUETTE_PATH + '"/></svg>');
 		}
+		// One festival ROW per festival, always after the Oscar rows, in FESTIVALS order. Single
+		// win → the controller wrote a -name-{DISPLAY} tag; the count form covers 2+ (and older
+		// controllers that wrote no name tag).
+		var festRows = [];
+		FESTIVALS.forEach(function (f) {
+			var e = fest && fest[f.key];
+			if (!e || !(e.n > 0)) return;
+			festRows.push('<div class="opl-f ' + f.cls + '">' + ic(festivalGlyph(f))
+				+ (e.name || e.n + ' ' + f.label + ' WIN' + (e.n > 1 ? 'S' : '')) + '</div>');
+		});
+		// FOUR-ROW POLICY (Brennan, 2026-09-13). Before TIFF+Venice the stack could not reach four
+		// rows, and the shipped design said so out loud. It can now — Life Is Beautiful (Oscars +
+		// Cannes + TIFF) and Nomadland (Oscars + Venice + TIFF) — so the Oscar NOMINATIONS row is
+		// dropped rather than letting the plaque grow. Wins and the festivals are the rarer, more
+		// interesting facts; the full nomination count still renders on the detail page's Awards
+		// list, which is where someone goes to read detail. Never drops a festival row: two
+		// festival rows plus wins is exactly three.
 		var lines = [];
+		var wantNoms = losses > 0 && (1 + festRows.length + (wins > 0 ? 1 : 0)) <= 3;
 		if (wins > 0) lines.push('<div class="opl-w">' + mini('#E6B94C') + wins + ' OSCAR WIN' + (wins > 1 ? 'S' : '') + '</div>');
-		if (losses > 0) { var totalNoms = wins + losses; lines.push('<div class="opl-n">' + mini('#C9CDD3') + totalNoms +
+		if (wantNoms) { var totalNoms = wins + losses; lines.push('<div class="opl-n">' + mini('#C9CDD3') + totalNoms +
 			(wins > 0 ? ' NOMINATION' : ' OSCAR NOMINATION') + (totalNoms > 1 ? 'S' : '') + '</div>'); }
-		// One festival ROW per festival, always after the Oscar rows. Single win → the controller
-		// wrote a -name-{DISPLAY} tag; count-form fallback covers older controllers.
-		if (cannes > 0) lines.push('<div class="opl-f f-cannes">' + FESTIVAL_REEL_SVG +
-			(cannesName || cannes + ' CANNES WIN' + (cannes > 1 ? 'S' : '')) + '</div>');
-		if (sundance > 0) lines.push('<div class="opl-f f-sundance">' + FESTIVAL_SUN_SVG +
-			(sundanceName || sundance + ' SUNDANCE WIN' + (sundance > 1 ? 'S' : '')) + '</div>');
+		lines = lines.concat(festRows);
+		// EMMY (series only). One row: the program award by name when the show won one, otherwise a
+		// plain nominated marker. Never a total — Game of Thrones is 59 wins / 159 nominations and
+		// 47 of those wins are craft categories. See docs/DESIGN-EMMY-BADGES.md.
+		if (emmy) {
+			if (emmy.w > 0) {
+				lines.push('<div class="opl-w">' + ic(emmyGlyph('#E6B94C'))
+					+ (emmy.w > 1 ? emmy.w + 'x ' : '') + (emmy.name || 'EMMY WINNER') + '</div>');
+			} else if (emmy.nom) {
+				lines.push('<div class="opl-n">' + ic(emmyGlyph('#C9CDD3')) + 'EMMY NOMINATED</div>');
+			}
+		}
 		if (!lines.length) return '';
 		return '<div class="oscar-plaque' + (large ? '' : ' oscar-plaque-sm') + '">' + lines.join('') + '</div>';
 	}
@@ -1077,7 +1226,8 @@
 	};
 	// spec keys: h=[colors] horizontal stripes (hw=weights), v=[colors] vertical (vw=weights),
 	// nordic={bg,cross,inner?}, disc={c,r,cx?,cy?}, ring={c,r}, star={c,cx,cy,r}, plus='W' (swiss),
-	// crescent (turkey), wedge='B' (czech), canton:'gb' (+stars:'au'|'nz'), special:'gb|br|kr|ca|il|cl|tw|gr|pt'
+	// crescent (turkey), cedar (lebanon), wedge='B' (czech), canton:'gb' (+stars:'au'|'nz'),
+	// special:'gb|br|kr|ca|il|cl|tw|gr|pt|pk'
 	var FLAG_SPECS = {
 		gb: { special: 'gb' },
 		au: { h: ['N'], canton: 'gb', stars: 'au' }, nz: { h: ['N'], canton: 'gb', stars: 'nz' },
@@ -1108,6 +1258,10 @@
 		// Capernaum and friends rendered as two letters on a rectangle — the only "flag" on the
 		// wall that was actually text. Same 1:2:1 band geometry as Spain, plus the cedar.
 		lb: { h: ['R', 'W', 'R'], hw: [1, 2, 1], cedar: true },
+		// Pakistan. Same gap, same symptom: Joyland (Urdu) rendered as the "PK" code pennant.
+		// White hoist band (1/4 width), white crescent+star on green, crescent opening to the
+		// fly like Turkey's — the crescent cut is GREEN here, not red.
+		pk: { special: 'pk' },
 	};
 	function flagStar(cx, cy, r, color) {
 		var pts = [];
@@ -1198,6 +1352,12 @@
 			return '<rect width="14.4" height="24" fill="' + C('G') + '"/>' +
 				'<rect x="14.4" width="21.6" height="24" fill="' + C('R') + '"/>' +
 				'<circle cx="14.4" cy="12" r="3.6" fill="' + C('Y') + '"/>';
+		}
+		if (sp.special === 'pk') {
+			return '<rect width="9" height="24" fill="' + C('W') + '"/>' +
+				'<rect x="9" width="27" height="24" fill="' + C('G') + '"/>' +
+				'<circle cx="22.5" cy="12" r="5.8" fill="' + C('W') + '"/>' +
+				'<circle cx="24.3" cy="12" r="4.8" fill="' + C('G') + '"/>' + flagStar(28.5, 12, 2.3, C('W'));
 		}
 		// generic builders
 		if (sp.h) {
@@ -1295,11 +1455,21 @@
 		if (!ready()) return Promise.resolve();
 		var a = api();
 		var userId = a.getCurrentUserId();
-		// One bulk query on the `nation` marker tag (same recipe as loadOscars).
-		return a.getItems(userId, { IncludeItemTypes: 'Movie', Recursive: true, Tags: 'nation', Fields: 'Tags', Limit: 2000 })
-			.then(function (res) {
+		// Bulk query on the `nation` marker tag (same recipe as loadOscars). SERIES as well as
+		// movies: controller/lib/tv-meta.js writes nation-{iso2} into the SAME namespace, so a
+		// show's flag comes from one more query rather than a second code path. allSettled, so a
+		// server that rejects the Tags filter on one type still yields the other's rows.
+		return Promise.allSettled([
+			a.getItems(userId, { IncludeItemTypes: 'Movie', Recursive: true, Tags: 'nation', Fields: 'Tags', Limit: 2000 }),
+			a.getItems(userId, { IncludeItemTypes: 'Series', Recursive: true, Tags: 'nation', Fields: 'Tags', Limit: 2000 }),
+		])
+			.then(function (rs) {
+				var items = [];
+				rs.forEach(function (r) {
+					if (r && r.status === 'fulfilled') items = items.concat((r.value && r.value.Items) || []);
+				});
 				var next = new Map();
-				(((res && res.Items) || [])).forEach(function (it) {
+				items.forEach(function (it) {
 					var iso = parseNationTag(it.Tags);
 					if (iso && it.Id) { next.set(it.Id, iso); next.set(normalize(it.Id), iso); }
 				});
@@ -1356,11 +1526,15 @@
 				// to be the compact format"). Detail still always gets a PLAQUE rather than the
 				// mobile text pill — only its size now depends on whether there is room for it.
 				var largePlaque = (isDetail && !oscarMobile) || hostW >= 300;
-				host.insertAdjacentHTML('beforeend', oscarPlaqueHtml(osc.w, osc.l, osc.c, osc.s, osc.cName, osc.sName, largePlaque));
+				host.insertAdjacentHTML('beforeend', oscarPlaqueHtml(osc.w, osc.l, osc.f, largePlaque, osc.e));
 			} else {
 				// Bottom-right corner pill (mobile only). Festival content rides along: Oscar
 				// segment (gold, mn-oscar-silver when noms-only) is gated on osc.w/osc.l so a
-				// festival-only film never renders "🏆 0N"; festival segments append 🌴/☀ + count
+				// festival-only film never renders "[trophy] 0N"; festival segments append the
+				// festival's own pill emoji + count
+				// (NO raw emoji anywhere in this file, comments included — the JS Injector strips
+				// 4-byte UTF-8 on store, so a raw glyph makes the pushed copy differ from the
+				// source forever and the push's "already up to date" check can never match.)
 				// in their own colour, each in its own span (a both-festival film like sex, lies,
 				// and videotape keeps laurel + amber distinct). Festival-only → whole pill takes
 				// the festival accent.
@@ -1379,12 +1553,33 @@
 							: '\uD83C\uDFC6 ' + osc.l + 'N';
 					} else { oscarText = ''; }
 				}
+				// The pill uses EMOJI, not the inline SVGs — it is a text run inside a tight
+				// corner chip, and an 11px svg baseline-aligned in it fights the line box. Each
+				// festival gets its own span so a multi-festival film keeps both accents.
+				// SERIES: Emmy content instead of Oscars/festivals. Kept short — the pill is a tight
+				// corner chip and "4x OUTSTANDING DRAMA SERIES" would ellipsise to nothing useful.
+				// NOT an early return: the nation flag below applies to series too (task #33).
+				var emmyTxt = '';
+				if (osc.e) {
+					emmyTxt = osc.e.w > 0 ? '\uD83C\uDFC6 ' + (osc.e.w > 1 ? osc.e.w + 'x ' : '') + 'EMMY'
+						: (osc.e.nom ? '\uD83C\uDFC6 EMMY NOM' : '');
+				}
+				if (emmyTxt) {
+					host.insertAdjacentHTML('beforeend', '<div class="mn-oscar-text'
+						+ (osc.e.w > 0 ? '' : ' mn-oscar-silver') + '">' + emmyTxt + '</div>');
+				}
 				var segLead = oscarText ? ' · ' : '';
-				var festSpan = (osc.c > 0 ? '<span class="mn-oscar-fest mn-fest-cannes">' + segLead + '\uD83C\uDF34' + osc.c + '</span>' : '')
-					+ (osc.s > 0 ? '<span class="mn-oscar-fest mn-fest-sundance">' + (osc.c > 0 ? ' · ' : segLead) + '\u2600' + osc.s + '</span>' : '');
-				if (oscarText || festSpan) {
+				var festSpan = '', festFirst = '';
+				FESTIVALS.forEach(function (f) {
+					var e = osc.f && osc.f[f.key];
+					if (!e || !(e.n > 0)) return;
+					festSpan += '<span class="mn-oscar-fest mn-fest-' + f.key + '">'
+						+ (festSpan ? ' · ' : segLead) + f.pill + e.n + '</span>';
+					if (!festFirst) festFirst = f.key;
+				});
+				if (!emmyTxt && (oscarText || festSpan)) {
 					host.insertAdjacentHTML('beforeend', '<div class="mn-oscar-text' +
-						(osc.w === 0 && osc.l === 0 ? ' mn-oscar-festival mn-fest-' + (osc.c > 0 ? 'cannes' : 'sundance') : '') +
+						(osc.w === 0 && osc.l === 0 && festFirst ? ' mn-oscar-festival mn-fest-' + festFirst : '') +
 						(osc.w === 0 && osc.l > 0 ? ' mn-oscar-silver' : '') + '">' +
 						oscarText + festSpan + '</div>');
 				}
@@ -1413,11 +1608,19 @@
 			return;
 		}
 		el.dataset[MARK] = id;
-		// Movies only otherwise (rank is a movie concept). Still mark, so we don't re-scan it.
-		if (type !== 'Movie') return;
-		// Runtime goes on EVERY movie card, so it must run before the flair early-return below
-		// (which bails for the majority of films — those with no rank, Oscars or nation tag).
-		addRuntimeText(el, id);
+		// Movies and SERIES. Series were excluded until 2026-09-14 (Brennan: Emmy badges "only
+		// show on the TV show detail page… not for posters/previews on other pages"), because
+		// this used to read `if (type !== 'Movie') return;` — written when every flair here was a
+		// film concept. applyFlair has handled series since the Emmy badges landed; only the
+		// gate was left behind. Everything else is still MOVIE-only:
+		//   · rank    — Top 100 is a film list
+		//   · runtime — a series' RunTimeTicks is one episode's length, not the show's
+		if (type !== 'Movie' && type !== 'Series') return;
+		if (type === 'Movie') {
+			// Runtime goes on EVERY movie card, so it must run before the flair early-return below
+			// (which bails for the majority of films — those with no rank, Oscars or nation tag).
+			addRuntimeText(el, id);
+		}
 		if (!rankFor(id) && !oscarFor(id) && !nationFor(id)) return;
 		var host = el.querySelector('.cardImageContainer') || el.querySelector('.cardScalable') ||
 			el.querySelector('.listItemImage') || el.querySelector('.cardImage') || el;
@@ -1490,6 +1693,323 @@
 			playlistsLink.classList.add('hide');
 			playlistsLink.style.setProperty('display', 'none', 'important');
 		}
+	}
+
+	// ---- home rows: NATIVE, not ours -------------------------------------------------
+	//
+	// The rotating shelves and Continue Watching are rendered by the Home Screen Sections
+	// plugin and Jellyfin's own card builder. Do NOT rebuild them here. A previous attempt
+	// did (buildHomeShelves/buildContinueWatching, removed 2026-09-11) on the belief that HSS
+	// was broken on Jellyfin 12; a DOM probe showed HSS rendering all 21 sections correctly,
+	// so those rows were pure duplicates — 700 cards on the page instead of ~350, each with
+	// hand-rolled play/favourite/watched buttons in place of the native ones this project
+	// themes. Native cards get the branded controls for free; injected ones never will.
+	//
+	// This file's job on the home page is DECORATION ONLY: rank pills, Oscar plaques and
+	// nation flags applied to whatever cards Jellyfin drew (see the decorator pipeline).
+	function escapeHtml(s) {
+		return String(s).replace(/[&<>"']/g, function (c) {
+			return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+		});
+	}
+
+	
+	// ---- Jellyfin 12: rebuild the branded LEFT SIDEBAR --------------------------------------
+	//
+	// Jellyfin 10.11 had a docked 250px drawer down the left, themed end-to-end by this script
+	// (themeDrawer/addSidebarEntries/orderDrawer) with the wordmark sitting at its top and the page
+	// content offset to clear it. Jellyfin 12 removed the drawer outright and replaced it with a
+	// 48px MUI app bar across the top. Theming that bar is NOT the same product: the nav is the
+	// most branded surface on the page, and on top it reads as stock Jellyfin with a skin.
+	//
+	// So the drawer comes back as ours. Same entries and same order as orderDrawer() enforced:
+	//
+	//     Home · Top 100 · All Movies · All TV Shows · Collections — divider — Search · Settings
+	//
+	// Routes are lifted from Jellyfin's own nav links rather than constructed, so library ids and
+	// query strings stay correct without this script having to know how 12 builds them. Search and
+	// Settings are plain routes (#/search, #/mypreferencesmenu) — the 10.11 version forwarded
+	// clicks to header buttons because that build hid the header cluster; here they are just links.
+	var SIDEBAR_ID = 'mn-sidebar';
+
+	// Library routes carry ids and query strings we must not construct ourselves, so they are read
+	// off Jellyfin's own nav links. STICKY, because not every page has those links: the admin
+	// dashboard and the settings sub-pages render a toolbar with no library entries at all, and a
+	// non-sticky read there returned {} — which silently dropped All Movies / All TV Shows /
+	// Collections out of the sidebar for as long as you stayed on those pages.
+	var _navRoutes = {};
+	var _navFetched = false;
+
+	// Cold-start fallback. Sticky caching only helps once you have BEEN on a page that has the
+	// links; land directly on #/dashboard (or reload there) and the sidebar comes up with Home /
+	// Top 100 / Search / Settings and nothing else. /UserViews returns the same library ids that
+	// Jellyfin's own nav puts in `topParentId` — verified identical against the live toolbar — so
+	// the routes can be rebuilt from the API instead of scraped. Runs at most once per page life.
+	var VIEW_ROUTE = {
+		movies: ['movies', 'movies'],
+		tvshows: ['tv', 'tvshows'],
+		boxsets: ['boxsets', 'boxsets'],
+	};
+
+	function fetchNavRoutes() {
+		if (_navFetched) return;
+		var a = api();
+		if (!a || typeof a.getJSON !== 'function') return;
+		var userId = (a.getCurrentUserId && a.getCurrentUserId()) || '';
+		if (!userId) return;
+		_navFetched = true;
+		a.getJSON(a.getUrl('UserViews', { userId: userId })).then(function (res) {
+			var got = false;
+			((res && res.Items) || []).forEach(function (v) {
+				var r = VIEW_ROUTE[v.CollectionType];
+				if (!r || !v.Id) return;
+				var key = v.CollectionType === 'tvshows' ? 'tv'
+					: (v.CollectionType === 'boxsets' ? 'collections' : 'movies');
+				if (_navRoutes[key]) return;         // a scraped href always wins
+				_navRoutes[key] = '#/' + r[0] + '?topParentId=' + v.Id + '&collectionType=' + r[1];
+				got = true;
+			});
+			if (got) buildSidebar();                 // rebuild now that the entries exist
+		}).catch(function () { /* sidebar just stays short */ });
+	}
+
+	function navRoutes() {
+		var stack = document.querySelector('header.MuiPaper-root .MuiToolbar-root .MuiStack-root');
+		if (stack) {
+			[].slice.call(stack.querySelectorAll('a[href]')).forEach(function (a) {
+				var href = a.getAttribute('href') || '';
+				// Only ever ADD to the cache: a page that knows fewer routes must not erase the
+				// ones an earlier page taught us.
+				if (href.indexOf('#/movies') === 0) _navRoutes.movies = href;
+				else if (href.indexOf('#/tv') === 0) _navRoutes.tv = href;
+				else if (href.indexOf('#/boxsets') === 0) _navRoutes.collections = href;
+				else if (href === '#/') _navRoutes.home = href;
+			});
+		}
+		return _navRoutes;
+	}
+
+	/**
+	 * The nav list, as HTML. Extracted from buildSidebar() 2026-09-13 so the MOBILE drawer can
+	 * render the identical list — Brennan: "the actual contents of the nav are wrong? They should
+	 * be Home Top 100 All Movies All TV Shows <HR> Search Collections Settings just like desktop".
+	 * He was right, and it was not a stale-JS problem on his phone: #mn-sidebar is ours, but the
+	 * hamburger opens Jellyfin 12's own MUI drawer, which nothing here had ever templated, so it
+	 * still listed the stock Home / Favourites / Libraries set. One source for both lists now.
+	 */
+	function navHtml() {
+		var r = navRoutes();
+		if (!r.movies || !r.tv || !r.collections) fetchNavRoutes();
+		var top100Id = idByName[TOP_100];
+		var serverId = (api() && api().serverId && api().serverId()) || '';
+		// TEXT ONLY — no icons. The 10.11 drawer was a plain typographic list and that is the look
+		// being restored; icons would read as stock Jellyfin.
+		var items = [{ label: 'Home', href: r.home || '#/' }];
+		if (top100Id) {
+			items.push({
+				label: TOP_100,
+				href: '#/details?id=' + top100Id + (serverId ? '&serverId=' + serverId : ''),
+				// Top 100 is an ITEM, not a route: every film's page is also `#/details?id=…`, so
+				// the active test has to compare the id, not the path (which lit Top 100 up on
+				// every detail page you opened).
+				itemId: top100Id,
+			});
+		}
+		if (r.movies) items.push({ label: 'All Movies', href: r.movies });
+		if (r.tv) items.push({ label: 'All TV Shows', href: r.tv });
+		// Exactly the order orderDrawer() enforced on 10.11:
+		//   Home · Top 100 · All Movies · All TV Shows — divider — Search · Collections · Settings
+		items.push({ divider: true });
+		items.push({ label: 'Search', href: '#/search' });
+		if (r.collections) items.push({ label: 'Collections', href: r.collections });
+		items.push({ label: 'Settings', href: '#/mypreferencesmenu' });
+
+		var hash = location.hash || '#/';
+		var html = items.map(function (it) {
+			if (it.divider) return '<div class="mn-nav-divider"></div>';
+			// Active when the route matches ignoring query string, so `#/movies?topParentId=…`
+			// still lights up when the page adds its own parameters.
+			var base = it.href.split('?')[0];
+			var on;
+			if (it.itemId) {
+				// item entry: the hash must name THIS id
+				on = hash.indexOf('/details') >= 0 && hash.indexOf('id=' + it.itemId) >= 0;
+			} else if (base === '#/') {
+				on = hash === '#/' || hash === '' || hash.indexOf('#/home') === 0;
+			} else {
+				// route entry: match ignoring the query string, so `#/movies?topParentId=…` still
+				// lights up — but never let a route entry claim a `#/details` page.
+				on = hash.indexOf(base) === 0 && hash.indexOf('/details') < 0;
+			}
+			return '<a class="mn-nav-item' + (on ? ' mn-nav-item-on' : '') + '" href="' + it.href + '">'
+				+ escapeHtml(it.label) + '</a>';
+		}).join('');
+		return html;
+	}
+
+	function buildSidebar() {
+		if (!document.body) return;
+		var stack = document.querySelector('header.MuiPaper-root .MuiToolbar-root');
+		if (!stack) return;                       // not Jellyfin 12 — the real drawer is in play
+		var html = navHtml();
+		var hash = location.hash || '#/';
+
+		var el = document.getElementById(SIDEBAR_ID);
+		if (!el) {
+			el = document.createElement('nav');
+			el.id = SIDEBAR_ID;
+			document.body.appendChild(el);
+		}
+		// Only rewrite when something actually changed — this runs on every scan and a blind
+		// innerHTML assignment would kill focus and restart CSS transitions constantly.
+		if (el.dataset.mnSig !== html.length + ':' + hash) {
+			el.innerHTML = html;
+			el.dataset.mnSig = html.length + ':' + hash;
+		}
+		// Mark the document so the CSS can offset content and hide the top bar only when the
+		// sidebar actually exists — never leave the page with neither nav.
+		var first = !document.documentElement.classList.contains('mn-has-sidebar');
+		document.documentElement.classList.add('mn-has-sidebar');
+		// The wordmark was sized before this class existed, so it fitted itself to the 48px app
+		// bar. Now that the drawer is real, ask for the drawer fit once.
+		if (first && typeof window.__mnRefitWordmark === 'function') window.__mnRefitWordmark();
+	}
+
+	/**
+	 * Put the SAME nav inside Jellyfin 12's mobile drawer.
+	 *
+	 * Below MUI's md breakpoint (900px) the app bar swaps its links for a hamburger and §JF12c in
+	 * jellyfin-custom.css stands #mn-sidebar down; the thing that opens is a MUI temporary Drawer
+	 * that ships Jellyfin's own list (Home / Favourites / Libraries → Collections, Movies,
+	 * Playlists, TV). That is a different set from the desktop nav and, worse, carries no Search
+	 * and no Settings — which hideHeaderRight() has already removed from the bar on the assumption
+	 * that the drawer carries them. So a phone had no route to either.
+	 *
+	 * Injected rather than restyled: emitting the same `.mn-nav-item` markup #mn-sidebar uses means
+	 * one list, one set of styles, and one place to change the nav. The stock list is hidden in CSS
+	 * rather than removed, so if this function ever fails to run the drawer still navigates.
+	 *
+	 * Re-applied from scan(): React owns this subtree and rebuilds it, and the drawer itself is
+	 * mounted before it is ever opened, so a one-shot injection would not survive.
+	 */
+	function brandMobileDrawer() {
+		var paper = document.querySelector('.MuiDrawer-paper');
+		if (!paper) return;
+		// Only when the drawer is actually the nav. Above the breakpoint the bar has real links and
+		// #mn-sidebar is up, and this same MUI drawer markup may be some other panel entirely.
+		if (window.innerWidth >= 900) return;
+		var html = navHtml();
+		var hash = location.hash || '#/';
+		var nav = paper.querySelector('#mn-drawer-nav');
+		if (!nav) {
+			nav = document.createElement('nav');
+			nav.id = 'mn-drawer-nav';
+			paper.insertBefore(nav, paper.firstChild);
+		}
+		if (nav.dataset.mnSig !== html.length + ':' + hash) {
+			nav.innerHTML = html;
+			nav.dataset.mnSig = html.length + ':' + hash;
+		}
+		// Flag for the CSS, so the stock list is only hidden once ours is genuinely in place.
+		paper.setAttribute('data-mn-drawer', '1');
+	}
+
+	/**
+	 * Close the mobile drawer after a nav tap. The 10.11 handler further down drives
+	 * `.mainDrawer` + its tmla-mask, both of which are inert on Jellyfin 12 — the MUI drawer
+	 * closes when its own backdrop is clicked, which is also what dismisses the Modal and
+	 * restores scrolling. Without this the drawer stays open over the page you just navigated to.
+	 */
+	function closeMobileDrawer() {
+		try {
+			var bd = document.querySelector('.MuiDrawer-root .MuiBackdrop-root');
+			if (bd) bd.click();
+		} catch (e) { /* best-effort */ }
+	}
+
+	// Hide Jellyfin 12's header-right buttons — SyncPlay/people, Cast, Search and the account
+	// avatar. The 10.11 design hid that cluster too (`.headerRight`), surfacing only Search and
+	// Settings into the drawer, which the sidebar now carries.
+	//
+	// Tagged from JS rather than selected in CSS because the cluster's position in the toolbar
+	// moves between pages (child 1 on home, further along on a library page, where the sort/filter
+	// controls are also .MuiBox children) and MUI's emotion class names are per-build. Matching on
+	// the icon ligature is the one stable signal.
+	// Jellyfin 12 mixes two icon systems in this bar: `.material-icons` ligatures AND MUI SvgIcons
+	// identified only by `data-testid`. SyncPlay and Cast are the latter, so matching ligatures
+	// alone left them on screen.
+	var HIDE_HEADER_ICONS = { groups: 1, cast: 1, search: 1, person: 1, account_circle: 1 };
+	var HIDE_HEADER_SVGS = {
+		GroupsIcon: 1, CastIcon: 1, SearchIcon: 1, PersonIcon: 1, AccountCircleIcon: 1,
+	};
+
+	function hideHeaderRight() {
+		var bar = document.querySelector('header.MuiPaper-root .MuiToolbar-root');
+		if (!bar) return;
+		[].slice.call(bar.querySelectorAll('button, .MuiIconButton-root, .MuiAvatar-root')).forEach(function (b) {
+			if (b.dataset.mnHidden) return;
+			var icon = b.querySelector('.material-icons');
+			var name = icon ? icon.textContent.trim() : '';
+			var svg = b.querySelector('svg[data-testid]');
+			var testid = svg ? svg.getAttribute('data-testid') : '';
+			var isAvatar = b.classList.contains('MuiAvatar-root') || !!b.querySelector('.MuiAvatar-root');
+			if (!HIDE_HEADER_ICONS[name] && !HIDE_HEADER_SVGS[testid] && !isAvatar) return;
+			// Hide the whole control, not the glyph — otherwise an empty button keeps its width.
+			var target = b.closest('.MuiIconButton-root') || b;
+			target.dataset.mnHidden = '1';
+			target.style.setProperty('display', 'none', 'important');
+		});
+	}
+
+	// ---- Jellyfin 12: the same "Top 100 replaces Playlists" idea, in the MUI top bar ----------
+	//
+	// Everything above operates on `.libraryMenuOptions` inside `.skinHeader` — the 10.11 docked
+	// drawer. Jellyfin 12 removed that drawer; the legacy subtree still exists but renders 0x0, so
+	// addSidebarEntries()/addControlEntries()/orderDrawer() all no-op and the user is left with
+	// Jellyfin's stock nav. The replacement chrome is a 48px MUI app bar:
+	//
+	//   header.MuiPaper-root > .MuiToolbar-root > .MuiStack-root > a.MuiButton-root
+	//
+	// Only the Top 100 swap is ported. Search and Settings were surfaced into the 10.11 drawer
+	// because that build hid the header-right cluster; Jellyfin 12 shows both as icon buttons in
+	// the bar already, so re-adding them would just duplicate what is on screen.
+	//
+	// React owns this subtree and re-renders it, so this is idempotent and re-run by the scan
+	// loop: it keys off a data-curated marker and bails when its link is already present.
+	function addTopBarEntries() {
+		var stack = document.querySelector('header.MuiPaper-root .MuiToolbar-root .MuiStack-root');
+		if (!stack) return;                       // not Jellyfin 12 — the drawer path handles it
+		var top100Id = idByName[TOP_100];
+		if (!top100Id) return;                    // playlist not resolved yet; a later scan retries
+
+		// Match on the route rather than the label: `#/playlists?topParentId=...` is
+		// language-independent, where the visible text is not.
+		var playlists = null;
+		var links = stack.querySelectorAll('a[href]');
+		for (var i = 0; i < links.length; i++) {
+			if ((links[i].getAttribute('href') || '').indexOf('#/playlists') === 0) { playlists = links[i]; break; }
+		}
+		if (!playlists) return;
+
+		var serverId = (api() && api().serverId && api().serverId()) || '';
+		var existing = stack.querySelector('a[data-curated="top100"]');
+		if (!existing) {
+			var link = playlists.cloneNode(true);
+			link.setAttribute('data-curated', 'top100');
+			link.setAttribute('href', '#/details?id=' + top100Id + (serverId ? '&serverId=' + serverId : ''));
+			// MUI puts the label in a bare text node beside an optional icon span, so replace only
+			// the text nodes and leave any icon markup intact.
+			var replaced = false;
+			for (var n = 0; n < link.childNodes.length; n++) {
+				var node = link.childNodes[n];
+				if (node.nodeType === 3 && node.textContent.trim()) { node.textContent = TOP_100; replaced = true; }
+			}
+			if (!replaced) link.appendChild(document.createTextNode(TOP_100));
+			playlists.after(link);
+		}
+		// Hide the generic Playlists entry it replaces. Inline !important because MUI's own
+		// emotion classes are specific enough to win against a plain class toggle.
+		playlists.style.setProperty('display', 'none', 'important');
 	}
 
 	// ---- header-right controls → side nav (#18) ---------------------------------------------
@@ -1683,7 +2203,23 @@
 		if (!id) return;
 		// Guarded per ITEM, on the page element: the details page is reused across navigations, so
 		// without the id in the guard the next film would inherit the previous one's trailer.
-		if (page.getAttribute('data-mn-extras-id') === id) return;
+		//
+		// THE GUARD IS CLAIMED BEFORE TWO NESTED ASYNC FETCHES, so a bail after either of them used
+		// to be permanent for this page+item — and silent, because the awards insertion ends in a
+		// bare .catch(). That is what "the awards section isn't rendering at all" was (Brennan,
+		// 2026-09-13): on a slow load the details group was not in place when the awards response
+		// came back, the insertion returned, and nothing ever retried. A fast local browser usually
+		// won the race, which is why it looked intermittent.
+		//
+		// So the guard now needs the awards step to have REPORTED BACK, and it is dropped again if a
+		// re-render wiped a block we had already inserted.
+		var awardsDone = page.getAttribute('data-mn-awards-done') === id;
+		if (awardsDone && page.getAttribute('data-mn-awards-rows') === '1'
+			&& !page.querySelector('.mn-awards-group[data-mn-awards-id="' + id + '"]')) {
+			awardsDone = false;
+			page.removeAttribute('data-mn-awards-done');
+		}
+		if (page.getAttribute('data-mn-extras-id') === id && awardsDone) return;
 		page.setAttribute('data-mn-extras-id', id);
 		var btns = page.querySelectorAll('.btnPlayTrailer');
 		var a = api();
@@ -1771,6 +2307,14 @@
 			+ (meta ? '<span class="mn-award-meta">' + escHtml(meta) + '</span>' : '')
 			+ '</div>';
 	}
+	// Records that the awards step finished for this item, and whether it actually rendered rows.
+	// decorateDetailExtras() reads both: `rows` lets it tell "this film has no awards" (leave it
+	// alone) from "we inserted a block that has since been wiped" (put it back).
+	function awardsSettled(page, id, rendered) {
+		if (!page) return;
+		page.setAttribute('data-mn-awards-done', id);
+		page.setAttribute('data-mn-awards-rows', rendered ? '1' : '0');
+	}
 	function addAwardRows(id, item) {
 		var page = document.querySelector('.itemDetailPage:not(.hide)');
 		if (!page) return;
@@ -1781,7 +2325,9 @@
 		// Idempotent per item: the details page is reused across navigations, so a stale block from
 		// the previous film must be removed rather than appended to.
 		var existing = group.querySelector('.mn-awards-group');
-		if (existing && existing.getAttribute('data-mn-awards-id') === id) return;
+		// Already correct for this item — settle, or the guard below never clears and every scan()
+		// re-fetches /api/awards forever.
+		if (existing && existing.getAttribute('data-mn-awards-id') === id) { awardsSettled(page, id, true); return; }
 		if (existing) existing.remove();
 		var pid = (item && item.ProviderIds) || {};
 		var imdb = pid.Imdb || pid.IMDB || '';
@@ -1792,43 +2338,58 @@
 		var isPerson = item && item.Type === 'Person';
 		var q;
 		if (isPerson) {
-			if (!item.Name) return;
+			if (!item.Name) { awardsSettled(page, id, false); return; }
 			q = 'person=' + encodeURIComponent(item.Name);
 		} else {
-			if (!imdb && !tmdb) return;
+			if (!imdb && !tmdb) { awardsSettled(page, id, false); return; }
 			q = 'imdb=' + encodeURIComponent(imdb) + '&tmdb=' + encodeURIComponent(tmdb);
 		}
 		var base = controllerBase();
-		if (!base) return;
+		if (!base) { awardsSettled(page, id, false); return; }
 		fetch(base + '/api/awards?' + q)
 			.then(function (r) { return r.ok ? r.json() : null; })
 			.then(function (d) {
-				if (!d) return;
+				if (!d) { var pd = document.querySelector('.itemDetailPage:not(.hide)'); if (pd) awardsSettled(pd, id, false); return; }
 				var rows = [];
 				(d.oscars && d.oscars.awards || []).forEach(function (aw) {
 					// On a PERSON the category alone is ambiguous — four "Directing" rows tell you
 					// nothing — so the film carries the row and the category joins the meta. On a
 					// FILM the category is the subject and the year is enough.
 					var title = aw.film ? aw.film : titleCaseAward(aw.category);
+					// The YEAR only earns its place on a PERSON page, where each row is a different
+					// film and the year is what separates them. On a FILM every row is the same
+					// ceremony, so repeating "· 2013" nine times says nothing you cannot read off
+					// the film's own year (Brennan, 2026-09-13).
 					var meta = aw.film
 						? titleCaseAward(aw.category) + (aw.year ? ' · ' + aw.year : '')
-						: (aw.won ? 'Won' : 'Nominated') + (aw.year ? ' · ' + aw.year : '');
+						: (aw.won ? 'Won' : 'Nominated');
 					rows.push(awardRowHtml(
 						aw.won ? 'mn-award-win' : 'mn-award-nom',
 						aw.won ? '●' : '○', title, meta));
 				});
-				(d.festivals && d.festivals.cannes || []).forEach(function (n) {
-					rows.push(awardRowHtml('mn-award-cannes', '●', titleCaseAward(n), 'Cannes'));
+				// Every festival the controller knows about, in FESTIVALS order. The detail list is
+				// the one place the FULL picture lives — the poster plaque may have dropped the
+				// Oscar nominations row to stay at three lines, so this list must never be trimmed.
+				FESTIVALS.forEach(function (f) {
+					((d.festivals && d.festivals[f.key]) || []).forEach(function (n) {
+						rows.push(awardRowHtml('mn-award-' + f.key, '●', titleCaseAward(n),
+							FESTIVAL_DETAIL_LABEL[f.key] || f.label));
+					});
 				});
-				(d.festivals && d.festivals.sundance || []).forEach(function (n) {
-					rows.push(awardRowHtml('mn-award-sundance', '●', titleCaseAward(n), 'Sundance'));
-				});
-				if (!rows.length) return;   // no awards — no empty header
 				// Re-resolve the page: the fetch is async and the user may have navigated away.
 				var p2 = document.querySelector('.itemDetailPage:not(.hide)');
 				var g2 = p2 && p2.querySelector('.itemDetailsGroup');
-				if (!g2 || itemIdFromHash() !== id) return;
-				if (g2.querySelector('.mn-awards-group[data-mn-awards-id="' + id + '"]')) return;
+				// NOT READY (or the user moved on): release the extras guard and leave awards-done
+				// unset, so the next scan() tries again. Returning without this is the bug above.
+				if (!g2 || itemIdFromHash() !== id) {
+					if (p2) p2.removeAttribute('data-mn-extras-id');
+					return;
+				}
+				if (!rows.length) { awardsSettled(p2, id, false); return; }   // no awards — no empty header
+				if (g2.querySelector('.mn-awards-group[data-mn-awards-id="' + id + '"]')) {
+					awardsSettled(p2, id, true);
+					return;
+				}
 				var el = document.createElement('div');
 				el.className = 'detailsGroupItem mn-awards-group';
 				el.setAttribute('data-mn-awards-id', id);
@@ -1838,8 +2399,16 @@
 				// distinguishing thing on the page for the films that have any, and burying it under
 				// the studio list would defeat "clearly see what it's won".
 				g2.insertBefore(el, g2.firstChild);
+				awardsSettled(p2, id, true);
 			})
-			.catch(function () { /* controller down — the page is simply awardless, never broken */ });
+			.catch(function (e) {
+				// Controller down or a genuine bug: the page is simply awardless, never broken. Mark
+				// it settled so this does not re-fetch on every scan — but SAY SO. The silent version
+				// of this catch is why a real rendering failure took a round trip to find.
+				try { console.warn('[movie-night] awards row failed', e); } catch (e2) {}
+				var pg = document.querySelector('.itemDetailPage:not(.hide)');
+				if (pg) awardsSettled(pg, id, false);
+			});
 	}
 
 	// ---- CREW ROW on the detail page -----------------------------------------------------------
@@ -1876,7 +2445,7 @@
 	function crewPlaqueHtml(c) {
 		if (c.oscarWins <= 0 && c.oscarNoms <= 0) return '';
 		if (!document.documentElement.classList.contains('layout-mobile')) {
-			return oscarPlaqueHtml(c.oscarWins, c.oscarNoms, 0, 0, '', '', false);
+			return oscarPlaqueHtml(c.oscarWins, c.oscarNoms, null, false);
 		}
 		var text = c.oscarWins > 0
 			? '\uD83C\uDFC6 ' + c.oscarWins + ' win' + (c.oscarWins > 1 ? 's' : '')
@@ -2037,6 +2606,38 @@
 			document.documentElement.setAttribute('mn-litho-offset-x', t.lithoOffsetX);
 			document.documentElement.setAttribute('mn-texture-grain', t.textureGrain);
 			document.documentElement.setAttribute('mn-texture-crosshatch', t.textureCrosshatch);
+			// Is the wordmark docking into a HEADER BAR rather than filling a docked side drawer?
+			//
+			// Two cases, and they impose the same constraint even though they arrive differently:
+			//   * layout-mobile — Jellyfin's touch signal. The drawer is an overlay, so the wordmark
+			//     sits in the fixed header bar next to the hamburger. True on phones AND tablets.
+			//   * Jellyfin 12 — the 250px docked drawer is gone entirely, replaced by a 48px MUI app
+			//     bar (`header.MuiPaper-root > .MuiToolbar-root`) at every width. Before this check,
+			//     desktop still fitted the wordmark to a 222px drawer that no longer existed, so it
+			//     rendered 189x72 straight over the new nav links. Measured 2026-09-11.
+			//
+			// Feature-detected off the app bar rather than version-sniffed: the bar is the actual
+			// thing being fitted into, and it keeps working if the markup outlives the version.
+			function inHeaderBar() {
+				// Below Jellyfin 12's own nav breakpoint (MUI md = 900px) the app bar swaps its
+				// links for a hamburger, and §JF12c in jellyfin-custom.css stands our sidebar down
+				// to match. The sidebar element still EXISTS — it is only display:none — so
+				// `mn-has-sidebar` is still set and the check below would answer "drawer", size the
+				// lockup to 250px, and overflow it across the bar. Measured on a 390px phone before
+				// this line: a 38px disc plus 124px of text = a 166px lockup in a 104px box,
+				// running straight into the hamburger (2026-09-13).
+				if (window.innerWidth < 900) return true;
+				// Our own 250px drawer wins: when it is up the wordmark sits at the top of it at
+				// full size, exactly as on 10.11 — not squeezed into an app bar we have hidden.
+				if (document.documentElement.classList.contains('mn-has-sidebar')) return false;
+				if (document.documentElement.classList.contains('layout-mobile')) return true;
+				try { return !!document.querySelector('header.MuiPaper-root .MuiToolbar-root'); } catch (e) { return false; }
+			}
+			// The bar is 48px tall, so the lockup has to clear ~44px including its own breathing
+			// room. The disc is the fixed part of that budget.
+			var BAR_DISC_PX = 28;
+			var DRAWER_DISC_PX = 38;
+
 			// Per-theme wordmark in top-left corner (matches brand-studies.html treatments)
 			var THEMES_WM = {
 			canyon: function(el) {
@@ -2054,7 +2655,10 @@
 					// Mobile: the -8px overlap collides with the M's first stroke at small
 					// wordmark sizes — give it clear air. Desktop keeps the overlap lockup.
 					var discGap = document.documentElement.classList.contains('layout-mobile') ? '4px' : '-8px';
-					disc.style.cssText = 'display:inline-block;width:38px;height:38px;border-radius:50%;background:#E8442E;margin-right:' + discGap + ';flex-shrink:0;';
+					// Shrink the disc when docking into a header bar — 38px is sized to the old
+					// 250px drawer and simply does not fit a 48px app bar.
+					var discPx = inHeaderBar() ? BAR_DISC_PX : DRAWER_DISC_PX;
+					disc.style.cssText = 'display:inline-block;width:' + discPx + 'px;height:' + discPx + 'px;border-radius:50%;background:#E8442E;margin-right:' + discGap + ';flex-shrink:0;';
 					var txt = document.createElement('span');
 					txt.textContent = 'Movie Night';
 					// brand-studies.html .wm-reelone .word uses var(--script) = Palm Canyon Drive (not Poppins)
@@ -2121,16 +2725,19 @@
 						// Marquee's Palm Canyon Drive script renders wider than the other fonts at the
 						// same target, so give it a tighter fit to avoid slight overflow.
 						var DESKTOP_TARGETS = { marquee: 224 };
-						// PHONE 124, TABLET 140. At 140 the wordmark overflowed its bar and crowded the
-						// hamburger on a phone (Brennan, 2026-08-09 — "a bit big and slightly overflowing"),
-						// but layout-mobile also covers every iPad regardless of size, and 124px in a
-						// full-width tablet header just looks undersized. So key the shrink on actual width
-						// rather than on the touch layout. Desktop targets are unchanged — they fit a 250px
-						// docked drawer, a different constraint entirely.
-						var isTouchLayout = document.documentElement.classList.contains('layout-mobile');
-						var TARGET = isTouchLayout
-							? (window.innerWidth <= 600 ? 124 : 140)
-							: (DESKTOP_TARGETS[pick] || 222);
+						// ONE QUESTION, ONE NUMBER (simplified 2026-09-13). This used to branch on
+						// layout-mobile first and pick 124/140 for touch, which meant three different
+						// targets could apply to the same 48px app bar depending on how you arrived at
+						// it — and on a phone the touch branch ran BEFORE inHeaderBar() ever got asked,
+						// so the wordmark was fitted to 124px of text next to a 38px DRAWER disc.
+						//
+						// There are only two constraints that actually exist now: the 250px docked
+						// sidebar, and the 48px app bar. inHeaderBar() answers which one you are in,
+						// on phone, tablet and desktop alike. 112px of text plus the 28px bar disc
+						// lands the lockup ~144px wide on touch (+4px gap) and ~132px on desktop
+						// (-8px overlap); §JF12c in jellyfin-custom.css reserves 148px for it and
+						// pads the toolbar to 156px. Keep those numbers in step if this one moves.
+						var TARGET = inHeaderBar() ? 112 : (DESKTOP_TARGETS[pick] || 222);
 						for (var pass = 0; pass < 4; pass++) {
 							var range = document.createRange();
 							range.selectNodeContents(el);
@@ -2145,6 +2752,25 @@
 						}
 					} catch (e) { /* best-effort */ }
 				}
+				// Jellyfin 12's app bar is React-mounted, so on a cold load it usually does not exist
+				// yet when this script first runs — inHeaderBar() would answer "no", fitWm() would
+				// size the lockup to a 250px drawer that is never coming, and the wordmark would sit
+				// 189x72 across the nav links for the rest of the session. So watch for the bar and
+				// re-fit exactly once when it turns up. applyWm() rebuilds the children, which is
+				// what picks up the smaller disc.
+				var _barWatch = null;
+				function refitWhenBarAppears(el) {
+					if (_barWatch || document.documentElement.classList.contains('layout-mobile')) return;
+					if (document.querySelector('header.MuiPaper-root .MuiToolbar-root')) return; // already sized right
+					var tries = 0;
+					_barWatch = setInterval(function () {
+						tries++;
+						if (document.querySelector('header.MuiPaper-root .MuiToolbar-root')) {
+							clearInterval(_barWatch); _barWatch = null;
+							applyWm(el); fitWm(el);
+						} else if (tries > 40) { clearInterval(_barWatch); _barWatch = null; } // give up after ~10s
+					}, 250);
+				}
 				function createWmEl() {
 					var wmEl = document.getElementById('mn-wordmark');
 					if (!wmEl) {
@@ -2153,6 +2779,7 @@
 					}
 					applyWm(wmEl);
 					fitWm(wmEl);
+					refitWhenBarAppears(wmEl);
 					if (wmEl.parentNode) return;
 					if (document.body) document.body.appendChild(wmEl);
 					else document.addEventListener('DOMContentLoaded', function () { document.body.appendChild(wmEl); });
@@ -2167,6 +2794,11 @@
 				// Create wordmark immediately (shows fallback), then re-apply after fonts load
 				createWmEl();
 				Promise.all(fontPromises).then(function () { createWmEl(); });
+				// The sidebar is built later, in a different IIFE, and it changes which target
+				// fitWm() should use (drawer 222px, not app-bar 112px). Expose a re-fit so it can
+				// ask for one the moment `mn-has-sidebar` is set, instead of the wordmark staying
+				// at whatever size it guessed before the nav existed.
+				window.__mnRefitWordmark = function () { try { createWmEl(); } catch (e) { /* best-effort */ } };
 			}
 		} catch (e) { /* best-effort */ }
 	})();
@@ -2316,6 +2948,14 @@
 				// ---- common ----
 				'.mn-rank { flex: none; text-align: center; font-weight: 800;',
 				'  color: var(--primary-accent-color, #47c4b8); z-index: 3; }',
+				// Oscar plaque stays PUT on hover here. The global rule slides it up 44px to clear
+				// Jellyfin's favourite/watched/menu cluster, which shares the bottom-right corner
+				// on the home rows — but the showcase rows carry no hover controls at all, so the
+				// plaque was lurching for nothing every time you crossed a poster (Brennan
+				// 2026-09-13). Specificity 0,4,0 beats the 0,3,0 global; the transition stays
+				// declared but has nothing left to animate.
+				'.mn-top100 .listItem:hover .oscar-plaque,',
+				'.mn-top100 .card-hoverable:hover .oscar-plaque { transform: none; }',
 		'.mn-top100 .listViewDragHandle { order: 99; margin-left: auto; margin-right: 10px;',
 		'  z-index: 3; position: relative; align-self: center; opacity: 0.4; }',
 				// ---- header ----
@@ -2893,6 +3533,29 @@
 			orderDrawer(); // enforce nav order + divider; rename TV → TV Shows (#18)
 			themeDrawer(); // apply inline styles to sidebar drawer (beats all imported CSS)
 		}
+
+		// Jellyfin 12 tasks. Deliberately OUTSIDE the `.libraryMenuOptions` gate above: that
+		// element is the 10.11 docked drawer, which Jellyfin 12 removed, so gating the 12-only
+		// work on it means the work never runs on 12 — which is exactly the bug that made the
+		// new nav and the curated rows appear on one machine and not another (the vestigial 0x0
+		// .skinHeader subtree happens to carry .libraryMenuOptions in some states and not others).
+		// Both are cheap and idempotent: each no-ops when its own output is already present.
+		buildSidebar();     // the branded left drawer, rebuilt for 12 (replaces the MUI top bar)
+		brandMobileDrawer(); // the same nav inside the hamburger drawer, below MUI's md breakpoint
+		hideHeaderRight();  // cast / people / search / account — the drawer carries what we keep
+		addTopBarEntries(); // Top 100 swap, for the top bar if the sidebar is ever turned off
+
+		// Debug handle. Everything in this file lives inside an IIFE, so when something renders on
+		// one machine and not another there is no way to inspect state or re-run a single step from
+		// the console. Exposing the few entry points that matter turns "it's broken" into an
+		// answerable question.
+		window.__mnFlair = {
+			version: '2026-09-11-jf12',
+			top100Id: idByName[TOP_100],
+			inHeaderBar: (typeof inHeaderBar === 'function') ? inHeaderBar() : null,
+			controllerBase: controllerBase(),
+			addTopBarEntries: addTopBarEntries,
+		};
 	}
 
 	// ---- observer pipeline -----------------------------------
@@ -2972,6 +3635,14 @@
 		// (div.tmla-mask, created by the touch-menu-la lib; its own click handler runs the animated
 		// close) — falling back to stripping the drawer-open class. 50ms delay so the link's own
 		// navigation handler fires first. Desktop (no .layout-mobile) is a no-op.
+		// Jellyfin 12: our own injected drawer nav, which the .mainDrawer handler below cannot see.
+		// Runs on any layout, gated on the element existing — brandMobileDrawer() only builds it
+		// below the breakpoint, so its presence IS the condition.
+		document.addEventListener('click', function (e) {
+			var t = e.target && e.target.closest ? e.target.closest('#mn-drawer-nav a[href]') : null;
+			if (!t) return;
+			setTimeout(closeMobileDrawer, 50); // let the link's own navigation handler go first
+		}, true);
 		document.addEventListener('click', function (e) {
 			if (!document.documentElement.classList.contains('layout-mobile')) return;
 			var t = e.target && e.target.closest

@@ -53,6 +53,9 @@ the home fragment, so a launch that deep-links straight to an item still ships i
 | `main_activity_create` | MainActivity created | `restored` (true = came back through the savedInstanceState path) |
 | `playback_focus_failed` | the player overlay never took focus, so the controls cannot open | `attempts` |
 | `overlay_suppress_expired` | the `shouldShowOverlay` latch had to release itself | `heldMs` |
+| `player_key_reveal` | a user key press revealed the player controls via the focus-independent Activity hook (`MainActivity.dispatchKeyEvent` → `CustomPlaybackOverlayFragment.revealControlsFromActivityKey`), and the show latch had been cleared — i.e. exactly the dead-interceptor state the 2026-09-15 fix is meant to make impossible. Emitted only on the hidden→shown edge, so it is low-volume | `keyCode`, `focus` (class that held focus), `inLeanback` |
+| `controls_row_empty` | `checkControlsRowRendered` (LeanbackOverlayFragment) found a populated adapter with zero rendered children **and could not recover it by forcing a layout pass**. ⚠️ **CURRENTLY A FALSE POSITIVE — do not read it as a fault.** The detector counts children of an `android.widget.GridView`, but leanback fills `controls_dock`/`secondary_controls_dock` with a `ControlBar` (a `ViewGroup`, not a GridView), so it returns 0 on a perfectly healthy session. Live-verified 2026-09-15 12:28: emitted ~20× during a session whose controls visibly worked. It *was* genuine while the fragment was parked (see the navigation-layout entry below), which is why it looked right then. Until the detector is changed to inspect `ControlBar`, treat this event as noise | `primary`, `secondary`, `primaryChildren`, `secondaryChildren`, `repaired`, `...After` |
+| `controls_row_repair` | the same check detected the empty row but a forced `requestLayout()` on the docks + root DID render it within 150 ms. The recovery half of the check; the honest "was broken, now fixed" signal. Has not fired in practice because the navigation-layout fix (below) removed the condition it existed for | `primary`, `secondary`, `*Children`, `*ChildrenAfter`, `repaired` |
 
 `home_build` also carries **`rowsWithItems`** — how many rows ended up with actual content. The
 gate counts `onError` as completion (deliberately: otherwise one dead query hangs the splash
@@ -151,6 +154,36 @@ Three separate bugs this session were the same underlying problem — nothing ho
 
 When something on this client is unreachable, check focus first.
 
+## Correction: the player controls were NOT a focus bug (2026-09-15)
+
+The bullet above about the player controls is the one entry in that list that was diagnosed
+wrongly. Focus was the *symptom*, not the cause. The real cause, found the next day by logging the
+fragment's own lifecycle: **the player fragment was never `RESUMED`.**
+
+`DestinationFragmentView.activateHistoryEntry` added every destination with
+`setCustomAnimations(fade_in, …)` + `setReorderingAllowed(true)`. FragmentManager defers the move to
+RESUMED until the enter transition finishes, and for the full-screen player that transition never
+completes. Measured live on the stick during playback:
+
+```
+isAdded=true  isResumed=false  isVisible=true  viewShown=true  actState=STARTED
+```
+
+while the OS reported the activity RESUMED. (`FragmentActivity.getLifecycle()` is the *fused
+FragmentManager* state, so `actState=STARTED` was the stuck manager talking, not the window.) Half
+of leanback is gated on `isResumed()` — the key interceptor, the show/hide **animations**, and the
+layout pass that fills the controls row. One parked state explains all three reports:
+invisible controls, no slide-in animation, and the half-render.
+
+Fixed by landing the player fragment without an animation or reordering (`DestinationFragmentView`,
+`isPlayer` branch), so the transition completes at commit and the fragment reaches RESUMED. The
+`MainActivity.dispatchKeyEvent` reveal from 2026-09-15 is kept as a **fallback**, not the fix: it
+still guarantees a key press shows the controls even if this regresses.
+
+**This is why `uiautomator` showed no focused node and why the media keys still worked.** It was
+never "focus on the wrong view"; there was no functional leanback lifecycle to hold focus at all.
+The lesson: before blaming focus, check `isResumed()` on the fragment that owns the UI.
+
 ## Reading it in a week
 
 ```bash
@@ -169,6 +202,13 @@ What to look for, in order:
   precise signature of "the loading screen skipped and now the D-pad does nothing".
 - **`homeBuild.collectionSource.boxset-fallback`** — the controller stopped supplying rows again;
   cross-reference `counts.controller_rows_failed`.
+- **`counts.controls_row_empty`** — ⚠️ **ignore this count** until the detector is fixed (it looks
+  for a GridView that leanback never creates). It fires on healthy sessions; see the Events table.
+- **`counts.overlay_suppress_expired` with a large `heldMs`** — the real invisibility signature:
+  nothing asked the overlay to show for that long while the remote was in use. With
+  `OVERLAY_SUPPRESS_MS = 0` you should only ever see near-zero values (e.g. `heldMs=384`).
+- **`counts.player_key_reveal`** — the focus-independent reveal fired from the hidden→shown edge.
+  Some are expected; a burst is the fallback covering a regression of the navigation-layout fix.
 
 Raw lines, newest first:
 

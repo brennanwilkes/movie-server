@@ -81,7 +81,7 @@ async function collectionsSweep() {
   console.log('collectionsSweep: starting');
   try {
     const uid = await jellyfinUserId();
-    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+    const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
     const { items: movies, complete } = await fetchAllMovies(uid, h);
     // Abort on a partial read. Membership is rewritten wholesale further down, so rebuilding from
     // an incomplete fetch would silently delete every title that just failed to come back.
@@ -123,6 +123,10 @@ async function collectionsSweep() {
       'Sundance: Audience Award (Documentary) (Winners)': 'Sundance Audience Award (Documentary) — the non-fiction film festival-goers loved most.',
       'Sundance: Directing Award (Dramatic) (Winners)': 'Sundance Directing Award (Dramatic) — outstanding direction of an American fiction film.',
       'Sundance: Directing Award (Documentary) (Winners)': 'Sundance Directing Award (Documentary) — outstanding direction of a documentary.',
+      'Venice: Golden Lion (Winners)': 'The Golden Lion — Venice\'s top prize, and the oldest award in film.',
+      'Venice: Grand Jury Prize (Winners)': 'The Venice Grand Jury Prize — the Silver Lion, awarded to the festival\'s runner-up.',
+      'Venice: Best Director (Winners)': 'Venice Best Director — the Silver Lion for the festival\'s finest directorial achievement.',
+      "TIFF: People's Choice (Winners)": 'The TIFF People\'s Choice Award — voted by Toronto audiences, and cinema\'s most reliable Oscar bellwether.',
     };
     const personBuckets = new Map();
     const pbAdd = (name, desc, id, year) => {

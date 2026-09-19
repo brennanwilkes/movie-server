@@ -21,6 +21,36 @@ const { jellyfinUserId } = require('./jellyfin');
 // collections sweep). NOTE: the plugin POSTs its payload to resultsEndpoint — a GET-only
 // route returns Express HTML that breaks its JSON parser, hence app.all.
 const SHELF_IDS = ['ShelfA', 'ShelfB', 'ShelfC', 'ShelfD', 'ShelfE', 'ShelfF', 'ShelfG', 'ShelfH', 'ShelfI', 'ShelfJ', 'ShelfK', 'ShelfL', 'ShelfM', 'ShelfN', 'ShelfO', 'ShelfP', 'ShelfQ', 'ShelfR', 'ShelfS', 'ShelfT'];   // 20 rotating shelf rows (grow: add ids here + rows in jellyfin.sh)
+
+// "Because you watched X" rows. These take over SHELF SLOTS rather than having ids of their own —
+// BECAUSE_SLOTS are indexes into SHELF_IDS, so a slot listed here is registered with a
+// because-you-watched title and the /api/hss/because endpoint instead of a collection.
+//
+// WHY SLOTS AND NOT NEW IDS. Two separate plugin problems, both established by testing:
+//
+//  1. HSS ships its own BecauseYouWatched section and it is broken on Jellyfin 12. Enabling it
+//     produced no row and every request threw:
+//       [ERR] Error processing request. URL GET /HomeScreen/Section/BecauseYouWatched
+//          at BecauseYouWatchedSection.GetResults(...) BecauseYouWatchedSection.cs:line 149
+//
+//  2. HSS will not SERVE a section id it does not already know, even though it accepts the
+//     registration. Registering BecauseA/B/C returned HTTP 200, they appeared in SectionSettings
+//     as Enabled, and `GET /HomeScreen/Section/BecauseA` returned exactly the right items — but
+//     they never showed up in `GET /HomeScreen/Sections`, which is the list the home page builds
+//     from. Retried at OrderIndex 5 and 3, with a CacheBustCounter bump, and with a hand-rolled
+//     RegisterSection call. The shelf ids have none of this trouble because the plugin has seen
+//     them since the first provision.
+//
+// Slots are spread across the two OrderIndex blocks (ShelfA–J render at 4, ShelfK–T at 6) so the
+// rows land amongst the collections rather than in a block, matching the Fire Stick client, which
+// scatters its three rows through the same rotation.
+//
+// The suggestions themselves are Jellyfin's own (/Items/{id}/Similar) and are worth showing on 12:
+// they key strongly on shared director and cast, so "I Saw the Devil" returns Kim Jee-woon /
+// Park Chan-wook / Bong Joon-ho thrillers. They were dropped on 10.11 for being too weak.
+const BECAUSE_SLOTS = [4, 9, 18];
+// A suggestion row shorter than this reads as an accident, the same reason shelfTooThin exists.
+const BECAUSE_MIN = 4;
 // oscar was 5 until 2026-08-25. With ~26 award categories in the catalog a 5x weight had them
 // taking most of the 20 rows, so the home page read as an awards page; 4x keeps them the
 // dominant family without crowding out the vibe shelves.
@@ -47,7 +77,7 @@ function shelfTooThin(s) {
   return (s.ChildCount || 0) < (shelfCategory(s) === 'oscar' ? AWARD_MIN : SHELF_MIN);
 }
 function shelfCategory(s) {
-  if (/^(Oscar|Cannes|Sundance):/i.test(s.Name || '')) return 'oscar';
+  if (/^(Oscar|Cannes|Sundance|Venice|TIFF):/i.test(s.Name || '')) return 'oscar';
   if ((s.Name || '') === 'Nature & Cosmos') return 'nature';
   const ov = (s.Overview || '').trim();
   if (/^(Directed by|Shot by|Edited by|Music by)/.test(ov) || (s.Name || '') === 'Coen Brothers') return 'craft';
@@ -81,7 +111,7 @@ const SHELF_CATALOG_TTL = 2100000;
 async function shelfSets() {
   return cachedFetch('hss:boxsets', SHELF_CATALOG_TTL, async () => {
     const uid = await jellyfinUserId();
-    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
+    const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` };
     const bq = new URLSearchParams({ IncludeItemTypes: 'BoxSet', Recursive: 'true', Limit: '250', Fields: 'Overview,ChildCount' });
     return ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${bq}`, { headers: h }, 25000)).Items) || [];
   }, [], { serveStale: true });
@@ -123,7 +153,7 @@ function shuffle(arr) {
 app.all('/api/hss/shelf', async (req, res) => {
   try {
     const uid = (req.body && (req.body.UserId || req.body.userId)) || req.query.userId || await jellyfinUserId();
-    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
+    const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` };
     let setId = (req.body && (req.body.AdditionalData || req.body.additionalData)) || req.query.setId || '';
     if (!setId) {
       const p = shelfPicks(await shelfCatalog())[0];
@@ -141,6 +171,40 @@ app.all('/api/hss/shelf', async (req, res) => {
     res.json({ Items: items, TotalRecordCount: items.length });
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
+// Source films for the because-you-watched rows: most recently played, newest first.
+//
+// Cached for 10 min — short enough that finishing a film changes the home page on the next
+// rotation, long enough that a web home build (which fires one request per row) doesn't re-ask
+// for every single row.
+async function becauseSources(n = BECAUSE_SLOTS.length) {
+  return cachedFetch('hss:because-sources', 600000, async () => {
+    const uid = await jellyfinUserId();
+    const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` };
+    const q = new URLSearchParams({
+      IncludeItemTypes: 'Movie', Recursive: 'true', Filters: 'IsPlayed',
+      SortBy: 'DatePlayed', SortOrder: 'Descending', Limit: String(n * 2),
+    });
+    const items = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 20000)).Items) || [];
+    return items.filter((i) => i.Id && i.Name).map((i) => ({ Id: i.Id, Name: i.Name }));
+  }, [], { serveStale: true });
+}
+
+app.all('/api/hss/because', async (req, res) => {
+  try {
+    const uid = (req.body && (req.body.UserId || req.body.userId)) || req.query.userId || await jellyfinUserId();
+    const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` };
+    let itemId = (req.body && (req.body.AdditionalData || req.body.additionalData)) || req.query.itemId || '';
+    if (!itemId) {
+      const src = (await becauseSources())[0];
+      if (!src) return res.json({ Items: [], TotalRecordCount: 0 });
+      itemId = src.Id;
+    }
+    const q = new URLSearchParams({ userId: uid, limit: '14' });
+    const items = ((await tfetchJson(`${HOST.jellyfin}/Items/${itemId}/Similar?${q}`, { headers: h }, 20000)).Items) || [];
+    res.json({ Items: items, TotalRecordCount: items.length });
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
 app.all('/api/hss/rows', async (req, res) => {
   try {
     // Shares the cached catalog with the shelf registration — this is the TV client's home-row
@@ -162,21 +226,76 @@ app.all('/api/hss/rows', async (req, res) => {
 async function registerHssShelf() {
   if (!cfg.JELLYFIN_KEY) return;
   try {
-    const picks = shelfPicks(await shelfCatalog());
-    for (let i = 0; i < picks.length; i++) {
-      await tfetch(`${HOST.jellyfin}/HomeScreen/RegisterSection`, {
-        method: 'POST',
-        headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY, 'Content-Type': 'application/json' },
-        // limit 14 (was 10, 2026-08-25): a slightly longer row without touching the row COUNT,
-        // which is what actually costs on the web home page — each row is still one /api/hss/shelf
-        // call, and that call already fetched 24 items to shuffle from, so the extra four cards
-        // ride along on a request we were making anyway.
-        body: JSON.stringify({ id: SHELF_IDS[i], displayText: picks[i].Name, limit: 14, additionalData: picks[i].Id, resultsEndpoint: `http://${NUC_IP}:8088/api/hss/shelf` }),
-      }, 20000);
+    // Work out the because-you-watched rows FIRST, because each one takes a shelf slot away from
+    // the collection picks. A source film whose similar-items list is too short is dropped rather
+    // than shown, so becauseSources() deliberately offers more candidates than there are slots.
+    const because = new Map();   // slot index -> { name, itemId }
+    let slot = 0;
+    for (const src of await becauseSources()) {
+      if (slot >= BECAUSE_SLOTS.length) break;
+      let count = 0;
+      try {
+        const q = new URLSearchParams({ userId: await jellyfinUserId(), limit: '14' });
+        count = (((await tfetchJson(`${HOST.jellyfin}/Items/${src.Id}/Similar?${q}`,
+          { headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` } }, 20000)).Items) || []).length;
+      } catch { count = 0; }
+      if (count < BECAUSE_MIN) continue;
+      because.set(BECAUSE_SLOTS[slot], { name: `Because you watched ${src.Name}`, itemId: src.Id });
+      slot++;
     }
-    if (picks.length && registerHssShelf._last !== picks.map((p) => p.Id).join()) {
-      registerHssShelf._last = picks.map((p) => p.Id).join();
-      console.log(`hssShelf: shelf rows registered — ${picks.map((p) => p.Name).join(' · ')}`);
+
+    const picks = shelfPicks(await shelfCatalog(), SHELF_IDS.length - because.size);
+    let ok = 0;
+    const failed = [];
+    // One pass over every slot. Slots claimed by a because-row get that row; the rest are filled
+    // from the collection picks in order, so no slot is left unregistered (an unregistered slot
+    // keeps whatever it was showing before, which is how a stale row would survive a rotation).
+    let pi = 0;
+    for (let i = 0; i < SHELF_IDS.length; i++) {
+      let row = null;
+      const why = because.get(i);
+      if (why) {
+        row = { displayText: why.name, additionalData: why.itemId, endpoint: 'because' };
+      } else if (pi < picks.length) {
+        const p = picks[pi];
+        pi += 1;
+        row = { displayText: p.Name, additionalData: p.Id, endpoint: 'shelf' };
+      }
+      if (!row) break;
+      // CHECK THE RESPONSE. This was fire-and-forget until 2026-09-11, and it hid a real outage:
+      // HSS holds registrations in memory, so every Jellyfin restart drops them and the controller
+      // has to re-register — but the controller boots at the same time as Jellyfin, so the POSTs
+      // land while Jellyfin is still starting and come back 503. Nothing checked, nothing logged,
+      // and the web home page sat with one section while the log cheerfully said "shelf rows
+      // registered". Same failure shape as the unchecked collection writes that silently emptied
+      // Critically Loved with an HTTP 414.
+      let r = null;
+      try {
+        r = await tfetch(`${HOST.jellyfin}/HomeScreen/RegisterSection`, {
+          method: 'POST',
+          headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"`, 'Content-Type': 'application/json' },
+          // limit 14 (was 10, 2026-08-25): a slightly longer row without touching the row COUNT,
+          // which is what actually costs on the web home page — each row is still one /api/hss/shelf
+          // call, and that call already fetched 24 items to shuffle from, so the extra four cards
+          // ride along on a request we were making anyway.
+          body: JSON.stringify({ id: SHELF_IDS[i], displayText: row.displayText, limit: 14, additionalData: row.additionalData, resultsEndpoint: `http://${NUC_IP}:8088/api/hss/${row.endpoint}` }),
+        }, 20000);
+      } catch (e) { failed.push(`${SHELF_IDS[i]}(${e?.message || e})`); continue; }
+      if (r.ok || r.status === 204) ok++;
+      else failed.push(`${SHELF_IDS[i]}(HTTP ${r.status})`);
+    }
+
+    if (failed.length) {
+      // 503 means Jellyfin is still coming up — say so plainly and let the 30-minute timer retry,
+      // rather than reporting success and leaving the home page short of rows for half an hour.
+      console.log(`hssShelf: ${ok}/${picks.length + because.size} shelf rows registered — ${failed.length} rejected: ${failed.slice(0, 5).join(', ')}${failed.length > 5 ? ' …' : ''}`);
+      registerHssShelf._last = null;   // force a re-log (and a real retry) next pass
+      return;
+    }
+    const titles = [...picks.map((p) => p.Name), ...[...because.values()].map((b) => b.name)];
+    if (titles.length && registerHssShelf._last !== titles.join()) {
+      registerHssShelf._last = titles.join();
+      console.log(`hssShelf: ${ok} shelf rows registered — ${titles.join(' · ')}`);
     }
   } catch (e) { console.log(`hssShelf: registration failed — ${e?.message || e}`); }
 }

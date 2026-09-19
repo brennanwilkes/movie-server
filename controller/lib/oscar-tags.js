@@ -28,8 +28,25 @@ const { isMasterPaused } = require('./state');
 const jobs = require('./jobs');
 
 const OSCAR_TAG_RE = /^oscar(s|-wins-\d+|-noms-\d+)$/;
-const FESTIVAL_TAG_RE = /^festival(?:-(cannes|sundance)(?:-(?:\d+|name-.+))?)?$/;
 
+// ONE list drives everything festival-shaped: the tag regex, the tmdb index, the tag writer and
+// /api/awards. Adding a fifth festival is a row here plus a FESTIVAL_DISPLAY block — not four
+// parallel edits that can drift. `key` is the tag/JSON-field slug; `prefix` is how the collection
+// names in oscar-winners.json begin (kept in sync with data/oscars/festivals.json categories and
+// with the award regex in hss-shelf.js).
+const FESTIVALS = [
+  { key: 'cannes', prefix: 'Cannes: ' },
+  { key: 'sundance', prefix: 'Sundance: ' },
+  { key: 'venice', prefix: 'Venice: ' },
+  { key: 'tiff', prefix: 'TIFF: ' },
+];
+const FESTIVAL_KEYS = FESTIVALS.map((f) => f.key);
+const FESTIVAL_TAG_RE = new RegExp(
+  `^festival(?:-(${FESTIVAL_KEYS.join('|')})(?:-(?:\\d+|name-.+))?)?$`);
+
+// Short display names for the poster plaque. A film that wins ONE award in a festival gets its
+// award name rendered; two or more collapse to a count ("2 CANNES WINS"), so these only need to be
+// short enough to fit a poster-width line.
 const FESTIVAL_DISPLAY = {
   "Cannes: Palme d'Or (Winners)": "PALME D'OR",
   "Cannes: Grand Prix (Winners)": "GRAND PRIX",
@@ -41,22 +58,26 @@ const FESTIVAL_DISPLAY = {
   "Sundance: Audience Award (Documentary) (Winners)": "AUDIENCE",
   "Sundance: Directing Award (Dramatic) (Winners)": "DIRECTING AWARD",
   "Sundance: Directing Award (Documentary) (Winners)": "DIRECTING AWARD",
+  "Venice: Golden Lion (Winners)": "GOLDEN LION",
+  "Venice: Grand Jury Prize (Winners)": "GRAND JURY",
+  "Venice: Best Director (Winners)": "BEST DIRECTOR",
+  "TIFF: People's Choice (Winners)": "PEOPLE'S CHOICE",
 };
 // tmdb_id in the JSON is a NUMBER; Jellyfin ProviderIds.Tmdb is a STRING — key by String().
-// Value: { cannes: [displayNames], sundance: [displayNames] } (names in collection order).
+// Value: { cannes: [...], sundance: [...], venice: [...], tiff: [...] } (collection order).
+const emptyFest = () => Object.fromEntries(FESTIVAL_KEYS.map((k) => [k, []]));
 const festivalByTmdb = (() => {
   const m = new Map();
   for (const [key, rows] of Object.entries(oscarWinners)) {
     const label = FESTIVAL_DISPLAY[key];
     if (!label) continue;
-    const fest = key.startsWith('Cannes: ') ? 'cannes'
-      : key.startsWith('Sundance: ') ? 'sundance' : null;
+    const fest = FESTIVALS.find((f) => key.startsWith(f.prefix));
     if (!fest) continue;
     for (const r of rows || []) {
       if (r && r.tmdb_id != null) {
         const k = String(r.tmdb_id);
-        if (!m.has(k)) m.set(k, { cannes: [], sundance: [] });
-        m.get(k)[fest].push(label);
+        if (!m.has(k)) m.set(k, emptyFest());
+        m.get(k)[fest.key].push(label);
       }
     }
   }
@@ -77,25 +98,19 @@ function desiredTags(current, award, festival) {
   const base = (current || []).filter((t) => !OSCAR_TAG_RE.test(t) && !FESTIVAL_TAG_RE.test(t));
   const wins = (award && award.wins) || 0;
   const losses = Math.max(0, ((award && award.noms) || 0) - wins);
-  const cannes = (festival && festival.cannes) || [];
-  const sundance = (festival && festival.sundance) || [];
+  const won = FESTIVAL_KEYS.map((k) => [k, (festival && festival[k]) || []]).filter(([, v]) => v.length);
   const hasOscar = wins > 0 || losses > 0;
-  const hasFestival = cannes.length > 0 || sundance.length > 0;
-  if (!hasOscar && !hasFestival) return base;
+  if (!hasOscar && !won.length) return base;
   if (hasOscar) {
     base.push('oscars');
     if (wins > 0) base.push(`oscar-wins-${wins}`);
     if (losses > 0) base.push(`oscar-noms-${losses}`);
   }
-  if (hasFestival) {
+  if (won.length) {
     base.push('festival');                       // presence marker (web bulk-query filter)
-    if (cannes.length > 0) {
-      base.push(`festival-cannes-${cannes.length}`);
-      if (cannes.length === 1) base.push(`festival-cannes-name-${cannes[0]}`);
-    }
-    if (sundance.length > 0) {
-      base.push(`festival-sundance-${sundance.length}`);
-      if (sundance.length === 1) base.push(`festival-sundance-name-${sundance[0]}`);
+    for (const [key, names] of won) {
+      base.push(`festival-${key}-${names.length}`);
+      if (names.length === 1) base.push(`festival-${key}-name-${names[0]}`);
     }
   }
   return base;
@@ -230,7 +245,7 @@ async function getPersonOscarIndex() {
   personOscarBusy = true;
   try {
     const uid = await jellyfinUserId();
-    const people = await fetchAllPersons(uid, { 'X-Emby-Token': cfg.JELLYFIN_KEY });
+    const people = await fetchAllPersons(uid, { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` });
     if (people.length) setPersonOscarIndex(people);
   } catch (e) {
     console.log(`personOscarIndex: build failed — ${e.message || e}`);
@@ -254,7 +269,7 @@ async function oscarTagsSweep() {
   oscarTagsBusy = true;
   try {
     const uid = await jellyfinUserId();
-    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+    const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
 
     // ---- Movies pass (match by ProviderIds.Imdb) ----
     if (haveFilms) {
@@ -372,10 +387,9 @@ app.get('/api/awards', (req, res) => {
           ? { year: shortYear(a.y), category: a.c, won: !!a.w, film: a.n || '', nominees: [] }
           : { year: shortYear(a.y), category: a.c, won: !!a.w, film: '', nominees: a.n ? a.n.split('|').filter(Boolean) : [] })),
       },
-      festivals: {
-        cannes: (fest && fest.cannes) || [],
-        sundance: (fest && fest.sundance) || [],
-      },
+      // One key per FESTIVALS row, always present (empty array when the film won nothing there),
+      // so a client can iterate without checking for undefined as festivals are added.
+      festivals: Object.fromEntries(FESTIVAL_KEYS.map((k) => [k, (fest && fest[k]) || []])),
     });
   } catch (e) { res.status(500).json({ error: String((e && e.message) || e) }); }
 });

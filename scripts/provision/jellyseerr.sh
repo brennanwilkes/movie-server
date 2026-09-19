@@ -152,7 +152,7 @@ if [[ -n "${JELLYFIN_USER_2:-}" ]]; then
   jf_url="http://${NUC_IP:-jellyfin}:8096"
   jf_key=$(jellyfin_apikey jellyseerr-import 2>/dev/null || true)
   leslie_jf_id=""
-  [[ -n "$jf_key" ]] && leslie_jf_id=$(curl -fsS "$jf_url/Users" -H "X-Emby-Token: $jf_key" 2>/dev/null \
+  [[ -n "$jf_key" ]] && leslie_jf_id=$(curl -fsS "$jf_url/Users" -H "Authorization: MediaBrowser Token=$jf_key" 2>/dev/null \
     | jq -r --arg n "$JELLYFIN_USER_2" '.[]|select(.Name==$n).Id // empty')
 
   if [[ -z "$leslie_jf_id" ]]; then

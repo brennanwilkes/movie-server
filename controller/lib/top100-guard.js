@@ -45,7 +45,7 @@ const key = (it) => {
 // ── reading live state ───────────────────────────────────────────────────────────────────────────
 async function readPlaylist() {
   const uid = await jellyfinUserId();
-  const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+  const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
   const pq = new URLSearchParams({ IncludeItemTypes: 'Playlist', Recursive: 'true', Limit: '200' });
   const pls = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${pq}`, { headers: h }, 20000)).Items) || [];
   const pl = pls.find((p) => p.Name === PLAYLIST_NAME);
@@ -59,7 +59,7 @@ async function readPlaylist() {
 // the reconcile needs to resolve every missing title at once anyway.
 async function movieIndex() {
   const uid = await jellyfinUserId();
-  const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+  const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
   const q = new URLSearchParams({ IncludeItemTypes: 'Movie', Recursive: 'true', Fields: 'ProviderIds', Limit: '5000' });
   const items = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 30000)).Items) || [];
   const byKey = new Map();

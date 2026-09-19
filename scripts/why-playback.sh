@@ -145,7 +145,7 @@ JFKEY=$(grep -oP '^JELLYFIN_KEY=\K.*' /opt/appdata/controller/keys.env 2>/dev/nu
 NUC_IP=$(grep -oP '^NUC_IP=\K.*' .env 2>/dev/null || echo 192.168.1.74)
 if [[ -n "$JFKEY" ]]; then
   echo "— Active Jellyfin sessions:"
-  curl -sf "http://${NUC_IP}:8096/Sessions" -H "X-Emby-Token: $JFKEY" \
+  curl -sf "http://${NUC_IP}:8096/Sessions" -H "Authorization: MediaBrowser Token=$JFKEY" \
     | jq -r '.[] | select(.NowPlayingItem != null)
         | "   \(.DeviceName): \(.NowPlayingItem.Name) — \(.PlayState.PlayMethod // "?")\(if .TranscodingInfo then " (\(.TranscodingInfo.TranscodeReasons // [] | join(", ")))" else "" end)"' \
     | grep . || echo "   (none playing right now)"

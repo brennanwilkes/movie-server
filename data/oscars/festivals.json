@@ -472,7 +472,7 @@
   },
   {
    "year": 1946,
-   "title": "Mar\u00eda Candelaria",
+   "title": "María Candelaria",
    "tmdb_id": 60225
   },
   {
@@ -659,7 +659,7 @@
   },
   {
    "year": 1999,
-   "title": "Humanit\u00e9",
+   "title": "Humanité",
    "tmdb_id": 65296
   },
   {
@@ -714,7 +714,7 @@
   },
   {
    "year": 1990,
-   "title": "Tila\u00ef",
+   "title": "Tilaï",
    "tmdb_id": 65482
   },
   {
@@ -789,7 +789,7 @@
   },
   {
    "year": 1976,
-   "title": "Cr\u00eda Cuervos",
+   "title": "Cría Cuervos",
    "tmdb_id": 51857
   },
   {
@@ -834,7 +834,7 @@
   },
   {
    "year": 1969,
-   "title": "\u00c5dalen 31",
+   "title": "Ådalen 31",
    "tmdb_id": 87208
   },
   {
@@ -856,7 +856,7 @@
   },
   {
    "year": 2025,
-   "title": "Sir\u0101t",
+   "title": "Sirāt",
    "tmdb_id": 1151272
   },
   {
@@ -866,7 +866,7 @@
   },
   {
    "year": 2024,
-   "title": "Emilia P\u00e9rez",
+   "title": "Emilia Pérez",
    "tmdb_id": 974950
   },
   {
@@ -901,7 +901,7 @@
   },
   {
    "year": 2019,
-   "title": "Les Mis\u00e9rables",
+   "title": "Les Misérables",
    "tmdb_id": 601553
   },
   {
@@ -1116,7 +1116,7 @@
   },
   {
    "year": 1986,
-   "title": "Th\u00e9r\u00e8se",
+   "title": "Thérèse",
    "tmdb_id": 42029
   },
   {
@@ -1136,7 +1136,7 @@
   },
   {
    "year": 1974,
-   "title": "La prima Ang\u00e9lica",
+   "title": "La prima Angélica",
    "tmdb_id": 54236
   },
   {
@@ -1241,7 +1241,7 @@
   },
   {
    "year": 1957,
-   "title": "Kana\u0142",
+   "title": "Kanał",
    "tmdb_id": 29933
   },
   {
@@ -1393,7 +1393,7 @@
   },
   {
    "year": 2005,
-   "title": "Cach\u00e9",
+   "title": "Caché",
    "tmdb_id": 445
   },
   {
@@ -1740,7 +1740,7 @@
   },
   {
    "year": 2006,
-   "title": "Quincea\u00f1era",
+   "title": "Quinceañera",
    "tmdb_id": 64499
   },
   {
@@ -2114,7 +2114,7 @@
   },
   {
    "year": 2025,
-   "title": "Andr\u00e9 Is an Idiot",
+   "title": "André Is an Idiot",
    "tmdb_id": 1400731
   },
   {
@@ -2311,7 +2311,7 @@
   },
   {
    "year": 2024,
-   "title": "D\u00ecdi (\u5f1f\u5f1f)",
+   "title": "Dìdi (弟弟)",
    "tmdb_id": 1158915
   },
   {
@@ -2401,7 +2401,7 @@
   },
   {
    "year": 2006,
-   "title": "Quincea\u00f1era",
+   "title": "Quinceañera",
    "tmdb_id": 64499
   },
   {
@@ -2787,6 +2787,1340 @@
    "year": 1998,
    "title": "Moment of Impact",
    "tmdb_id": 125304
+  }
+ ],
+ "Venice: Golden Lion": [
+  {
+   "year": 2026,
+   "title": "Woman Unknown",
+   "wiki": "Woman Unknown (film)",
+   "tmdb_id": 1511780
+  },
+  {
+   "year": 2025,
+   "title": "Father Mother Sister Brother",
+   "wiki": "Father Mother Sister Brother",
+   "tmdb_id": 1159206
+  },
+  {
+   "year": 2024,
+   "title": "The Room Next Door",
+   "wiki": "The Room Next Door",
+   "tmdb_id": 1088514
+  },
+  {
+   "year": 2023,
+   "title": "Poor Things",
+   "wiki": "Poor Things (film)",
+   "tmdb_id": 792307
+  },
+  {
+   "year": 2022,
+   "title": "All the Beauty and the Bloodshed",
+   "wiki": "All the Beauty and the Bloodshed",
+   "tmdb_id": 1004663
+  },
+  {
+   "year": 2021,
+   "title": "Happening",
+   "wiki": "Happening (film)",
+   "tmdb_id": 793998
+  },
+  {
+   "year": 2020,
+   "title": "Nomadland",
+   "wiki": "Nomadland",
+   "tmdb_id": 581734
+  },
+  {
+   "year": 2019,
+   "title": "Joker",
+   "wiki": "Joker (2019 film)",
+   "tmdb_id": 475557
+  },
+  {
+   "year": 2018,
+   "title": "Roma",
+   "wiki": "Roma (2018 film)",
+   "tmdb_id": 426426
+  },
+  {
+   "year": 2017,
+   "title": "The Shape of Water",
+   "wiki": "The Shape of Water",
+   "tmdb_id": 399055
+  },
+  {
+   "year": 2016,
+   "title": "The Woman Who Left",
+   "wiki": "The Woman Who Left",
+   "tmdb_id": 408542
+  },
+  {
+   "year": 2015,
+   "title": "From Afar",
+   "wiki": "From Afar (film)",
+   "tmdb_id": 352162
+  },
+  {
+   "year": 2014,
+   "title": "A Pigeon Sat on a Branch Reflecting on Existence",
+   "wiki": "A Pigeon Sat on a Branch Reflecting on Existence",
+   "tmdb_id": 110390
+  },
+  {
+   "year": 2013,
+   "title": "Sacro GRA",
+   "wiki": "Sacro GRA",
+   "tmdb_id": 216790
+  },
+  {
+   "year": 2012,
+   "title": "Pietà",
+   "wiki": "Pietà (film)",
+   "tmdb_id": 123377
+  },
+  {
+   "year": 2011,
+   "title": "Faust",
+   "wiki": "Faust (2011 film)",
+   "tmdb_id": 77560
+  },
+  {
+   "year": 2010,
+   "title": "Somewhere",
+   "wiki": "Somewhere (film)",
+   "tmdb_id": 39210
+  },
+  {
+   "year": 2009,
+   "title": "Lebanon",
+   "wiki": "Lebanon (film)",
+   "tmdb_id": 32084
+  },
+  {
+   "year": 2008,
+   "title": "The Wrestler",
+   "wiki": "The Wrestler (2008 film)",
+   "tmdb_id": 12163
+  },
+  {
+   "year": 2007,
+   "title": "Lust, Caution",
+   "wiki": "Lust, Caution",
+   "tmdb_id": 4588
+  },
+  {
+   "year": 2006,
+   "title": "Still Life",
+   "wiki": "Still Life (2006 film)",
+   "tmdb_id": 2346
+  },
+  {
+   "year": 2005,
+   "title": "Brokeback Mountain",
+   "wiki": "Brokeback Mountain",
+   "tmdb_id": 142
+  },
+  {
+   "year": 2004,
+   "title": "Vera Drake",
+   "wiki": "Vera Drake",
+   "tmdb_id": 11109
+  },
+  {
+   "year": 2003,
+   "title": "The Return",
+   "wiki": "The Return (2003 film)",
+   "tmdb_id": 11190
+  },
+  {
+   "year": 2002,
+   "title": "The Magdalene Sisters",
+   "wiki": "The Magdalene Sisters",
+   "tmdb_id": 8094
+  },
+  {
+   "year": 2001,
+   "title": "Monsoon Wedding",
+   "wiki": "Monsoon Wedding",
+   "tmdb_id": 480
+  },
+  {
+   "year": 2000,
+   "title": "The Circle",
+   "wiki": "The Circle (2000 film)",
+   "tmdb_id": 13898
+  },
+  {
+   "year": 1999,
+   "title": "Not One Less",
+   "wiki": "Not One Less",
+   "tmdb_id": 36210
+  },
+  {
+   "year": 1998,
+   "title": "The Way We Laughed",
+   "wiki": "The Way We Laughed",
+   "tmdb_id": 58098
+  },
+  {
+   "year": 1997,
+   "title": "Hana-bi",
+   "wiki": "Hana-bi",
+   "tmdb_id": 5910
+  },
+  {
+   "year": 1996,
+   "title": "Michael Collins",
+   "wiki": "Michael Collins (film)",
+   "tmdb_id": 1770
+  },
+  {
+   "year": 1995,
+   "title": "Cyclo",
+   "wiki": "Cyclo (film)",
+   "tmdb_id": 36266
+  },
+  {
+   "year": 1994,
+   "title": "Before the Rain",
+   "wiki": "Before the Rain (1994 film)",
+   "tmdb_id": 19155
+  },
+  {
+   "year": 1994,
+   "title": "Vive L'Amour",
+   "wiki": "Vive L'Amour",
+   "tmdb_id": 11985
+  },
+  {
+   "year": 1993,
+   "title": "Short Cuts",
+   "wiki": "Short Cuts",
+   "tmdb_id": 695
+  },
+  {
+   "year": 1993,
+   "title": "Three Colours: Blue",
+   "wiki": "Three Colours: Blue",
+   "tmdb_id": 108
+  },
+  {
+   "year": 1992,
+   "title": "The Story of Qiu Ju",
+   "wiki": "The Story of Qiu Ju",
+   "tmdb_id": 38143
+  },
+  {
+   "year": 1991,
+   "title": "Close to Eden",
+   "wiki": "Close to Eden",
+   "tmdb_id": 36346
+  },
+  {
+   "year": 1990,
+   "title": "Rosencrantz & Guildenstern Are Dead",
+   "wiki": "Rosencrantz & Guildenstern Are Dead (film)",
+   "tmdb_id": 18971
+  },
+  {
+   "year": 1989,
+   "title": "A City of Sadness",
+   "wiki": "A City of Sadness",
+   "tmdb_id": 49982
+  },
+  {
+   "year": 1988,
+   "title": "The Legend of the Holy Drinker",
+   "wiki": "The Legend of the Holy Drinker (film)",
+   "tmdb_id": 54990
+  },
+  {
+   "year": 1987,
+   "title": "Au revoir les enfants",
+   "wiki": "Au revoir les enfants",
+   "tmdb_id": 1786
+  },
+  {
+   "year": 1986,
+   "title": "The Green Ray",
+   "wiki": "The Green Ray (film)",
+   "tmdb_id": 54898
+  },
+  {
+   "year": 1985,
+   "title": "Vagabond",
+   "wiki": "Vagabond (1985 film)",
+   "tmdb_id": 44018
+  },
+  {
+   "year": 1984,
+   "title": "A Year of the Quiet Sun",
+   "wiki": "A Year of the Quiet Sun",
+   "tmdb_id": 42096
+  },
+  {
+   "year": 1983,
+   "title": "First Name: Carmen",
+   "wiki": "First Name: Carmen",
+   "tmdb_id": 32689
+  },
+  {
+   "year": 1982,
+   "title": "The State of Things",
+   "wiki": "The State of Things (film)",
+   "tmdb_id": 30363
+  },
+  {
+   "year": 1981,
+   "title": "Marianne and Juliane",
+   "wiki": "Marianne and Juliane",
+   "tmdb_id": 42142
+  },
+  {
+   "year": 1980,
+   "title": "Atlantic City",
+   "wiki": "Atlantic City (1980 film)",
+   "tmdb_id": 23954
+  },
+  {
+   "year": 1980,
+   "title": "Gloria",
+   "wiki": "Gloria (1980 film)",
+   "tmdb_id": 10889
+  },
+  {
+   "year": 1968,
+   "title": "Artists Under the Big Top: Perplexed",
+   "wiki": "Artists Under the Big Top: Perplexed",
+   "tmdb_id": 154582
+  },
+  {
+   "year": 1967,
+   "title": "Belle de Jour",
+   "wiki": "Belle de Jour (film)",
+   "tmdb_id": 649
+  },
+  {
+   "year": 1966,
+   "title": "The Battle of Algiers",
+   "wiki": "The Battle of Algiers",
+   "tmdb_id": 17295
+  },
+  {
+   "year": 1965,
+   "title": "Sandra",
+   "wiki": "Sandra (1965 film)",
+   "tmdb_id": 92432
+  },
+  {
+   "year": 1964,
+   "title": "Red Desert",
+   "wiki": "Red Desert (film)",
+   "tmdb_id": 26638
+  },
+  {
+   "year": 1963,
+   "title": "Hands over the City",
+   "wiki": "Hands over the City",
+   "tmdb_id": 58383
+  },
+  {
+   "year": 1962,
+   "title": "Family Diary",
+   "wiki": "Family Diary",
+   "tmdb_id": 80557
+  },
+  {
+   "year": 1962,
+   "title": "Ivan's Childhood",
+   "wiki": "Ivan's Childhood",
+   "tmdb_id": 31442
+  },
+  {
+   "year": 1961,
+   "title": "Last Year at Marienbad",
+   "wiki": "Last Year at Marienbad",
+   "tmdb_id": 4024
+  },
+  {
+   "year": 1960,
+   "title": "Tomorrow Is My Turn",
+   "wiki": "Tomorrow Is My Turn (film)",
+   "tmdb_id": 154578
+  },
+  {
+   "year": 1959,
+   "title": "General Della Rovere",
+   "wiki": "General Della Rovere",
+   "tmdb_id": 43100
+  },
+  {
+   "year": 1959,
+   "title": "The Great War",
+   "wiki": "The Great War (1959 film)",
+   "tmdb_id": 55823
+  },
+  {
+   "year": 1958,
+   "title": "Rickshaw Man",
+   "wiki": "Rickshaw Man",
+   "tmdb_id": 43121
+  },
+  {
+   "year": 1957,
+   "title": "Aparajito",
+   "wiki": "Aparajito",
+   "tmdb_id": 897
+  },
+  {
+   "year": 1955,
+   "title": "Ordet",
+   "wiki": "Ordet",
+   "tmdb_id": 48035
+  },
+  {
+   "year": 1954,
+   "title": "Romeo and Juliet",
+   "wiki": "Romeo and Juliet (1954 film)",
+   "tmdb_id": 92784
+  },
+  {
+   "year": 1952,
+   "title": "Forbidden Games",
+   "wiki": "Forbidden Games",
+   "tmdb_id": 5000
+  },
+  {
+   "year": 1951,
+   "title": "Rashomon",
+   "wiki": "Rashomon",
+   "tmdb_id": 548
+  },
+  {
+   "year": 1950,
+   "title": "Justice Is Done",
+   "wiki": "Justice Is Done",
+   "tmdb_id": 67731
+  },
+  {
+   "year": 1949,
+   "title": "Manon",
+   "wiki": "Manon (1949 film)",
+   "tmdb_id": 132332
+  }
+ ],
+ "Venice: Grand Jury Prize": [
+  {
+   "year": 2026,
+   "title": "Possible Love",
+   "wiki": "Possible Love",
+   "tmdb_id": 1483525
+  },
+  {
+   "year": 2025,
+   "title": "The Voice of Hind Rajab",
+   "wiki": "The Voice of Hind Rajab",
+   "tmdb_id": 1480382
+  },
+  {
+   "year": 2024,
+   "title": "Vermiglio",
+   "wiki": "Vermiglio (film)",
+   "tmdb_id": 1151244
+  },
+  {
+   "year": 2023,
+   "title": "Evil Does Not Exist",
+   "wiki": "Evil Does Not Exist",
+   "tmdb_id": 1156125
+  },
+  {
+   "year": 2022,
+   "title": "Saint Omer",
+   "wiki": "Saint Omer (film)",
+   "tmdb_id": 925943
+  },
+  {
+   "year": 2021,
+   "title": "The Hand of God",
+   "wiki": "The Hand of God (film)",
+   "tmdb_id": 722778
+  },
+  {
+   "year": 2020,
+   "title": "New Order",
+   "wiki": "New Order (film)",
+   "tmdb_id": 575446
+  },
+  {
+   "year": 2019,
+   "title": "An Officer and a Spy",
+   "wiki": "An Officer and a Spy (film)",
+   "tmdb_id": 399121
+  },
+  {
+   "year": 2018,
+   "title": "The Favourite",
+   "wiki": "The Favourite (2018 film)",
+   "tmdb_id": 375262
+  },
+  {
+   "year": 2017,
+   "title": "Foxtrot",
+   "wiki": "Foxtrot (2017 film)",
+   "tmdb_id": 444431
+  },
+  {
+   "year": 2016,
+   "title": "Nocturnal Animals",
+   "wiki": "Nocturnal Animals",
+   "tmdb_id": 340666
+  },
+  {
+   "year": 2015,
+   "title": "Anomalisa",
+   "wiki": "Anomalisa",
+   "tmdb_id": 291270
+  },
+  {
+   "year": 2014,
+   "title": "The Look of Silence",
+   "wiki": "The Look of Silence",
+   "tmdb_id": 267480
+  },
+  {
+   "year": 2013,
+   "title": "Stray Dogs",
+   "wiki": "Stray Dogs (2013 film)",
+   "tmdb_id": 209840
+  },
+  {
+   "year": 2012,
+   "title": "Paradise: Faith",
+   "wiki": "Paradise: Faith",
+   "tmdb_id": 129734
+  },
+  {
+   "year": 2011,
+   "title": "Terraferma",
+   "wiki": "Terraferma (film)",
+   "tmdb_id": 73872
+  },
+  {
+   "year": 2010,
+   "title": "Essential Killing",
+   "wiki": "Essential Killing",
+   "tmdb_id": 48243
+  },
+  {
+   "year": 2009,
+   "title": "Soul Kitchen",
+   "wiki": "Soul Kitchen (film)",
+   "tmdb_id": 31175
+  },
+  {
+   "year": 2008,
+   "title": "Teza",
+   "wiki": "Teza (film)",
+   "tmdb_id": 12427
+  },
+  {
+   "year": 2007,
+   "title": "I'm Not There",
+   "wiki": "I'm Not There",
+   "tmdb_id": 3902
+  },
+  {
+   "year": 2007,
+   "title": "The Secret of the Grain",
+   "wiki": "The Secret of the Grain",
+   "tmdb_id": 8280
+  },
+  {
+   "year": 2006,
+   "title": "Dry Season",
+   "wiki": "Dry Season",
+   "tmdb_id": 24171
+  },
+  {
+   "year": 2005,
+   "title": "Mary",
+   "wiki": "Mary (2005 film)",
+   "tmdb_id": 64942
+  },
+  {
+   "year": 2004,
+   "title": "The Sea Inside",
+   "wiki": "The Sea Inside",
+   "tmdb_id": 1913
+  },
+  {
+   "year": 2003,
+   "title": "The Kite",
+   "wiki": "The Kite (2003 film)",
+   "tmdb_id": 44086
+  },
+  {
+   "year": 2002,
+   "title": "House of Fools",
+   "wiki": "House of Fools (film)",
+   "tmdb_id": 72996
+  },
+  {
+   "year": 2001,
+   "title": "Dog Days",
+   "wiki": "Dog Days (2001 film)",
+   "tmdb_id": 9025
+  },
+  {
+   "year": 2000,
+   "title": "Before Night Falls",
+   "wiki": "Before Night Falls (film)",
+   "tmdb_id": 5001
+  },
+  {
+   "year": 1999,
+   "title": "The Wind Will Carry Us",
+   "wiki": "The Wind Will Carry Us",
+   "tmdb_id": 43423
+  },
+  {
+   "year": 1998,
+   "title": "Next Stop Paradise",
+   "wiki": "Next Stop Paradise (1998 film)",
+   "tmdb_id": 123707
+  },
+  {
+   "year": 1997,
+   "title": "Ovosodo",
+   "wiki": "Ovosodo",
+   "tmdb_id": 48254
+  },
+  {
+   "year": 1996,
+   "title": "Brigands",
+   "wiki": "Brigands (film)",
+   "tmdb_id": 48012
+  },
+  {
+   "year": 1995,
+   "title": "God's Comedy",
+   "wiki": "God's Comedy",
+   "tmdb_id": 49974
+  },
+  {
+   "year": 1995,
+   "title": "The Star Maker",
+   "wiki": "The Star Maker (1995 film)",
+   "tmdb_id": 37975
+  },
+  {
+   "year": 1994,
+   "title": "Natural Born Killers",
+   "wiki": "Natural Born Killers",
+   "tmdb_id": 241
+  },
+  {
+   "year": 1993,
+   "title": "Bad Boy Bubby",
+   "wiki": "Bad Boy Bubby",
+   "tmdb_id": 14135
+  },
+  {
+   "year": 1992,
+   "title": "Death of a Neapolitan Mathematician",
+   "wiki": "Death of a Neapolitan Mathematician",
+   "tmdb_id": 59577
+  },
+  {
+   "year": 1991,
+   "title": "The Divine Comedy",
+   "wiki": "The Divine Comedy (film)",
+   "tmdb_id": 104482
+  },
+  {
+   "year": 1990,
+   "title": "An Angel at My Table",
+   "wiki": "An Angel at My Table",
+   "tmdb_id": 2891
+  },
+  {
+   "year": 1989,
+   "title": "And Then There Was Light",
+   "wiki": "And Then There Was Light",
+   "tmdb_id": 203986
+  },
+  {
+   "year": 1988,
+   "title": "Camp de Thiaroye",
+   "wiki": "Camp de Thiaroye",
+   "tmdb_id": 103203
+  },
+  {
+   "year": 1987,
+   "title": "Hip Hip Hurrah!",
+   "wiki": "Hip Hip Hurrah! (film)",
+   "tmdb_id": 128900
+  },
+  {
+   "year": 1986,
+   "title": "A Tale of Love",
+   "wiki": "A Tale of Love",
+   "tmdb_id": 204130
+  },
+  {
+   "year": 1986,
+   "title": "Wild Pigeon",
+   "wiki": "Wild Pigeon (film)",
+   "tmdb_id": 143119
+  },
+  {
+   "year": 1985,
+   "title": "Tangos, the Exile of Gardel",
+   "wiki": "Tangos, the Exile of Gardel",
+   "tmdb_id": 182469
+  },
+  {
+   "year": 1984,
+   "title": "Favorites of the Moon",
+   "wiki": "Favorites of the Moon",
+   "tmdb_id": 47450
+  },
+  {
+   "year": 1983,
+   "title": "Biquefarre",
+   "wiki": "Biquefarre",
+   "tmdb_id": 146398
+  },
+  {
+   "year": 1982,
+   "title": "Imperative",
+   "wiki": "Imperative (film)",
+   "tmdb_id": 204164
+  },
+  {
+   "year": 1981,
+   "title": "Sweet Dreams",
+   "wiki": "Sweet Dreams (1981 film)",
+   "tmdb_id": 57967
+  },
+  {
+   "year": 1981,
+   "title": "They Don't Wear Black-tie",
+   "wiki": "They Don't Wear Black-tie",
+   "tmdb_id": 203158
+  },
+  {
+   "year": 1968,
+   "title": "Our Lady of the Turks",
+   "wiki": "Our Lady of the Turks",
+   "tmdb_id": 59048
+  },
+  {
+   "year": 1967,
+   "title": "China is Near",
+   "wiki": "China is Near",
+   "tmdb_id": 49783
+  },
+  {
+   "year": 1967,
+   "title": "La Chinoise",
+   "wiki": "La Chinoise",
+   "tmdb_id": 1629
+  },
+  {
+   "year": 1966,
+   "title": "Chappaqua",
+   "wiki": "Chappaqua (film)",
+   "tmdb_id": 33382
+  },
+  {
+   "year": 1966,
+   "title": "Yesterday Girl",
+   "wiki": "Yesterday Girl",
+   "tmdb_id": 89785
+  },
+  {
+   "year": 1965,
+   "title": "I Am Twenty",
+   "wiki": "I Am Twenty",
+   "tmdb_id": 148782
+  },
+  {
+   "year": 1965,
+   "title": "Modiga mindre män",
+   "wiki": "Modiga mindre män",
+   "tmdb_id": 204182
+  },
+  {
+   "year": 1965,
+   "title": "Simon of the Desert",
+   "wiki": "Simon of the Desert",
+   "tmdb_id": 36265
+  },
+  {
+   "year": 1964,
+   "title": "Hamlet",
+   "wiki": "Hamlet (1964 film)",
+   "tmdb_id": 71317
+  },
+  {
+   "year": 1964,
+   "title": "The Gospel According to St. Matthew",
+   "wiki": "The Gospel According to St. Matthew (film)",
+   "tmdb_id": 24192
+  },
+  {
+   "year": 1963,
+   "title": "Introduction to Life",
+   "wiki": "Introduction to Life",
+   "tmdb_id": 204188
+  },
+  {
+   "year": 1963,
+   "title": "The Fire Within",
+   "wiki": "The Fire Within",
+   "tmdb_id": 2593
+  },
+  {
+   "year": 1962,
+   "title": "My Life to Live",
+   "wiki": "My Life to Live",
+   "tmdb_id": 1626
+  },
+  {
+   "year": 1961,
+   "title": "Peace to Him Who Enters",
+   "wiki": "Peace to Him Who Enters",
+   "tmdb_id": 204194
+  },
+  {
+   "year": 1960,
+   "title": "Rocco and His Brothers",
+   "wiki": "Rocco and His Brothers",
+   "tmdb_id": 8422
+  },
+  {
+   "year": 1959,
+   "title": "The Magician",
+   "wiki": "The Magician (1958 film)",
+   "tmdb_id": 29453
+  },
+  {
+   "year": 1958,
+   "title": "La sfida",
+   "wiki": "La sfida",
+   "tmdb_id": 156135
+  },
+  {
+   "year": 1958,
+   "title": "The Lovers",
+   "wiki": "The Lovers (1958 film)",
+   "tmdb_id": 2574
+  },
+  {
+   "year": 1954,
+   "title": "Executive Suite",
+   "wiki": "Executive Suite",
+   "tmdb_id": 43336
+  },
+  {
+   "year": 1952,
+   "title": "Mandy",
+   "wiki": "Mandy (1952 film)",
+   "tmdb_id": 47026
+  },
+  {
+   "year": 1952,
+   "title": "The Curious Adventures of Mr. Wonderbird",
+   "wiki": "The King and the Mockingbird",
+   "tmdb_id": 22504
+  },
+  {
+   "year": 1951,
+   "title": "A Streetcar Named Desire",
+   "wiki": "A Streetcar Named Desire (1951 film)",
+   "tmdb_id": 702
+  }
+ ],
+ "Venice: Best Director": [
+  {
+   "year": 2026,
+   "title": "DAU",
+   "wiki": "Dau (film)",
+   "tmdb_id": 1734147
+  },
+  {
+   "year": 2025,
+   "title": "The Smashing Machine",
+   "wiki": "The Smashing Machine (2025 film)",
+   "tmdb_id": 760329
+  },
+  {
+   "year": 2024,
+   "title": "The Brutalist",
+   "wiki": "The Brutalist",
+   "tmdb_id": 549509
+  },
+  {
+   "year": 2023,
+   "title": "Io Capitano",
+   "wiki": "Io Capitano",
+   "tmdb_id": 937746
+  },
+  {
+   "year": 2022,
+   "title": "Bones and All",
+   "wiki": "Bones and All",
+   "tmdb_id": 791177
+  },
+  {
+   "year": 2021,
+   "title": "The Power of the Dog",
+   "wiki": "The Power of the Dog (film)",
+   "tmdb_id": 600583
+  },
+  {
+   "year": 2020,
+   "title": "Wife of a Spy",
+   "wiki": "Wife of a Spy",
+   "tmdb_id": 688301
+  },
+  {
+   "year": 2019,
+   "title": "About Endlessness",
+   "wiki": "About Endlessness",
+   "tmdb_id": 348672
+  },
+  {
+   "year": 2018,
+   "title": "The Sisters Brothers",
+   "wiki": "The Sisters Brothers (film)",
+   "tmdb_id": 440161
+  },
+  {
+   "year": 2017,
+   "title": "Custody",
+   "wiki": "Custody (2017 film)",
+   "tmdb_id": 451657
+  },
+  {
+   "year": 2016,
+   "title": "Paradise",
+   "wiki": "Paradise (2016 film)",
+   "tmdb_id": 408539
+  },
+  {
+   "year": 2016,
+   "title": "The Untamed",
+   "wiki": "The Untamed (2016 film)",
+   "tmdb_id": 387801
+  },
+  {
+   "year": 2015,
+   "title": "The Clan",
+   "wiki": "The Clan (2015 film)",
+   "tmdb_id": 352161
+  },
+  {
+   "year": 2014,
+   "title": "The Postman's White Nights",
+   "wiki": "The Postman's White Nights",
+   "tmdb_id": 283703
+  },
+  {
+   "year": 2013,
+   "title": "Miss Violence",
+   "wiki": "Miss Violence",
+   "tmdb_id": 211052
+  },
+  {
+   "year": 2012,
+   "title": "The Master",
+   "wiki": "The Master (2012 film)",
+   "tmdb_id": 68722
+  },
+  {
+   "year": 2011,
+   "title": "People Mountain People Sea",
+   "wiki": "People Mountain People Sea (film)",
+   "tmdb_id": 102869
+  },
+  {
+   "year": 2010,
+   "title": "The Last Circus",
+   "wiki": "The Last Circus",
+   "tmdb_id": 56812
+  },
+  {
+   "year": 2009,
+   "title": "Women Without Men",
+   "wiki": "Women Without Men (2009 film)",
+   "tmdb_id": 44159
+  },
+  {
+   "year": 2008,
+   "title": "Paper Soldier",
+   "wiki": "Paper Soldier",
+   "tmdb_id": 12428
+  },
+  {
+   "year": 2007,
+   "title": "Redacted",
+   "wiki": "Redacted (film)",
+   "tmdb_id": 11600
+  },
+  {
+   "year": 2006,
+   "title": "Private Fears in Public Places",
+   "wiki": "Private Fears in Public Places (film)",
+   "tmdb_id": 24170
+  },
+  {
+   "year": 2005,
+   "title": "Regular Lovers",
+   "wiki": "Regular Lovers",
+   "tmdb_id": 45126
+  },
+  {
+   "year": 2004,
+   "title": "3-Iron",
+   "wiki": "3-Iron",
+   "tmdb_id": 1280
+  },
+  {
+   "year": 2003,
+   "title": "Zatōichi",
+   "wiki": "Zatōichi (2003 film)",
+   "tmdb_id": 246
+  },
+  {
+   "year": 2002,
+   "title": "Oasis",
+   "wiki": "Oasis (2002 film)",
+   "tmdb_id": 26955
+  },
+  {
+   "year": 2001,
+   "title": "Secret Ballot",
+   "wiki": "Secret Ballot (film)",
+   "tmdb_id": 43772
+  },
+  {
+   "year": 2000,
+   "title": "Uttara",
+   "wiki": "Uttara (film)",
+   "tmdb_id": 125727
+  },
+  {
+   "year": 1999,
+   "title": "Seventeen Years",
+   "wiki": "Seventeen Years (film)",
+   "tmdb_id": 41455
+  },
+  {
+   "year": 1998,
+   "title": "Black Cat, White Cat",
+   "wiki": "Black Cat, White Cat",
+   "tmdb_id": 1075
+  },
+  {
+   "year": 1990,
+   "title": "Goodfellas",
+   "wiki": "Goodfellas",
+   "tmdb_id": 769
+  }
+ ],
+ "TIFF: People's Choice": [
+  {
+   "year": 2025,
+   "title": "Hamnet",
+   "wiki": "Hamnet (film)",
+   "tmdb_id": 858024
+  },
+  {
+   "year": 2024,
+   "title": "The Life of Chuck",
+   "wiki": "The Life of Chuck",
+   "tmdb_id": 842924
+  },
+  {
+   "year": 2023,
+   "title": "American Fiction",
+   "wiki": "American Fiction (film)",
+   "tmdb_id": 1056360
+  },
+  {
+   "year": 2022,
+   "title": "The Fabelmans",
+   "wiki": "The Fabelmans",
+   "tmdb_id": 804095
+  },
+  {
+   "year": 2021,
+   "title": "Belfast",
+   "wiki": "Belfast (film)",
+   "tmdb_id": 777270
+  },
+  {
+   "year": 2020,
+   "title": "Nomadland",
+   "wiki": "Nomadland (film)",
+   "tmdb_id": 581734
+  },
+  {
+   "year": 2019,
+   "title": "Jojo Rabbit",
+   "wiki": "Jojo Rabbit",
+   "tmdb_id": 515001
+  },
+  {
+   "year": 2018,
+   "title": "Green Book",
+   "wiki": "Green Book (film)",
+   "tmdb_id": 490132
+  },
+  {
+   "year": 2017,
+   "title": "Three Billboards Outside Ebbing, Missouri",
+   "wiki": "Three Billboards Outside Ebbing, Missouri",
+   "tmdb_id": 359940
+  },
+  {
+   "year": 2016,
+   "title": "La La Land",
+   "wiki": "La La Land",
+   "tmdb_id": 313369
+  },
+  {
+   "year": 2015,
+   "title": "Room",
+   "wiki": "Room (2015 film)",
+   "tmdb_id": 264644
+  },
+  {
+   "year": 2014,
+   "title": "The Imitation Game",
+   "wiki": "The Imitation Game",
+   "tmdb_id": 205596
+  },
+  {
+   "year": 2013,
+   "title": "12 Years a Slave",
+   "wiki": "12 Years a Slave (film)",
+   "tmdb_id": 76203
+  },
+  {
+   "year": 2012,
+   "title": "Silver Linings Playbook",
+   "wiki": "Silver Linings Playbook",
+   "tmdb_id": 82693
+  },
+  {
+   "year": 2011,
+   "title": "Where Do We Go Now?",
+   "wiki": "Where Do We Go Now?",
+   "tmdb_id": 77461
+  },
+  {
+   "year": 2010,
+   "title": "The King's Speech",
+   "wiki": "The King's Speech",
+   "tmdb_id": 45269
+  },
+  {
+   "year": 2009,
+   "title": "Precious: Based on the Novel 'Push' by Sapphire",
+   "wiki": "Precious (film)",
+   "tmdb_id": 25793
+  },
+  {
+   "year": 2008,
+   "title": "Slumdog Millionaire",
+   "wiki": "Slumdog Millionaire",
+   "tmdb_id": 12405
+  },
+  {
+   "year": 2007,
+   "title": "Eastern Promises",
+   "wiki": "Eastern Promises",
+   "tmdb_id": 2252
+  },
+  {
+   "year": 2006,
+   "title": "Bella",
+   "wiki": "Bella (2006 film)",
+   "tmdb_id": 12586
+  },
+  {
+   "year": 2005,
+   "title": "Tsotsi",
+   "wiki": "Tsotsi",
+   "tmdb_id": 868
+  },
+  {
+   "year": 2004,
+   "title": "Hotel Rwanda",
+   "wiki": "Hotel Rwanda",
+   "tmdb_id": 205
+  },
+  {
+   "year": 2003,
+   "title": "Zatōichi",
+   "wiki": "Zatōichi (2003 film)",
+   "tmdb_id": 246
+  },
+  {
+   "year": 2002,
+   "title": "Whale Rider",
+   "wiki": "Whale Rider",
+   "tmdb_id": 1088
+  },
+  {
+   "year": 2001,
+   "title": "Amélie",
+   "wiki": "Amélie",
+   "tmdb_id": 194
+  },
+  {
+   "year": 2000,
+   "title": "Crouching Tiger, Hidden Dragon",
+   "wiki": "Crouching Tiger, Hidden Dragon",
+   "tmdb_id": 146
+  },
+  {
+   "year": 1999,
+   "title": "American Beauty",
+   "wiki": "American Beauty (1999 film)",
+   "tmdb_id": 14
+  },
+  {
+   "year": 1998,
+   "title": "Life Is Beautiful",
+   "wiki": "Life Is Beautiful",
+   "tmdb_id": 637
+  },
+  {
+   "year": 1997,
+   "title": "The Hanging Garden",
+   "wiki": "The Hanging Garden (film)",
+   "tmdb_id": 35161
+  },
+  {
+   "year": 1996,
+   "title": "Shine",
+   "wiki": "Shine (film)",
+   "tmdb_id": 7863
+  },
+  {
+   "year": 1995,
+   "title": "Antonia",
+   "wiki": "Antonia's Line",
+   "tmdb_id": 880
+  },
+  {
+   "year": 1994,
+   "title": "Priest",
+   "wiki": "Priest (1994 film)",
+   "tmdb_id": 40156
+  },
+  {
+   "year": 1993,
+   "title": "The Snapper",
+   "wiki": "The Snapper (film)",
+   "tmdb_id": 12664
+  },
+  {
+   "year": 1992,
+   "title": "Strictly Ballroom",
+   "wiki": "Strictly Ballroom",
+   "tmdb_id": 10409
+  },
+  {
+   "year": 1991,
+   "title": "The Fisher King",
+   "wiki": "The Fisher King",
+   "tmdb_id": 177
+  },
+  {
+   "year": 1990,
+   "title": "Cyrano de Bergerac",
+   "wiki": "Cyrano de Bergerac (1990 film)",
+   "tmdb_id": 11673
+  },
+  {
+   "year": 1989,
+   "title": "Roger & Me",
+   "wiki": "Roger & Me",
+   "tmdb_id": 1779
+  },
+  {
+   "year": 1988,
+   "title": "Women on the Verge of a Nervous Breakdown",
+   "wiki": "Women on the Verge of a Nervous Breakdown",
+   "tmdb_id": 4203
+  },
+  {
+   "year": 1987,
+   "title": "The Princess Bride",
+   "wiki": "The Princess Bride (film)",
+   "tmdb_id": 2493
+  },
+  {
+   "year": 1986,
+   "title": "The Decline of the American Empire",
+   "wiki": "The Decline of the American Empire",
+   "tmdb_id": 18499
+  },
+  {
+   "year": 1985,
+   "title": "The Official Story",
+   "wiki": "The Official Story",
+   "tmdb_id": 29263
+  },
+  {
+   "year": 1984,
+   "title": "Places in the Heart",
+   "wiki": "Places in the Heart",
+   "tmdb_id": 13681
+  },
+  {
+   "year": 1983,
+   "title": "The Big Chill",
+   "wiki": "The Big Chill (film)",
+   "tmdb_id": 12560
+  },
+  {
+   "year": 1982,
+   "title": "Tempest",
+   "wiki": "Tempest (1982 film)",
+   "tmdb_id": 48249
+  },
+  {
+   "year": 1981,
+   "title": "Chariots of Fire",
+   "wiki": "Chariots of Fire",
+   "tmdb_id": 9443
+  },
+  {
+   "year": 1980,
+   "title": "Bad Timing",
+   "wiki": "Bad Timing",
+   "tmdb_id": 33214
+  },
+  {
+   "year": 1979,
+   "title": "Best Boy",
+   "wiki": "Best Boy (1979 film)",
+   "tmdb_id": 42165
+  },
+  {
+   "year": 1978,
+   "title": "Girlfriends",
+   "wiki": "Girlfriends (1978 film)",
+   "tmdb_id": 111469
   }
  ]
 }

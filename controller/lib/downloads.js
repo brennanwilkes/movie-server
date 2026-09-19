@@ -138,7 +138,7 @@ async function jellyfinReady(app, arrId, completionOn) {
     if (!itemId) itemId = await jellyfinSearchId(arrItem.title, type);
     if (!itemId) return false;                                         // Jellyfin hasn't created it yet
     const uid = await jellyfinUserId();
-    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+    const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
     if (app === 'radarr') {                                            // movie: the item itself carries the runtime once probed
       const it = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${itemId}`, { headers: h }, 6000)).json();
       return (it.RunTimeTicks || 0) > 0;

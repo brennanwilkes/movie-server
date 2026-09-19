@@ -10,7 +10,7 @@ RUN npm install --omit=dev --no-audit --no-fund
 
 COPY server.js metrics.js ./
 COPY lib ./lib
-COPY oscar-winners.json film-awards.json person-awards.json intl-languages.json ./
+COPY oscar-winners.json film-awards.json person-awards.json intl-languages.json emmy-awards.json ./
 COPY web ./web
 # The CRF probe's standalone calibration tool. lib/probe.js runs the same measurement in-process;
 # this is the version a human drives by hand (`docker exec controller /app/scripts/probe-film.sh`).

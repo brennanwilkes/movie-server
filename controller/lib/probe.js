@@ -837,7 +837,7 @@ function sessionLive(s) {
 async function anyonePlaying() {
   try {
     const r = await tfetch(`${HOST.jellyfin}/Sessions`,
-      { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 6000);
+      { headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` } }, 6000);
     if (!r.ok) return true;
     const sessions = await r.json();
     if (!Array.isArray(sessions)) return true;
@@ -871,7 +871,7 @@ async function jellyfinBusy() {
   if (!PROBE_YIELD_TO_JELLYFIN) return false;
   try {
     const r = await tfetch(`${HOST.jellyfin}/ScheduledTasks`,
-      { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 6000);
+      { headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` } }, 6000);
     if (!r.ok) return null;                       // cannot tell — caller decides (see blockedBy)
     const tasks = await r.json();
     if (!Array.isArray(tasks)) return null;

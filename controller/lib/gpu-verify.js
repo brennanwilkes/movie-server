@@ -93,7 +93,7 @@ async function gpuVerifySweep() {
           const jfId = await jellyfinIdByTmdb('Movie', p.tmdbId);
           if (jfId) {
             const uid = await jellyfinUserId();
-            const it = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${jfId}`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 6000)).json();
+            const it = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${jfId}`, { headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` } }, 6000)).json();
             if (((it.UserData || {}).PlaybackPositionTicks || 0) > 0) {
               console.log(`gpuVerify: "${p.title}" replacement ready but someone is mid-watch — waiting`);
               metrics.emitEvent('swap_defer', { ti: p.title, reason: 'mid_watch' });
@@ -134,7 +134,7 @@ async function gpuVerifySweep() {
           const jfId = await jellyfinIdByTmdb('Movie', m.tmdbId);
           if (jfId) {
             const uid = await jellyfinUserId();
-            const it = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${jfId}`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 6000)).json();
+            const it = await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items/${jfId}`, { headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` } }, 6000)).json();
             const ud = it.UserData || {};
             if (ud.PlayCount > 0) { gpuSwapped.set(m.id, { ts: now, done: true }); persistState(); continue; }  // already watched fine — swap value ~0
             if ((ud.PlaybackPositionTicks || 0) > 0) continue;                   // someone is mid-watch — hands off

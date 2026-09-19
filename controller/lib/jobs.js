@@ -262,7 +262,7 @@ async function jellyfinJobs() {
   let tasks;
   try {
     tasks = await tfetchJson(`${HOST.jellyfin}/ScheduledTasks`,
-      { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY } }, 8000);
+      { headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` } }, 8000);
   } catch { return []; }   // Jellyfin down: the tab drops these rows rather than showing fiction
   if (!Array.isArray(tasks)) return [];
   const out = [];
@@ -391,7 +391,7 @@ app.post('/api/jobs/jf/:id/:verb', async (req, res) => {
   try {
     // tfetch, not tfetchJson: both verbs answer 204 with an empty body, which is not JSON.
     const r = await tfetch(`${HOST.jellyfin}/ScheduledTasks/Running/${id}`,
-      { method: verb === 'start' ? 'POST' : 'DELETE', headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY } }, 8000);
+      { method: verb === 'start' ? 'POST' : 'DELETE', headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` } }, 8000);
     if (!r.ok) return res.status(502).json({ error: `Jellyfin answered ${r.status}` });
     res.json({ ok: true });
   } catch (e) { res.status(502).json({ error: String((e && e.message) || e) }); }

@@ -157,7 +157,7 @@ async function resolvePersonId(name) {
   return cachedFetch(key, PERSON_ID_TTL, async () => {
     const uid = await jellyfinUserId();
     const want = normName(name);
-    const headers = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+    const headers = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
 
     const lookup = async (term, limit) => {
       const q = new URLSearchParams({ searchTerm: term, Limit: String(limit), userId: uid });

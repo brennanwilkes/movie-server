@@ -69,11 +69,48 @@ Every entry is `{year, title, tmdb_id}`.
 award winners`. Includes 2025 + 2026 winners. The 2018 honorary "Special Palme
 d'Or" (The Image Book) is deliberately **excluded** — it's not a regular win.
 
-**`resolve-festivals.sh`** fills in `tmdb_id` from the TMDb search API (reads
-`TMDB_API_KEY` from the repo `.env`; idempotent — already-resolved entries are
-skipped, ~0.3s/call). ALIASES map film titles whose festival/English name differs
-from TMDb's. After fixing titles (add an alias or edit the JSON directly and
-re-run), rebuild with:
+### Refreshing the lists: `fetch-festivals.sh` (added 2026-09-13)
+
+`bash data/oscars/fetch-festivals.sh` re-reads the source Wikipedia tables and merges in any
+winners `festivals.json` does not already have. **Additive only** — an entry matched on
+(category, year, normalized title) is never modified or deleted, so resolved `tmdb_id`s and
+hand-corrections survive every run. New rows land with `tmdb_id: null`.
+
+It covers Venice ×3 and TIFF ×1 today; Cannes and Sundance are still the hand-curated lists and
+their `SOURCES` entries have not been written yet (their parsers are unverified — adding one
+without checking it against the existing 554 entries risks inventing winners). The `SOURCES` table
+at the top of `fetch-festivals.py` is where a festival gets added.
+
+Two things that cost time and are now guarded in code:
+
+* **The section scan must be bounded at both ends.** `Silver Lion` holds four different awards
+  under one title; a scan that ran past its section end silently pulled pre-1990 Silver Lions into
+  "Venice: Best Director". The script now refuses to scan to EOF.
+* **`[[File:…]]` captions are stripped first.** They sit between the heading and the table and are
+  full of exactly what the parser looks for — `''[[Goodfellas]]'' (1990)`.
+
+Each entry also records `wiki`, the wikilink TARGET of the winner ("Nomadland (film)"). That is
+what makes the matching exact — see below.
+
+### `resolve-festivals.sh` — Wikidata first, TMDb search second
+
+**Strategy 0 (exact).** The `wiki` target maps to exactly one Wikidata item, and 281k film items
+carry `P4947` (TMDb movie ID). So the join is *Wikipedia table cell → article → Wikidata item →
+TMDb id*, with no string similarity in it at all. Batched 50 at a time; no API key needed. On the
+2026-09-13 run this resolved **218 of 220** new entries.
+
+**Strategy 1 (fuzzy).** The original TMDb search path, now only a fallback for entries with no
+`wiki` field or whose Wikidata item carries no TMDb id. The ALIASES table below it patches titles
+TMDb spells differently — it exists for that fallback and should not need to grow.
+
+**Why strategy 0 exists:** title search silently picks the wrong film. Bergman's *The Magician*
+(1958, Venice) resolved to an unrelated 2005 Australian film of the same name that happens to be in
+this library — a badge on the wrong poster, forever, with nothing to notice. Via the wikilink
+target it now resolves to TMDb 29453, correctly. Anything where the source title and the resolved
+record disagree is printed under "REVIEW" at the end of a run; read it.
+
+`TMDB_API_KEY` is read from the repo `.env`. Idempotent — already-resolved entries are skipped.
+After fixing titles (add an alias or edit the JSON directly and re-run), rebuild with:
 
 ```bash
 bash data/oscars/build.sh
@@ -139,6 +176,10 @@ collapsed at build time.
 | Sundance: Grand Jury Prize (Dramatic/Documentary) (Winners) | Sundance Grand Jury Prize |
 | Sundance: Audience Award (Dramatic/Documentary) (Winners) | Sundance Audience Award |
 | Sundance: Directing Award (Dramatic/Documentary) (Winners) | Sundance Directing Award |
+| Venice: Golden Lion (Winners) | Golden Lion |
+| Venice: Grand Jury Prize (Winners) | Grand Jury Prize (Venice Film Festival) |
+| Venice: Best Director (Winners) | Silver Lion § Best Direction (1990–present) |
+| TIFF: People's Choice (Winners) | TIFF People's Choice Award |
 
 Winners-only (no nominee lists) — these are competitive winner awards, and unlike
 the Academy there's no published all-nominee dataset to merge anyway.

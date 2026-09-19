@@ -74,13 +74,13 @@ require() { for c in "$@"; do command -v "$c" >/dev/null || die "missing require
 jellyfin_apikey() {
   local app="$1" jf="http://${NUC_IP:-localhost}:8096" tok key   # host-net Jellyfin binds to $NUC_IP, not localhost
   tok=$(curl -s -X POST "$jf/Users/AuthenticateByName" \
-    -H 'X-Emby-Authorization: MediaBrowser Client="prov", Device="cli", DeviceId="prov", Version="1"' \
+    -H 'Authorization: MediaBrowser Client="prov", Device="cli", DeviceId="prov", Version="1"' \
     -H 'Content-Type: application/json' \
     -d "$(jq -n --arg u "$JELLYFIN_ADMIN_USER" --arg p "$JELLYFIN_ADMIN_PASS" '{Username:$u,Pw:$p}')" | jq -r '.AccessToken')
-  key=$(curl -s "$jf/Auth/Keys" -H "X-Emby-Token: $tok" | jq -r --arg a "$app" '.Items[]?|select(.AppName==$a)|.AccessToken' | head -1)
+  key=$(curl -s "$jf/Auth/Keys" -H "Authorization: MediaBrowser Token=$tok" | jq -r --arg a "$app" '.Items[]?|select(.AppName==$a)|.AccessToken' | head -1)
   if [[ -z "$key" || "$key" == "null" ]]; then
-    curl -s -o /dev/null -X POST "$jf/Auth/Keys?app=$app" -H "X-Emby-Token: $tok"
-    key=$(curl -s "$jf/Auth/Keys" -H "X-Emby-Token: $tok" | jq -r --arg a "$app" '.Items[]?|select(.AppName==$a)|.AccessToken' | head -1)
+    curl -s -o /dev/null -X POST "$jf/Auth/Keys?app=$app" -H "Authorization: MediaBrowser Token=$tok"
+    key=$(curl -s "$jf/Auth/Keys" -H "Authorization: MediaBrowser Token=$tok" | jq -r --arg a "$app" '.Items[]?|select(.AppName==$a)|.AccessToken' | head -1)
   fi
   echo "$key"
 }

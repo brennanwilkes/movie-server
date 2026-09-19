@@ -1715,15 +1715,17 @@ html.layout-mobile .skinHeader.skinHeader {
    flex-centring it centres the TEXT instead, and `line-height: 1` collapses the box so the
    font's own leading stops adding phantom space above the ink. 48px matches the offset the drawer
    already reserves for the wordmark (.mainDrawer-scrollContainer padding-top). */
+/* JELLYFIN 12 UPDATE (2026-09-13). The geometry that used to live here described the 10.11 mobile
+   bar, where the hamburger sat at the far left and the wordmark started after it at x=52.
+   Jellyfin 12's MUI toolbar lays its own children out, so the wordmark now takes the LEFT gutter
+   and the toolbar is padded to clear it. All of that geometry has moved to §JF12c, which is keyed
+   on the width at which Jellyfin actually collapses its nav — `layout-mobile` is the wrong
+   question for it, because an iPad in landscape is layout-mobile and still shows the full nav bar.
+   Only the box-shaping stays here, which is layout-independent. */
 html.layout-mobile #mn-wordmark {
-  left: 52px !important;
-  top: 0 !important;
-  height: 48px !important;
   display: flex !important;
   align-items: center !important;
   line-height: 1 !important;
-  width: auto !important;
-  max-width: calc(100vw - 150px) !important;
   transition: transform 0.25s ease, opacity 0.25s ease !important;
 }
 /* When Jellyfin's headroom hides the header on scroll-down, slide the fixed
@@ -1877,6 +1879,20 @@ html.layout-mobile .sectionTitle {
   color: #f26d3d;
   border-color: rgba(242, 109, 61, .4);
 }
+.mn-oscar-text .mn-fest-venice {
+  color: #6fa8dc;
+}
+.mn-oscar-text .mn-fest-tiff {
+  color: #d64545;
+}
+.mn-oscar-text.mn-oscar-festival.mn-fest-venice {
+  color: #6fa8dc;
+  border-color: rgba(111, 168, 220, .4);
+}
+.mn-oscar-text.mn-oscar-festival.mn-fest-tiff {
+  color: #d64545;
+  border-color: rgba(214, 69, 69, .4);
+}
 
 /* List-row hover: themed accent outline + glow on the THUMBNAIL only.
    The glow used to sit on .listItem itself, which wrapped the whole row (thumbnail + title +
@@ -1941,6 +1957,75 @@ html.layout-mobile .sectionTitle {
   border-radius: var(--mn-card-radius) !important;
   border: 1px solid var(--primary-accent-color) !important;
 }
+
+/* PIN THE POSTER TO ITS OWN CONTAINER (2026-09-11, Jellyfin 12).
+   Jellyfin 12 renders the poster as `<img style="position:absolute; inset:0">` inside
+   .cardImageContainer, where 10.11 painted it as a background. Belt-and-braces only: Jellyfin's
+   own markup (and our cardShellHtml) already carry those declarations INLINE, and Jellyfin's
+   `.cardImageContainer{contain:strict}` already makes the image box the containing block, so the
+   card hover rule above (position:relative + contain:layout on .card) can never capture the image.
+   Kept so any card whose <img> arrives without inline geometry still covers its box.
+   Two levels only — Jellyfin 12 wraps the <img> in a plain <div>, ours is a direct child — so this
+   can never reach an <img> inside an injected decoration (e.g. .mn-logo). */
+.cardImageContainer > img,
+.cardImageContainer > div > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── THE POSTER-VANISHES-ON-HOVER BUG, actual root cause (2026-09-11) ──
+   Jellyfin 12 renders the card's click target as an <a> that ALSO carries the class
+   `cardImageContainer`, nested inside the hover overlay:
+
+     .cardContent > .cardImageContainer.coveredImage > div > img     <- the poster
+                  + .cardOverlayContainer.itemAction > a.cardImageContainer  <- the hit target
+                                                     + the hover buttons
+
+   That anchor therefore matched every per-theme CARD SURFACE rule further down this file
+   (`[mn-cut-geometry="1"] .cardImageContainer{background-color:#111}` and friends, plus the
+   accent border/glow hover rules) — an OPAQUE fill sitting directly on top of the poster. At rest
+   the overlay is `opacity: 0`, so nothing showed; on hover the overlay fades to `opacity: 1` and
+   painted that fill over the artwork. Probe on the live page: anchor backgroundColor
+   rgb(17,17,17), and elementsFromPoint over the poster returned [button, a.cardImageContainer,
+   img, div.cardImageContainer] — the anchor above the image. It looked like a late-loading bug
+   because the `[mn-*]` theme attributes are stamped on <html> by the flair JS after first paint,
+   so hover behaved until the theme landed.
+   The anchor is a HIT TARGET, not a surface: strip every paint treatment from it. Specificity is
+   deliberate — the `:hover:not(...)` chain mirrors the hover rules above (0,0,6,0) so this wins
+   on equal `!important` footing; the plain `.card` form beats the `[mn-*]` theme rules (0,0,2,0). */
+.card .cardOverlayContainer .cardImageContainer,
+.listItem .cardOverlayContainer .cardImageContainer,
+.card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardOverlayContainer .cardImageContainer,
+.listItem:hover .cardOverlayContainer .cardImageContainer {
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Stock Jellyfin 12 sets `.cardOverlayContainer{pointer-events:none}` and re-enables input only on
+   its DESCENDANTS (`.cardOverlayContainer *{pointer-events:auto}`), because the container is just
+   the tint. Any card that puts the click target ON the container instead of inside it is therefore
+   dead to the mouse. cardShellHtml now nests a hit target, but keep this net so a bare
+   `<a class="cardOverlayContainer">` anywhere still navigates. */
+a.cardOverlayContainer {
+  pointer-events: auto !important;
+}
+
+/* HOVER HANDS THE POSTER OVER TO THE CONTROLS. Both Jellyfin's cards and ours put the
+   favourite/played/menu cluster in the bottom-right corner — which is exactly where the Oscar
+   plaque lives at rest, so on hover the two drew on top of each other and the buttons were hard
+   to pick out (they were never actually unclickable: every decoration is `pointer-events: none`).
+   Fade the decorations for the duration of the hover instead. Scoped to `.itemsContainer` so the
+   detail page's big poster, which has no hover controls at all, keeps its flair. */
+/* REMOVED 2026-09-11: this used to fade the rank pill / Oscar plaque / nation flag to 0 on
+   hover, because our own injected hover buttons occupied the same bottom-right corner and the
+   two competed visually. Those injected buttons have since been removed (see
+   cardOverlayButtonsHtml in jellyfin-web-flair.js), so there is nothing to make room for — and
+   the badges are the point of the design. They now stay visible on hover, which is what the
+   pre-upgrade build did. */
 
 /* Buttons: token-driven border-radius */
 .button-submit {
@@ -2094,8 +2179,16 @@ html[mn-texture-crosshatch="1"]:not(.layout-mobile) body::before {
   transform: rotate(45deg) !important;
 }
 
-/* ── Diamond dividers (Marquee: mn-gilded-text=1) ── */
-[mn-gilded-text="1"] .listItem-border::after {
+/* ── Diamond dividers / hairline rules (Marquee: mn-gilded-text=1) ──
+   `:not(.emby-button)` IS THE WHOLE POINT OF THESE TWO SELECTORS. `.listItem-border` meant a
+   standalone divider element on Jellyfin 10.11, which is what "height: 1px" and the ◆ were written
+   for. Jellyfin 12 puts that same class on the settings ROW ITSELF
+   (`<a class="emby-button lnkUserProfile listItem-border">`), so unscoped these squashed all six
+   preferences rows to 1px and stacked their labels on top of each other — reported as "the
+   settings page is completely broken, everything crunched into one spot", and only in Marquee,
+   which is why it survived: the theme is picked at RANDOM per session, so five clean probe loads
+   proved nothing. Same class-changed-meaning trap as §JF12b. */
+[mn-gilded-text="1"] .listItem-border:not(.emby-button)::after {
   content: '\25C6';
   display: block;
   text-align: center;
@@ -2105,11 +2198,16 @@ html[mn-texture-crosshatch="1"]:not(.layout-mobile) body::before {
   padding: 2px 0;
 }
 
-/* ── Hairline rules (Marquee: mn-gilded-text=1) ── */
-[mn-gilded-text="1"] .listItem-border {
+[mn-gilded-text="1"] .listItem-border:not(.emby-button) {
   border: none !important;
   height: 1px !important;
   background: linear-gradient(90deg, transparent, var(--primary-accent-color) 20%, var(--primary-accent-color) 80%, transparent) !important;
+}
+
+/* Content rows still get the gilded hairline the rule above was after — as a bottom border, which
+   separates the rows without collapsing them. */
+[mn-gilded-text="1"] .emby-button.listItem-border {
+  border-bottom: 1px solid rgba(212, 175, 55, 0.28) !important;
 }
 
 /* ── Diagonal accent strip (Reel One: mn-cut-geometry=1) ── */
@@ -3011,8 +3109,11 @@ a.clearLink.emby-button {
 /* Poster overlay action buttons (mark-played, favourite) went invisible on marquee (transparent
    bg + inherited near-invisible glyph). Force their glyphs to the theme accent so they read on
    every theme. Excludes the Play FAB (handled separately below). */
-.cardOverlayButton:not(.cardOverlayFab-primary),
-.cardOverlayButton:not(.cardOverlayFab-primary) .material-icons {
+/* `:not(.mn-ov)` — our own card buttons (cardShellHtml) use colour to carry STATE: neutral when
+   off, accent when the item is a favourite / marked played. Painting them all accent from here
+   erased that distinction, so they opt out and style themselves in the flair JS instead. */
+.cardOverlayButton:not(.cardOverlayFab-primary):not(.mn-ov),
+.cardOverlayButton:not(.cardOverlayFab-primary):not(.mn-ov) .material-icons {
   color: var(--primary-accent-color, #47c4b8) !important;
 }
 
@@ -3381,4 +3482,660 @@ html.transparentDocument body::after {
 }
 .itemDetailPage .detailImageContainer .card:hover:not(.mn-t1):not(.mn-t2):not(.mn-t3) .cardImageContainer {
   border-width: 0 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   §JF12 — Jellyfin 12 layout compatibility                                    (2026-09-11)
+
+   Everything above this line was written against jellyfin-web 10.11, whose chrome was a fixed
+   250px DOCKED DRAWER down the left edge with the page content offset to clear it. The Movie
+   Night wordmark lived in that drawer: `#mn-wordmark` is position:fixed at left:4px with
+   width:242px (the 250px drawer minus even 4px gutters), and `.headerLeft` took
+   padding-left:170px so the back arrow cleared it.
+
+   Jellyfin 12 replaced all of that with a 48px MUI app bar across the top. Measured on the
+   running server with scripts/jf-shot.js:
+
+       HEADER.MuiPaper-root …          0,0   1280x48
+         DIV.MuiToolbar-root …         0,0   1280x48
+           DIV.MuiStack-root …        42,2    578x44     <- the nav links
+
+   The legacy `.skinHeader` subtree still EXISTS but is collapsed to 0x0, so every rule above that
+   targets it is now inert. That is why the upgrade left the wordmark painted straight over the new
+   nav links and the content sitting behind a 250px gutter with nothing in it.
+
+   This block fixes only those LAYOUT ASSUMPTIONS. The palette, fonts, card treatment, section
+   titles and detail-page work above are all still correct: 278 of the 339 classes they target
+   still exist in Jellyfin 12, and of the 61 that don't, almost all are the `mn-*` classes our own
+   flair JS creates rather than anything Jellyfin owns.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* 1. THE SIDEBAR IS BACK. Jellyfin 12 replaced the docked 250px drawer with a top app bar, and a
+      themed top bar is not the same product — the nav is the most branded surface on the page and
+      on top it reads as stock Jellyfin wearing a skin. So #mn-sidebar (built by the flair JS)
+      restores the drawer, and the 250px content offset that the branding above already assumes
+      stays exactly as it was. Everything below is gated on `.mn-has-sidebar`, which the script
+      only sets once the sidebar is actually in the DOM — so a failure leaves the stock top bar
+      rather than a page with no navigation at all. */
+/* KEEP the app bar — hide only its nav links. Jellyfin 12 put the LIBRARY TOOLBAR in this bar:
+   the page title, the "1-100 of 919" count, and the Play All / Shuffle / Sort / Filter controls
+   all live here, not in the page. Hiding the whole bar (the first thing I tried) took the sidebar
+   links out of the way but also deleted every one of those controls and the page's top spacing,
+   which is why All Movies and All TV Shows came back crunched against the viewport with no sort
+   or filter. So the bar stays, minus the links the drawer now owns.
+
+   `:first-child` rather than the emotion class: css-x5lcu9 is generated per build and would stop
+   matching on the next Jellyfin release. The nav links are always the first stack in the toolbar;
+   the boxes after it are the title, the count and the controls. */
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root > .MuiStack-root:first-child {
+  display: none !important;
+}
+/* Make the fixed app bar START where the drawer ends, rather than spanning the full width with a
+   266px left padding. Padding left the bar's own box under the drawer, so the "1-100 of 919" chip
+   was clipped by the drawer overlaying it, and every attempt to centre the controls was centring
+   them within a box that was really 250px wider than the space available. Shrinking the bar makes
+   `justify-content: center` mean what it says.
+
+   `right: 0` + `width` is over-constrained — the browser drops the width and the bar stays full
+   width — so anchor both edges and let width resolve itself. */
+html.mn-has-sidebar header.MuiPaper-root {
+  left: 250px !important;
+  right: 0 !important;
+  width: auto !important;
+  max-width: none !important;
+}
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root {
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+}
+
+/* THE LIBRARY TOOLBAR — Play All / Shuffle / Filter / sort / view / pagination. In the
+   pre-upgrade screenshots these are ACCENT-FILLED buttons with on-accent text (gold on Marquee),
+   not MUI's default blue. Everything is driven off the same theme variables the roulette sets, so
+   all four themes follow automatically. */
+header.MuiPaper-root .MuiButton-contained,
+header.MuiPaper-root .MuiButton-containedPrimary {
+  background: var(--primary-accent-color, #e8442e) !important;
+  color: var(--mn-text-on-accent, #ffffff) !important;
+  border-radius: var(--mn-btn-round, 0px) !important;
+  box-shadow: none !important;
+  font-family: var(--mn-nav-font, "Archivo", "Segoe UI", sans-serif) !important;
+  text-transform: var(--mn-nav-case, uppercase) !important;
+  letter-spacing: var(--mn-nav-track, .06em) !important;
+  font-weight: 700 !important;
+}
+header.MuiPaper-root .MuiButton-contained:hover {
+  background: var(--secondary-accent-color, #e34234) !important;
+}
+/* The icon-only controls (shuffle, filter, sort, view mode, pagination) sit beside Play All and
+   read as one cluster with it. */
+header.MuiPaper-root .MuiIconButton-root,
+header.MuiPaper-root .MuiButtonGroup-root .MuiButton-root {
+  color: var(--mn-text, #f2efe6) !important;
+  border-radius: var(--mn-btn-round, 0px) !important;
+}
+header.MuiPaper-root .MuiIconButton-root:hover {
+  background: rgba(var(--primary-r, 232), var(--primary-g, 68), var(--primary-b, 46), 0.16) !important;
+  color: var(--primary-accent-color, #e8442e) !important;
+}
+/* HIDE THE HEADER-RIGHT CLUSTER. The 10.11 design hid Jellyfin's header-right buttons (cast,
+   SyncPlay, search, account) and surfaced only Search and Settings into the drawer — which the
+   sidebar already carries. Jellyfin 12 renders that cluster as MUI icon buttons at the right of
+   the app bar; same decision, so they go. Scoped to .mn-has-sidebar: without the drawer they are
+   the only way to reach search or settings and must stay.
+
+   The buttons themselves are tagged by hideHeaderRight() in the flair JS (matching on the icon
+   ligature, because the cluster moves position between pages and MUI's class names are per-build);
+   this just makes the hiding stick against MUI's own display rules. */
+html.mn-has-sidebar header.MuiPaper-root [data-mn-hidden] {
+  display: none !important;
+}
+
+/* THE LIBRARY PAGE-TYPE DROPDOWN ("Movies / Studios / TV Shows") is new in Jellyfin 12 and was
+   never part of this design — the drawer is how you change library. Hide the toggle but keep the
+   title text itself, which the toolbar still needs as its heading. */
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root .MuiButton-root .MuiButton-endIcon,
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root > .MuiBox-root .MuiSelect-root {
+  display: none !important;
+}
+
+/* CENTRE the filter/sort cluster. Jellyfin 12 right-aligns it; the pre-upgrade design centred the
+   controls between the title and the page edge, and right-alignment is also what makes the row
+   overflow at narrower widths. `min-width: 0` lets the flex children shrink instead of pushing
+   the toolbar wider than the bar. */
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root {
+  flex-wrap: wrap !important;
+  row-gap: 4px !important;
+  overflow: hidden !important;
+}
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root > * {
+  min-width: 0 !important;
+}
+/* Centre the cluster. Jellyfin 12 pushes the controls hard right, which both differs from the
+   pre-upgrade layout and is what makes the row overflow at narrower widths — there is no slack
+   left once the title, the count chip and seven controls are all pinned to one edge. Centring is
+   applied to the toolbar rather than to a particular child because the toolbar's children differ
+   between renders and between library types, so any positional selector goes stale. */
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root {
+  justify-content: center !important;
+  gap: 10px !important;
+}
+/* …and inside the flex child that actually fills the bar. Centring only the toolbar does nothing,
+   because Jellyfin 12 puts the title, the count chip and every control inside ONE stretched
+   MuiBox that right-aligns its own contents. */
+/* Every flex level inside the toolbar, not just the toolbar's direct children: the controls sit
+   in a content-sized wrapper (measured 178px) which a GRANDPARENT box right-aligns, so centring
+   only one level left it pinned right. */
+/* …and the level that was actually pinning them right is a MuiStack, not a MuiBox. DOM walk up
+   from the button group on All Movies (2026-09-11):
+     .MuiButtonGroup-root   x=1095 w=188   jc=normal     flex=0 1 auto
+     .MuiBox-root           x=1095 w=188   jc=center     flex=0 1 auto
+     .MuiStack-root         x=394  w=1089  jc=flex-end   flex=1 1 auto   <- the stretched one
+     .MuiToolbar-root       x=250  w=1249  jc=center     flex=0 1 auto
+   Eight earlier attempts only ever named .MuiBox-root, which is why nothing moved. Widening the
+   selector is safe: the only other stack in the bar is the nav-links stack, and that is
+   `display: none` under .mn-has-sidebar (rule above). */
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root .MuiBox-root,
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root .MuiStack-root {
+  justify-content: center !important;
+}
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root > .MuiBox-root {
+  gap: 10px !important;
+}
+/* An `auto` margin beats justify-content outright, and Jellyfin 12 uses one to shove the control
+   cluster to the right edge. Clearing it is what actually centres the row. */
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root .MuiBox-root,
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root .MuiStack-root,
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root .MuiChip-root,
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root .MuiTypography-root {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* THE PAGE-TYPE DROPDOWN ("Movies" / "Studios" / "TV Shows"). It is a direct
+   `<button aria-haspopup="true">` child of the toolbar — new in Jellyfin 12, and never part of
+   this design, because the drawer is how you change library. Hiding its end-icon (the first
+   attempt) left the button itself, which is what was still rendering top-left. */
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root > button[aria-haspopup="true"] {
+  display: none !important;
+}
+
+/* Controls sit in sibling .MuiButtonGroup-roots. Symmetric auto margins on EACH of them spread
+   them apart instead of centring them as one cluster, so the groups just clear their margins and
+   the toolbar's own `justify-content: center` (above) does the centring now that the bar is no
+   longer 250px wider than its visible area. */
+html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root .MuiButtonGroup-root {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Page title + the "1-100 of 919" count chip. */
+header.MuiPaper-root .MuiTypography-root {
+  font-family: var(--mn-nav-font, "Archivo", "Segoe UI", sans-serif) !important;
+  color: var(--mn-text, #f2efe6) !important;
+}
+header.MuiPaper-root .MuiChip-root {
+  background: rgba(var(--primary-r, 232), var(--primary-g, 68), var(--primary-b, 46), 0.16) !important;
+  color: var(--mn-text, #f2efe6) !important;
+  border-radius: var(--mn-pill-radius, 999px) !important;
+  font-family: var(--mn-nav-font, "Archivo", "Segoe UI", sans-serif) !important;
+  letter-spacing: var(--mn-nav-track, .06em) !important;
+}
+
+/* Measured against the pre-upgrade screenshots (2026-07-26 Canyon, 2026-08-10 Marquee): a plain
+   typographic list, no icons, generous ~42px rhythm, the panel a shade off the page rather than a
+   bordered slab, and the SELECTED route a filled accent pill — not a tint or an edge bar. */
+#mn-sidebar {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 250px;
+  /* border-box, or the 16px side padding is ADDED to the 250px and the drawer renders ~282px —
+     overlapping the app bar (which is anchored at left:250px) and clipping the "1-100 of 919"
+     chip behind it. Everything else here assumes the drawer is exactly 250px. */
+  box-sizing: border-box;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  /* Room for the wordmark, which sits at the top of the drawer exactly as it did on 10.11.
+     NO SIDE PADDING (2026-09-13): the items carry their own `margin: 3px 8px`, so 16px of padding
+     on top of that left a 24px gutter and squeezed each row to 202px inside a 250px drawer —
+     visibly less filled than the mobile drawer, where the same items sit in 8px gutters. Brennan:
+     "on desktop the nav elements aren't filling as much width as they should be". Zeroing it puts
+     both surfaces on the same 8px gutter and the rows at 234px. */
+  padding: 116px 0 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--secondary-background-color, #0b0b0b);
+}
+/* Values taken verbatim from themeDrawer(), which styled the 10.11 drawer inline — so the rebuilt
+   drawer matches the original rather than approximating it:
+     idle      --mn-muted, weight 500, 14px, transparent
+     hover     rgba(255,255,255,.06) bg, rgba(255,255,255,.95) text   (white, NOT accent)
+     selected  filled accent pill, --mn-text-on-accent text, weight 700, --mn-btn-round
+     metrics   margin 3px 8px, padding 10px 16px, icons hidden (it is a typographic list)
+
+   #mn-drawer-nav is the SAME list injected into Jellyfin 12's mobile drawer (see
+   brandMobileDrawer() in jellyfin-web-flair.js). Sharing these rules rather than writing a second
+   set is the whole point: one nav, one look, one place to change it. */
+#mn-sidebar .mn-nav-item,
+#mn-drawer-nav .mn-nav-item {
+  display: block;
+  padding: 10px 16px;
+  margin: 3px 8px;
+  text-decoration: none;
+  border-radius: var(--mn-btn-round, 0px);
+  color: var(--mn-muted, #8d8a80);
+  font-family: var(--mn-nav-font, "Archivo", "Segoe UI", sans-serif);
+  text-transform: var(--mn-nav-case, uppercase);
+  letter-spacing: var(--mn-nav-track, .06em);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+#mn-sidebar .mn-nav-item:hover,
+#mn-drawer-nav .mn-nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, .95);
+}
+#mn-sidebar .mn-nav-item-on,
+#mn-sidebar .mn-nav-item-on:hover,
+#mn-drawer-nav .mn-nav-item-on,
+#mn-drawer-nav .mn-nav-item-on:hover {
+  color: var(--mn-text-on-accent, #0c2429);
+  background: var(--primary-accent-color, #e8442e);
+  font-weight: 700;
+}
+#mn-sidebar .mn-nav-divider,
+#mn-drawer-nav .mn-nav-divider {
+  height: 1px;
+  margin: 16px 18px 20px;
+  background: rgba(var(--mn-muted-r, 140), var(--mn-muted-g, 138), var(--mn-muted-b, 128), 0.28);
+  background: color-mix(in srgb, var(--mn-muted, #8d8a80) 45%, transparent);
+}
+
+/* Content clears the drawer again — this is the offset the branding was written against.
+   NOT .homeSectionsContainer as well — it lives INSIDE .libraryPage, so offsetting both stacks
+   the margins and pushes the rows out to 500px. */
+html.mn-has-sidebar .libraryPage,
+html.mn-has-sidebar .quickConnectSettingsContainer {
+  margin-left: 250px !important;
+}
+html.mn-has-sidebar .homeSectionsContainer {
+  margin-left: 0 !important;
+}
+/* Nothing may sit under the drawer: playback is full-bleed and must ignore the offset. */
+html.mn-has-sidebar .videoPlayerContainer,
+html.mn-has-sidebar .videoOsd,
+body.hide-scroll #mn-sidebar {
+  margin-left: 0 !important;
+}
+body.hide-scroll #mn-sidebar { display: none !important; }
+
+/* A fixed 250px drawer would eat most of a phone screen, so below Jellyfin 12's own nav
+   breakpoint the top bar takes over and our sidebar stands down. The rules are all in §JF12c at
+   the end of this file, keyed on that breakpoint — see the header there for why it is a width and
+   not `layout-mobile`. */
+
+/* 2. Put the wordmark back where a wordmark belongs — the left of the app bar — and size it to
+      the bar rather than to the old drawer. 242x72 was drawer-width; the bar is 48px tall, so at
+      the wordmark's ~3.36:1 aspect a 42px height gives ~141px of width. z-index clears MUI's
+      AppBar, which sits at 1100.
+
+      NOTE ON SPECIFICITY — `html body #mn-wordmark`, not the bare id. The wordmark is created by the
+   flair JS (JavaScript Injector), which appends its own <style> element to the document. That
+   stylesheet therefore comes AFTER this one, so at equal specificity and equal importance it wins
+   the cascade and the wordmark keeps its old 242x72 drawer size. Two id-less type selectors in
+   front is enough to beat it without resorting to anything uglier. */
+html body #mn-wordmark {
+  top: 3px !important;
+  left: 12px !important;
+  width: 132px !important;
+  height: 42px !important;
+  max-width: 132px !important;
+  z-index: 1210 !important;
+}
+/* …but when our sidebar is up the wordmark belongs at the TOP OF THE DRAWER at full size, which
+   is where it lived on 10.11 and what the 250px width was chosen for. The bar sizing above only
+   applies in the fallback case where the sidebar failed to build. */
+html.mn-has-sidebar body #mn-wordmark {
+  top: 18px !important;
+  left: 4px !important;
+  width: 242px !important;
+  max-width: 242px !important;
+  height: auto !important;
+  z-index: 1210 !important;
+}
+html body #mn-wordmark img,
+html body #mn-wordmark svg {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* 3. Push the nav links clear of the wordmark. The toolbar's own gutter puts the first link at
+      x=42; the wordmark ends at 12+132 = 144, so reserve 156 for an even 12px gap. */
+header.MuiPaper-root .MuiToolbar-root {
+  padding-left: 156px !important;
+}
+
+/* 3b. THEME THE APP BAR. This is what "the nav still looks wrong" actually was: the branding
+       above themes `.navMenuOption` — the 10.11 drawer — with the per-theme nav tokens the roulette
+       publishes on :root (--mn-nav-font / --mn-nav-case / --mn-nav-track, plus the palette). None
+       of those selectors match Jellyfin 12's MUI bar, so the nav rendered in stock MUI Roboto
+       sentence-case while everything around it was Movie Night. Same tokens, new selectors —
+       the theme roulette keeps working untouched because it only ever sets the variables.
+
+       `!important` throughout because MUI's emotion classes (css-1f20jcn and friends) are
+       generated per build and carry real specificity; matching them by name would break on the
+       next Jellyfin release. */
+header.MuiPaper-root {
+  background: var(--secondary-background-color, #0b0b0b) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid rgba(var(--primary-r, 232), var(--primary-g, 68), var(--primary-b, 46), 0.22) !important;
+}
+header.MuiPaper-root .MuiStack-root a.MuiButton-root,
+header.MuiPaper-root .MuiStack-root a.MuiButtonBase-root {
+  font-family: var(--mn-nav-font, "Archivo", "Segoe UI", sans-serif) !important;
+  text-transform: var(--mn-nav-case, uppercase) !important;
+  letter-spacing: var(--mn-nav-track, .06em) !important;
+  font-weight: 600 !important;
+  color: var(--mn-text, #f2efe6) !important;
+  opacity: .82;
+  border-radius: var(--mn-btn-round, 0px) !important;
+}
+header.MuiPaper-root .MuiStack-root a.MuiButton-root:hover,
+header.MuiPaper-root .MuiStack-root a.MuiButtonBase-root:hover {
+  color: var(--primary-accent-color, #e8442e) !important;
+  background: transparent !important;
+  opacity: 1;
+}
+/* The header-right icon cluster (people / cast / search / account) — same palette so it doesn't
+   read as a different app from the links on the left. */
+header.MuiPaper-root .MuiIconButton-root,
+header.MuiPaper-root .MuiButtonBase-root .material-icons {
+  color: var(--mn-text, #f2efe6) !important;
+}
+header.MuiPaper-root .MuiIconButton-root:hover .material-icons {
+  color: var(--primary-accent-color, #e8442e) !important;
+}
+
+/* 4. Mobile: the app bar is the same 48px but there is far less width to spend, and the nav
+      collapses to a menu button. The wordmark sizing that used to live here has moved up to the
+      consolidated mobile block (`html.layout-mobile body #mn-wordmark`) — a media query adds no
+      specificity, so from inside one it could never beat §JF12's own `html.mn-has-sidebar body
+      #mn-wordmark`. Only the toolbar gutter stays here, re-gated and given the specificity to win.
+
+      120px = the wordmark's 8px inset + its 104px width + an 8px gap, so the hamburger lands just
+      clear of it. Lives in §JF12c with the rest of the compact-chrome geometry. */
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   §JF12c — THE MOBILE NAV DRAWER                                              (2026-09-13)
+
+   Brennan, with photos: "the nav on mobile while hidden behind a hamburger should be essentially
+   the same style wise as the regular web view. Both the hamburger itself and the nav are
+   currently busted in some way or another."
+
+   Two separate faults, both measured on a real mobile layout (see the note on scripts/jf-shot.js
+   below — until today the rig could not produce one):
+
+   1. THE APP BAR WAS 140px WIDE, PINNED TO THE RIGHT. §JF12 starts the bar at left:250px so it
+      begins where the docked sidebar ends; nothing turned that off when the sidebar is hidden, so
+      on a 390px phone the bar ran 250→390 and everything in it (hamburger, title, controls) was
+      crammed into the right-hand third with a stripe of border under it. Measured:
+      header.MuiPaper-root at x=250 w=140.
+
+   2. THE DRAWER IS A DIFFERENT COMPONENT NOW, and nothing here had ever matched it. All the
+      drawer branding above targets 10.11's `.mainDrawer` / `.navMenuOption` markup — which still
+      exists in the DOM but is collapsed to 0x0 and inert. The nav a phone actually opens is a MUI
+      temporary Drawer (`.MuiDrawer-paper` > `.MuiList-root` > `.MuiListItem-root`), so it rendered
+      as stock MUI: grey elevation-16 paper, Roboto sentence case, material icons, MUI's own blue
+      selected row — under our wordmark, which was still drawer-sized and painted across the top
+      of it.
+
+   Mirrors #mn-sidebar (the desktop drawer) deliberately: same ground, no icons, uppercase tracked
+   labels in the nav font, selected row as a solid accent block. Everything reads from the same
+   roulette-published tokens, so all four themes follow with no extra work.
+
+   ── WHY A WIDTH AND NOT `layout-mobile` ───────────────────────────────────────────────────────
+   `layout-mobile` is the right signal for "Jellyfin won't dock its drawer" (memory:
+   mobile-web-polish) but it is the WRONG one for this block, and measuring is what settled it.
+   Jellyfin 12 swaps its app-bar nav links for the hamburger at MUI's `md` breakpoint. Probed on
+   the running server with an iPad UA:
+
+       600px  hamburger yes, 0 nav links        900px  hamburger NO, 7 nav links
+       700px  hamburger yes, 0 nav links       1024px  hamburger NO, 7 nav links
+       820px  hamburger yes, 0 nav links
+
+   So an iPad in LANDSCAPE (1024) is `layout-mobile` and still has the full nav bar, while the same
+   iPad in PORTRAIT (820) has the hamburger. Gating on `layout-mobile` hid #mn-sidebar on landscape
+   iPad where there is no hamburger to replace it — and §JF12 hides the app bar's own links
+   whenever our sidebar exists — so that tablet ended up with NO NAVIGATION AT ALL (verified: the
+   Open Menu button is simply absent at 1024). The same hole in the other direction is why the
+   original `max-width: 800px` was wrong: a desktop window dragged to 850px lost the sidebar while
+   Jellyfin still hadn't given it a hamburger.
+
+   899.98px is exactly MUI's md breakpoint minus a hair, so this block turns on in lockstep with
+   the hamburger appearing, on every device, regardless of layout class. Selectors inside match
+   §JF12's specificity exactly and win on source order — a media query contributes none of its own,
+   which is the trap the old block fell into.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 899.98px) {
+  /* 1. Stand the sidebar down and give the app bar the full width back. §JF12 starts the bar at
+        left:250px so it begins where the docked sidebar ends; with no sidebar that left a 140px
+        bar jammed against the right edge of a 390px phone (measured x=250 w=140), which is the
+        stripe of border and the marooned hamburger in Brennan's IMG_2607. */
+  #mn-sidebar { display: none !important; }
+  html.mn-has-sidebar header.MuiPaper-root {
+    display: flex !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: auto !important;
+  }
+  html.mn-has-sidebar .libraryPage,
+  html.mn-has-sidebar .quickConnectSettingsContainer,
+  html.mn-has-sidebar .homeSectionsContainer { margin-left: 0 !important; }
+
+  /* 2. HAMBURGER FIRST, THEN THE WORDMARK. The bar used to reserve its left gutter for the
+        wordmark and let the hamburger fall in after it, which parked the control in the middle of
+        an otherwise empty bar — Brennan: "the hamburger… looks kinda weird floating centre left
+        ish right of the wordmark". Nothing else is in this bar (hideHeaderRight() takes the
+        cast/search/account cluster), so there was no reason for it to be anywhere but the edge.
+        Control at the left edge, brand beside it, which is also what the 10.11 mobile bar did.
+
+        The wordmark box has to match what fitWm() in jellyfin-web-flair.js actually renders —
+        112px of text plus a 28px disc and a 4px gap on touch, so ~144px — or the lockup overflows
+        whatever the box claims. Keep the two in step. */
+  html body #mn-wordmark,
+  html.mn-has-sidebar body #mn-wordmark {
+    left: 56px !important;
+    top: 7px !important;
+    width: 148px !important;
+    max-width: 148px !important;
+    height: 34px !important;
+  }
+  html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root {
+    padding-left: 4px !important;
+  }
+
+  /* 2b. THE LIBRARY TOOLBAR. A library page puts a SECOND dense toolbar under the nav one, holding
+         the "1-100 of 934" count and the Play / Shuffle / Filter / Sort / View / pagination
+         cluster. MUI ships it `flex-wrap: wrap; justify-content: center`, and the count Box and the
+         control Stack each claim the full width, so they stacked onto two centred lines and the
+         header grew to 131px. Brennan: "the top filters/sort is sort of messed up. It should evenly
+         fill width and the 1-100 of 934 should be inline and on the left of the filters."
+
+         Count shrinks to its content on the left, controls take the remaining width and spread
+         across it. `+ .MuiToolbar-root` addresses the second toolbar without relying on a generated
+         emotion class — the nav toolbar is always the first and the library one always follows it.
+
+         `html.mn-has-sidebar` is not decoration. §JF12 above already forces `flex-wrap: wrap`,
+         `justify-content: center` and `gap: 10px` onto EVERY toolbar at (0,3,2); dropping the
+         prefix left these at (0,3,1) and only the `flex` declarations — which nothing else
+         claims — took effect, so the row stayed centred and stacked. Measured before the prefix:
+         computed flexWrap still `wrap`, justifyContent still `center`. */
+  html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root + .MuiToolbar-root {
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    padding-right: 4px !important;
+  }
+  html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root + .MuiToolbar-root > .MuiBox-root {
+    flex: 0 0 auto !important;
+    justify-content: flex-start !important;
+  }
+  html.mn-has-sidebar header.MuiPaper-root .MuiToolbar-root + .MuiToolbar-root > .MuiStack-root {
+    flex: 1 1 auto !important;
+    justify-content: space-evenly !important;
+  }
+
+  /* 3. The drawer surface. `background-image: none` is not optional: MUI paints elevation as a
+        translucent white overlay in background-image, so setting only background-color leaves the
+        paper 14.5% lighter than asked (measured: rgb(32,32,32) + rgba(255,255,255,.145)).
+        padding-top clears the fixed wordmark, which sits at z-index 1210 over the drawer's 1200
+        and so crowns it the way it crowns the desktop sidebar. */
+  .MuiDrawer-paper {
+    background-color: var(--secondary-background-color, #0e0e0e) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border-right: 1px solid var(--mn-divider-color, rgba(255, 255, 255, 0.08)) !important;
+    min-width: 220px !important;
+    padding-top: 48px !important;
+  }
+
+  /* 4. THE LIST ITSELF IS OURS. brandMobileDrawer() in jellyfin-web-flair.js injects the same
+        `.mn-nav-item` markup #mn-sidebar uses (styled by the shared rules further up), so the
+        drawer carries the real nav — Home · Top 100 · All Movies · All TV Shows — Search ·
+        Collections · Settings — instead of Jellyfin's stock Home / Favourites / Libraries set.
+        That is not only a branding difference: the stock list has no Search and no Settings, and
+        hideHeaderRight() has already taken both out of the app bar on the assumption the drawer
+        carries them, so a phone had no route to either (Brennan, 2026-09-13).
+
+        GATED ON `[data-mn-drawer]`, which the script only sets once our nav is actually in the
+        DOM. If it never runs, the stock list stays visible and the drawer still navigates —
+        the failure mode is "unbranded", never "no nav". */
+  .MuiDrawer-paper[data-mn-drawer] > .MuiBox-root,
+  .MuiDrawer-paper[data-mn-drawer] > .MuiList-root {
+    display: none !important;
+  }
+  #mn-drawer-nav {
+    padding: 4px 0 8px;
+  }
+
+  /* 9. Backdrop: MUI ships this one transparent, so the page behind stayed at full brightness and
+        the drawer had nothing to sit against. */
+  .MuiDrawer-root .MuiBackdrop-root {
+    background-color: rgba(0, 0, 0, 0.6) !important;
+  }
+}
+
+/* Touch has no hover, but iOS Safari latches :hover onto the last-tapped element — so an un-gated
+   hover rule leaves a row stuck lit after you navigate. Same reasoning as the `@media (hover:
+   hover)` gate on the 10.11 drawer further up. Nested media queries are avoided (Safari only
+   gained them in 16.4) so this repeats the width bound instead. */
+@media (max-width: 899.98px) and (hover: hover) and (pointer: fine) {
+  .MuiDrawer-paper .MuiListItemButton-root:not(.Mui-selected):hover {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+  }
+  .MuiDrawer-paper .MuiListItemButton-root:not(.Mui-selected):hover .MuiListItemText-primary {
+    color: var(--primary-accent-color, #e8442e) !important;
+    opacity: 1;
+  }
+}
+
+/* §JF12b — SETTINGS LIST. Same failure mode as the `.button-link` exemption further up, on a
+   class that did not used to match: the per-theme rule `[mn-*] .emby-button { background:
+   <accent> !important }` (spec 0,0,2,0) paints every .emby-button, and Jellyfin 12 renders each
+   preferences row as `<a class="emby-button lnkUserProfile listItem-border">` — an .emby-button
+   WITHOUT .button-link. Result: the whole settings menu rendered as one solid accent slab with
+   the rows invisible inside it. Measured: A.emby-button.lnkUserProfile.listItem-border with
+   background rgb(227,66,52).
+
+   Same technique as the link fix: add the list class to reach spec 0,0,3,0 and stay later in
+   source order so it also beats the :hover variants. Rest is transparent; hover gets the same
+   subtle white lift the drawer uses, so the rows still respond. */
+[mn-glow-text="1"] .emby-button.listItem-border,
+[mn-litho-offset-x="3"] .emby-button.listItem-border,
+[mn-cut-geometry="1"] .emby-button.listItem-border,
+[mn-gilded-text="1"] .emby-button.listItem-border,
+.emby-button.listItem-border {
+  background: transparent !important;
+  background-color: transparent !important;
+  /* The per-theme rule pairs its accent background with a TEXT-ON-ACCENT foreground (Marquee:
+     #0E0B06). Clearing the background without clearing that colour left the row icons drawn
+     near-black on a near-black page — invisible, though the labels survived because they carry
+     their own colour. Put the foreground back on the page's own text colour. */
+  color: var(--mn-text, #F2EFE6) !important;
+}
+[mn-glow-text="1"] .emby-button.listItem-border:hover,
+[mn-litho-offset-x="3"] .emby-button.listItem-border:hover,
+[mn-cut-geometry="1"] .emby-button.listItem-border:hover,
+[mn-gilded-text="1"] .emby-button.listItem-border:hover,
+.emby-button.listItem-border:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* §JF12b-race — the exemption above is keyed on `.listItem-border`, and that class arrives when
+   the emby-button custom element upgrades, NOT in the server's first paint. In the window before
+   it lands the row is a bare `.emby-button`, the per-theme accent rule wins, and the settings menu
+   flashes up as the solid accent slab this block was written to prevent — intermittently, which is
+   exactly how it was reported ("settings page is completely busted, all gorbled up") while five
+   consecutive probe loads looked clean.
+   So exempt the whole preferences LIST by page container instead, which exists from mount and
+   cannot arrive late. Three classes (0,0,3,0) beats `[mn-*] .emby-button` (0,0,2,0) outright
+   rather than relying on source order. Real buttons — Save, raised, FAB — keep their accent. */
+.userPreferencesPage .readOnlyContent .emby-button:not(.button-submit):not(.raised):not(.fab),
+.userPreferencesPage .readOnlyContent .emby-button:not(.button-submit):not(.raised):not(.fab):hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--mn-text, #F2EFE6) !important;
+}
+.userPreferencesPage .readOnlyContent .emby-button:not(.button-submit):not(.raised):not(.fab):hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* The "Modular Home" entry Plugin Pages injects — Home Screen Sections' own per-user section
+   editor. It renders loose in the drawer column below our nav, in stock MUI styling, so it is
+   hidden rather than left to look like a broken nav item. (The page itself still works if you
+   route to it directly; only the misplaced entry is hidden.)
+
+   Targeted by HREF. A structural selector like `.MuiListItemText-root:has(> .MuiTypography-root)`
+   would have matched every MUI list row in the app. */
+html.mn-has-sidebar a[href*="ModularHomeViews"],
+html.mn-has-sidebar a[href*="modularhome"] {
+  display: none !important;
+}
+
+/* Belt and braces: our sidebar is a plain <nav> appended to <body>, and things get injected into
+   it — the Modular Home entry showed up INSIDE #mn-sidebar in one render (a MUI anchor whose
+   ancestor chain ended at our nav) while the href rule above was already in force, so the href
+   was not the one it matched. buildSidebar only rewrites innerHTML when its signature changes, so
+   a foreign child can also simply survive there.
+   Hide anything in the sidebar that we did not put there. display:none rather than removing the
+   node from JS: it may be React-owned, and tearing it out invites a throw on the next render. */
+#mn-sidebar > *:not(.mn-nav-item):not(.mn-nav-divider) {
+  display: none !important;
+}
+
+/* ── Suppress the built-in "Recently Added Movies" home row ─────────────────────────────────
+   Home Screen Sections has this section set to `Enabled: false` in its own configuration (see
+   scripts/provision/jellyfin.sh) and serves it ANYWAY. Established 2026-09-12 by testing every
+   config lever the plugin offers: AllowUserOverride off, a full Jellyfin restart, a
+   CacheBustCounter bump, and deleting the entry from SectionSettings outright — it came back in
+   `GET /HomeScreen/Sections` every time, while the identically-configured RecentlyAddedShows
+   stayed correctly absent. A plugin bug, in other words, of the same vintage as the
+   BecauseYouWatched section that throws on Jellyfin 12.
+
+   The row is unwanted here because the rotating collection shelves and the because-you-watched
+   rows are the discovery layer; a flat "newest first" list just repeats them.
+
+   Safe to target by class: HSS stamps the SectionId onto the row element itself
+   (div.verticalSection.RecentlyAddedMovies.section21), so this needs no JS and no text matching.
+   If the plugin ever honours its own Enabled flag, this rule simply stops matching. */
+.verticalSection.RecentlyAddedMovies {
+  display: none !important;
 }

@@ -25,7 +25,7 @@ fi
 # 2. Authenticate as the admin user to get an access token.
 AUTHHDR='MediaBrowser Client="provision", Device="cli", DeviceId="provision-cli", Version="1.0"'
 token=$(curl -fsS -X POST "$JF/Users/AuthenticateByName" \
-  -H "X-Emby-Authorization: $AUTHHDR" -H 'Content-Type: application/json' \
+  -H "Authorization: $AUTHHDR" -H 'Content-Type: application/json' \
   -d "$(jq -n --arg n "$JELLYFIN_ADMIN_USER" --arg p "$JELLYFIN_ADMIN_PASS" '{Username:$n,Pw:$p}')" \
   | jq -r '.AccessToken')
 [[ -n "$token" && "$token" != "null" ]] || die "Jellyfin auth failed — check JELLYFIN_ADMIN_* in .env"
@@ -36,24 +36,24 @@ token=$(curl -fsS -X POST "$JF/Users/AuthenticateByName" \
 #    Library" only refreshes items Jellyfin already knows about (it pings
 #    /Library/Media/Updated), so it does NOT reliably discover brand-new files; the
 #    watcher is what actually makes fresh downloads appear automatically.
-existing=$(curl -fsS "$JF/Library/VirtualFolders" -H "X-Emby-Token: $token" | jq -r '.[].Name')
+existing=$(curl -fsS "$JF/Library/VirtualFolders" -H "Authorization: MediaBrowser Token=$token" | jq -r '.[].Name')
 jf_enable_realtime() {  # name — idempotently set EnableRealtimeMonitor=true on a library
   local vf id
-  vf=$(curl -fsS "$JF/Library/VirtualFolders" -H "X-Emby-Token: $token" | jq --arg n "$1" '.[]|select(.Name==$n)')
+  vf=$(curl -fsS "$JF/Library/VirtualFolders" -H "Authorization: MediaBrowser Token=$token" | jq --arg n "$1" '.[]|select(.Name==$n)')
   [[ -n "$vf" ]] || { warn "  could not find library '$1' to enable real-time monitor"; return; }
   if [[ "$(jq -r '.LibraryOptions.EnableRealtimeMonitor' <<<"$vf")" == "true" ]]; then
     ok "library '$1' real-time monitor already on"; return
   fi
   jq '{Id: .ItemId, LibraryOptions: (.LibraryOptions | .EnableRealtimeMonitor=true)}' <<<"$vf" \
     | curl -fsS -X POST "$JF/Library/VirtualFolders/LibraryOptions" \
-        -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+        -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' -d @- >/dev/null
   ok "library '$1' real-time monitor enabled"
 }
 jf_add_library() {  # name  collectionType  path
   if grep -qxF "$1" <<<"$existing"; then ok "library '$1' already present"
   else
     curl -fsS -X POST "$JF/Library/VirtualFolders?name=$1&collectionType=$2&refreshLibrary=true" \
-      -H "X-Emby-Token: $token" -H 'Content-Type: application/json' \
+      -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' \
       -d "$(jq -n --arg p "$3" '{LibraryOptions:{EnableRealtimeMonitor:true,PathInfos:[{Path:$p}]}}')" >/dev/null
     ok "library '$1' -> $3"
   fi
@@ -69,14 +69,14 @@ jf_add_library TV     tvshows  /media/tv
 #      phantom seasons. Non-destructive: libraries with no NFO fall back to the online agents.
 jf_enable_nfo_reader() {  # name — idempotently put 'Nfo' first in LocalMetadataReaderOrder
   local vf
-  vf=$(curl -fsS "$JF/Library/VirtualFolders" -H "X-Emby-Token: $token" | jq --arg n "$1" '.[]|select(.Name==$n)')
+  vf=$(curl -fsS "$JF/Library/VirtualFolders" -H "Authorization: MediaBrowser Token=$token" | jq --arg n "$1" '.[]|select(.Name==$n)')
   [[ -n "$vf" ]] || { warn "  could not find library '$1' to enable NFO reader"; return; }
   if [[ "$(jq -r '.LibraryOptions.LocalMetadataReaderOrder // [] | index("Nfo") // "no"' <<<"$vf")" != "no" ]]; then
     ok "library '$1' NFO reader already on"; return
   fi
   jq '{Id: .ItemId, LibraryOptions: (.LibraryOptions | .LocalMetadataReaderOrder=["Nfo"])}' <<<"$vf" \
     | curl -fsS -X POST "$JF/Library/VirtualFolders/LibraryOptions" \
-        -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+        -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' -d @- >/dev/null
   ok "library '$1' NFO local-metadata reader enabled"
 }
 jf_enable_nfo_reader TV
@@ -84,13 +84,13 @@ jf_enable_nfo_reader Movies
 
 # 3b. Auto-collections: group movies into TMDb box sets (trilogies/sagas) automatically —
 #     zero new software, big browse win. Idempotent, same pattern as trickplay below.
-vf=$(curl -fsS "$JF/Library/VirtualFolders" -H "X-Emby-Token: $token" | jq '.[]|select(.Name=="Movies")')
+vf=$(curl -fsS "$JF/Library/VirtualFolders" -H "Authorization: MediaBrowser Token=$token" | jq '.[]|select(.Name=="Movies")')
 if [[ "$(jq -r '.LibraryOptions.AutomaticallyAddToCollection // false' <<<"$vf")" == "true" ]]; then
   ok "Movies library already auto-adds to collections"
 else
   jq '{Id: .ItemId, LibraryOptions: (.LibraryOptions | .AutomaticallyAddToCollection=true)}' <<<"$vf" \
     | curl -fsS -X POST "$JF/Library/VirtualFolders/LibraryOptions" \
-        -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+        -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' -d @- >/dev/null
   ok "Movies library now auto-adds to TMDb collections (box sets)"
 fi
 
@@ -101,16 +101,16 @@ fi
 #     fork's toolbar buttons open each list by name.
 #     Playlists are user-scoped, so create them under the admin user we authenticated as.
 #     (Watchlist was retired 2026-07-26.)
-jf_uid=$(curl -fsS "$JF/Users/Me" -H "X-Emby-Token: $token" | jq -r '.Id')
+jf_uid=$(curl -fsS "$JF/Users/Me" -H "Authorization: MediaBrowser Token=$token" | jq -r '.Id')
 [[ -n "$jf_uid" && "$jf_uid" != "null" ]] || die "could not resolve Jellyfin user id for playlists"
 existing_playlists=$(curl -fsS "$JF/Items?userId=$jf_uid&IncludeItemTypes=Playlist&Recursive=true" \
-  -H "X-Emby-Token: $token" | jq -r '.Items[].Name')
+  -H "Authorization: MediaBrowser Token=$token" | jq -r '.Items[].Name')
 jf_ensure_playlist() {  # name — create an EMPTY video playlist if none with this exact name exists
   if grep -qxF "$1" <<<"$existing_playlists"; then
     ok "playlist '$1' already exists (contents left untouched)"; return
   fi
   # CreatePlaylistDto: empty Ids => empty playlist. MediaType Video so it lives under Movies/TV.
-  curl -fsS -X POST "$JF/Playlists" -H "X-Emby-Token: $token" -H 'Content-Type: application/json' \
+  curl -fsS -X POST "$JF/Playlists" -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' \
     -d "$(jq -n --arg n "$1" --arg u "$jf_uid" '{Name:$n, Ids:[], UserId:$u, MediaType:"Video"}')" >/dev/null \
     && ok "playlist '$1' created (empty — populate/rank in-app)" \
     || warn "  failed to create playlist '$1'"
@@ -128,27 +128,27 @@ jf_ensure_playlist "Top 100"
 jf_refresh_playlist_cover() {  # name
   local pid tmp iid n=0; local -a cells=()
   pid=$(curl -fsS "$JF/Items?userId=$jf_uid&IncludeItemTypes=Playlist&Recursive=true" \
-    -H "X-Emby-Token: $token" | jq -r --arg n "$1" '.Items[]|select(.Name==$n).Id // empty')
+    -H "Authorization: MediaBrowser Token=$token" | jq -r --arg n "$1" '.Items[]|select(.Name==$n).Id // empty')
   [[ -n "$pid" ]] || return
   if ! command -v montage >/dev/null 2>&1 || ! command -v convert >/dev/null 2>&1; then
     # Fallback: let Jellyfin rebuild its own collage (may look squashed).
-    curl -fsS -X DELETE "$JF/Items/$pid/Images/Primary" -H "X-Emby-Token: $token" >/dev/null 2>&1 || true
+    curl -fsS -X DELETE "$JF/Items/$pid/Images/Primary" -H "Authorization: MediaBrowser Token=$token" >/dev/null 2>&1 || true
     curl -fsS -X POST "$JF/Items/$pid/Refresh?metadataRefreshMode=FullRefresh&imageRefreshMode=FullRefresh&replaceAllImages=true" \
-      -H "X-Emby-Token: $token" >/dev/null 2>&1 || true
+      -H "Authorization: MediaBrowser Token=$token" >/dev/null 2>&1 || true
     warn "  ImageMagick not found — '$1' cover left to Jellyfin (may look squashed)"; return
   fi
   tmp=$(mktemp -d)
   while read -r iid; do
     [[ -n "$iid" ]] || continue
-    curl -fsS "$JF/Items/$iid/Images/Primary?maxHeight=450&quality=90" -H "X-Emby-Token: $token" -o "$tmp/raw$n" 2>/dev/null \
+    curl -fsS "$JF/Items/$iid/Images/Primary?maxHeight=450&quality=90" -H "Authorization: MediaBrowser Token=$token" -o "$tmp/raw$n" 2>/dev/null \
       && convert "$tmp/raw$n" -resize 300x300^ -gravity center -extent 300x300 "$tmp/cell$n.png" 2>/dev/null \
       && { cells+=("$tmp/cell$n.png"); n=$((n+1)); } || true
-  done < <(curl -fsS "$JF/Playlists/$pid/Items?userId=$jf_uid&Limit=8" -H "X-Emby-Token: $token" \
+  done < <(curl -fsS "$JF/Playlists/$pid/Items?userId=$jf_uid&Limit=8" -H "Authorization: MediaBrowser Token=$token" \
              | jq -r '.Items[]|select(.ImageTags.Primary!=null)|.Id' | head -4)
   if (( ${#cells[@]} >= 1 )) \
      && montage "${cells[@]}" -tile 2x2 -geometry +0+0 -background '#000' "$tmp/mosaic.png" 2>/dev/null \
      && base64 -w0 "$tmp/mosaic.png" | curl -fsS -X POST "$JF/Items/$pid/Images/Primary" \
-          -H "X-Emby-Token: $token" -H 'Content-Type: image/png' --data-binary @- >/dev/null; then
+          -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: image/png' --data-binary @- >/dev/null; then
     ok "playlist '$1' cover rebuilt (${#cells[@]}-poster mosaic, correct aspect)"
   else
     warn "  could not rebuild cover for '$1' (no poster items yet, or ImageMagick error)"
@@ -164,10 +164,10 @@ jf_refresh_playlist_cover "Top 100"
 if [[ -n "${JELLYFIN_USER_2:-}" ]]; then
   # a. Create idempotently. The password is set ONLY on creation — a re-run must never clobber
   #    a password she changed in-app.
-  leslie_id=$(curl -fsS "$JF/Users" -H "X-Emby-Token: $token" \
+  leslie_id=$(curl -fsS "$JF/Users" -H "Authorization: MediaBrowser Token=$token" \
     | jq -r --arg n "$JELLYFIN_USER_2" '.[]|select(.Name==$n).Id // empty')
   if [[ -z "$leslie_id" ]]; then
-    leslie_id=$(curl -fsS -X POST "$JF/Users/New" -H "X-Emby-Token: $token" \
+    leslie_id=$(curl -fsS -X POST "$JF/Users/New" -H "Authorization: MediaBrowser Token=$token" \
       -H 'Content-Type: application/json' \
       -d "$(jq -n --arg n "$JELLYFIN_USER_2" --arg p "${JELLYFIN_PASS_2:-}" '{Name:$n, Password:$p}')" \
       | jq -r '.Id // empty')
@@ -183,7 +183,7 @@ if [[ -n "${JELLYFIN_USER_2:-}" ]]; then
     #    BlockedTags is the non-obvious one: it gives her parity with brennan's steady state, so
     #    she doesn't see the tiny franchise collections we hide server-side. sort-collections.sh
     #    temporarily UNBLOCKS that tag on the admin during its run; leslie's stays blocked always.
-    pol=$(curl -fsS "$JF/Users/$leslie_id" -H "X-Emby-Token: $token" | jq -c '.Policy')
+    pol=$(curl -fsS "$JF/Users/$leslie_id" -H "Authorization: MediaBrowser Token=$token" | jq -c '.Policy')
     if [[ -n "$pol" && "$pol" != "null" ]]; then
       jq -c '
         .IsAdministrator = false
@@ -205,7 +205,7 @@ if [[ -n "${JELLYFIN_USER_2:-}" ]]; then
         | .EnableContentDownloading = true
         | .BlockedTags = ["hidden-collection"]
       ' <<<"$pol" \
-        | curl -fsS -X POST "$JF/Users/$leslie_id/Policy" -H "X-Emby-Token: $token" \
+        | curl -fsS -X POST "$JF/Users/$leslie_id/Policy" -H "Authorization: MediaBrowser Token=$token" \
             -H 'Content-Type: application/json' -d @- >/dev/null \
         && ok "user '$JELLYFIN_USER_2' policy asserted (non-admin, no deletion, hidden-collection blocked)" \
         || warn "  could not apply policy for '$JELLYFIN_USER_2'"
@@ -223,9 +223,9 @@ if [[ -n "${JELLYFIN_USER_2:-}" ]]; then
     #    NB: Users:[…] REPLACES the whole share list. Fine with exactly one non-owner; revisit if
     #    a third account ever appears.
     top100_id=$(curl -fsS "$JF/Items?userId=$jf_uid&IncludeItemTypes=Playlist&Recursive=true" \
-      -H "X-Emby-Token: $token" | jq -r '.Items[]|select(.Name=="Top 100").Id // empty')
+      -H "Authorization: MediaBrowser Token=$token" | jq -r '.Items[]|select(.Name=="Top 100").Id // empty')
     if [[ -n "$top100_id" ]]; then
-      curl -fsS -X POST "$JF/Playlists/$top100_id" -H "X-Emby-Token: $token" \
+      curl -fsS -X POST "$JF/Playlists/$top100_id" -H "Authorization: MediaBrowser Token=$token" \
         -H 'Content-Type: application/json' \
         -d "$(jq -n --arg u "$leslie_id" '{IsPublic:true, Users:[{UserId:$u, CanEdit:false}]}')" >/dev/null \
         && ok "Top 100 shared read-only with '$JELLYFIN_USER_2'" \
@@ -244,20 +244,47 @@ fi
 #     implementation lives in the script — see its header for scope + the block-toggle detail.
 scripts/sort-collections.sh || warn "  collection reconcile failed (re-runs next boot)"
 
+# 3z. PLUGIN MANIFESTS ARE VERSIONED BY JELLYFIN LINE — derive the path, never hardcode it.
+#
+#     Third-party repos publish one manifest per Jellyfin line, and a 10.11 manifest offers no
+#     Jellyfin-12 build at all. Both URLs below were pinned to `10.11` until 2026-09-11, which is
+#     exactly how the accidental 10.11 -> 12.0.0 upgrade left Home Screen Sections, File
+#     Transformation and the JavaScript Injector running 10.11 assemblies under a 12 server: the
+#     plugins loaded and reported Active, but their web injection targeted the old jellyfin-web
+#     bundle, so the home page threw and the custom nav silently did nothing.
+#
+#     The directory naming is NOT consistent between repos — intro-skipper uses MAJOR.MINOR
+#     ("12.0"), n00bcodr uses MAJOR ("12") — so probe both instead of guessing.
+jf_ver=$(curl -fsS --max-time 10 "$JF/System/Info/Public" | jq -r '.Version // empty')
+jf_line=$(cut -d. -f1-2 <<<"${jf_ver:-10.11}")
+jf_major=$(cut -d. -f1 <<<"${jf_ver:-10}")
+log "  jellyfin version ${jf_ver:-unknown} — plugin manifests for line ${jf_line}"
+
+# pick_manifest <url-template-with-{V}> → prints the first URL that resolves, or fails.
+pick_manifest() {
+  local tmpl="$1" v u
+  for v in "$jf_line" "$jf_major"; do
+    u="${tmpl//\{V\}/$v}"
+    if curl -fsSL -o /dev/null --max-time 12 "$u" 2>/dev/null; then printf '%s' "$u"; return 0; fi
+  done
+  return 1
+}
+
 # 4. Install Intro Skipper plugin (auto-skip intros/credits in TV shows).
 #     Requires a third-party repository; the manifest is versioned by Jellyfin ABI.
 log "  ensuring Intro Skipper plugin is installed"
-installed=$(curl -fsS "$JF/Plugins" -H "X-Emby-Token: $token" | jq -r '.[].Name')
+installed=$(curl -fsS "$JF/Plugins" -H "Authorization: MediaBrowser Token=$token" | jq -r '.[].Name')
 if grep -qxF "Intro Skipper" <<<"$installed"; then
   ok "Intro Skipper plugin already installed"
 else
-  repos=$(curl -fsS "$JF/Repositories" -H "X-Emby-Token: $token")
-  repo_url="https://raw.githubusercontent.com/intro-skipper/manifest/main/10.11/manifest.json"
+  repos=$(curl -fsS "$JF/Repositories" -H "Authorization: MediaBrowser Token=$token")
+  repo_url=$(pick_manifest "https://raw.githubusercontent.com/intro-skipper/manifest/main/{V}/manifest.json") \
+    || { warn "no Intro Skipper manifest for Jellyfin ${jf_line} — skipping"; repo_url=""; }
   if ! jq -e --arg u "$repo_url" '.[]|select(.Url==$u)' <<<"$repos" >/dev/null 2>&1; then
     # POST replaces the entire list — merge existing + new.
     merged=$(jq --arg n "Intro Skipper" --arg u "$repo_url" \
       '. + [{"Name":$n,"Url":$u,"Enabled":true}]' <<<"$repos")
-    curl -fsS -X POST "$JF/Repositories" -H "X-Emby-Token: $token" \
+    curl -fsS -X POST "$JF/Repositories" -H "Authorization: MediaBrowser Token=$token" \
       -H 'Content-Type: application/json' -d "$merged" >/dev/null
     ok "Intro Skipper repository registered"
   else
@@ -265,7 +292,7 @@ else
   fi
   # Install the package. Name has a space — URL-encode it in the path.
   curl -fsS -X POST "$JF/Packages/Installed/Intro%20Skipper" \
-    -H "X-Emby-Token: $token" >/dev/null
+    -H "Authorization: MediaBrowser Token=$token" >/dev/null
   ok "Intro Skipper plugin installed — restart Jellyfin to activate"
 fi
 
@@ -310,7 +337,7 @@ fi
 #     and stuttered playback. Jellyfin's built-in "Generate Trickplay Images" scheduled task
 #     already runs daily at 03:00 (off-hours), so we let THAT do the work and keep it out of scans.
 log "  enabling trickplay for libraries (off-hours only, not during scans)"
-libraries=$(curl -fsS "$JF/Library/VirtualFolders" -H "X-Emby-Token: $token")
+libraries=$(curl -fsS "$JF/Library/VirtualFolders" -H "Authorization: MediaBrowser Token=$token")
 for lib_name in Movies TV; do
   vf=$(jq --arg n "$lib_name" '.[]|select(.Name==$n)' <<<"$libraries")
   [[ -n "$vf" ]] || { warn "  library '$lib_name' not found, skipping trickplay"; continue; }
@@ -321,7 +348,7 @@ for lib_name in Movies TV; do
   else
     jq '{Id: .ItemId, LibraryOptions: (.LibraryOptions | .EnableTrickplayImageExtraction=true | .ExtractTrickplayImagesDuringLibraryScan=false)}' <<<"$vf" \
       | curl -fsS -X POST "$JF/Library/VirtualFolders/LibraryOptions" \
-          -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+          -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' -d @- >/dev/null
     ok "trickplay set for '$lib_name' (on, generated off-hours by the 03:00 task)"
   fi
 done
@@ -335,16 +362,16 @@ done
 #     daytime. Same 4h cap Jellyfin already ships on "Extract Chapter Images".
 #     Ticks are 100ns: 03:00 = 108000000000 ; 4h cap = 144000000000.
 log "  capping Generate Trickplay Images at 4h (03:00–07:00 window)"
-tp_id=$(curl -fsS "$JF/ScheduledTasks" -H "X-Emby-Token: $token" | jq -r '.[]|select(.Key=="RefreshTrickplayImages").Id // empty')
+tp_id=$(curl -fsS "$JF/ScheduledTasks" -H "Authorization: MediaBrowser Token=$token" | jq -r '.[]|select(.Key=="RefreshTrickplayImages").Id // empty')
 if [[ -z "$tp_id" ]]; then
   warn "  trickplay task not found, skipping runtime cap"
 else
-  cur=$(curl -fsS "$JF/ScheduledTasks" -H "X-Emby-Token: $token" | jq -c --arg id "$tp_id" '.[]|select(.Id==$id).Triggers')
+  cur=$(curl -fsS "$JF/ScheduledTasks" -H "Authorization: MediaBrowser Token=$token" | jq -c --arg id "$tp_id" '.[]|select(.Id==$id).Triggers')
   if jq -e 'length==1 and .[0].Type=="DailyTrigger" and .[0].TimeOfDayTicks==108000000000 and .[0].MaxRuntimeTicks==144000000000' <<<"$cur" >/dev/null 2>&1; then
     ok "trickplay task already capped at 4h"
   else
     curl -fsS -X POST "$JF/ScheduledTasks/$tp_id/Triggers" \
-      -H "X-Emby-Token: $token" -H 'Content-Type: application/json' \
+      -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' \
       -d '[{"Type":"DailyTrigger","TimeOfDayTicks":108000000000,"MaxRuntimeTicks":144000000000}]' >/dev/null
     ok "trickplay task capped: DailyTrigger 03:00 + 4h MaxRuntime"
   fi
@@ -360,13 +387,13 @@ fi
 #     left at its default of 1 on purpose. Existing spritesheets are unaffected; this applies to
 #     the files still missing trickplay.
 log "  enabling keyframe-only trickplay extraction (faster backlog clear)"
-sc=$(curl -fsS "$JF/System/Configuration" -H "X-Emby-Token: $token")
+sc=$(curl -fsS "$JF/System/Configuration" -H "Authorization: MediaBrowser Token=$token")
 if [[ "$(jq -r '.TrickplayOptions.EnableKeyFrameOnlyExtraction' <<<"$sc")" == "true" ]]; then
   ok "keyframe-only trickplay already enabled"
 else
   jq '.TrickplayOptions.EnableKeyFrameOnlyExtraction=true' <<<"$sc" \
     | curl -fsS -X POST "$JF/System/Configuration" \
-        -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+        -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' -d @- >/dev/null
   ok "keyframe-only trickplay enabled"
 fi
 
@@ -375,15 +402,15 @@ fi
 SPLASH_PNG="$(dirname "${BASH_SOURCE[0]}")/movienight-splash.png"
 if [[ -f "$SPLASH_PNG" ]]; then
   log "  ensuring branded splashscreen"
-  branding=$(curl -fsS "$JF/System/Configuration/Branding" -H "X-Emby-Token: $token")
+  branding=$(curl -fsS "$JF/System/Configuration/Branding" -H "Authorization: MediaBrowser Token=$token")
   if [[ "$(jq -r '.SplashscreenEnabled' <<<"$branding")" != "true" ]]; then
     jq '.SplashscreenEnabled = true' <<<"$branding" \
       | curl -fsS -X POST "$JF/System/Configuration/Branding" \
-          -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+          -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' -d @- >/dev/null
   fi
   base64 -w0 "$SPLASH_PNG" \
     | curl -fsS -X POST "$JF/Branding/Splashscreen" \
-        -H "X-Emby-Token: $token" -H 'Content-Type: image/png' --data-binary @- >/dev/null \
+        -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: image/png' --data-binary @- >/dev/null \
     && ok "branded splashscreen uploaded" || warn "splashscreen upload failed (non-fatal)"
 fi
 
@@ -485,10 +512,10 @@ ok "self-hosted Oswald/Archivo/Jost woff2 + -face.css installed at /web/fonts/"
 #     10-bit HEVC HW decode, so EnableDecodingColorDepth10Hevc=false → those fall back to software
 #     cleanly instead of erroring. (vainfo confirmed: H.264 + 8-bit HEVC decode/encode only.)
 log "  enabling Intel Quick Sync hardware transcoding"
-enc=$(curl -fsS "$JF/System/Configuration/encoding" -H "X-Emby-Token: $token")
+enc=$(curl -fsS "$JF/System/Configuration/encoding" -H "Authorization: MediaBrowser Token=$token")
 jq '.HardwareAccelerationType="qsv" | .QsvDevice="/dev/dri/renderD128" | .EnableHardwareEncoding=true
     | .HardwareDecodingCodecs=["h264","hevc","mpeg2video","vc1"] | .EnableDecodingColorDepth10Hevc=false' <<<"$enc" \
-  | curl -fsS -X POST "$JF/System/Configuration/encoding" -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+  | curl -fsS -X POST "$JF/System/Configuration/encoding" -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' -d @- >/dev/null
 ok "Quick Sync (QSV) enabled"
 
 # 6c. Network: host-networked Jellyfin must be reachable on the LAN, over the Tailscale mesh, AND
@@ -501,9 +528,9 @@ ok "Quick Sync (QSV) enabled"
 #     the LAN IP (the cause of black-screen playback over Tailscale/cellular). IPv6 stays off —
 #     otherwise the DLNA plugin builds an invalid bare-'::' URI and fails to publish on the LAN.
 log "  configuring Jellyfin network (bind all; advertise per-request Host)"
-net=$(curl -fsS "$JF/System/Configuration/network" -H "X-Emby-Token: $token")
+net=$(curl -fsS "$JF/System/Configuration/network" -H "Authorization: MediaBrowser Token=$token")
 jq '.EnableIPv6=false | .LocalNetworkAddresses=[] | .EnablePublishedServerUriByRequest=true | .PublishedServerUriBySubnet=[]' <<<"$net" \
-  | curl -fsS -X POST "$JF/System/Configuration/network" -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+  | curl -fsS -X POST "$JF/System/Configuration/network" -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' -d @- >/dev/null
 ok "network: binds all interfaces, advertises per-request Host, IPv6 off"
 
 # 6d. DLNA plugin — removed from Jellyfin core in 10.10+, so the PS4 needs it installed to discover
@@ -512,11 +539,11 @@ ok "network: binds all interfaces, advertises per-request Host, IPv6 off"
 if grep -qxF "DLNA" <<<"$installed"; then
   ok "DLNA plugin already installed"
 else
-  pkgs=$(curl -fsS "$JF/Packages" -H "X-Emby-Token: $token")
+  pkgs=$(curl -fsS "$JF/Packages" -H "Authorization: MediaBrowser Token=$token")
   dguid=$(jq -r '.[]|select(.name=="DLNA").guid' <<<"$pkgs")
   dver=$(jq -r '.[]|select(.name=="DLNA").versions[0].version' <<<"$pkgs")
   if [[ -n "$dguid" && "$dguid" != "null" ]]; then
-    curl -fsS -X POST "$JF/Packages/Installed/DLNA?assemblyGuid=$dguid&version=$dver" -H "X-Emby-Token: $token" >/dev/null
+    curl -fsS -X POST "$JF/Packages/Installed/DLNA?assemblyGuid=$dguid&version=$dver" -H "Authorization: MediaBrowser Token=$token" >/dev/null
     ok "DLNA plugin installed ($dver) — restart below activates it"
   else
     warn "DLNA package not found in catalog — PS3 discovery will be unavailable"
@@ -526,19 +553,25 @@ fi
 # 6d1. Home Screen Sections (+ File Transformation dependency) — modular, configurable home
 #      rows ("Because you watched", genre rows, etc.): the discoverability upgrade for the
 #      stock home page. Third-party repo (iamparadox.dev); versions verified against this
-#      server's 10.11 ABI on 2026-07-02. If a Jellyfin upgrade ever breaks it, the plugin
+#      server's ABI — the manifest URL is now derived from the running version (see §3z), because
+#      pinning it to a line is what silently left these on 10.11 builds under a 12 server on
+#      2026-09-11. If a Jellyfin upgrade ever breaks it, the plugin
 #      shows "Malfunctioned" in the dashboard and can be disabled there — core is unaffected.
 hss_repo="https://www.iamparadox.dev/jellyfin/plugins/manifest.json"
-repos=$(curl -fsS "$JF/Repositories" -H "X-Emby-Token: $token")
+repos=$(curl -fsS "$JF/Repositories" -H "Authorization: MediaBrowser Token=$token")
 if ! jq -e --arg u "$hss_repo" '.[]|select(.Url==$u)' <<<"$repos" >/dev/null 2>&1; then
   jq --arg u "$hss_repo" '. + [{"Name":"iamparadox (Home Screen Sections)","Url":$u,"Enabled":true}]' <<<"$repos" \
-    | curl -fsS -X POST "$JF/Repositories" -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+    | curl -fsS -X POST "$JF/Repositories" -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' -d @- >/dev/null
   ok "Home Screen Sections repository registered"
 fi
-for hss_pkg in "File Transformation" "Home Screen Sections"; do
+# Plugin Pages is a HARD DEPENDENCY of Home Screen Sections 3.0.0.0 — without it HSS logs
+# "PluginPages plugin not found … you will not be able to have user overrides" and its Modular
+# Home never registers. It was missing entirely on 2026-09-11 and had to be installed by hand.
+# Dependency order matters: File Transformation and Plugin Pages before Home Screen Sections.
+for hss_pkg in "File Transformation" "Plugin Pages" "Home Screen Sections"; do
   if grep -qxF "$hss_pkg" <<<"$installed"; then ok "$hss_pkg plugin already installed"; continue; fi
   hss_enc=$(jq -rn --arg s "$hss_pkg" '$s|@uri')
-  if curl -fsS -X POST "$JF/Packages/Installed/${hss_enc}" -H "X-Emby-Token: $token" >/dev/null 2>&1; then
+  if curl -fsS -X POST "$JF/Packages/Installed/${hss_enc}" -H "Authorization: MediaBrowser Token=$token" >/dev/null 2>&1; then
     ok "$hss_pkg plugin installed — restart below activates it"
   else
     warn "$hss_pkg install failed (catalog may need a minute after repo add) — re-run make provision s=jellyfin"
@@ -551,11 +584,11 @@ done
 if grep -qxF "Playback Reporting" <<<"$installed"; then
   ok "Playback Reporting plugin already installed"
 else
-  pkgs=${pkgs:-$(curl -fsS "$JF/Packages" -H "X-Emby-Token: $token")}
+  pkgs=${pkgs:-$(curl -fsS "$JF/Packages" -H "Authorization: MediaBrowser Token=$token")}
   prguid=$(jq -r '.[]|select(.name=="Playback Reporting").guid' <<<"$pkgs")
   prver=$(jq -r '.[]|select(.name=="Playback Reporting").versions[0].version' <<<"$pkgs")
   if [[ -n "$prguid" && "$prguid" != "null" ]]; then
-    curl -fsS -X POST "$JF/Packages/Installed/Playback%20Reporting?assemblyGuid=$prguid&version=$prver" -H "X-Emby-Token: $token" >/dev/null
+    curl -fsS -X POST "$JF/Packages/Installed/Playback%20Reporting?assemblyGuid=$prguid&version=$prver" -H "Authorization: MediaBrowser Token=$token" >/dev/null
     ok "Playback Reporting plugin installed ($prver) — restart below activates it"
   else
     warn "Playback Reporting not found in plugin catalog — skipped"
@@ -569,18 +602,19 @@ fi
 #      does NOT: HSS's runtime transform wins on index.html, and config transforms don't reach the
 #      static JS bundles — verified on-box 2026-07-10.) The script itself is pushed as this plugin's
 #      config in §9, after the §7 restart activates the plugin.
-jsinj_repo="https://raw.githubusercontent.com/n00bcodr/jellyfin-plugins/main/10.11/manifest.json"
-repos=$(curl -fsS "$JF/Repositories" -H "X-Emby-Token: $token")
+jsinj_repo=$(pick_manifest "https://raw.githubusercontent.com/n00bcodr/jellyfin-plugins/main/{V}/manifest.json") \
+  || { warn "no JavaScript Injector manifest for Jellyfin ${jf_line}"; jsinj_repo=""; }
+repos=$(curl -fsS "$JF/Repositories" -H "Authorization: MediaBrowser Token=$token")
 if ! jq -e --arg u "$jsinj_repo" '.[]|select(.Url==$u)' <<<"$repos" >/dev/null 2>&1; then
   jq --arg u "$jsinj_repo" '. + [{"Name":"n00bcodr","Url":$u,"Enabled":true}]' <<<"$repos" \
-    | curl -fsS -X POST "$JF/Repositories" -H "X-Emby-Token: $token" -H 'Content-Type: application/json' -d @- >/dev/null
+    | curl -fsS -X POST "$JF/Repositories" -H "Authorization: MediaBrowser Token=$token" -H 'Content-Type: application/json' -d @- >/dev/null
   ok "JavaScript Injector repository registered"
 fi
 if grep -qxF "JavaScript Injector" <<<"$installed"; then
   ok "JavaScript Injector plugin already installed"
 else
   sleep 2   # give the catalog a moment after a fresh repo add
-  if curl -fsS -X POST "$JF/Packages/Installed/JavaScript%20Injector?assemblyGuid=f5a34f7b-2e8a-4e6a-a722-3a216a81b374" -H "X-Emby-Token: $token" >/dev/null 2>&1; then
+  if curl -fsS -X POST "$JF/Packages/Installed/JavaScript%20Injector?assemblyGuid=f5a34f7b-2e8a-4e6a-a722-3a216a81b374" -H "Authorization: MediaBrowser Token=$token" >/dev/null 2>&1; then
     ok "JavaScript Injector plugin installed — restart below activates it"
   else
     warn "JavaScript Injector install failed (catalog may need a minute after repo add) — re-run make provision s=jellyfin"
@@ -600,11 +634,11 @@ fi
 if grep -qxF "Webhook" <<<"$installed"; then
   ok "Webhook plugin already installed"
 else
-  pkgs=${pkgs:-$(curl -fsS "$JF/Packages" -H "X-Emby-Token: $token")}
+  pkgs=${pkgs:-$(curl -fsS "$JF/Packages" -H "Authorization: MediaBrowser Token=$token")}
   whguid=$(jq -r '.[]|select(.name=="Webhook").guid' <<<"$pkgs")
   whver=$(jq -r '.[]|select(.name=="Webhook").versions[0].version' <<<"$pkgs")
   if [[ -n "$whguid" && "$whguid" != "null" ]]; then
-    curl -fsS -X POST "$JF/Packages/Installed/Webhook?assemblyGuid=$whguid&version=$whver" -H "X-Emby-Token: $token" >/dev/null
+    curl -fsS -X POST "$JF/Packages/Installed/Webhook?assemblyGuid=$whguid&version=$whver" -H "Authorization: MediaBrowser Token=$token" >/dev/null
     ok "Webhook plugin installed ($whver) — restart below activates it"
   else
     warn "Webhook not found in plugin catalog — auto Movie Mode still works (the controller POLLS /Sessions every 15s); this only costs the sub-second arming. re-run: make provision s=jellyfin"
@@ -643,7 +677,7 @@ token=""
 for i in $(seq 1 60); do
   if curl -fsS -o /dev/null --max-time 5 "$JF/System/Info/Public" 2>/dev/null; then
     token=$(curl -fsS -X POST "$JF/Users/AuthenticateByName" \
-      -H "X-Emby-Authorization: $AUTHHDR" -H 'Content-Type: application/json' \
+      -H "Authorization: $AUTHHDR" -H 'Content-Type: application/json' \
       -d "$(jq -n --arg n "$JELLYFIN_ADMIN_USER" --arg p "$JELLYFIN_ADMIN_PASS" '{Username:$n,Pw:$p}')" \
       2>/dev/null | jq -r '.AccessToken' 2>/dev/null) || true
     [[ -n "$token" && "$token" != "null" ]] && break
@@ -674,25 +708,48 @@ fi
 #    SectionSettings = {SectionId, Enabled, AllowUserOverride, LowerLimit, UpperLimit,
 #    OrderIndex, ViewMode(Portrait|Landscape|Square|Small), HideWatchedItems}.
 #    Jellyfin runs HOST networking, so integrations use $NUC_IP, never container DNS names.
-hss_id=$(curl -fsS "$JF/Plugins" -H "X-Emby-Token: $token" | jq -r '.[]|select(.Name=="Home Screen Sections" and .Status=="Active").Id // empty')
+hss_id=$(curl -fsS "$JF/Plugins" -H "Authorization: MediaBrowser Token=$token" | jq -r '.[]|select(.Name=="Home Screen Sections" and .Status=="Active").Id // empty')
 if [[ -z "$hss_id" ]]; then
   warn "Home Screen Sections not active — skipping section layout (re-run make provision s=jellyfin)"
 else
   seerr_key=$(jq -r '.main.apiKey // empty' "${CONFIG:-/opt/appdata}/jellyseerr/settings.json" 2>/dev/null)
   radarr_key=$(arr_apikey /opt/appdata/radarr 2>/dev/null || true)
   sonarr_key=$(arr_apikey /opt/appdata/sonarr 2>/dev/null || true)
-  hss_cur=$(curl -fsS "$JF/Plugins/${hss_id}/Configuration" -H "X-Emby-Token: $token")
-  # Layout: intentionally CW/NextUp + rotating shelves ONLY — the rotating collection shelves
-  # (ShelfA–J, OrderIndex 4) ARE the taste/discovery layer, so the built-in because-you-watched,
-  # top-ten, watch-again and my-requests rows are disabled (their contents duplicate what the
-  # weighted collection sweep already surfaces, and they dilute the curated shelf mix). All 11
-  # enabled sections render on one page (NumSectionsPerPage=12, no "Load More"). Users can
-  # still override anything via the plugin's UI.
+  hss_cur=$(curl -fsS "$JF/Plugins/${hss_id}/Configuration" -H "Authorization: MediaBrowser Token=$token")
+  # Layout: CW/NextUp + rotating shelves + because-you-watched. The rotating collection shelves
+  # (ShelfA–J, OrderIndex 4) are the curated discovery layer, so the built-in top-ten,
+  # watch-again and my-requests rows stay disabled — their contents duplicate what the weighted
+  # collection sweep already surfaces, and they dilute the shelf mix.
+  #
+  # Because-you-watched rows came back on 2026-09-12: Jellyfin 10.11's similar-items suggestions
+  # were too weak to earn a row, and Jellyfin 12's are markedly better — they key strongly on
+  # shared director and cast, so on this library "I Saw the Devil" returns Kim Jee-woon / Park
+  # Chan-wook / Bong Joon-ho thrillers rather than loose genre matches.
+  #
+  # They are NOT the plugin's own BecauseYouWatched section — that one is broken on Jellyfin 12
+  # and throws on every request (BecauseYouWatchedSection.cs:149), so it stays disabled. Instead
+  # the controller hands three of the SHELF slots a because-you-watched title and results endpoint
+  # (controller/lib/hss-shelf.js, BECAUSE_SLOTS), which is why no new SectionIds appear here.
+  #
+  # That indirection is forced: HSS only ever serves section ids it already knows. Registering
+  # new ids (BecauseA/B/C) returned HTTP 200 and `GET /HomeScreen/Section/BecauseA` served the
+  # right items, yet they never appeared in `GET /HomeScreen/Sections` — tested at two
+  # OrderIndexes, with a CacheBustCounter bump, and re-registered directly by hand. Reusing the
+  # shelf ids sidesteps it completely.
+  #
+  # NumSectionsPerPage covers every enabled row so they all render on one page with no "Load
+  # More": 1 CW/NextUp + 10 ShelfA–J (three of which may be because-you-watched rows) = 11.
+  # Users can still override anything via the plugin's UI.
+  #
+  # NB: `Enabled: false` is NOT reliably honoured by HSS 3.0.0.0 — RecentlyAddedMovies is served
+  # regardless of it (tested with AllowUserOverride off, after a Jellyfin restart, and with the
+  # entry deleted from SectionSettings entirely), which is why that row is hidden in
+  # jellyfin-custom.css instead. The flags below still describe the intended layout.
   hss_desired=$(jq --arg ip "$NUC_IP" --arg sk "$seerr_key" --arg rk "$radarr_key" --arg nk "$sonarr_key" '
     def row($id; $ord; $en; $hide; $max; $vm):
       {SectionId:$id, Enabled:$en, AllowUserOverride:true, LowerLimit:1, UpperLimit:$max,
        OrderIndex:$ord, ViewMode:$vm, HideWatchedItems:$hide};
-    .Enabled=true | .AllowUserOverride=true | .NumSectionsPerPage=12
+    .Enabled=true | .AllowUserOverride=true | .NumSectionsPerPage=15
     | .JellyseerrUrl=("http://"+$ip+":5055") | .JellyseerrApiKey=$sk
     | .Radarr.Url=("http://"+$ip+":7878") | .Radarr.ApiKey=$rk
     | .Sonarr.Url=("http://"+$ip+":8989") | .Sonarr.ApiKey=$nk
@@ -709,7 +766,7 @@ else
         row("ShelfH";                 4; true;  false; 10; "Landscape"),
         row("ShelfI";                 4; true;  false; 10; "Landscape"),
         row("ShelfJ";                 4; true;  false; 10; "Landscape"),
-        row("BecauseYouWatched";      5; false; true;  4; "Landscape"),
+        row("BecauseYouWatched";      5; false; true;  3; "Landscape"),
         row("ShelfK";                 6; false;  false; 10; "Landscape"),
         row("ShelfL";                 6; false;  false; 10; "Landscape"),
         row("ShelfM";                 6; false;  false; 10; "Landscape"),
@@ -739,9 +796,9 @@ else
   if [[ "$(jq -S 'del(.CacheBustCounter)' <<<"$hss_cur")" == "$(jq -S 'del(.CacheBustCounter)' <<<"$hss_desired")" ]]; then
     ok "Home Screen Sections layout already configured"
   else
-    curl -fsS -X POST "$JF/Plugins/${hss_id}/Configuration" -H "X-Emby-Token: $token" \
+    curl -fsS -X POST "$JF/Plugins/${hss_id}/Configuration" -H "Authorization: MediaBrowser Token=$token" \
       -H 'Content-Type: application/json' -d "$hss_desired" >/dev/null
-    ok "Home Screen Sections layout applied (CW/NextUp + 10 rotating shelves only)"
+    ok "Home Screen Sections layout applied (CW/NextUp + 10 rotating shelves + because-you-watched)"
   fi
 fi
 
@@ -755,6 +812,15 @@ if curl -fsS -o /dev/null --max-time 3 "$ctrl_url/api/status" 2>/dev/null; then
   code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$ctrl_url/api/collections/build" --max-time 300 2>/dev/null || echo "000")
   if [[ "$code" == "200" ]]; then
     ok "Collections built + shelves registered on controller"
+    # ORDER MATTERS. §3e already ran sort-collections.sh, but the build above recreates BoxSets,
+    # and a recreated BoxSet comes back with DisplayOrder=Default — so the chronological ordering
+    # applied in §3e is wiped by this step every time. Found 2026-09-11: after a clean provision
+    # all 22 franchise collections ("Star Wars Collection" et al) had reverted to Default order.
+    # §3e is still worth keeping (it runs even when the controller is unreachable); this is the
+    # pass that actually sticks. The script is idempotent — a no-op when nothing changed.
+    scripts/sort-collections.sh >/dev/null \
+      && ok "Collection ordering re-applied after the rebuild" \
+      || warn "  collection reconcile after rebuild failed (re-runs next boot)"
   elif [[ "$code" == "409" ]]; then
     ok "Controller sweep already running — shelves will register when it finishes"
   else
@@ -776,37 +842,12 @@ fi
 #    changes, and index.html is Cache-Control:no-cache, so a normal refresh picks up new JS.
 #    CSS is additionally re-fetched with ?v=Date.now() by refreshBrandingCss() on every load.
 #
-FLAIR_JS="$(dirname "${BASH_SOURCE[0]}")/jellyfin-web-flair.js"
-js_id=$(curl -fsS --max-time 30 "$JF/Plugins" -H "X-Emby-Token: $token" | jq -r '.[]|select(.Name=="JavaScript Injector" and .Status=="Active").Id // empty')
-if [[ -z "$js_id" ]]; then
-  warn "JavaScript Injector not active — skipping web flair (re-run make provision s=jellyfin)"
-elif [[ ! -f "$FLAIR_JS" ]]; then
-  warn "jellyfin-web-flair.js missing next to jellyfin.sh — skipping web flair"
-else
-  # Dedupe by NAME, not Id: the JS Injector plugin does NOT persist an Id field on stored
-  # entries (keys are only Name/Script/Enabled/RequiresAuthentication), so an Id-based
-  # "update in place" never matched and every provision piled up another duplicate — which
-  # the plugin concatenates into public.js. Drop all prior "Curated List Flair" entries,
-  # then append exactly one.
-  flair_name="Curated List Flair"
-  js_cur=$(curl -fsS --max-time 30 "$JF/Plugins/$js_id/Configuration" -H "X-Emby-Token: $token")
-  js_desired=$(jq --rawfile js "$FLAIR_JS" --arg name "$flair_name" '
-    .PluginJavaScripts = (.PluginJavaScripts // []) |
-    .CustomJavaScripts = (((.CustomJavaScripts // []) | map(select(.Name != $name))) + [{
-      Name: $name, Script: $js, Enabled: true, RequiresAuthentication: false
-    }])' <<<"$js_cur")
-  if [[ "$(jq -S . <<<"$js_cur")" == "$(jq -S . <<<"$js_desired")" ]]; then
-    ok "web flair script already up to date in JavaScript Injector"
-  else
-    # --data-binary @file: flair.js grew past the exec single-arg limit ("Argument list too long" with -d "$json")
-    js_tmp=$(mktemp)
-    printf '%s' "$js_desired" > "$js_tmp"
-    curl -fsS --max-time 30 -X POST "$JF/Plugins/$js_id/Configuration" -H "X-Emby-Token: $token" \
-      -H 'Content-Type: application/json' --data-binary @"$js_tmp" >/dev/null
-    rm -f "$js_tmp"
-    ok "web flair script pushed to JavaScript Injector (served at /JavaScriptInjector/public.js; hard-refresh browser)"
-  fi
-fi
+#    THE PUSH ITSELF LIVES IN scripts/push-web-flair.sh, not here. That script is the restart-free
+#    deploy path for a flair-only edit (this file's §7 restarts Jellyfin unconditionally, which is
+#    far too blunt for a one-line JS change). We hand it our existing session so it does not
+#    re-authenticate; it is the single implementation of the dedupe-by-name push.
+JF="$JF" JF_TOKEN="$token" "$(dirname "${BASH_SOURCE[0]}")/../push-web-flair.sh" || \
+  warn "web flair push failed — see above"
 
 # 9b. Webhook plugin configuration — an ACCELERATOR for AUTO MOVIE MODE, no longer its delivery path.
 #     DEMOTED 2026-08-12: the plugin's playback notifiers (IEventConsumer registrations, unlike its
@@ -833,13 +874,13 @@ fi
 #
 #     Movies + Episodes only: music and photos do not compete for the USB disk in any way worth
 #     pausing downloads over. localhost works because Jellyfin runs network_mode: host.
-wh_id=$(curl -fsS "$JF/Plugins" -H "X-Emby-Token: $token" | jq -r '.[]|select(.Name=="Webhook" and .Status=="Active").Id // empty')
+wh_id=$(curl -fsS "$JF/Plugins" -H "Authorization: MediaBrowser Token=$token" | jq -r '.[]|select(.Name=="Webhook" and .Status=="Active").Id // empty')
 if [[ -z "$wh_id" ]]; then
   warn "Webhook plugin not active yet — auto Movie Mode still works via the controller's /Sessions poll; this only costs the sub-second arming. re-run: make provision s=jellyfin"
 else
   wh_name="Auto Movie Mode (controller)"
   wh_uri="http://localhost:${CONTROLLER_PORT:-8088}/api/jellyfin-webhook"
-  wh_cur=$(curl -fsS "$JF/Plugins/$wh_id/Configuration" -H "X-Emby-Token: $token")
+  wh_cur=$(curl -fsS "$JF/Plugins/$wh_id/Configuration" -H "Authorization: MediaBrowser Token=$token")
   # Matched by NAME so re-provisioning cannot pile up duplicate destinations (each one would double
   # every event) — same lesson as the JS Injector dedup above.
   #
@@ -869,7 +910,7 @@ else
   if [[ "$(jq -S . <<<"$wh_cur")" == "$(jq -S . <<<"$wh_desired")" ]]; then
     ok "Webhook destination already configured ($wh_uri)"
   else
-    curl -fsS -X POST "$JF/Plugins/$wh_id/Configuration" -H "X-Emby-Token: $token" \
+    curl -fsS -X POST "$JF/Plugins/$wh_id/Configuration" -H "Authorization: MediaBrowser Token=$token" \
       -H 'Content-Type: application/json' -d "$wh_desired" >/dev/null
     ok "Webhook destination configured → $wh_uri (auto Movie Mode armed)"
   fi

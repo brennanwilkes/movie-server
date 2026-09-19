@@ -1,5 +1,15 @@
 # Festival Award Badges — Implementation Plan
 
+> **SUPERSEDED IN PART, 2026-09-13.** Venice and TIFF were added — see
+> `docs/RND-FESTIVAL-EXPANSION.md`. Two claims below are no longer true:
+> the "4-line stack never occurs" premise in the next paragraph is **broken**
+> (*Life Is Beautiful* and *Nomadland* reach four rows, and the Oscar NOMINATIONS row is now
+> dropped to hold the plaque at three), and the per-festival plumbing described here has been
+> replaced by a single `FESTIVALS` table in each of the controller, the web flair script and the
+> Fire Stick fork. Everything else — the tag grammar, the glyph/colour conventions, the mobile
+> pill — still holds.
+
+
 Add Cannes + Sundance winner rows to the Oscar plaque on both clients, matching
 `docs/branding/award-badges-mockup.html` (approved 2026-07-31). One row per festival, never
 combined; a single win shows the award name, multiple wins show "N [FESTIVAL] WINS" (web plaque).

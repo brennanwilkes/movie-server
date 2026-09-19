@@ -87,6 +87,11 @@ const { startCrewPeopleTimer } = require('./lib/crew-people');
 // Purges zero-byte thumbnails from Jellyfin's image cache — the black-poster bug.
 const { startJfImageCacheTimer } = require('./lib/jf-image-cache');
 const { nationTagsSweep, startNationTagsTimer } = require('./lib/nation-tags');
+const { subtitleGuardSweep, startSubtitleGuardTimer } = require('./lib/subtitle-guard');
+const { emmyTagsSweep, startEmmyTagsTimer } = require('./lib/emmy-tags');
+// Tags series with country of origin, aired season/episode counts and typical episode length —
+// the facts the Fire Stick TV Shows grid puts on each tile.
+const { tvMetaSweep, startTvMetaTimer } = require('./lib/tv-meta');
 const { startTop100ExportTimer } = require('./lib/top100-export');
 const { startTop100GuardTimer } = require('./lib/top100-guard');
 const sweeps = require('./lib/sweeps');
@@ -103,7 +108,7 @@ const artifacts = require('./lib/artifacts');
 async function bootSequence() {
   if (!cfg.JELLYFIN_KEY) { console.log('bootSequence: no Jellyfin key yet — skipping (provision + restart)'); return; }
   for (let i = 0; i < 30; i++) {   // ~5 min: 30 × 10s
-    try { await tfetch(`${HOST.jellyfin}/System/Info`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY } }, 8000); break; }
+    try { await tfetch(`${HOST.jellyfin}/System/Info`, { headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` } }, 8000); break; }
     catch (_) { await new Promise((r) => setTimeout(r, 10000)); }
   }
   console.log('bootSequence: Jellyfin reachable — building collections then registering shelves');
@@ -115,6 +120,9 @@ async function bootSequence() {
   await registerHssShelf();
   await oscarTagsSweep();   // decorate posters with Oscar badges (metadata Tags only; safe post-boot)
   await nationTagsSweep();  // decorate non-US movies with nation flags (metadata Tags only)
+  await tvMetaSweep();      // same, for series: flag + aired counts + episode length
+  await emmyTagsSweep();    // series Emmy badges (metadata Tags only)
+  await subtitleGuardSweep();  // fetch subtitles for anything that has none (see subtitle-guard.js)
   // The /System/Info poll above can pass moments before a provision-triggered Jellyfin RESTART,
   // making every boot sweep "fetch failed" — and the tag sweeps' own timers only fire every 24h.
   // One delayed second pass self-heals that window (all four are diff-only + busy-guarded: if the
@@ -125,6 +133,8 @@ async function bootSequence() {
     await registerHssShelf();
     await oscarTagsSweep();
     await nationTagsSweep();
+    await tvMetaSweep();
+    await emmyTagsSweep();
   }, 10 * 60000);
 }
 
@@ -143,6 +153,9 @@ startOscarTagsTimer();
 startCrewPeopleTimer();
 startJfImageCacheTimer();
 startNationTagsTimer();
+startTvMetaTimer();
+startEmmyTagsTimer();
+startSubtitleGuardTimer();
 startTop100ExportTimer();   // weekly TXT snapshot of the hand-ranked Top 100 (no other copy exists)
 startTop100GuardTimer();    // hourly: re-add titles a file swap orphaned (Jellyfin ids are path-derived)
 setTimeout(bootSequence, 15000);   // let the container settle, then self-heal the home page

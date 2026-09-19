@@ -11,7 +11,7 @@ const { _cache } = require('./cache');
 let _jfUserId = null;
 async function jellyfinUserId() {
   if (_jfUserId) return _jfUserId;
-  const r = await tfetch(`${HOST.jellyfin}/Users`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 15000);
+  const r = await tfetch(`${HOST.jellyfin}/Users`, { headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` } }, 15000);
   const u = await r.json();
   _jfUserId = (u.find((x) => x.Policy && x.Policy.IsAdministrator) || u[0] || {}).Id;
   return _jfUserId;
@@ -20,7 +20,7 @@ async function jellyfinUserId() {
 async function jellyfinResolve(type, title, tmdbId) {
   if (!cfg.JELLYFIN_KEY) return { itemId: null };
   const uid = await jellyfinUserId();
-  const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+  const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
   const q = new URLSearchParams({ recursive: 'true', includeItemTypes: type, searchTerm: title, fields: 'ProviderIds,ProductionYear', limit: '50' });
   const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 6000)).json()).Items) || [];
   const match = items.find((i) => tmdbId && i.ProviderIds && i.ProviderIds.Tmdb === String(tmdbId)) || (items.length === 1 ? items[0] : null);
@@ -31,7 +31,7 @@ async function jellyfinResolve(type, title, tmdbId) {
 let _jfServerId = null;
 async function jellyfinServerId() {
   if (_jfServerId) return _jfServerId;
-  const r = await tfetch(`${HOST.jellyfin}/System/Info`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 5000);
+  const r = await tfetch(`${HOST.jellyfin}/System/Info`, { headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` } }, 5000);
   _jfServerId = (await r.json()).Id || null;
   return _jfServerId;
 }
@@ -50,7 +50,7 @@ async function jellyfinIdByTmdb(type, tmdbId) {
   if (c && Date.now() - c.ts < 300_000) return c.val;
   try {
     const uid = await jellyfinUserId();
-    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+    const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
     const q = new URLSearchParams({ recursive: 'true', includeItemTypes: t, fields: 'ProviderIds', limit: '2000' });
     const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 8000)).json()).Items) || [];
     const m = items.find((i) => i.ProviderIds && String(i.ProviderIds.Tmdb) === String(tmdbId));
@@ -66,7 +66,7 @@ async function jellyfinIdByTmdb(type, tmdbId) {
 async function jellyfinSearchId(title, type) {
   if (!cfg.JELLYFIN_KEY || !title) return null;
   const uid = await jellyfinUserId();
-  const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+  const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
   const q = new URLSearchParams({ recursive: 'true', searchTerm: title, includeItemTypes: type || 'Movie,Series', fields: 'ProductionYear', limit: '10' });
   const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 6000)).json()).Items) || [];
   return (items[0] && items[0].Id) || null;

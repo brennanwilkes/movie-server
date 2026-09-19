@@ -523,7 +523,7 @@ function scheduleForceGrabVerify(seriesId, hash) {
 async function jellyfinSeriesByPath(mappedPath) {
   if (!cfg.JELLYFIN_KEY || !mappedPath) return [];
   const uid = await jellyfinUserId();
-  const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+  const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
   const q = new URLSearchParams({ recursive: 'true', includeItemTypes: 'Series', fields: 'Path,ProviderIds', limit: '2000' });
   const items = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 8000)).json()).Items) || [];
   const norm = (p) => String(p || '').replace(/\/+$/, '');
@@ -531,7 +531,7 @@ async function jellyfinSeriesByPath(mappedPath) {
 }
 async function jellyfinSeasonCounts(seriesItemId) {
   const uid = await jellyfinUserId();
-  const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+  const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
   const q = new URLSearchParams({ parentId: seriesItemId, recursive: 'true', includeItemTypes: 'Episode', fields: 'ParentIndexNumber', limit: '5000' });
   const eps = ((await (await tfetch(`${HOST.jellyfin}/Users/${uid}/Items?${q}`, { headers: h }, 10000)).json()).Items) || [];
   const bySeason = {};

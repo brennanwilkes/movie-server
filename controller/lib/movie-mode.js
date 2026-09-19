@@ -137,7 +137,7 @@ async function pollSessions() {
   let sessions;
   try {
     const r = await tfetch(`${HOST.jellyfin}/Sessions`,
-      { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 6000);
+      { headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` } }, 6000);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     sessions = await r.json();
   } catch (e) {

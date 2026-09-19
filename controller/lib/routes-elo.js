@@ -18,7 +18,7 @@ app.get('/api/elo/top100', async (_req, res) => {
   corsOk(res);
   try {
     const data = await cachedFetch('elo:top100', 30000, async () => {
-      const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
+      const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` };
       const uid = await jellyfinUserId();
       // Cache the playlist ID for 1 hour — changes only on manual rename/delete (extremely rare).
       const playlistId = await cachedFetch('elo:top100:id', 3600000, async () => {

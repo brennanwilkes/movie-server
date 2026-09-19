@@ -57,7 +57,7 @@ async function triggerJellyfinScan(opts = {}) {
       return;
     }
 
-    const r = await tfetch(`${HOST.jellyfin}/Library/Refresh`, { method: 'POST', headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY } }, 15000);
+    const r = await tfetch(`${HOST.jellyfin}/Library/Refresh`, { method: 'POST', headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` } }, 15000);
     if (r.ok || r.status === 204) {
       console.log('jfScan: library refresh started');
       _lastScan = Date.now();
@@ -105,7 +105,7 @@ async function isLibraryScanRunning() {
 async function refreshTaskState() {
   if (Date.now() - _lastTrickBusyCheck < 60000) return _taskStateOk;
   try {
-    const r = await tfetch(`${HOST.jellyfin}/ScheduledTasks`, { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY } }, 8000);
+    const r = await tfetch(`${HOST.jellyfin}/ScheduledTasks`, { headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` } }, 8000);
     if (!r.ok) { _taskStateOk = false; return false; }
     const tasks = await r.json();
     _lastTrickBusyCheck = Date.now();

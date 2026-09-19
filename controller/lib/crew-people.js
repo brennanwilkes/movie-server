@@ -101,7 +101,7 @@ async function crewPeopleSweep(opts = {}) {
   busy = true;
   try {
     const uid = await jellyfinUserId();
-    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' };
+    const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` };
 
     // Fields=People on the LISTING so a film that already has its crew is skipped without paying
     // a per-item DTO fetch — but paged, so the response is ~800 KB at a time instead of 7.9 MB.

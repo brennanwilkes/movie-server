@@ -1152,7 +1152,7 @@ async function top100RankByTmdb() {
   try {
     if (!cfg.JELLYFIN_KEY) return out;
     const uid = await jellyfinUserId();
-    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+    const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
     const pq = new URLSearchParams({ IncludeItemTypes: 'Playlist', Recursive: 'true', Limit: '200' });
     const pls = ((await tfetchJson(`${HOST.jellyfin}/Users/${uid}/Items?${pq}`, { headers: h }, 20000)).Items) || [];
     const pl = pls.find((p) => p.Name === 'Top 100');
@@ -2428,7 +2428,7 @@ const VERIFY_MAX_HEALS = 2;
 async function nowPlayingTitles() {
   try {
     const r = await tfetch(`${HOST.jellyfin}/Sessions`,
-      { headers: { 'X-Emby-Token': cfg.JELLYFIN_KEY || '' } }, 6000);
+      { headers: { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY || ''}"` } }, 6000);
     if (!r.ok) return null;
     const sessions = await r.json();
     if (!Array.isArray(sessions)) return null;
@@ -2466,6 +2466,65 @@ async function queueHashFor(p) {
     if (qe.downloadId) return String(qe.downloadId).toLowerCase();
   }
   return null;
+}
+
+// ── TAKE A REFUSED RELEASE AWAY FROM *arr ────────────────────────────────────────────────────
+// Refusing a swap only ever governed OUR importer, and that is half a refusal. The audit grabs
+// through POST {arr}/release, so the torrent lands in *arr's OWN download-client category and
+// *arr owns that queue item — when it completes, *arr's Completed Download Handling imports it
+// on the next pass and deletes the file on disk as an "upgrade", which is precisely the action
+// the gate just declined. Two importers, one gate.
+//
+// Chinatown (1974), 2026-09-15, from metrics/events:
+//     audit_replace_abandon  reason:"short_runtime"  gotMin:68  wantMin:131   t=…933
+//     import_ok              Chinatown … GeneMige                            t=…939
+// The gate was RIGHT, was FIRST, and the 7.95 GB AMIABLE copy died anyway six seconds later,
+// because being right about a torrent we left sitting in *arr's queue changes nothing.
+//
+// Removing the queue record is what makes a refusal refuse:
+//   blocklist=true        *arr won't re-grab this exact release either. auditDead binds only us;
+//                         without this the next *arr search is free to fetch the same short file.
+//   removeFromClient=true the torrent AND its data go, so there is nothing left to import from.
+//   skipRedownload=true   CRITICAL. Without it *arr answers the removal by immediately searching
+//                         and grabbing a replacement — an unattended grab nobody authorised, and
+//                         a direct breach of the auto-grab-off invariant. We want the row to go
+//                         back to the audit list for a human to choose from, not a surprise swap.
+//                         VERIFY ON DEPLOY: this instance is Radarr 6.3.0 and exposes no swagger,
+//                         so the parameter could not be confirmed against the live API. *arr
+//                         ignores unknown query params silently, so a rename would degrade to
+//                         skipRedownload=false — a redownload, not a crash. Watch the first
+//                         refusal's log for an unexpected grab.
+//
+// FAILS SOFT, always. A refusal that cannot reach *arr is still a refusal and still keeps the
+// file, which is the old behaviour exactly — so every failure path here returns false and none
+// of them throw into the swap loop.
+async function stopArrImport(app, hash, title) {
+  const h = String(hash || '').toLowerCase();
+  try {
+    const unknown = app === 'radarr' ? 'includeUnknownMovieItems=true' : 'includeUnknownSeriesItems=true';
+    const q = await arrGet(app, `/queue?pageSize=200&${unknown}`, 8000);
+    const recs = (q && q.records) || [];
+    // Prefer the infoHash — it is the only identifier that cannot point at the wrong download.
+    // Fall back to the release title (normTitle, so indexer punctuation differences don't miss)
+    // for the releases whose indexer never handed us a hash; a pending swap stores hash:'' then.
+    const rec = (h && recs.find((r) => String(r.downloadId || '').toLowerCase() === h))
+      || (title && recs.find((r) => normTitle(r.title) === normTitle(title)))
+      || null;
+    if (!rec || rec.id == null) return false;
+    const r = await arrDelete(app, `/queue/${rec.id}?removeFromClient=true&blocklist=true&skipRedownload=true`);
+    if (!r.ok) {
+      console.log(`audit: could NOT remove "${title}" from the ${app} queue — HTTP ${r.status}.`
+        + ` ${app} may still import it; the copy on disk is at risk.`);
+      return false;
+    }
+    console.log(`audit: removed "${title}" from the ${app} queue, blocklisted it and deleted the torrent`
+      + ` — ${app} can no longer import it over your copy`);
+    return true;
+  } catch (e) {
+    console.log(`audit: could NOT remove "${title}" from the ${app} queue — ${e.message || e}.`
+      + ` ${app} may still import it; the copy on disk is at risk.`);
+    return false;
+  }
 }
 
 // One exit for a swap whose replacement torrent will never deliver: delete the pending row (the
@@ -2821,6 +2880,11 @@ async function replaceSweepInner() {
         const rtGot = await probeTotalSecs(pre.paths);
         const rv = runtimeVerdict({ gotSecs: rtGot, filmSecs: rtWant, oldSecs: (p.baseline && p.baseline.secs) || 0 });
         if (rv.verdict === 'short') {
+          // FIRST, before any bookkeeping. Everything below this line binds only the controller,
+          // and the six seconds Chinatown had in hand were spent doing exactly that bookkeeping
+          // while *arr imported behind us. Taking the release away from *arr is the only step here
+          // that protects the file on disk, so it goes before the ones that protect our own state.
+          await stopArrImport(p.app, p.hash, p.rel || p.title);
           // PERMANENT, and recorded per-RELEASE. "This release does not contain the whole film" is a
           // fact about the release, true for every future attempt at it — so it goes in auditDead
           // with a reason that never expires (see deadRelease), the way cf_refused does. Re-offering

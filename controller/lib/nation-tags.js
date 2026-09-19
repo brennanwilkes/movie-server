@@ -331,7 +331,7 @@ async function nationTagsSweep() {
   nationTagsBusy = true;
   try {
     const uid = await jellyfinUserId();
-    const h = { 'X-Emby-Token': cfg.JELLYFIN_KEY };
+    const h = { Authorization: `MediaBrowser Token="${cfg.JELLYFIN_KEY}"` };
     const { langBy, movies: radarrMovies } = await radarrLanguageMap();
     const spokenBy = await tmdbSpokenLangMap(radarrMovies);
     const q = new URLSearchParams({

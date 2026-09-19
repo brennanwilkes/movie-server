@@ -1,4 +1,11 @@
-# Fire Stick crashes — overnight R&D, 2026-09-09 → 10
+# Fire Stick crashes — 2026-09-09 → 11
+
+> **READ THE 09-11 SECTION FIRST.** Crash B was **root-caused and reproduced on the device** on
+> 2026-09-11. The conclusion recorded below on 09-10 — "the vector-race hypothesis is disproven" —
+> was **WRONG**, and wrong because of a second defect in my own lab, not because of anything the
+> device did. Jump to *ROOT CAUSE (2026-09-11)*. Everything before it is kept because the
+> measurements are still good and the two lab defects are worth never repeating.
+
 
 Two distinct failures, both of which kill the app with **no dialog and no ACRA report**, which is
 why they read identically ("it just quit") and why neither had ever produced evidence.
@@ -135,7 +142,44 @@ Two debug-only labs, in `app/src/debug` so they cannot ship in release:
 
 ---
 
-## What is NOT settled, and the test for it
+## ON-DEVICE RESULTS (2026-09-10, after the above was written)
+
+**The crash reproduces on demand, and the new build survives it.**
+
+| | old build (09-08 23:54) | new build |
+|---|---|---|
+| open Dunkirk from a cold start | **crashed, first try** — `SkPath::rCubicTo`, `0xdeadbaad`, `DefaultDispatch` thread, no `fg_lmk` | **5/5 clean**, incl. scrolling the cast/crew rows |
+| detail-page PSS | 119,864 KB (1917) | 119–129 MB (Dunkirk, 5 runs) |
+
+Breadcrumbs are live on the stick: `detail_rows_begin` for Dunkirk records `peopleN: 37,
+pssKb: 93226, sysAvailKb: 251396`, and a `playback_start` sample came through at 100,902 KB. Both
+visible at `/api/tv-telemetry/summary` → `memory`. The Chapters-row placeholder and the clearlogos
+render correctly, so neither change broke anything visible.
+
+**The vector-race hypothesis is DISPROVEN, though.** On the real ARMv7 device, 6 threads × 1,200
+*fresh* inflations+draws — 7,200 genuine PathParser runs, concurrent with the main thread doing the
+same — survived cleanly. So the SkPath realloc was the **victim, not the culprit**: something else
+corrupts the heap, and SkPath's realloc is just the first allocator operation to walk into the bad
+block. Removing 36 per-card vector rasterisations removed most of the *detector*.
+
+That is a real improvement — 5/5 where the old build failed immediately, and 20 MB less pressure —
+but it is a mitigation, not a root-cause fix. **Treat the underlying corruption as open.** If it
+resurfaces, the breadcrumbs will now say what the app was doing and how much memory it had, and
+the next suspects are the things that write native memory during a detail-page build: Coil's SVG
+decoder, the media3/ffmpeg extension, and the blurhash path.
+
+There is a kill switch for the placeholder change:
+`adb shell 'run-as org.jellyfin.androidtv.debug sh -c "echo 1 > files/no-raster"'` then force-stop.
+
+**A lab defect that invalidated the first two rounds of results** (both emulator and device, where
+every mode "survived"): `VectorDrawable.draw()` rasterises once into a cache bitmap on its own
+state and blits thereafter, so drawing ONE drawable 800 times is about one path build and 799
+blits. Only a fresh `getDrawable()` per iteration exercises the path code — hence `VectorRaceLab`'s
+`per_iter` / `per_iter_mutated` modes. Do not trust a "survived" from the other modes.
+
+---
+
+## Superseded: what was not settled overnight
 
 **`VectorRaceLab` could not reproduce crash B on the emulator** — 8 threads × 4,000 concurrent
 draws of one shared `VectorDrawable` survived cleanly. That is an expected limitation, not a
@@ -166,6 +210,180 @@ done
 Also worth doing tomorrow, and it needs no code: **`adb shell dumpsys meminfo org.jellyfin.androidtv.debug`
 before and after opening Dunkirk**, to confirm the ~20 MB saving on real hardware rather than on
 an emulator.
+
+---
+
+## ROOT CAUSE (2026-09-11) — proven, reproduced, and fixed
+
+Brennan: "the firestick continues to crash … twice this evening while selecting a film." Three
+native aborts were sitting in the crash buffer, all on the build installed 09-10 10:49, and
+**`adb logcat | grep -c fg_lmk` was 0** — so none of them was a memory kill. All three identical:
+
+```
+Fatal signal 11 (SIGSEGV) … fault addr 0xdeadbaad in tid NNNNN (DefaultDispatch)
+Abort message: 'invalid address or address of corrupt block 0x… passed to dlfree'
+  libc.so      dlfree / dlrealloc / realloc
+  libskia.so   sk_realloc_throw / SkPathRef::growForVerb
+  libskia.so   SkPath::lineTo / SkPath::rLineTo   (one was rCubicTo)
+  boot.oat                                        <- framework Java: PathParser
+```
+
+### The chain, end to end
+
+1. **`android.util.PathParser` is the Java caller.** `boot.oat` is the framework's AOT image, and
+   `PathParser.PathDataNode.nodesToPath()` is what calls `Path.rLineTo`/`rCubicTo`. That means a
+   `VectorDrawable` being rasterised.
+
+2. **A fresh `getDrawable()` is NOT a fresh vector.** `Resources.loadDrawable` caches the
+   `ConstantState`, and `VectorDrawableState.newDrawable()` hands the *same* state to the new
+   instance — `mVectorState = state`, no copy. That state owns one `VPathRenderer`, which owns one
+   `Path mPath`, and `VPathRenderer.drawPath()` does `vPath.toPath(mPath)`. **Every instance of one
+   drawable resource writes its geometry into a single shared SkPath.**
+
+3. **Coil rasterises vectors on a worker thread.** `AsyncImageView.doLoad` runs in
+   `lifecycleScope.launch(Dispatchers.IO)`, and when `url == null` it passes the placeholder as the
+   request's *data*. From `coil3.fetch.DrawableFetcher.fetch()` (a suspend function, on Coil's
+   fetcher dispatcher):
+
+   ```
+   Utils_androidKt.isVector(drawable)           // true for any bare android VectorDrawable
+   DrawableUtils.convertToBitmap(drawable, …)   // -> Drawable.setBounds + Drawable.draw(Canvas)
+   ```
+
+   Those threads are named `DefaultDispatcher-worker-N`. **Android truncates thread names to 15
+   characters: `DefaultDispatch`** — the thread in all three dumps.
+
+4. **The specific pair.** `ClockUserView` (the toolbar avatar, on screen on the home page *and*
+   detail pages) used `ContextCompat.getDrawable(context, R.drawable.ic_user)` as its placeholder,
+   and a user with no avatar makes `url` null — so `ic_user` went to Coil as data and got drawn on
+   a fetcher thread. Meanwhile `tile_port_person`, which every person card rasterises on the main
+   thread, is a layer-list whose second item is **`android:drawable="@drawable/ic_user"`**. Same
+   resource, same cached state, same `mPath`, two threads. That is the crash, and it explains why
+   it fires on the home screen as readily as on a detail page.
+
+### Reproduced on the device
+
+`VectorRaceLab`, new `shared_state_varying` mode — one instance per thread (as the app has one per
+card) drawn at bounds that change every iteration, 6 threads × 1200:
+
+| mode | result |
+|---|---|
+| `main_only` | survived — control |
+| `bitmap` | survived — **the fix's mechanism** |
+| `mutated_varying` | `fg_lmk_500/600/800` — LMK-killed, see below |
+| `shared_state_varying` | **CRASHED: `tid (lab-worker-5)`, `SkPathRef::growForVerb`, `'… corrupt block 0xb85c9f28 passed to dlfree'`** |
+
+Same abort, same allocator call, same Skia frame as production.
+
+`mutated_varying` is **inconclusive as a race test** — it was killed by the low-memory killer
+before it could finish, because a `mutate()`d instance keeps its *own* 1.5 MB cache bitmap and six
+threads churning those exhausts the device. That is itself the 12 MB regression measured on 09-10,
+demonstrated from the other direction.
+
+### THE SECOND LAB DEFECT — why 09-10 concluded the opposite
+
+The 09-10 run used `per_iter`: a fresh `ContextCompat.getDrawable()` every iteration. It reported
+7,200 "genuine path builds" surviving. It was **~1 path build and 7,199 bitmap blits**, because per
+(2) those fresh instances all share one state — cache bitmap included — so once the first draw
+rasterised, `canReuseCache()` was true for every later draw from every thread. Both lab defects are
+the same trap wearing a different hat: **`VectorDrawable.draw()` only touches path data when the
+cached bitmap is unusable.** `canReuseCache()` compares the cache's dimensions against the current
+bounds, so the bounds must CHANGE every iteration. Never trust a "survived" from a fixed-size mode.
+
+### The fix
+
+Never let a live vector reach Coil or any background thread; rasterise each placeholder once, on
+the main thread, into a shared immutable Bitmap.
+
+* **Five call sites migrated** from `ContextCompat.getDrawable` to `PlaceholderRaster.get(id)`:
+  `ClockUserView` (the culprit), `UserViewCardPresenter`, `ItemListFragment`, `NowPlayingView`, and
+  `LiveTvGuideFragment` (already safe — a PNG — done anyway so "no call site hands a raw
+  `getDrawable()` to `load()`" is a checkable invariant). `CardPresenter` (20 sites) and
+  `CrewCardPresenter` were already migrated on 09-10.
+* **`PlaceholderRaster.passThrough` no longer calls `mutate()`.** It rasterises instead, and
+  reports the call site. `mutate()` was the 09-07 fix; it did not work, Coil's own
+  `convertToBitmap` already calls it internally to no effect, and it costs a private cache bitmap
+  per instance.
+* **One global rasterisation lock.** Per-resource locking would be wrong: `tile_port_person` and
+  `ic_user` are different keys sharing one `VPathRenderer`. Contended a handful of times at
+  startup and never again.
+* **A tripwire.** Anything still handing over a live Drawable emits `placeholder_not_migrated`
+  with the Java call site, once per drawable class; `placeholder_raster_skipped` covers the
+  off-main-thread and kill-switch paths. Both surface at
+  `/api/tv-telemetry/summary` → `placeholderFaults` and should stay empty.
+
+### Telemetry that will not need luck next time
+
+Three of the four ways this app dies run **no Java code at all**, so ACRA and the uncaught handler
+structurally cannot see them, and in the log they were indistinguishable from pressing Home:
+
+| | leaves | |
+|---|---|---|
+| Java exception | `crash` event | covered already |
+| native abort | nothing | silent |
+| kernel LMK kill | nothing | silent |
+| backgrounded, then reclaimed | nothing | **not a fault** |
+
+So the client now keeps `files/live-state.json`, overwritten as it goes: session, timestamp, the
+last 12 breadcrumbs with thread names, heap figures, and **whether an activity was resumed**. On
+the next launch `reportPreviousDeath()` reads it and, *only if the app was in the foreground*,
+emits `died_in_foreground` carrying the whole run-up. Foreground is tracked by counting resumed
+activities application-wide via `registerActivityLifecycleCallbacks` — not by hooking
+`MainActivity.onPause`, which would mark the app backgrounded exactly when playback starts and
+mislabel every playback crash.
+
+Every `record()` and `recordMemoryBlocking()` call is now also a breadcrumb, so all existing
+instrumentation feeds it with no extra wiring, plus a new `home_focus` crumb naming the row and
+card under the cursor — which is what the 22:08 crash needed and did not have. The file write goes
+to a dedicated min-priority thread (`diag-live-state`); `home_focus` fires on every D-pad move on
+the main thread, and this device's flash is slow enough that a synchronous write there would drop
+frames while scrolling. Cost: a native abort within ~1 ms of a crumb loses that one line, and the
+eleven before it are already on disk.
+
+Read it at `/api/tv-telemetry/summary` → `deaths`. `hadJavaCrash` correlates each death against
+`crash` events for the same session, so a `died_in_foreground` with `hadJavaCrash: false` is the
+native abort or the kill — and the `pssKb` in the last breadcrumb says which (high, with low
+`sysAvailKb`, is the kill).
+
+### To verify tomorrow
+
+Nothing is deployed — the APK is built but the stick was switched off for the night.
+
+```bash
+cd ~/movie-server/jellyfin-tv-client && ./deploy.sh     # finds the stick itself
+make deploy                                             # controller, for the summary fields
+
+# 1. The race is gone from the shipping path: open a few detail pages and scroll the cast rows,
+#    then confirm nothing was skipped or left unmigrated.
+curl -s localhost:8088/api/tv-telemetry/summary | python3 -m json.tool | \
+  python3 -c "import json,sys; d=json.load(sys.stdin); print('placeholderFaults:', d['placeholderFaults']); print('deaths:', d['deaths'])"
+
+# 2. The lab must now survive the mode that killed it. This is the regression test.
+adb shell am start -n org.jellyfin.androidtv.debug/org.jellyfin.androidtv.lab.VectorRaceLab \
+  --es mode shared_state_varying --ei threads 6 --ei iterations 1200
+# ^ still expected to CRASH: it deliberately drives the framework vector directly, bypassing
+#   PlaceholderRaster. It is the positive control, not a test of the app.
+
+# 3. Prove the death reporter works, by causing a death it should catch:
+adb shell kill -9 $(adb shell pidof org.jellyfin.androidtv.debug)   # while on screen
+#    -> next launch must emit died_in_foreground, with home_focus crumbs naming the last card.
+# Then the negative case — press Home on the remote FIRST, then kill it:
+#    -> must emit NOTHING, because onActivityPaused ran and cleared the foreground flag.
+```
+
+**Two known false positives, both ours and neither worth "fixing":** `adb shell am force-stop` and
+an `adb install` over a running app both kill the process without running `onActivityPaused`, so
+they report as foreground deaths. Expect a `died_in_foreground` after every deploy and every test
+force-stop — check its `lastCrumb` before believing it. The alternative (some cleared-on-purpose
+marker) would be a flag the real crashes could also clear.
+
+**One known gap:** a crash before *any* activity reaches `onResume` records `foreground: false` and
+so is not reported. That window is the first moment of `Application.onCreate`, and a fault there is
+almost certainly a Java exception, which the `crash` event already covers.
+
+The honest caveat: the mechanism is proven and the exposure is closed, but "no crash for a week of
+normal use" is still the acceptance test, because the failure was always intermittent. The kill
+switch (`files/no-raster`) reverts the placeholder behaviour without a rebuild.
 
 ---
 
