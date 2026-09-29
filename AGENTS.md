@@ -241,6 +241,93 @@ Every meaningful pipeline state change is logged. Events carry correlation keys 
 | `svc_down` | `metricsSweep` (transition) | svc |
 | `svc_up` | `metricsSweep` (transition) | svc |
 | `redownload` | `POST /api/redownload` | ti, tier, steps |
+| `retry` | `POST /api/retry` (manual search button) | ap, id, mode, manual |
+| `dataless_torrent` | `orphanSweep`-adjacent (`sweeps.js`) | ti, hash, reason — a qBit torrent with no bytes on disk |
+
+**The Audit tab's OWN event family — separate from the swap_* events above, and easy to miss because
+nothing else in this table hints they exist.** `swap_*` is `gpuVerifySweep`'s auto-upgrade path
+(decode-incompatible fresh imports only). Everything from a human pressing **Replace** in the Audit
+tab, or `auditVerifier`/`upgradeScanTick` scoring a row, goes through `audit.js` and emits these
+instead — `docker logs controller \| grep "audit:"` for the matching narrative log line, one per event:
+
+| Event | Emitter | Data |
+|-------|---------|------|
+| `audit_verify` | `auditVerifier`/`upgradeScanTick` (per-row verdict written) | sec, ti, st, left |
+| `audit_replace_start` | `finaliseSwap` (Replace pressed, torrent grabbed) | ti, gb, seeds |
+| `audit_replace_preflight_fail` | `finaliseSwap`, before delete (CF re-check, or incomplete season) | ti, reason, offered, ambiguous, giveUp, permanent |
+| `audit_replace_abandon` | `finaliseSwap` (various: `no_metadata`, `cf_rejected`, `short_runtime`, `never_started`, `torrent_gone`) | ti, reason, ageMin?, keptData? |
+| `audit_replace_defer` | `finaliseSwap` (mid-watch guard) | ti, reason (`now_playing`/`playstate_unknown`) |
+| `audit_replace_done` | `finaliseSwap` (verified landed) | ti, files, imported, verified, submitted |
+| `audit_replace_import_fail` | `finaliseSwap` | ti, removed, reason |
+| `audit_replace_repair` / `audit_replace_unrepaired` | `verifySwap` heal loop | ti, attempt/reason, hash? |
+| `audit_replace_resume` | boot (pending swap survived a restart) | n |
+| `audit_replace_cancelled` | `routes-actions.js` (Cancel button) | ti, ap, id |
+| `audit_session` | manual Quality-panel session start/stop | job, act, n?, min?, why? |
+| `audit_rescan` / `audit_upgrade_rescan` | cache invalidation (verdict version bump, library change) | dropped, paused |
+| `audit_reclaim_start` / `audit_reclaim_item` / `audit_reclaim_leftover` / `audit_reclaim` | disk-reclaim sweep (post-swap old-file cleanup) | n, gb, ti, hash, leftover |
+| `audit_rowbuild_fail` | `startRowBuild` (`buildRowsInner` failed or exceeded `ROW_BUILD_TIMEOUT_MS`) | err — see "The audit row-cache can jam forever" below |
+
+**Diagnosing one title's swap history**: `docker logs controller \| grep -i "apollo 13"` (or the
+title) gets every `audit:` narrative line in order; cross-reference with
+`jq -c 'select(.ti and (.ti|test("Apollo 13";"i")))' /opt/appdata/controller/metrics/events/*.jsonl`
+for the exact timestamps/fields, and `jq '.verdicts["bitrate:mv:<radarrId>"]'
+/opt/appdata/controller/audit-verdicts.json` for the cached candidate the audit scored (its `bpp`/
+`bppPlus`/`score` fields — NOT the same number as the Radarr CF score in the log line). There is no
+`make`/`scripts/*.sh` helper for this yet; it is direct `docker logs` + `jq` over the two files above.
+
+**The probe/banding/artifact measurement jobs have their own event family too** (not swap-related,
+purely measurement telemetry — see the CRF-probe and banding-job sections below for what these
+numbers mean): `probe_unit`, `probe_pair` (before/after complexity of a replaced file — this is
+where a swap's actual bitrate delta shows up, independent of what Radarr's CF score said), `probe_error`,
+`probe_session`, `probe_median_report`, `banding_unit`, `artifact_unit`, `cpu_census`.
+
+**A real example of why both event families are needed together (Apollo 13 (1995), 2026-09-27 to
+2026-09-29):** the `audit_replace_done` on 09-28 looked like a clean, verified swap (runtime check
+passed, "VERIFIED: 1 file, 2.59 GB, 140 min"). Only the FOLLOWING NIGHT's `probe_pair` — measured
+independently by the CRF probe, not by the audit — revealed the swap had actually collapsed the
+file's real video bitrate from ~12.8 Mbps to ~2.1 Mbps (`sbOld`/`sbNew`). The audit's own bitrate
+section had picked this candidate because it scored higher on Radarr's Custom Format profile
+(largely the `Size 1.5-3 GB` band bonus — see "*arr scores that release lower than the copy on disk"
+above), which is a real, known gap: **CF score is not a bitrate measurement**, and the audit's own
+verdict cache does carry `bpp`/`bppPlus` for exactly this reason — cross-check it, don't trust the
+CF-score comparison in the `audit_replace_preflight_fail` reason string as a quality verdict on its
+own. Separately, a same-day second replace attempt (`audit_replace_preflight_fail` → `cf_rejected`,
+`permanent:true`, correctly refusing an even-lower-scoring HEVC candidate) was immediately followed
+by controller `dl_done`/`import_ok` events for that SAME refused release — this looked exactly like
+the Chinatown CDH race (see "Audit refusal vs *arr CDH" below) but Radarr's own `/history`
+showed `downloadFailed`, not `downloadFolderImported`, for that torrent: the controller's `dl_done`/
+`import_ok` pair is a **qBittorrent-queue-transition heuristic** ("torrent finished and left the
+queue"), not proof of a Radarr import — it fires the same way whether *arr imported the file or
+rejected and removed it. **Do not treat controller `import_ok` as confirmation of what's on disk;
+always cross-check against the owning *arr's own `/history` for the actual `eventType`.**
+
+**The actual bug the Apollo 13 investigation turned up, fixed 2026-09-29: the audit row cache
+could jam forever.** `buildRows()`/`startRowBuild()` in `audit.js` use a single in-flight-rebuild
+lock (`_rowBuild`) with a stale-while-revalidate pattern — a stale read triggers a background
+`buildRowsInner()` and answers with last-known-good immediately, which is correct and is what
+makes the tab fast. The bug: `_rowBuild` only ever cleared in `.finally()`, and nothing bounded
+`buildRowsInner()` itself (its own network calls are individually timeout-bounded — `arrGet`
+defaults to 8s, the `/moviefile` chunk fetch to 20s — but the rebuild AS A WHOLE was not). A
+rebuild that never settles therefore jams the lock **permanently**: every later caller — the
+12-minute TTL, every `invalidateRows()` call site, even a manual `?refresh=1` — just re-awaits
+the same dead promise. And the one path that should have surfaced this,
+`startRowBuild().catch(() => {})` in the background-refresh branch of `buildRows()`, swallows the
+error completely — no log line, no event, nothing. Proven live: Apollo 13's `bitrate` row served
+13.3 GB / CF -220 (its pre-2026-09-28 file) for over a day after the real file became 2.6 GB / CF
+360, and a manual `curl "localhost:8088/api/audit?refresh=1"` hung past 120s with zero trace in
+`docker logs controller`. **Every candidate size/delta the Audit tab showed during that window was
+computed against the wrong, frozen baseline** — one of the four "candidates" offered for Apollo 13
+was literally the file already on disk, shown as if it would save 10 GB.
+
+**Fix**: `startRowBuild()` now races `buildRowsInner()` against `ROW_BUILD_TIMEOUT_MS` (90s — comfortably
+above the ~2.8s warm/~60s historical cold-build times, see "Audit row-cache perf" below) so the
+promise always settles, logs via `console.log('audit: buildRowsInner failed/timed out — ...')` AND
+`metrics.emitEvent('audit_rowbuild_fail', {err})` on either a timeout or a genuine failure, then
+clears the lock in `.finally()` regardless. The abandoned call is left to finish or time out on its
+own network calls; nothing awaits it once the race is lost. **Diagnosing a recurrence**: `make
+metrics a='events --type audit_rowbuild_fail'`, or compare `/api/audit`'s row for a title against
+`/api/library`'s (which does not share `_rowCache` and is always live) — a mismatch between them,
+not just a stale-looking number, is the tell.
 
 ### Querying
 
@@ -924,6 +1011,38 @@ Radarr's own automatic imports never touch the controller. **Run it with `--ffpr
 pass compares `mediaInfo`, and a file with NO mediaInfo is invisible to it. That is how The Star Wars
 Holiday Special (a 15.7-minute `.VOB` standing in for a 97-minute special) survived the first audit —
 the files *arr cannot parse are exactly the ones most likely to be broken.
+
+### Audit refusal vs *arr CDH — a gate that refuses can still lose the race
+
+**A controller refusal binds the CONTROLLER ONLY.** Audit swaps grab via `POST {arr}/release`, so
+the torrent lands in *arr's OWN download-client category and *arr owns the queue item — *arr's
+Completed Download Handling (CDH) is a **second importer** racing the same torrent, and it will
+happily perform the exact swap a controller gate just declined. Every gate in `audit.js` (runtime,
+CF, preflight) is therefore advisory to *arr, not authoritative over it.
+
+**Proven 2026-09-15, Chinatown (1974).** The short-runtime gate refused correctly ("68 min against
+131"), and *arr's CDH imported the same release 6 seconds later anyway, deleting the good 7.95 GB
+copy. `auditDead` recorded the refusal; *arr never saw it.
+
+**Fix (deployed 2026-09-19, in this pattern going forward): any refusal path calls `stopArrImport()`
+FIRST**, before any of the controller's own bookkeeping — `DELETE /queue/{id}?removeFromClient=true
+&blocklist=true&skipRedownload=true`. `skipRedownload` is mandatory: without it *arr just re-searches
+and grabs on its own, breaching the standing auto-grab-off invariant (see the force-grab subsystem
+section). The structural cure is the same isolation pattern as `sonarr-force`: a `radarr-audit`/
+`sonarr-audit` category *arr doesn't watch, so the gate becomes authoritative by construction — not
+yet fully rolled out everywhere `audit.js` grabs.
+
+**Caveat proven the same day, and worth internalising before trusting any CF-score comparison:**
+Chinatown-adjacent testing found a case where BOTH the existing file and a bad replacement scored
+identically (260) and Radarr imported the equal-scoring replacement anyway. **"Equal CF score won't
+import" is NOT a safety property** — never lean on score-equality alone as a guard; a refusal is only
+real once the queue item is actually gone from *arr's side.
+
+**Diagnostic corollary:** a wrong runtime showing up in Jellyfin is worth an `ffprobe` before assuming
+it's a metadata problem — release names, sizes, bitrates and *arr scores all look completely normal on
+a half-length file. See also the Apollo 13 `import_ok`-vs-`downloadFailed` example above: the same
+"controller thinks X, *arr's own history says Y" gap shows up even when *arr's CDH did NOT win the
+race — always cross-check the owning *arr's `/history` `eventType`, in both directions.
 
 ### "Why was THIS release picked?" (codec/size/quality complaints)
 

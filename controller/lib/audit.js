@@ -238,6 +238,15 @@ const AGGRESSIVE_FLOOR = 0.15;
 const MAX_CANDIDATES = 24;
 const ROW_CACHE_MS = 12 * 60 * 1000;
 const WARM_EVERY_MS = 9 * 60 * 1000;
+// buildRowsInner's own network calls are all individually timeout-bounded (arrGet defaults to
+// 8s, the /moviefile chunk fetch to 20s), but nothing bounded the REBUILD AS A WHOLE — and
+// startRowBuild's singleton lock (_rowBuild) only clears in .finally(), so a rebuild that never
+// settles jams it FOREVER: every later caller (the 12-min TTL, every invalidateRows() site,
+// even ?refresh=1) just re-awaits the same dead promise. Proven 2026-09-29: Apollo 13's row
+// served pre-swap stats (13.3 GB / CF -220) for over a day after the on-disk file changed to
+// 2.6 GB / CF 360, and a manual `?refresh=1` hung past 120s with nothing in the logs — the
+// failure path (`startRowBuild().catch(() => {})` in buildRows) is completely silent by design.
+const ROW_BUILD_TIMEOUT_MS = 90 * 1000;
 
 let auditBusy = false;
 let _rowCache = { ts: 0, rows: null };
@@ -601,9 +610,24 @@ async function buildRows(force = false) {
 // one, and the cache is written in exactly one place.
 function startRowBuild() {
   if (!_rowBuild) {
-    _rowBuild = buildRowsInner()
+    // Race against the hard ceiling so a hung buildRowsInner() still SETTLES this promise —
+    // the abandoned call keeps running (its own arrGet calls will eventually time out or
+    // resolve) but nothing here waits on it any more, and the lock is free for the next caller.
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`buildRowsInner exceeded ${ROW_BUILD_TIMEOUT_MS}ms`)), ROW_BUILD_TIMEOUT_MS);
+    });
+    _rowBuild = Promise.race([buildRowsInner(), timeout])
       .then((rows) => { _rowCache = { ts: Date.now(), rows }; return rows; })
-      .finally(() => { _rowBuild = null; });
+      .catch((e) => {
+        // MUST be logged: this used to be swallowed by buildRows()'s `.catch(() => {})` on the
+        // fire-and-forget SWR refresh, which is how a permanently-jammed rebuild went unnoticed
+        // for over a day. `?refresh=1` still surfaces it as a 500 too (see the /api/audit catch).
+        console.log(`audit: buildRowsInner failed/timed out — ${(e && e.stack) || e}`);
+        metrics.emitEvent('audit_rowbuild_fail', { err: String((e && e.message) || e).slice(0, 200) });
+        throw e;
+      })
+      .finally(() => { clearTimeout(timer); _rowBuild = null; });
   }
   return _rowBuild;
 }
