@@ -19,7 +19,8 @@ RESP=$(curl -s -m 10 -X POST "$JF/Users/AuthenticateByName" \
 TOKEN=$(echo "$RESP" | jq -r '.AccessToken')
 JUID=$(echo "$RESP" | jq -r '.User.Id')
 [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ] && pass "authenticated (uid=$JUID)" || { fail "auth"; exit 1; }
-H=(-H "X-Emby-Token: $TOKEN")
+# Jellyfin 12 401s the legacy X-Emby-Token header; MediaBrowser Token= is the supported form.
+H=(-H "Authorization: MediaBrowser Token=\"$TOKEN\"")
 
 echo "== 2. shelfCatalog: BoxSets, Limit=100 (client's collection enumeration) =="
 SETS=$(curl -s -m 15 "${H[@]}" "$JF/Users/$JUID/Items?IncludeItemTypes=BoxSet&Recursive=true&Limit=100")

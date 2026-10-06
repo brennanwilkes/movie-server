@@ -1,0 +1,15 @@
+[Unit]
+Description=Require the external media drive to be mounted at $DATA before Docker starts
+# Runs AFTER fstab has had its (10s, nofail) attempt at mounting /data — we deliberately
+# do not use Requires=data.mount: with nofail, a missing device leaves that unit "skipped"
+# rather than failed, which would NOT stop us.
+After=data.mount local-fs.target
+Before=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/home/brennan/movie-server/scripts/media-drive-gate.sh
+
+[Install]
+WantedBy=multi-user.target

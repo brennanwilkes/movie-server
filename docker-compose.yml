@@ -26,7 +26,14 @@ services:
     environment: ["PUID=${PUID}", "PGID=${PGID}", "TZ=${TZ}"]
     volumes:
       - ${CONFIG}/jellyfin:/config
-      - ${DATA}/media:/media
+      # create_host_path:false — if $DATA is missing, docker must ERROR, never silently
+      # create /data/media on the boot SSD and let imports land there. The media-drive
+      # gate (scripts/media-drive-gate.sh) is the primary protection; this is the backstop.
+      - type: bind
+        source: ${DATA}/media
+        target: /media
+        bind:
+          create_host_path: false
       # Self-hosted web fonts (Palm Canyon Drive wordmark, Poppins) + their @font-face CSS live in
       # jellyfin-web's /usr/share/jellyfin/web/fonts — which is baked into the image, NOT the /config
       # volume. Without this bind mount, every `docker compose pull` of :latest recreates the
@@ -42,7 +49,11 @@ services:
       # first and this lands on top of it). Deliberately NOT applied to data/metadata/{People,library}
       # — those are on the web-load hot path and this USB disk is write-through with no UAS, so small
       # random reads are its worst case.
-      - ${DATA}/jellyfin-cache/trickplay:/config/data/data/trickplay
+      - type: bind
+        source: ${DATA}/jellyfin-cache/trickplay
+        target: /config/data/data/trickplay
+        bind:
+          create_host_path: false
     # Host networking so the PS4 can discover Jellyfin over DLNA/SSDP (UDP 1900 multicast doesn't
     # cross Docker's bridge). Jellyfin still serves on the NUC's IP :8096 exactly as before — only
     # internal container refs changed (now reach it at ${NUC_IP}:8096, not the 'jellyfin' DNS name).

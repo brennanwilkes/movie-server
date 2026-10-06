@@ -697,7 +697,7 @@ All line numbers below verified against the current file. The flair JS is pushed
    # then eyeball an item — resolve the user id (jellyfinUserId is async) and query
    # Jellyfin for festival-tagged movies (Key from /opt/appdata/controller/keys.env):
    UID=$(docker exec controller node -e 'const {jellyfinUserId}=require("./lib/jellyfin");jellyfinUserId().then(console.log)')
-   curl -s -H "X-Emby-Token: $JELLYFIN_KEY" \
+   curl -s -H "Authorization: MediaBrowser Token=\"$JELLYFIN_KEY\"" \
      "http://localhost:8096/Users/$UID/Items?Recursive=true&IncludeItemTypes=Movie&Tags=festival&Fields=Tags&Limit=3" |
      jq '.Items[] | {Name, Tags}'
    ```

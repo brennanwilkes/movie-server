@@ -35,7 +35,10 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `scripts/provision.sh` | Apply config-as-code to all services |
 | `scripts/teardown.sh` | Stop/clean/destroy with 3 levels |
 | `scripts/lib.sh` | Shared shell helpers: `ok()`, `warn()`, `die()`, `wait_http()`, `arr_apikey()` |
-| `scripts/ensure-data.sh` | Remount `/data` after drive re-plug |
+| `scripts/ensure-data.sh` | Remount `/data` after drive re-plug. **Fail-closed** — exits 1 without the drive rather than starting against the SSD |
+| `scripts/media-drive-gate.sh` | **THE GATE.** exit 0 only if `/data` is a mountpoint backed by the fstab UUID. Read-only, no sudo. Called from `ensure-data.sh`, the systemd unit, and `make test` |
+| `scripts/media-drive-gate.service` + `scripts/docker-requires-media-drive.conf` | `make guard` — makes `docker.service` *require* the gate, so `restart: unless-stopped` containers cannot boot onto the SSD |
+| `scripts/eject-data.sh` | `make eject` — stop the stack, flush + unmount before a physical unplug (refuses a lazy unmount) |
 | `scripts/mdns-publish.sh` | Publish `.local` names via Avahi |
 | `scripts/query-logs.sh` | **Tool**: filter docker logs by service/time/grep |
 | `scripts/show-history.sh` | **Tool**: dump controller state (missing, declined, attention, disk) |
@@ -45,6 +48,7 @@ Self-hosted media stack on NUC `haleiwa`. 7.3 TB USB drive (`/data`), 20 GB loop
 | `scripts/show-indexers.sh` | **Tool**: Prowlarr indexer health/tags/proxy, live-test, per-indexer search counts |
 | `scripts/smoke-test.sh` | **Tool**: `make test` — 30+ read-only PASS/FAIL assertions over the whole stack. Run FIRST when anything seems off, and after every change |
 | `scripts/why-playback.sh` | **Tool**: `make why q="Title"` — per-title playback diagnosis (PS4 direct-play? transcode feasible? live transcode reasons) |
+| `scripts/firestick-watch.sh` | **Tool**: sample the Fire Stick over adb every 30s during a watch session — system free RAM, zram swap, LMK kill rate, app PSS/Dalvik/native/**GL** (the GPU number the app cannot read about itself). Read-only. `nohup scripts/firestick-watch.sh 4 &` → `/opt/appdata/controller/firestick-watch/<date>.tsv`. See **"Playback stutters / the app dies mid-film on the Fire Stick"** |
 | `scripts/audit-runtimes.sh` | **Tool**: `make runtimes` — files that are NOT THE WHOLE FILM (duration vs TMDB runtime). `--ffprobe` for ground truth, which is the only pass that sees files *arr could not parse at all. See **The Chinatown class** below |
 | `scripts/test-runtime-guard.js` | Unit test for `runtimeVerdict` — 44 assertions pinned to the measured library distribution |
 | `docker-compose.yml` → `suggestarr` | Recommendation engine (:5000): Jellyfin history → TMDb similar → Jellyseerr auto-requests. One-time web-UI setup (TMDb key) |
@@ -1059,6 +1063,57 @@ race — always cross-check the owning *arr's `/history` `eventType`, in both di
    Older files: dashboard Library tab → Redownload.
 5. For TV titles, use `make why q="Planet Earth" s=sonarr`; the helper now falls back to Sonarr and diagnoses the first available episode file instead of failing on a series title.
 
+### "Playback stutters / the app dies mid-film on the Fire Stick"
+
+**Check the stick before the NUC.** 2026-09-29, White Chicks (DirectPlay, 10.6 Mbps H.264, a
+perfectly ordinary file): 80 minutes of jitter, then the app vanished. The NUC sat at ~10% CPU the
+whole time — Movie Mode had engaged within 8 s. It was the Fire Stick running out of RAM:
+
+- The app entered playback at 202 MB PSS with the system already flagging low memory (101 MB free
+  of 895). With no headroom the kernel was swapping the app to zram (127 MB of it, at the kill) on
+  the same four cores that feed the decoder — that is the jitter — and the LMK was killing Amazon's
+  background apps (Live TV, `ceviche`, `fdrw`, the launcher) that respawned every ~300 ms, climbing
+  from ~50 to ~250 kills per 10 min until the kernel log read *"Free memory is 0kB above reserved"*
+  and the foreground app went too. The server only noticed when the socket timed out 8 min later.
+- **Three causes, all measured on the device with a scripted replay** (scroll home rows → 3 detail
+  pages → play), all fixed in the fork on 2026-09-29:
+  1. **ExoPlayer's default buffer** — 50 s of media, ~130 MB ceiling, **on the Java heap**. Dalvik
+     jumped 31 → 104 MB the instant playback started. Now capped at 32 MB (`DefaultLoadControl` in
+     `VideoManager.java`), bytes-over-time so a remux cannot blow it.
+  2. **GPU memory from scrolling home rows** (GL mtrack 19 → 73 MB) was held through the whole film.
+     Now released at playback start via `WindowManagerGlobal.trimMemory(TRIM_MEMORY_COMPLETE)` —
+     UI_HIDDEN was tried first and measured to do nothing.
+  3. **Other apps' background processes.** The loading page and playback start now call
+     `killBackgroundProcesses` on every installed package (`MemoryGuard.kt`); 55-100 MB per launch.
+- Result, same replay: playback PSS 212-229 → **128-150 MB**, free on the stick 93-105 →
+  **144-190 MB**, 0 dropped frames, 0 rebuffers.
+- **Stick-side hygiene:** `logd` had all 7 ring buffers at 8 MB (default 128-256 KB) — 85 MB PSS,
+  almost certainly left behind by an earlier crash-forensics `logcat -G`. Reset with
+  `adb logcat -G 256K` (+80 MB free). **Never leave enlarged log buffers on the stick**; resize back
+  when a forensic session ends. The remote's power button only SLEEPS the stick (it had 53 days of
+  uptime); a scheduled nightly reboot over adb is a deferred idea, not built.
+
+**Diagnosing a recurrence, fastest first:**
+1. `curl -s localhost:8088/api/tv-telemetry/summary | jq '{deaths: .deaths[-1], lastPlayback, cleanups, trims}'`
+   — `lastPlayback.perMinute` is one row per minute of the last film
+   (`min, pssKb, javaUsedKb, graphicsKb, sysAvailKb, dropped`). Climbing `javaUsedKb` = a leak in the
+   app; flat app numbers with falling `sysAvailKb` = pressure from outside it; `dropped` = the jitter,
+   counted. `rebuffers` in `playback_end` says whether the 32 MB buffer cap is ever too tight.
+2. On the stick (only if it is still up — the kernel buffer rotates in hours):
+   `adb logcat -b kernel -d | grep lowmemorykiller` (look for `Killing 'androidtv.debug'` with
+   `adj 0` = foreground kill; `rswap` = how much was swapped) and
+   `adb shell dumpsys meminfo org.jellyfin.androidtv.debug` (TOTAL, Dalvik Heap, **GL mtrack**).
+3. For the next session you want to watch closely: `nohup scripts/firestick-watch.sh 4 &` before
+   pressing play.
+
+`graphicsKb` in the in-app telemetry is **always null on this stick** — Fire OS does not let an app
+read its own memtrack rows (0 in-process vs 60+ MB in `dumpsys`). null is correct: it means
+unknown, not clean. GPU memory on the stick comes from `dumpsys` / the watcher only.
+
+Jellyfin's own log records the dead socket as `WS <stick-ip> error receiving data: The remote party
+closed the WebSocket connection without completing the close handshake` — that timestamp is when
+the server gave up, not when the app died; use the telemetry's `lastSeen`.
+
 ### "Why isn't this playing on the PS4?" (the projector console — long mislabelled "PS3")
 
 1. `make why q="Title"` — one command: codec/bit-depth/audio/container, PS4 direct-play
@@ -1217,7 +1272,7 @@ When the controller API + scripts aren't enough, query each service's own API di
 **Get the API keys** (all also available inside the controller container's `/config/keys.env`):
 ```bash
 SONARR_KEY=$(docker exec sonarr cat /config/config.xml | grep -oP '(?<=<ApiKey>)[^<]+')   # radarr/prowlarr same
-JELLYFIN_KEY=$(grep -oP '^JELLYFIN_KEY=\K.*' /opt/appdata/controller/keys.env)             # header: X-Emby-Token
+JELLYFIN_KEY=$(grep -oP '^JELLYFIN_KEY=\K.*' /opt/appdata/controller/keys.env)             # header: Authorization: MediaBrowser Token="$JELLYFIN_KEY"
 JELLYSEERR_KEY=$(docker exec jellyseerr sh -c 'python3 -c "import json;print(json.load(open(\"/app/config/settings.json\"))[\"main\"][\"apiKey\"])"')
 # qBittorrent uses a session cookie, not a key:
 docker exec qbittorrent sh -c 'curl -s -c /tmp/j -d "username=brennan&password=brennan" localhost:8080/api/v2/auth/login >/dev/null && curl -s -b /tmp/j "<endpoint>"'
@@ -1237,7 +1292,8 @@ docker exec qbittorrent sh -c 'curl -s -c /tmp/j -d "username=brennan&password=b
 - `GET /torrents/files?hash={h}` — per-file names/sizes/progress → reveals multi-file packaging (e.g. one 18 GB "Chapter 5 to 8" file).
 - `GET /torrents/categories` — category → savePath.
 
-**Jellyfin** (`localhost:8096`, header `X-Emby-Token`; media path maps `/data/media`→`/media`):
+**Jellyfin** (`localhost:8096`, header `Authorization: MediaBrowser Token="<key>"`; media path maps `/data/media`→`/media`):
+- **Jellyfin 12 rejects the legacy `X-Emby-Token` header with a 401** (verified 2026-09-29) — a valid key sent that way looks exactly like a bad key. The controller already uses `Authorization: MediaBrowser Token=…` everywhere; any hand-written curl must too.
 - `GET /Items?recursive=true&includeItemTypes=Series&fields=Path,ProviderIds` — **match a folder by `Path`, then check `ProviderIds.Tvdb`** to catch wrong-tvdb merges (two folders → same tvdb) or duplicates.
 - `GET /Items?parentId={seriesItemId}&recursive=true&includeItemTypes=Episode&fields=ParentIndexNumber` — season/episode distribution (phantom seasons, doubling). `ParentIndexNumber` null = "Season Unknown".
 - `GET /Library/VirtualFolders` — libraries + `LibraryOptions` (`LocalMetadataReaderOrder` for NFO). `POST /Library/VirtualFolders/LibraryOptions` to change (see `jellyfin.sh` pattern).
@@ -1346,6 +1402,41 @@ confuse them:
 |-------|--------|------|-------|
 | `/` | `/dev/sdb2` (internal SSD) | **221 GB** | OS, **this repo**, `/opt/appdata` (all service config), Docker, journals |
 | `/data` | `/dev/sda1` (USB, label `media`) | 7.3 TB | media, torrents, research corpora |
+
+### INVARIANT: the stack must NEVER run against the boot SSD
+
+`/data` is a **plain directory on the boot SSD** whenever the drive isn't mounted. Every
+service binds `${DATA}` into its container (qBittorrent writes torrents there, *arr imports
+media there), so a stack started without the drive does not "degrade" — it **fills the disk
+holding the OS, Docker and `/opt/appdata`**, and that box does not come back by deleting files.
+Brennan's standing requirement (2026-10-05): *if the drive is missing, show an error; never
+write to the NUC drive.*
+
+**Gate added2026-10-05, three layers, because each covers a path the others miss:**
+
+| Layer | Covers | Fails how |
+|-------|--------|-----------|
+| `scripts/media-drive-gate.sh` | the check itself — exit 0 only if `/data` is a mountpoint backed by the **fstab UUID** | non-zero + a loud banner |
+| `scripts/media-drive-gate.service` + `docker.service.d/10-require-media-drive.conf` (**`make guard`**) | **REBOOT.** No `deploy.sh` runs on boot, but every container is `restart: unless-stopped`, so dockerd starts them alone — this was the actual hole | `docker.service` refuses to start ⇒ no container at all |
+| `scripts/ensure-data.sh` | `make up` | exits 1 **before** any container starts |
+
+Three gotchas, all paid for:
+- The pre-existing `docker.service.d/wait-for-data.conf` (`RequiresMountsFor=/data`) is **not**
+  sufficient. It cannot tell the media drive from the SSD's `/data` *directory*, and fstab's
+  `nofail` makes a failed mount non-fatal. Kept for ordering, not relied on.
+- `readlink -f` returns its **input path** when that path does not exist, so
+  `want=$(readlink -f /dev/disk/by-uuid/…)` looks like a detected drive even when unplugged.
+  Test `-e` first or the "not plugged in" branch never fires (it still failed closed by
+  accident here — which is exactly the kind of accident not to rely on).
+- `data.mount` is **not** usable in `Requires=` (fstab is `nofail`), hence
+  `After=data.mount` for ordering plus `ExecStart` on our own script to do the deciding.
+
+Also `create_host_path: false` on the `${DATA}/media` and `${DATA}/jellyfin-cache/trickplay`
+binds in `docker-compose.yml`, so dockerd errors instead of auto-creating them on the SSD.
+
+`make test` asserts all of it. **Unplugging: use `make eject`** (flush + unmount, refuses a
+lazy unmount) — yanking the cable mid-write is what aborted the ext4 journal on 2026-10-05.
+Recover after a yank: plug in, `make remount && make up`.
 
 `/data` is a *mount*, not a quota. Since the old 20 GB loopback cap was removed (2026-06-29)
 nothing stands between a fetch script and the 221 GB boot disk. **Anything written under the

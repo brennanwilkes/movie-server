@@ -56,6 +56,18 @@ the home fragment, so a launch that deep-links straight to an item still ships i
 | `player_key_reveal` | a user key press revealed the player controls via the focus-independent Activity hook (`MainActivity.dispatchKeyEvent` → `CustomPlaybackOverlayFragment.revealControlsFromActivityKey`), and the show latch had been cleared — i.e. exactly the dead-interceptor state the 2026-09-15 fix is meant to make impossible. Emitted only on the hidden→shown edge, so it is low-volume | `keyCode`, `focus` (class that held focus), `inLeanback` |
 | `controls_row_empty` | `checkControlsRowRendered` (LeanbackOverlayFragment) found a populated adapter with zero rendered children **and could not recover it by forcing a layout pass**. ⚠️ **CURRENTLY A FALSE POSITIVE — do not read it as a fault.** The detector counts children of an `android.widget.GridView`, but leanback fills `controls_dock`/`secondary_controls_dock` with a `ControlBar` (a `ViewGroup`, not a GridView), so it returns 0 on a perfectly healthy session. Live-verified 2026-09-15 12:28: emitted ~20× during a session whose controls visibly worked. It *was* genuine while the fragment was parked (see the navigation-layout entry below), which is why it looked right then. Until the detector is changed to inspect `ControlBar`, treat this event as noise | `primary`, `secondary`, `primaryChildren`, `secondaryChildren`, `repaired`, `...After` |
 | `controls_row_repair` | the same check detected the empty row but a forced `requestLayout()` on the docks + root DID render it within 150 ms. The recovery half of the check; the honest "was broken, now fixed" signal. Has not fired in practice because the navigation-layout fix (below) removed the condition it existed for | `primary`, `secondary`, `*Children`, `*ChildrenAfter`, `repaired` |
+| `mem_cleanup` | `MemoryGuard.freeBackgroundMemory` — the loading page (`reason=launch`) and playback start (`reason=playback`) asked Android to kill every other app's background processes (2026-09-29) | `reason`, `beforeKb`, `afterKb`, `freedKb`, `packages`, `failed`, `killMs`. The `playback` reading is contaminated by the player allocating in the same 3 s and can go negative; the `launch` one is clean (55-100 MB measured) |
+| `playback_release` | 1 s after playback start, having cleared the Coil memory cache and trimmed the render thread (`TRIM_MEMORY_COMPLETE`) | `renderTrim` (reflection succeeded), `graphicsBeforeKb`/`graphicsAfterKb` (always null on the stick — see below) |
+| `playback_mem` | **every 60 s during playback** (`PlaybackWatch`) | `item`, `min`, `dropped` (frames dropped since the last sample), `droppedTotal`, `rebuffers`, `decoder`, + the full memory snapshot |
+| `playback_end` | `endPlayback` | `item`, `reason`, `minutes`, `droppedFrames`, `maxDropBurst`, `rebuffers`, `decoder`, + snapshot |
+| `trim_memory` | `Application.onTrimMemory`, throttled to one per level per minute. RUNNING_* levels (5/10/15) arrive in the FOREGROUND and mean the system is killing others to keep us alive; ≥10 also clears the Coil cache | `level`, + snapshot |
+
+Every memory snapshot (`detail_rows_begin`, `playback_start`, the events above) now also carries
+**`graphicsKb`**, meant to be the app's GL/EGL mtrack. **On the Fire Stick it is always null**:
+Fire OS does not let an app read its own memtrack rows (0 in-process against 60+ MB in `dumpsys
+meminfo`), and a 0 would read as "no GPU memory". That is also why `pssKb` from the app runs ~60 MB
+below `dumpsys`'s TOTAL — the in-process total excludes GL. For GPU numbers on the stick use
+`scripts/firestick-watch.sh` (adb, from the NUC).
 
 `home_build` also carries **`rowsWithItems`** — how many rows ended up with actual content. The
 gate counts `onError` as completion (deliberately: otherwise one dead query hangs the splash
@@ -209,6 +221,12 @@ What to look for, in order:
   `OVERLAY_SUPPRESS_MS = 0` you should only ever see near-zero values (e.g. `heldMs=384`).
 - **`counts.player_key_reveal`** — the focus-independent reveal fired from the hidden→shown edge.
   Some are expected; a burst is the fallback covering a regression of the navigation-layout fix.
+- **`lastPlayback`** — the most recent film, one row per minute: `[min, pssKb, javaUsedKb,
+  graphicsKb, sysAvailKb, dropped]`. Steadily climbing `javaUsedKb` is a leak in the app; flat app
+  numbers with falling `sysAvailKb` is pressure from outside it; non-zero `dropped` is the jitter
+  itself. `lastPlayback.end.rebuffers` > 0 is the one signal that the 32 MB buffer cap is too tight.
+- **`cleanups`**, **`releases`**, **`trims`** — what the memory guard did. Many `trims` at level
+  10/15 during a film means the stick was under pressure even with the guard.
 
 Raw lines, newest first:
 
@@ -231,4 +249,5 @@ adb -s 192.168.1.72:5555 shell run-as org.jellyfin.androidtv.debug \
 - `received` is stamped server-side because the stick has no RTC and its clock can be wrong; the
   device's own `ts` is kept so ordering within a launch survives.
 - This is a debug-build diagnostic aid, not a product feature. It is low volume (a handful of
-  events per launch) and both ends are capped.
+  events per launch, plus one `playback_mem` a minute while a video plays — ~120 lines for a
+  two-hour film) and both ends are capped.

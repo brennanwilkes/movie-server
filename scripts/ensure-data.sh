@@ -8,6 +8,10 @@
 #
 # Only invokes sudo when a remount is actually needed — the happy path (drive already
 # mounted at $DATA) does zero sudo, so a normal `make up` never prompts for a password.
+#
+# FAIL-CLOSED: if the drive is not there, this exits 1 and the stack does not start at all.
+# See the drive-absent branch below and scripts/media-drive-gate.sh for why there is no
+# "start anyway, degraded" path.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 set -a; source .env; set +a
@@ -28,13 +32,21 @@ if [[ -e "$by_uuid" && "$(dev_of_data)" == "$(readlink -f "$by_uuid")" ]]; then
   exit 0
 fi
 
-# Drive not detected: stay online but degraded — empty $DATA on the SSD.
+# Drive not detected. FAIL CLOSED — do not create anything under $DATA.
+#
+# This branch used to `mkdir -p $DATA/media/{movies,tv} $DATA/torrents/{...}` and exit 0,
+# starting the whole stack against an empty $DATA on the boot SSD. Because /data is on the
+# 221 GB SSD that also holds the OS, Docker and /opt/appdata, a single download would then
+# eat the root filesystem and the box becomes unbootable — a failure no amount of deleting
+# fixes. There is no safe version of "start anyway": an absent drive is not a degraded
+# $DATA, it is an EMPTY ONE ON THE WRONG FILESYSTEM.
 if [[ ! -e "$by_uuid" ]]; then
-  echo "ensure-data: ⚠ media drive not detected — starting with an empty $DATA (no media/torrents until reconnected)."
   mountpoint -q "$DATA" && { echo "  clearing stale $DATA mount"; sudo umount -l "$DATA" || true; }
-  sudo mkdir -p "$DATA"/media/{movies,tv} "$DATA"/torrents/{incomplete,complete}
-  sudo chown -R "$PUID:$PGID" "$DATA"
-  exit 0
+  echo "ensure-data: ✗ media drive ($UUID) not detected — NOT starting the stack." >&2
+  ./scripts/media-drive-gate.sh >&2 || true
+  echo "ensure-data:   plug the drive in, then: make remount && make up" >&2
+  echo "ensure-data:   (use 'make eject' BEFORE unplugging — it flushes and unmounts cleanly)" >&2
+  exit 1
 fi
 
 # Drive present but not mounted at $DATA (stale mount after a yank, or auto-mounted

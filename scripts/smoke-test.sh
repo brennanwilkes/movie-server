@@ -17,6 +17,22 @@ jqt() { curl -sf --max-time 8 "$1" | jq -e "$2"; }   # url  jq-assertion
 echo "=== host ==="
 chk "/data is a mountpoint (USB drive, not bare SSD dir)" mountpoint -q /data
 chk "docker waits for /data (systemd drop-in)" test -f /etc/systemd/system/docker.service.d/wait-for-data.conf
+# The MEDIA-DRIVE GATE. Three separate layers must agree, or the stack can be brought up
+# against the 221 GB boot SSD and fill it with media + torrents (unrecoverable: the same
+# disk holds the OS, Docker and /opt/appdata). Each layer covers a path the others miss:
+#   media-drive-gate.sh  — the check itself, fails closed
+#   systemd gate unit    — covers REBOOT, where deploy.sh never runs but `restart:
+#                          unless-stopped` containers start on their own
+#   ensure-data.sh       — fails closed before `make up`; assert it no longer has the
+#                          old "start anyway, degraded" mkdir of stub dirs on the SSD
+echo "=== media-drive gate (never write to the boot SSD) ==="
+chk "media-drive gate script exists and is executable" test -x /home/brennan/movie-server/scripts/media-drive-gate.sh
+chk "media-drive gate passes right now (drive is mounted)" /home/brennan/movie-server/scripts/media-drive-gate.sh
+chk "media-drive gate is ARMED at boot (docker.service requires it)" \
+  test -f /etc/systemd/system/docker.service.d/10-require-media-drive.conf
+chk "media-drive gate systemd unit is enabled" systemctl is-enabled --quiet media-drive-gate.service
+chk "ensure-data.sh is fail-closed (no SSD stub dirs on drive-absent)" \
+  bash -c '! grep -qE "mkdir -p .\$DATA./media/\{movies,tv\}" /home/brennan/movie-server/scripts/ensure-data.sh'
 chk "controller state.json parses" sh -c 'jq -e . /opt/appdata/controller/state.json'
 
 echo "=== containers ==="

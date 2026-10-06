@@ -1,4 +1,4 @@
-.PHONY: bootstrap deploy provision up down eject clean destroy validate ps logs mdns resize-data remount \
+.PHONY: bootstrap deploy provision up down eject clean destroy validate ps logs mdns resize-data remount guard \
         search profiles history querylogs diagnose test why vpn-up vpn-off vpn-status check-themes
 bootstrap:  ## one-time host prep (dirs, cap, .env, hook)
 	./scripts/bootstrap.sh
@@ -24,6 +24,20 @@ resize-data: ## grow the $DATA loopback image to $DATA_IMG_SIZE (run 'make down'
 	./scripts/resize-data.sh
 remount:    ## re-mount the media drive at $DATA after a replug, then run 'make up'
 	./scripts/ensure-data.sh
+guard:      ## install the boot-time guard: docker refuses to start without the media drive (asks for sudo)
+	@echo "This makes 'docker.service' REQUIRE the media-drive gate, so containers with"
+	@echo "restart=unless-stopped can never come up against the boot SSD when /data is absent."
+	chmod +x scripts/media-drive-gate.sh
+	sudo install -m644 scripts/media-drive-gate.service /etc/systemd/system/media-drive-gate.service
+	sudo mkdir -p /etc/systemd/system/docker.service.d
+	sudo install -m644 scripts/docker-requires-media-drive.conf /etc/systemd/system/docker.service.d/10-require-media-drive.conf
+	sudo systemctl daemon-reload
+	sudo systemctl enable media-drive-gate.service
+	@echo
+	@echo "Installed. Verify with:  systemctl is-enabled media-drive-gate"
+	@echo "                        dockerctl show  |  grep -i media-drive-gate"
+	@echo "The gate does NOT stop the currently-running stack; it takes effect at the next"
+	@echo "docker.service start (i.e. next boot, or 'sudo systemctl restart docker')."
 mdns:       ## (re)publish $MDNS_NAME (e.g. movies.local movie.local) on the LAN, persistent (asks for sudo)
 	chmod +x scripts/mdns-publish.sh
 	sudo install -m644 scripts/movie-mdns.service /etc/systemd/system/movie-mdns.service

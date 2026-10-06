@@ -182,6 +182,33 @@ app.get('/api/tv-telemetry/summary', (req, res) => {
       crumbs: e.data && e.data.crumbs,
     })),
 
+    // IN-FILM MEMORY (client MemoryGuard/PlaybackWatch, 2026-09-29). Before this an 80-minute film
+    // was a blind spot between playback_start and the death report. One compact line per minute
+    // of the most recent film: a steadily climbing javaUsedKb is a leak, a flat one that spikes at
+    // sysAvailKb lows is pressure from outside the app, and `dropped` is the jitter, counted.
+    // `cleanups` shows what freeing other apps' background processes bought at launch/playback.
+    lastPlayback: (() => {
+      const samples = events.filter((e) => e.event === 'playback_mem' && e.data);
+      if (!samples.length) return null;
+      const last = samples[samples.length - 1];
+      const film = samples.filter((e) => e.session === last.session && e.data.item === last.data.item);
+      const end = events.find((e) => e.event === 'playback_end' && e.session === last.session && e.data && e.data.item === last.data.item);
+      return {
+        item: last.data.item, session: last.session, decoder: last.data.decoder,
+        end: end ? { reason: end.data.reason, minutes: end.data.minutes, droppedFrames: end.data.droppedFrames, maxDropBurst: end.data.maxDropBurst, rebuffers: end.data.rebuffers } : null,
+        perMinute: film.map((e) => [e.data.min, e.data.pssKb, e.data.javaUsedKb, e.data.graphicsKb, e.data.sysAvailKb, e.data.dropped]),
+        columns: ['min', 'pssKb', 'javaUsedKb', 'graphicsKb', 'sysAvailKb', 'dropped'],
+      };
+    })(),
+    cleanups: events.filter((e) => e.event === 'mem_cleanup' && e.data).slice(-10).map((e) => ({
+      ts: e.received || e.ts, reason: e.data.reason, beforeKb: e.data.beforeKb, afterKb: e.data.afterKb, freedKb: e.data.freedKb,
+    })),
+    releases: events.filter((e) => e.event === 'playback_release' && e.data).slice(-5).map((e) => ({
+      ts: e.received || e.ts, graphicsBeforeKb: e.data.graphicsBeforeKb, graphicsAfterKb: e.data.graphicsAfterKb, renderTrim: e.data.renderTrim,
+    })),
+    trims: Object.fromEntries(Object.entries(events.filter((e) => e.event === 'trim_memory' && e.data)
+      .reduce((m, e) => { m[e.data.level] = (m[e.data.level] || 0) + 1; return m; }, {}))),
+
     // PLACEHOLDER SAFETY. A vector placeholder that reaches Coil gets rasterised on a fetcher
     // thread against a VectorDrawable state shared with the main thread, which is the proven cause
     // of the 0xdeadbaad aborts. Both of these should stay empty; anything here names a call site
